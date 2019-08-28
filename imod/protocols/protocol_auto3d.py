@@ -29,7 +29,6 @@ import os
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 
-from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
 from tomo.protocols import ProtTomoReconstruct
 from tomo.convert import writeTiStack
 
@@ -39,7 +38,6 @@ class ProtImodAuto3D(ProtTomoReconstruct):
     Simple protocol to do a quick Tomogram reconstruction with IMOD.
     (Sample scripts provided by Javi Chichon)
     """
-
     _label = 'imod auto3d'
 
     # -------------------------- DEFINE param functions -----------------------
@@ -49,7 +47,9 @@ class ProtImodAuto3D(ProtTomoReconstruct):
                       pointerClass='TiltSeries,SetOfTiltSeries',
                       important=True,
                       label='Input Tilt-Series',
-                      help='???')
+                      help='Provide either a single TiltSeries or a '
+                           'SetOfTiltSeries that will be used for the quick '
+                           'reconstruction of Tomograms.')
         form.addParam('excludeList', params.StringParam, default='',
                       label='Exclusion list',
                       help='Provide tilt images IDs (usually starting at 1) '
@@ -74,31 +74,10 @@ class ProtImodAuto3D(ProtTomoReconstruct):
                        help='Size of gold beads in nanometers.')
         group.addParam('markersNumber', params.IntParam, default=20,
                        label='Number of markers to track',
-                       help='???')
-
-    # -------------------------- INSERT steps functions ---------------------
-    def _loadInputTs(self):
-        """ Load input TiltSeries (set or single item). """
-        inputTs = self.inputTiltSeries.get()
-        self._tsDict = TiltSeriesDict()
-
-        if isinstance(inputTs, TiltSeries):
-            self._tsDict.addTs(inputTs, includeTi=True)
-        else:  # SetOfTiltSeries
-            for ts in inputTs:
-                print("Adding ts: %s" % ts)
-                self._tsDict.addTs(ts, includeTi=True)
-
-    def _insertAllSteps(self):
-        self._loadInputTs()
-
-        for ts in self._tsDict:  # Read if we input SetOfTiltSeries:
-            self._insertFunctionStep('processTsStep', ts.getTsId())
-
-        self._insertFunctionStep('createOutputStep')
+                       help='Number of markers that will be tracked by RAPTOR.')
 
     # --------------------------- STEPS functions ----------------------------
-    def processTsStep(self, tsId):
+    def processTiltSeriesStep(self, tsId):
         ts = self._tsDict.getTs(tsId)
 
         workingFolder = self._getTmpPath(tsId)
@@ -143,26 +122,5 @@ class ProtImodAuto3D(ProtTomoReconstruct):
         if not pw.utils.envVarOn('SCIPION_DEBUG_NOCLEAN'):
             pw.utils.cleanPath(workingFolder)
 
-    def createOutputStep(self):
-        inputTs = self.inputTiltSeries.get()
-        outTomos = self._createSetOfTomograms()
-        samplingRate = inputTs.getSamplingRate()
-
-        if self.bin > 1:
-            samplingRate *= self.bin.get()
-
-        outTomos.setSamplingRate(samplingRate)
-
-        if not hasattr(self, '_tsDict'):
-            self._loadInputTs()
-
-        for ts in self._tsDict:  # Read if we input SetOfTiltSeries:
-            t = Tomogram(location=self._getPath(self._getTomoName(ts.getTsId())))
-            outTomos.append(t)
-
-        self._defineOutputs(outputTomograms=outTomos)
-
-    # --------------------------- UTILS functions ----------------------------
-    def _getTomoName(self, tsId):
-        return '%s_tomo.mrc' % tsId
+        self._tsDict.setFinished(tsId)
 
