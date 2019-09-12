@@ -53,30 +53,30 @@ class ProtImodEtomo(ProtTomoReconstruct):
                       default=0,
                       label='Action', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Choose *Register tomogram" option when you want to generate'
-                           'the output Tomogram from your processing with '
-                           'etomo. ')
+                      help='Choose *Register tomogram" option when you want to '
+                           'generate the output Tomogram from your processing '
+                           'with etomo. ')
 
         group = form.addGroup('Build Tomogram',
                               condition='action==0')
         group.addParam('inputTiltSeries', params.PointerParam,
-                      pointerClass='TiltSeries',
-                      important=True,
-                      label='Input Tilt-Series',
-                      help='???')
+                       pointerClass='TiltSeries',
+                       important=True,
+                       label='Input Tilt-Series',
+                       help='???')
 
         group.addParam('excludeList', params.StringParam, default='',
-                      label='Exclusion list',
-                      help='Provide tilt images IDs (usually starting at 1) '
-                           'that you want to exclude from the processing. ')
+                       label='Exclusion list',
+                       help='Provide tilt images IDs (usually starting at 1) '
+                            'that you want to exclude from the processing. ')
 
         group.addParam('binning', params.IntParam, default=2,
-                      label='Bin the input images',
-                      help='Binning of the input images.')
+                       label='Bin the input images',
+                       help='Binning of the input images.')
 
         group.addParam('markersDiameter', params.IntParam, default=20,
-                      label='Fiducial markers diameter (nm)',
-                      help='Size of gold beads in nanometers.')
+                       label='Fiducial markers diameter (nm)',
+                       help='Size of gold beads in nanometers.')
 
         group.addParam('rotationAngle', params.FloatParam,
                        label='Tilt rotation angle (deg)',
