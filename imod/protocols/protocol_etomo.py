@@ -84,6 +84,10 @@ class ProtImodEtomo(ProtTomoReconstruct):
                             'images.')
 
     # -------------------------- INSERT steps functions ---------------------
+    # Overwrite the following function to prevent streaming from base class
+    def _stepsCheck(self):
+        pass
+
     def _insertAllSteps(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
