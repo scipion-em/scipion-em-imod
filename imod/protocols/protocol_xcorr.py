@@ -28,15 +28,16 @@
 import os
 
 import pyworkflow as pw
+import pyworkflow.em as pyem
 import pyworkflow.protocol.params as params
 import numpy as np
 
 from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
-from tomo.protocols import ProtTomoReconstruct
+from tomo.protocols import ProtTomoBase, ProtTomoReconstruct
 from tomo.convert import writeTiStack
 
 
-class ProtImodXcorr(ProtTomoReconstruct):
+class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
     """
     Tilt-series's cross correlation alignment based on the IMOD procedure.
 
@@ -50,13 +51,6 @@ class ProtImodXcorr(ProtTomoReconstruct):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('computeAlignment', params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Compute alignment', important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Compute and save the aligned tilt-series.')
-
         form.addParam('inputTiltSeries', params.PointerParam,
                        pointerClass='TiltSeries',
                        important=True,
@@ -67,14 +61,30 @@ class ProtImodXcorr(ProtTomoReconstruct):
                        help='Angle from the vertical to the tilt axis in raw '
                             'images.')
 
+        form.addParam('computeAlignment', params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Compute alignment', important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Compute and save the aligned tilt-series.')
+
+        group = form.addGroup('Aligned tilt-series',
+                              condition='computeAlignment==0')
+
+        group.addParam('binning', params.FloatParam,
+                       default=1.0,
+                       label='Binning',
+                       help='Binning to be applied to the aligned tilt-series')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
         self._insertFunctionStep('convertInputStep', tsId)
-        if self.computeAlignment.get == 0:
-            self._insertFunctionStep('computeXcorrStep', tsId)
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep('computeXcorrStep', tsId)
+        if self.computeAlignment.get() == 0:
+            self._insertFunctionStep('computeAlignedStack', tsId)
+        #self._insertFunctionStep('_createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsId):
@@ -109,24 +119,26 @@ class ProtImodXcorr(ProtTomoReconstruct):
                     "-FilterSigma2 %(FilterSigma2)f " \
                     "-FilterRadius2 %(FilterRadius2)f"
         self.runJob('tiltxcorr', argsXcorr % paramsXcorr, cwd=workingFolder)
+        self.allocateTransformMatrix(self._getExtraPath('%s/%s.prexf' % (tsId, tsId)), self.inputTiltSeries.get())
 
-        self.allocateTransformMatrix(workingFolder + '%s.prexf' % tsId, self.inputTiltSeries.get())
-
-    def computeStackAlignment(self, tsId):
+    def computeAlignedStack(self, tsId):
         workingFolder = self._getExtraPath(tsId)
         paramsAlginment = {
             'input': "%s.st" % tsId,
             'output': '%s.preali' % tsId,
-            'bin': '%f' % self.binning,
+            'bin': '%f' % self.binning.get(),
             'xform': "%s.prexf" % tsId,
         }
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-bin %(bin)f " \
                         "-xform %(xform)s "
+        print(argsAlignment)
+        print(paramsAlginment)
+        result = argsAlignment % paramsAlginment
         self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
 
-    def _createOutput(self, tomoFn):
+    def _createOutputStep(self, tomoFn):
         inputTs = self.inputTiltSeries.get()
         outTomos = self._createSetOfTomograms()
         samplingRate = inputTs.getSamplingRate()
@@ -147,15 +159,19 @@ class ProtImodXcorr(ProtTomoReconstruct):
     # --------------------------- UTILS functions ----------------------------
     def allocateTransformMatrix(self, matrixFile, tiltSeries):
         frameMatrix = np.empty([3, 3])
-        for image, line in zip(tiltSeries, matrixFile):
-            values = line.split()
-            frameMatrix[0, 0] = float(values(0))
-            frameMatrix[1, 0] = float(values(1))
-            frameMatrix[0, 1] = float(values(2))
-            frameMatrix[1, 1] = float(values(3))
-            frameMatrix[0, 2] = float(values(4))
-            frameMatrix[1, 2] = float(values(5))
-            frameMatrix[3, 0] = 0.0
-            frameMatrix[3, 1] = 0.0
-            frameMatrix[3, 2] = 1.0
-            image.setTransform(matrixFile)
+        with open(matrixFile) as matrix:
+            for image, line in zip(tiltSeries, matrix):
+                print(line)
+                print(image)
+                values = line.split()
+                print(values)
+                frameMatrix[0, 0] = float(values[0])
+                frameMatrix[1, 0] = float(values[1])
+                frameMatrix[0, 1] = float(values[2])
+                frameMatrix[1, 1] = float(values[3])
+                frameMatrix[0, 2] = float(values[4])
+                frameMatrix[1, 2] = float(values[5])
+                frameMatrix[2, 0] = 0.0
+                frameMatrix[2, 1] = 0.0
+                frameMatrix[2, 2] = 1.0
+                image.setTransform(matrixFile)
