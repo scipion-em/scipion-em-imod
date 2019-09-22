@@ -25,8 +25,10 @@
 # **************************************************************************
 
 import pyworkflow.viewer as pwviewer
+import pyworkflow.protocol.params as params
 
 import tomo.objects
+import imod.protocols
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -64,4 +66,66 @@ class ImodObjectView(pwviewer.CommandView):
         fn = obj.getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, '3dmod "%s"' % fn)
 
+
+class ImodEtomoViewer(pwviewer.ProtocolViewer):
+    """ Viewer form for Etomo interactive results. """
+
+    _environments = [pwviewer.DESKTOP_TKINTER]
+    _targets = [imod.protocols.ProtImodEtomo]
+    _label = 'viewer etomo'
+
+    def _defineParams(self, form):
+        form.addSection(label='Visualization')
+
+        group = form.addGroup('Tilt Series Alignment')
+        group.addParam('saveTsPreAli', params.LabelParam,
+                       label="Register pre-aligned tilt-series (.preali)",
+                       help="Through this option the intermediate pre-aligned "
+                            "tilt-series can be registered as an output of "
+                            "this protocol.")
+        group.addParam('saveTsAli', params.LabelParam,
+                       label="Register aligned tilt-series (.ali)",
+                       help="Through this option the intermediate aligned "
+                            "tilt-series can be registered as an output of "
+                            "this protocol.")
+        group.addParam('saveTsOriginal', params.LabelParam,
+                       label="Register original tilt-series (+ alignment info)",
+                       help="Through this option the original tilt-series can "
+                            "be registered as an output of this protocol. The "
+                            "obtained alignment parameters will be stored as "
+                            "metadata. ")
+        group.addParam('saveFiducials', params.LabelParam,
+                       label="Register fiducials model",
+                       help="Through this option the obtained fiducial model "
+                            "can be registered as an output of this protocol. "
+                            "The obtained alignment parameters will be stored "
+                            "as metadata. ")
+
+        group = form.addGroup('Tomogram')
+        group.addParam('saveReconsTomo', params.LabelParam,
+                       label="Register reconstructed tomogram (_full.rec)",
+                       help="Through this option the final reconstructed "
+                            "tomogram can be registered as an output of "
+                            "this protocol.")
+
+        form.addParam('doShowResHistogram', params.LabelParam,
+                      label="Show resolution histogram")
+
+    def _getVisualizeDict(self):
+        return {'saveTsPreAli': self._registerOutput,
+                'saveTsAli': self._registerOutput,
+                'saveTsOriginal': self._notImplemented,
+                'saveFiducials': self._notImplemented,
+                'saveReconsTomo': self._registerOutput,
+                }
+
+    def _registerOutput(self, param=None):
+        try:
+            self.protocol.registerOutput(param)
+            return [self.infoMessage('Output registered successfully. ')]
+        except Exception as e:
+            return [self.errorMessage(str(e))]
+
+    def _notImplemented(self, param=None):
+        return [self.errorMessage('Output not implemented yet. ')]
 

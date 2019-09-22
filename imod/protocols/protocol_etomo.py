@@ -97,9 +97,9 @@ class ProtImodEtomo(ProtTomoReconstruct):
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsId):
         ts = self.inputTiltSeries.get()
-        workingFolder = self._getExtraPath(tsId)
-        prefix = os.path.join(workingFolder, tsId)
+        workingFolder = self._getWorkingPath()
         pw.utils.makePath(workingFolder)
+        prefix = os.path.join(workingFolder, tsId)
 
         # Write new stack discarding excluded tilts
         excludeList = map(int, self.excludeList.get().split())
@@ -142,28 +142,6 @@ class ProtImodEtomo(ProtTomoReconstruct):
     def runEtomoStep(self, tsId):
         workingFolder = self._getExtraPath(tsId)
         self.runJob('etomo', '%s.edf' % tsId, cwd=workingFolder)
-
-        tomoFn = os.path.join(workingFolder, '%s_full.rec' % tsId)
-        if os.path.exists(tomoFn):
-            self._createOutput(tomoFn)
-
-    def _createOutput(self, tomoFn):
-        inputTs = self.inputTiltSeries.get()
-        outTomos = self._createSetOfTomograms()
-        samplingRate = inputTs.getSamplingRate()
-
-        if self.binning > 1:
-            samplingRate *= self.binning.get()
-
-        outTomos.setSamplingRate(samplingRate)
-
-        t = Tomogram(location=tomoFn+':mrc')
-        t.setObjId(inputTs.getObjId())
-        t.setTsId(inputTs.getTsId())
-        outTomos.append(t)
-
-        self._defineOutputs(outputTomograms=outTomos)
-        self._defineSourceRelation(self.inputTiltSeries, outTomos)
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
@@ -276,3 +254,53 @@ ProcessTrack.TomogramCombination=Not started
         """
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
+
+    def _getWorkingPath(self, *paths):
+        ts = self._getInputTs()
+        return self._getExtraPath(ts.getTsId(), *paths)
+
+    def _registerTs(self, outputName, outputPath):
+        """ Register a tilt-series. """
+
+    def _registerReconsTomo(self):
+        outputName = 'outputTomogram'
+
+        if hasattr(self, outputName):
+            raise Exception("The output tomogram has already been registered. ")
+
+        ts = self.inputTiltSeries.get()
+        tsId = ts.getTsId()
+        tomoFn = self._getWorkingPath('%s_full.rec' % tsId)
+
+        if not os.path.exists(tomoFn):
+            raise Exception('Output file %s does not exists. ' % tomoFn)
+
+        samplingRate = ts.getSamplingRate()
+        if self.binning > 1:
+            samplingRate *= self.binning.get()
+
+        t = Tomogram(location=tomoFn + ':mrc')
+        t.setSamplingRate(samplingRate)
+        t.setObjId(ts.getObjId())
+        t.setTsId(tsId)
+
+        return outputName, t
+
+    def registerOutput(self, outputKey):
+        """ Method used to register output selected by the user. """
+        outputDict = {
+            'saveTsPreAli': (self._registerTs, ['.preali']),
+            'saveTsAli': (self._registerTs, ['.ali']),
+            'saveReconsTomo': (self._registerReconsTomo, [])
+        }
+
+        if outputKey not in outputDict:
+            raise Exception("Invalid key '%s' for registerOutput." % outputKey)
+
+        # Call the specific function to create the output for this case
+        func, args = outputDict[outputKey]
+        outputName, output = func(*args)
+
+        self._defineOutputs(**{outputName: output})
+        self._defineSourceRelation(self.inputTiltSeries, output)
+        self._store()
