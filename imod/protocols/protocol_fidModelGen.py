@@ -20,7 +20,6 @@
 # * 02111-1307  USA
 # *
 # *  All comments concerning this program package may be sent to the
-# *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
@@ -47,8 +46,8 @@ class ProtFidModelGen(pyem.EMProtocol, ProtTomoBase):
 
     _label = 'fiducial model generation'
 
-    commandline="autofidseed -TrackCommandFile track.com -MinSpacing 0.85 -PeakStorageFraction 1.0 -TwoSurfaces -TargetNumberOfBeads 25   "
-
+    commandline="autofidseed -TrackCommandFile track.com -MinSpacing 0.85 -PeakStorageFraction 1.0 -TwoSurfaces -TargetNumberOfBeads 25"
+    commandline="autofidseed -StandardInput BB.preali -TrackCommandFile track.com -MinSpacing 0.85 -PeakStorageFraction 1.0 -TwoSurfaces -TargetNumberOfBeads 25"
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
