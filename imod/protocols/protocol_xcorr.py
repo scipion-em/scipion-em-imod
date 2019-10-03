@@ -64,15 +64,16 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                       default=1,
                       label='Generate interpolated tilt-series', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the aligned tilt-series.')
+                      help='Generate and save the interpolated tilt-series applying the'
+                           'obtained transformation matrices.')
 
-        group = form.addGroup('Aligned tilt-series',
+        group = form.addGroup('Interpolated tilt-series',
                       condition='computeAlignment==0')
 
         group.addParam('binning', params.FloatParam,
                        default=1.0,
                        label='Binning',
-                       help='Binning to be applied to the aligned tilt-series')
+                       help='Binning to be applied to the interpolated tilt-series')
 
         form.addParam('rotationAngle',
                       params.FloatParam,
@@ -86,7 +87,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
-            self._insertFunctionStep('computeAlignedStack')
+            self._insertFunctionStep('computeInterpolatedStack')
         self._insertFunctionStep('_createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
@@ -128,7 +129,9 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
 
             self.runJob('tiltxcorr', argsXcorr % paramsXcorr, cwd=workingFolder)
 
-        outputSetOfTiltSeries = self._createSetOfTiltSeries()
+        self.outputSetOfTiltSeries = self._createSetOfTiltSeries()
+        self.outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+        self.outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
 
         # Generate output tilt series
         for ts in self.inputSetOfTiltSeries.get():
@@ -138,7 +141,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             # Create new  output tiltSeries
             tsObj = tomoObj.TiltSeries(tsId=tsId)
             # we need this to set mapper before adding any item
-            outputSetOfTiltSeries.append(tsObj)
+            self.outputSetOfTiltSeries.append(tsObj)
             i = 0
 
             # For each tilt series image in the input
@@ -152,11 +155,16 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                 newTi.setTransform(transform)
                 i += 1
                 tsObj.append(newTi)
-            outputSetOfTiltSeries.update(tsObj)  # update items and size info
+            self.outputSetOfTiltSeries.update(tsObj)  # update items and size info
 
-    def computeAlignedStack(self):
+    def computeInterpolatedStack(self):
+        self.outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries()
+        self.outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+        self.outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
+            tsObj = tomoObj.TiltSeries(tsId=tsId)
             workingFolder = self._getExtraPath(tsId)
             paramsAlginment = {
                 'input': "%s.st" % tsId,
@@ -171,21 +179,18 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
 
     def _createOutputStep(self):
-        outTiltSeries = TiltSeries()
-        if self.computeAlignment.get() == 1:
-            outTiltSeries = self.inputTiltSeries.get()
-        else:
+        if self.computeAlignment.get() != 1:
             samplingRate = self.inputTiltSeries.get().getSamplingRate()
             outTiltSeries.copyInfo(self.inputTiltSeries.get())
-            alignedPath =os.path.join(self._getExtraPath(), '%s.preali' % tsId)
-            outTiltSeries.writeStack(alignedPath)
+            interpolatedPath =os.path.join(self._getExtraPath(), '%s.preali' % tsId)
+            outTiltSeries.writeStack(interpolatedPath)
             if self.binning > 1:
                 samplingRate *= self.binning.get()
             outTiltSeries.setSamplingRate(samplingRate)
        # for image in outTiltSeries.iterItems():
        #     print(image.getTransform())
-        self._defineOutputs(outputTiltSeries=outTiltSeries)
-        self._defineSourceRelation(self.inputTiltSeries, outTiltSeries)
+        self._defineOutputs(outputTiltSeries=self.outputSetOfTiltSeries)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.outputSetOfTiltSeries)
 
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):
