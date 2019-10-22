@@ -71,7 +71,8 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         group.addParam('binning', params.FloatParam,
                        default=1.0,
                        label='Binning',
-                       help='Binning to be applied to the interpolated tilt-series')
+                       help='Binning to be applied to the interpolated tilt-series. '
+                            'Must be a integer bigger than 1')
 
         form.addParam('rotationAngle',
                       params.FloatParam,
@@ -154,7 +155,8 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                 newTi.setLocation(tiltImage.getLocation())
 
                 # Set the tansformation matrix
-                transform = data.Transform(alignmentMatrix[:, :, i])
+                transform = data.Transform()
+                transform.setMatrix(alignmentMatrix[:, :, i])
                 newTi.setTransform(transform)
                 i += 1
                 newTs.append(newTi)
@@ -192,6 +194,8 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(os.path.join(workingFolder, '%s_preali.st' % tsId))
                 newTs.append(newTi)
+            if self.binning > 1:
+                newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
         self._store()
 
@@ -232,9 +236,8 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries()
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
-                samplingRate = self.inputTiltSeries.get().getSamplingRate()
+                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
