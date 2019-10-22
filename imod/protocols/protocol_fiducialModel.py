@@ -36,7 +36,7 @@ from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
 
-class ProtFidModelGen(pyem.EMProtocol, ProtTomoBase):
+class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model based on the IMOD procedure.
 
