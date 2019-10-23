@@ -87,7 +87,6 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
-        self._insertFunctionStep('_createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -198,10 +197,38 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                 newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
         self._store()
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputSetOfTiltSeries.getSize()))
+        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
+                           "Interpolated Tilt-Series: %d.\n"
+                           % (self.outputSetOfTiltSeries.getSize(),
+                              self.outputSetOfTiltSeries.getSize(),
+                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
 
-    def _createOutputStep(self):
-        pass
-
+    def _methods(self):
+        methods = []
+        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("The transformation matrix has been calculated for %d "
+                           "Tilt-series using the IMOD procedure.\n"
+                           % (self.outputSetOfTiltSeries.getSize()))
+        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("The transformation matrix has been calculated for %d "
+                           "Tilt-series using the IMOD procedure.\n"
+                           "Also, interpolation has been completed for %d Tilt-series.\n"
+                           % (self.outputSetOfTiltSeries.getSize(),
+                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):
         with open(matrixFile, "r") as matrix:
