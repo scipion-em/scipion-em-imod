@@ -25,14 +25,18 @@
 # **************************************************************************
 
 import pyworkflow.em
-from .constants import IMOD_HOME
+from pyworkflow.install.funcs import progInPath
 
+from .constants import IMOD_HOME, ETOMO_CMD
 
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
 class Plugin(pyworkflow.em.Plugin):
+
+    _validationMsg = None
+
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, 'imod-4.9')
@@ -40,6 +44,17 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def getEnviron(cls):
         return None
+
+    @classmethod
+    def validateInstallation(cls):
+        """
+        Check if imod is in the path
+        """
+
+        if not cls._validationMsg:
+            cls._validationMsg = ["imod's %s command not found in path, please install it." % ETOMO_CMD] if not progInPath(ETOMO_CMD) else []
+
+        return cls._validationMsg
 
 
 pyworkflow.em.Domain.registerPlugin(__name__)
