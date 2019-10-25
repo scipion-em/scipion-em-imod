@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. de la Rosa Trevin (delarosatrevin@scilifelab.se)
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
 # *
-# * SciLifeLab, Stockholm University
+# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,8 +24,9 @@
 # *
 # **************************************************************************
 
+from pyworkflow.tests import DataSet
 
-# ----------------- Constants values --------------------------------------
-
-IMOD_HOME = 'IMOD_HOME'
-ETOMO_CMD = 'etomo'
+DataSet(name='tomo-em', folder='tomo-em',
+        files={
+               'ts1': 'tutorialData/BBa.st',
+               'ts2': 'tutorialData/BBb.st'})
