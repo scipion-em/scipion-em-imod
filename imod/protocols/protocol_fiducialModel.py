@@ -29,9 +29,8 @@ import os
 import pyworkflow as pw
 import pyworkflow.em as pyem
 import pyworkflow.protocol.params as params
-import numpy as np
 
-from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
+from tomo.objects import SetOfLandmarkChains, LandmarkChain
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
@@ -45,12 +44,8 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
     """
 
     ######################################################################CLEAN
-    commandline = "autofidseed -TrackCommandFile track.com -MinSpacing 0.85 -PeakStorageFraction 1.0 -TwoSurfaces " \
-                  "-TargetNumberOfBeads 25"
-    commandline = "autofidseed -StandardInput BB.preali -TrackCommandFile track.com -MinSpacing 0.85 " \
-                  "-PeakStorageFraction 1.0 -TwoSurfaces -TargetNumberOfBeads 25"
 
-    missingLines = "PrealignTransformFile	BBa.prexg --------------------------"
+    missingLines = "PrealignTransformFile	BBa.prexg"
 
     ##########################################################################################################################
 
@@ -95,6 +90,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                       help="Import a customized track file for the execution of the program.")
 
         group = form.addGroup('Track file',
+                              expertLevel=params.LEVEL_ADVANCED,
                               condition='importTrackFile==0')
 
         group.addParam('trackFilePath',
@@ -108,6 +104,8 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('generateTrackComStep')
         self._insertFunctionStep('generateFiducialSeedStep')
+        self._insertFunctionStep('generateFiducialModelStep')
+        self._insertFunctionStep('translateFiducialPointModel')
         self._insertFunctionStep('_createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
@@ -139,12 +137,12 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
             paramsAutofidseed = {
-                               'trackCommandFile': '%s_track.com' % tsId,
-                               'minSpacing': 0.85,
-                               'peakStorageFraction': 1.0,
-                               'RotationAngle': self.rotationAngle.get(),
-                               'targetNumberOfBeads': self.numberFiducial.get()
-                                }
+                                 'trackCommandFile': '%s_track.com' % tsId,
+                                 'minSpacing': 0.85,
+                                 'peakStorageFraction': 1.0,
+                                 'RotationAngle': self.rotationAngle.get(),
+                                 'targetNumberOfBeads': self.numberFiducial.get()
+                                 }
 
             argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                               "-MinSpacing %(minSpacing)f " \
@@ -156,8 +154,111 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 
             self.runJob('autofidseed', argsAutofidseed % paramsAutofidseed, cwd=workingFolder)
 
+    def generateFiducialModelStep(self):
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+            paramsBeadtrack = {
+                               'inputSeedModel': '%s.seed' % tsId,
+                               'outputModel': '%s.fid' % tsId,
+                               'imageFile': '%s.st' % tsId,
+                               'imagesAreBinned': 1,
+                               'tiltFile': '%s.rawtlt' %tsId,
+                               'tiltDefaultGrouping': 7,
+                               'magDefaultGrouping': 5,
+                               'rotDefaultGrouping': 1,
+                               'minViewsForTiltalign': 4,
+                               'beadDiameter': 4.95,
+                               'fillGaps': 1,
+                               'maxGapSize': 5,
+                               'minTiltRangeToFindAxis': 10.0,
+                               'minTiltRangeToFindAngles': 20.0,
+                               'boxSizeXandY': '32,32',
+                               'roundsOfTracking': 2,
+                               'localAreaTracking': 1,
+                               'localAreaTargetSize': 1000,
+                               'minBeadsInArea': 8,
+                               'minOverlapBeads': 5,
+                               'maxBeadsToAverage': 4,
+                               'sobelFilterCentering': 1,
+                               'pointsToFitMaxAndMin': '7,3',
+                               'densityRescueFractionAndSD': '0.6,1.0',
+                               'distanceRescueCriterion': 10.0,
+                               'rescueRelaxationDensityAndDistance': '0.7,0.9',
+                               'postFitRescueResidual': 2.5,
+                               'densityRelaxationPostFit': 0.9,
+                               'maxRescueDistance': 2.5,
+                               'residualsToAnalyzeMaxAndMin': '9,5',
+                               'deletionCriterionMinAndSD': '0.04,2.0'
+                                }
+
+            argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
+                            "-OutputModel %(outputModel)s " \
+                            "-ImageFile %(imageFile)s " \
+                            "-ImagesAreBinned %(imagesAreBinned)d " \
+                            "-TiltFile %(tiltFile)s " \
+                            "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
+                            "-MagDefaultGrouping %(magDefaultGrouping)d " \
+                            "-RotDefaultGrouping %(rotDefaultGrouping)d " \
+                            "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
+                            "-BeadDiameter %(beadDiameter)f " \
+                            "-FillGaps %(fillGaps)d " \
+                            "-MaxGapSize %(maxGapSize)d " \
+                            "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
+                            "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles)f " \
+                            "-BoxSizeXandY %(boxSizeXandY)s " \
+                            "-RoundsOfTracking %(roundsOfTracking)d " \
+                            "-LocalAreaTracking %(localAreaTracking)d " \
+                            "-LocalAreaTargetSize %(localAreaTargetSize)d " \
+                            "-MinBeadsInArea %(minBeadsInArea)d " \
+                            "-MinOverlapBeads %(minOverlapBeads)d " \
+                            "-MaxBeadsToAverage %(maxBeadsToAverage)d " \
+                            "-SobelFilterCentering %(sobelFilterCentering)d " \
+                            "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
+                            "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
+                            "-DistanceRescueCriterion %(distanceRescueCriterion)f " \
+                            "-RescueRelaxationDensityAndDistance %(rescueRelaxationDensityAndDistance)s " \
+                            "-PostFitRescueResidual %(postFitRescueResidual)f " \
+                            "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
+                            "-MaxRescueDistance %(maxRescueDistance)f " \
+                            "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
+                            "DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
+
+            self.runJob('beadtrack', argsBeadtrack % paramsBeadtrack, cwd=workingFolder)
+
+    def translateFiducialPointModel(self):
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+
+            paramsPoint2Model = {
+                                'inputFile': '%s.fid' % tsId,
+                                'outputFile': '%s_fid.txt' % tsId
+                                }
+            argsPoint2Model = "-InputFile %(inputFile)s " \
+                              "-OutputFile %(outputFile)s "
+
+            self.runJob('model2point', argsPoint2Model % paramsPoint2Model, cwd=workingFolder)
+
     def _createOutputStep(self):
-        pass
+        outputFiducialModel = SetOfLandmarkChains()
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            fiducialListSize = len(fiducialList)
+            fiducialList = self.parseFiducialModelFile(tsId)
+            prevTiltIm = 0
+            newLandmarkChain = LandmarkChain()
+            for index, fiducial in enumerate(fiducialList):
+                if int(fiducial[2]) < prevTiltIm or index == fiducialListSize:
+                    outputFiducialModel.addLandmarkChain(newLandmarkChain)
+                    newLandmarkChain.removeAllLandmarks()
+                    prevTiltIm = 0
+                else:
+                    newLandmarkChain.addLandmark(int(fiducial[0]), int(fiducial[1]), int(fiducial[2]), tsId)
+                    prevTiltIm = int(fiducial[2])
+
+        self._defineOutputs(outputFiducialModel=outputFiducialModel)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, newLandmarkChain)
 
     # --------------------------- UTILS functions ----------------------------
     def translateTrackCom(self, tsId, paramsDict):
@@ -179,7 +280,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 # To restrict tilt alignment to a subset of views, add a line with:
 # "MaxViewsInAlign #_of_views"
 #
-# To exclude views, add a line "SkipViews view_list" with the list of views
+# To exclude views, add a line "SkipViews view_list"; with the list of views
 #
 # To specify sets of views to be grouped separately in automapping, add a line
 # "SeparateGroup view_list" with the list of views, one line per group
@@ -235,3 +336,14 @@ $if (-e ./savework) ./savework
 """
             with open(trackFilePath, 'w') as f:
                 f.write(template % paramsDict)
+
+    def parseFiducialModelFile(self, tsId):
+        fiducialFileName = tsId + "/" + tsId + "_fid.txt"
+        fiducialFilePath = os.path.join(self._getExtraPath(), fiducialFileName)
+        fiducialList = []
+        with open(fiducialFilePath) as f:
+            fiducialText = f.read().splitlines()
+            for line in fiducialText:
+                vector = line.split()
+                fiducialList.append(vector)
+        return fiducialList
