@@ -98,7 +98,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             pw.utils.makePath(workingFolder)
 
             tiList = [ti.clone() for ti in ts]
-            tiList.sort(key=lambda ti: ti.getTiltAngle())
+            tiList.sort(key=lambda ti : ti.getTiltAngle())
             tiList.reverse()
 
             writeTiStack(tiList,
@@ -146,7 +146,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
-            i = 0
+            counter = 0
 
             # For each tilt image in the series, assign its transform matrix
             for tiltImage in ts:
@@ -156,11 +156,13 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
 
                 # Set the tansformation matrix
                 transform = data.Transform()
-                transform.setMatrix(alignmentMatrix[:, :, i])
+                transform.setMatrix(alignmentMatrix[:, :, counter])
                 newTi.setTransform(transform)
-                i += 1
                 newTs.append(newTi)
+                counter += 1
+            newTs.write()
             outputSetOfTiltSeries.update(newTs)  # update items and size info
+            outputSetOfTiltSeries.write()
         self._store()
 
     def computeInterpolatedStackStep(self):
@@ -194,9 +196,14 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(os.path.join(workingFolder, '%s_preali.st' % tsId))
                 newTs.append(newTi)
+                if self.binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+
             if self.binning > 1:
                 newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
+            newTs.write()
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
+            outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def _createOutputStep(self):
@@ -234,7 +241,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
 
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
