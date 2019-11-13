@@ -87,7 +87,6 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
-        self._insertFunctionStep('_createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -98,7 +97,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             pw.utils.makePath(workingFolder)
 
             tiList = [ti.clone() for ti in ts]
-            tiList.sort(key=lambda ti : ti.getTiltAngle())
+            tiList.sort(key=lambda ti: ti.getTiltAngle())
             tiList.reverse()
 
             writeTiStack(tiList,
@@ -146,20 +145,18 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
-            counter = 0
 
             # For each tilt image in the series, assign its transform matrix
-            for tiltImage in ts:
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(tiltImage.getLocation())
 
                 # Set the tansformation matrix
                 transform = data.Transform()
-                transform.setMatrix(alignmentMatrix[:, :, counter])
+                transform.setMatrix(alignmentMatrix[:, :, index])
                 newTi.setTransform(transform)
                 newTs.append(newTi)
-                counter += 1
             newTs.write()
             outputSetOfTiltSeries.update(newTs)  # update items and size info
             outputSetOfTiltSeries.write()
@@ -191,23 +188,19 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                             "-imagebinned %(imagebinned)s"
 
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
-            for tiltImage in ts:
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(os.path.join(workingFolder, '%s_preali.st' % tsId))
-                newTs.append(newTi)
+                newTi.setLocation(index + 1, (os.path.join(workingFolder, '%s_preali.st' % tsId)))
                 if self.binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-
+                newTs.append(newTi)
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
+                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
             newTs.write()
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
-
-    def _createOutputStep(self):
-        pass
 
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):
@@ -243,6 +236,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
@@ -250,3 +244,36 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
+
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputSetOfTiltSeries.getSize()))
+        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
+                           "Interpolated Tilt-Series: %d.\n"
+                           % (self.outputSetOfTiltSeries.getSize(),
+                              self.outputSetOfTiltSeries.getSize(),
+                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
+
+    def _methods(self):
+        methods = []
+        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("The transformation matrix has been calculated for %d "
+                           "Tilt-series using the IMOD procedure.\n"
+                           % (self.outputSetOfTiltSeries.getSize()))
+        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("The transformation matrix has been calculated for %d "
+                           "Tilt-series using the IMOD procedure.\n"
+                           "Also, interpolation has been completed for %d Tilt-series.\n"
+                           % (self.outputSetOfTiltSeries.getSize(),
+                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods
