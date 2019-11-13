@@ -95,11 +95,9 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             workingFolder = self._getExtraPath(tsId)
             prefix = os.path.join(workingFolder, tsId)
             pw.utils.makePath(workingFolder)
-
             tiList = [ti.clone() for ti in ts]
             tiList.sort(key=lambda ti: ti.getTiltAngle())
             tiList.reverse()
-
             writeTiStack(tiList,
                          outputStackFn=prefix + '.st',
                          outputTltFn=prefix + '.rawtlt')
@@ -109,7 +107,6 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
-
             paramsXcorr = {
                 'input': '%s.st' % tsId,
                 'output': '%s.prexf' % tsId,
@@ -127,8 +124,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                         "-FilterSigma2 %(FilterSigma2)f " \
                         "-FilterRadius2 %(FilterRadius2)f"
             self.runJob('tiltxcorr', argsXcorr % paramsXcorr, cwd=workingFolder)
-
-            paramsXftoxg ={
+            paramsXftoxg = {
                 'input': '%s.prexf' % tsId,
                 'goutput': '%s.prexg' % tsId,
             }
@@ -138,33 +134,27 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
 
         # Generate output tilt series
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             alignmentMatrix = self.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
-
-            # For each tilt image in the series, assign its transform matrix
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(tiltImage.getLocation())
-
-                # Set the tansformation matrix
                 transform = data.Transform()
                 transform.setMatrix(alignmentMatrix[:, :, index])
                 newTi.setTransform(transform)
                 newTs.append(newTi)
             newTs.write()
-            outputSetOfTiltSeries.update(newTs)  # update items and size info
+            outputSetOfTiltSeries.update(newTs)
             outputSetOfTiltSeries.write()
         self._store()
 
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
-
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             newTs = tomoObj.TiltSeries(tsId=tsId)
@@ -186,7 +176,6 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
