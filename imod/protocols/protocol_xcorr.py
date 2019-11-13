@@ -155,6 +155,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
 
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             newTs = tomoObj.TiltSeries(tsId=tsId)
@@ -176,6 +177,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
+
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
