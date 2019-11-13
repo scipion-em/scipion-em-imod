@@ -244,8 +244,9 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         outputFiducialModel = SetOfLandmarkChains()
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            fiducialListSize = len(fiducialList)
             fiducialList = self.parseFiducialModelFile(tsId)
+            fiducialListSize = len(fiducialList)
+
             prevTiltIm = 0
             newLandmarkChain = LandmarkChain()
             for index, fiducial in enumerate(fiducialList):
