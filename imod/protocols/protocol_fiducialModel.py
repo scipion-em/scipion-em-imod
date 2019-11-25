@@ -439,7 +439,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             for tiltImage in ts:
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(os.path.join(workingFolder, '%s_preali.st' % tsId))
+                newTi.setLocation(os.path.join(workingFolder, '%s_fidali.st' % tsId))
                 newTs.append(newTi)
             if self.binning > 1:
                 newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
