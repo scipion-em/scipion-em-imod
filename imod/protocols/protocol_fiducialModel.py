@@ -67,6 +67,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                       params.IntParam,
                       label='Number of fiducials',
                       default='25',
+                      expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
         form.addParam('rotationAngle',
