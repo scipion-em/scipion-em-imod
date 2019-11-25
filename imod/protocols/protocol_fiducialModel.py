@@ -436,14 +436,18 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                             "-imagebinned %(imagebinned)s"
 
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
-            for tiltImage in ts:
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(os.path.join(workingFolder, '%s_fidali.st' % tsId))
+                newTi.setLocation(index + 1, (os.path.join(workingFolder, '%s_fidali.st' % tsId)))
+                if self.binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate()*int(self.binning.get()))
-            outputInterpolatedSetOfTiltSeries.update(newTs)
+                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+            newTs.write()
+            outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
+            outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def _createOutputStep(self):
@@ -567,6 +571,7 @@ $if (-e ./savework) ./savework
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries()
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()

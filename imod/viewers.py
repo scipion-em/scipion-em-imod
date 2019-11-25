@@ -73,7 +73,6 @@ class ImodSetView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod.
     """
     def __init__(self, set, **kwargs):
-
         fn = ""
         for item in set:
             # Remove :mrc if present
