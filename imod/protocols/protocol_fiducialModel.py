@@ -122,12 +122,14 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('generateTrackComStep')
         self._insertFunctionStep('generateFiducialSeedStep')
         self._insertFunctionStep('generateFiducialModelStep')
-        self._insertFunctionStep('translateFiducialPointModelStep')
         self._insertFunctionStep('computeFiducialAlignmentStep')
+        self._insertFunctionStep('translateFiducialPointModelStep')
         self._insertFunctionStep('mergeAlignmentsStep')
+        self._insertFunctionStep('computeOutputStackStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
         self._insertFunctionStep('_createOutputStep')
+
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -171,7 +173,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                               "-TargetNumberOfBeads %(targetNumberOfBeads)d"
 
             if self.twoSurfaces.get() == 0:
-                argsAutofidseed += " -TwoSurfaces "
+                argsAutofidseed += " -TwoSurfaces"
 
             self.runJob('autofidseed', argsAutofidseed % paramsAutofidseed, cwd=workingFolder)
 
@@ -252,14 +254,21 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
 
-            paramsPoint2Model = {
+            paramsGapPoint2Model = {
                                 'inputFile': '%s.fid' % tsId,
                                 'outputFile': '%s_fid.txt' % tsId
                                 }
-            argsPoint2Model = "-InputFile %(inputFile)s " \
+            argsGapPoint2Model = "-InputFile %(inputFile)s " \
                               "-OutputFile %(outputFile)s"
+            self.runJob('model2point', argsGapPoint2Model % paramsGapPoint2Model, cwd=workingFolder)
 
-            self.runJob('model2point', argsPoint2Model % paramsPoint2Model, cwd=workingFolder)
+            paramsNoGapPoint2Model = {
+                                'inputFile': '%s_noGaps.fid' % tsId,
+                                'outputFile': '%s_noGaps_fid.txt' % tsId
+                                }
+            argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
+                              "-OutputFile %(outputFile)s"
+            self.runJob('model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model, cwd=workingFolder)
 
     def computeFiducialAlignmentStep(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -269,13 +278,12 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 'modelFile': '%s.fid' % tsId,
                 'imageFile': '%s.st' %tsId,
                 'imagesAreBinned': 1,
-                'outputModelFile': '%s.3dmod' %tsId,
-                'outputResidualFile': '%s.resid' %tsId,
-                'outputFidXYZFile': '%sfid.xyz' %tsId,
-                'outputTiltFile': '%s.tlt' %tsId,
-                'outputXAxisTiltFile': '%s.xtilt' %tsId,
+                'outputModelFile': '%s_fidxyz.mod' %tsId,
+                'outputResidualFile': '%s_resid.txt' %tsId,
+                'outputFidXYZFile': '%s_fid.xyz' %tsId,
+                'outputTiltFile': '%s_interpolated.tlt' %tsId,
                 'outputTransformFile': '%s.tltxf' %tsId,
-                'outputFilledInModel': '%s_nogaps.fid' %tsId,
+                'outputFilledInModel': '%s_noGaps.fid' %tsId,
                 'rotationAngle': self.rotationAngle.get(),
                 'tiltFile': '%s.rawtlt' %tsId,
                 'angleOffset': 0.0,
@@ -328,7 +336,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                             "-OutputResidualFile %(outputResidualFile)s " \
                             "-OutputFidXYZFile %(outputFidXYZFile)s " \
                             "-OutputTiltFile %(outputTiltFile)s " \
-                            "-OutputXAxisTiltFile %(outputXAxisTiltFile)s " \
                             "-OutputTransformFile %(outputTransformFile)s " \
                             "-OutputFilledInModel %(outputFilledInModel)s " \
                             "-RotationAngle %(rotationAngle)f " \
@@ -406,9 +413,29 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             else:
                 fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
                 fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
-                print(fileIn)
-                print(fileOut)
                 os.rename(fileIn, fileOut)
+
+    def computeOutputStackStep(self):
+        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            outputSetOfTiltSeries.append(newTs)
+            tltFileName = tsId + "/" + tsId + "_interpolated.tlt"
+            tltFilePath = os.path.join(self._getExtraPath(), tltFileName)
+            tltList = self.parseAngleTltFile(tltFilePath)
+
+            for index, ti in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(ti, copyId=True)
+                newTi.setLocation(ti.getLocation()[1])
+                newTi.setTiltAngle(float(tltList[index]))
+                newTs.append(newTi)
+            newTs.write()
+            outputSetOfTiltSeries.update(newTs)
+            outputSetOfTiltSeries.write()
+        self._store()
 
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -418,6 +445,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputInterpolatedSetOfTiltSeries.append(newTs)
+
             workingFolder = self._getExtraPath(tsId)
             paramsAlginment = {
                 'input': "%s.st" % tsId,
@@ -434,38 +462,64 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
-            for index, tiltImage in enumerate(ts):
+
+            tltFileName = tsId + "/" + tsId + "_interpolated.tlt"
+            tltFilePath = os.path.join(self._getExtraPath(), tltFileName)
+            tltList = self.parseAngleTltFile(tltFilePath)
+            for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(ti, copyId=True)
                 newTi.setLocation(index + 1, (os.path.join(workingFolder, '%s_fidali.st' % tsId)))
+                newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
             if self.binning > 1:
                 newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
             newTs.write()
-            outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
+            outputInterpolatedSetOfTiltSeries.update(newTs)
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def _createOutputStep(self):
-        self.newSetOfLandmarks = self._createSetOfLandmarks()
+        self.newSetOfLandmarksGaps = self._createSetOfLandmarks(suffix='Gaps')
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            fiducialList = self.parseFiducialModelFile(tsId)
+            fiducialGapFileName = tsId + "/" + tsId + "_fid.txt"
+            fiducialGapFilePath = os.path.join(self._getExtraPath(), fiducialGapFileName)
+            fiducialGapList = self.parseFiducialModelFile(fiducialGapFilePath)
+
             prevTiltIm = 0
             chainId = 0
-
-            for index, fiducial in enumerate(fiducialList):
+            for index, fiducial in enumerate(fiducialGapList):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
                 landmark = Landmark(fiducial[0], fiducial[1], fiducial[2], chainId, tsId)
-                self.newSetOfLandmarks.append(landmark)
-        self._defineOutputs(outputFiducialModel=self.newSetOfLandmarks)
-        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarks)
+                self.newSetOfLandmarksGaps.append(landmark)
+
+        self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarksGaps)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarksGaps)
+
+        self.newSetOfLandmarksNoGaps = self._createSetOfLandmarks(suffix='NoGaps')
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+
+            fiducialNoGapFileName = tsId + "/" + tsId + "_noGaps_fid.txt"
+            fiducialNoGapFilePath = os.path.join(self._getExtraPath(), fiducialNoGapFileName)
+            fiducialNoGapList = self.parseFiducialModelFile(fiducialNoGapFilePath)
+
+            prevTiltIm = 0
+            chainId = 0
+            for index, fiducial in enumerate(fiducialNoGapList):
+                if int(fiducial[2]) <= prevTiltIm:
+                    chainId += 1
+                prevTiltIm = int(fiducial[2])
+                landmark = Landmark(fiducial[0], fiducial[1], fiducial[2], chainId, tsId)
+                self.newSetOfLandmarksNoGaps.append(landmark)
+            self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarksNoGaps)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarksNoGaps)
 
     # --------------------------- UTILS functions ----------------------------
     def createTransformFile(self, tsId, matrix):
@@ -556,9 +610,7 @@ $if (-e ./savework) ./savework
             with open(trackFilePath, 'w') as f:
                 f.write(template % paramsDict)
 
-    def parseFiducialModelFile(self, tsId):
-        fiducialFileName = tsId + "/" + tsId + "_fid.txt"
-        fiducialFilePath = os.path.join(self._getExtraPath(), fiducialFileName)
+    def parseFiducialModelFile(self, fiducialFilePath):
         fiducialList = []
         with open(fiducialFilePath) as f:
             fiducialText = f.read().splitlines()
@@ -567,9 +619,18 @@ $if (-e ./savework) ./savework
                 fiducialList.append(vector)
         return fiducialList
 
+    def parseAngleTltFile(self, tltFilePath):
+        angleList = []
+        with open(tltFilePath) as f:
+            tltText = f.read().splitlines()
+            for line in tltText:
+                angleList.append(float(line))
+        angleList.reverse()
+        return angleList
+
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
@@ -580,13 +641,22 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
 
+    def getOutputSetOfTiltSeries(self):
+        if not hasattr(self, "outputSetOfTiltSeries"):
+            outputSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+        return self.outputSetOfTiltSeries
+
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
         if hasattr(self, 'newSetOfLandmarks'):
             summary.append("Input Tilt-Series: %d.\nFiducial models generated: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.newSetOfLandmarks.getSize()))
+                              self.newSetOfLandmarksGaps.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
