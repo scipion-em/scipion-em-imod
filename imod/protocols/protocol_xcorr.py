@@ -86,6 +86,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
+        self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -191,6 +192,14 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
+
+    def cleanDirectory(self):
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
+            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
+
 
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):

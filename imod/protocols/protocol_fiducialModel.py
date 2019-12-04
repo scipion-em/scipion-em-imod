@@ -31,7 +31,7 @@ import pyworkflow.em as pyem
 import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
 
-from tomo.objects import Landmark
+from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
@@ -483,12 +483,22 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._store()
 
     def _createOutputStep(self):
-        self.newSetOfLandmarksGaps = self._createSetOfLandmarks(suffix='Gaps')
+        """Create the output set of landmark models with gaps"""
+        self.newSetOfLandmarkModelsGaps = self._createSetOfLandmarkModels(suffix='Gaps')
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
+
             fiducialGapFileName = tsId + "/" + tsId + "_fid.txt"
             fiducialGapFilePath = os.path.join(self._getExtraPath(), fiducialGapFileName)
             fiducialGapList = self.parseFiducialModelFile(fiducialGapFilePath)
+
+            fiducialModelGapFileName = tsId + "/" + tsId + ".fid"
+            fiducialModelGapPath = os.path.join(self._getExtraPath(), fiducialModelGapFileName)
+
+            landmarkModelGapsFileName = tsId + "/" + tsId + "_gaps.sfid"
+            landmarkModelGapsFilePath = os.path.join(self._getExtraPath(), landmarkModelGapsFileName)
+
+            landmarkModel = LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
 
             prevTiltIm = 0
             chainId = 0
@@ -496,13 +506,14 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
-                landmark = Landmark(fiducial[0], fiducial[1], fiducial[2], chainId, tsId)
-                self.newSetOfLandmarksGaps.append(landmark)
+                landmarkModel.addLandmark(fiducial[0], fiducial[1], fiducial[2], chainId)
+            self.newSetOfLandmarkModelsGaps.append(landmarkModel)
 
-        self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarksGaps)
-        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarksGaps)
+        self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarkModelsGaps)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarkModelsGaps)
 
-        self.newSetOfLandmarksNoGaps = self._createSetOfLandmarks(suffix='NoGaps')
+        """Create the output set of landmark models with no gaps"""
+        self.newSetOfLandmarkModelsNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
 
@@ -510,16 +521,29 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             fiducialNoGapFilePath = os.path.join(self._getExtraPath(), fiducialNoGapFileName)
             fiducialNoGapList = self.parseFiducialModelFile(fiducialNoGapFilePath)
 
+            fiducialModelNoGapFileName = tsId + "/" + tsId + "_noGaps.fid"
+            fiducialModelNoGapPath = os.path.join(self._getExtraPath(), fiducialModelNoGapFileName)
+
+            landmarkModelNoGapsFileName = tsId + "/" + tsId + "_noGaps.sfid"
+            landmarkModelNoGapsFilePath = os.path.join(self._getExtraPath(), landmarkModelNoGapsFileName)
+
+            landmarkModel = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+
             prevTiltIm = 0
             chainId = 0
             for index, fiducial in enumerate(fiducialNoGapList):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
-                landmark = Landmark(fiducial[0], fiducial[1], fiducial[2], chainId, tsId)
-                self.newSetOfLandmarksNoGaps.append(landmark)
-            self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarksNoGaps)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarksNoGaps)
+                landmarkModel.addLandmark(fiducial[0], fiducial[1], fiducial[2], chainId)
+            self.newSetOfLandmarkModelsNoGaps.append(landmarkModel)
+
+        self._defineOutputs(outputFiducialModelNoGaps=self.newSetOfLandmarkModelsNoGaps)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarkModelsNoGaps)
+
+        """Create the output set of coordinates 3D from the fiduacials in the tilt series"""
+        for ts in self.inputSetOfTiltSeries.get():
+
 
     # --------------------------- UTILS functions ----------------------------
     def createTransformFile(self, tsId, matrix):
@@ -656,7 +680,7 @@ $if (-e ./savework) ./savework
         if hasattr(self, 'newSetOfLandmarks'):
             summary.append("Input Tilt-Series: %d.\nFiducial models generated: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.newSetOfLandmarksGaps.getSize()))
+                              self.newSetOfLandmarkModelsGaps.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary

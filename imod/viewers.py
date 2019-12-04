@@ -33,7 +33,7 @@ import tomo.objects
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
-    with the Xmipp program xmipp_showj
+    with the Imod program 3dmod
     """
     _environments = [pwviewer.DESKTOP_TKINTER]
     _targets = [
@@ -41,6 +41,7 @@ class ImodViewer(pwviewer.Viewer):
         tomo.objects.Tomogram,
         tomo.objects.SetOfTomograms,
         tomo.objects.SetOfTiltSeries,
+        tomo.objects.SetOfLandmarkModels,
     ]
 
     def _visualize(self, obj, **kwargs):
@@ -56,6 +57,8 @@ class ImodViewer(pwviewer.Viewer):
                 views.append(ImodObjectView(t))
         elif issubclass(cls, tomo.objects.SetOfTiltSeries):
             views.append(ImodSetView(obj))
+        elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
+            views.append(ImodSetOfLandmarkModelsView(obj))
 
         return views
     
@@ -77,8 +80,14 @@ class ImodSetView(pwviewer.CommandView):
         for item in set:
             # Remove :mrc if present
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
-        print(fn)
         pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
 
-
-
+class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
+    """ Wrapper to visualize landmark models with the 3dmod.
+    """
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            # Remove :mrc if present
+            fn += " " + item.getModelName()
+        pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
