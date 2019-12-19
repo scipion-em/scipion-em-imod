@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import os
-import shutil
 import numpy as np
 import pyworkflow as pw
 import pyworkflow.em as pyem
@@ -131,7 +130,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('generateFiducialModelStep')
         self._insertFunctionStep('computeFiducialAlignmentStep')
         self._insertFunctionStep('translateFiducialPointModelStep')
-        self._insertFunctionStep('mergeAlignmentsStep')
         self._insertFunctionStep('computeOutputStackStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
@@ -170,12 +168,13 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                     transform = ti.getTransform().getMatrix()
                     transformArray = np.array(transform)
                     ih.applyTransform(inputFile=str(index+1)+'@'+inputStack,
-                                      outputFile=str(index+1)+'@'+transformedStack,
+                                      outputFile=str(ts.getSize()-index)+'@'+transformedStack,
                                       transformMatrix=transformArray,
                                       shape=(ti.getXDim(), ti.getYDim()),
                                       borderAverage=True)
+                    print(str(ts.getSize()-index))
                 else:
-                    shutil.copyfile(inputStack, transformedStack)
+                    os.rename(inputStack, transformedStack)
                     break
 
     def generateTrackComStep(self):
@@ -314,7 +313,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 'outputResidualFile': '%s_resid.txt' %tsId,
                 'outputFidXYZFile': '%s_fid.xyz' %tsId,
                 'outputTiltFile': '%s_interpolated.tlt' %tsId,
-                'outputTransformFile': '%s.tltxf' %tsId,
+                'outputTransformFile': '%s.fidxf' %tsId,
                 'outputFilledInModel': '%s_noGaps.fid' %tsId,
                 'rotationAngle': self.rotationAngle.get(),
                 'tiltFile': '%s.rawtlt' %tsId,
@@ -415,46 +414,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 
             self.runJob('tiltalign', argsTiltAlign % paramsTiltAlign, cwd=workingFolder)
 
-    def mergeAlignmentsStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
-            fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
-            os.rename(fileIn, fileOut)
-            # matrix = []
-            # tsId = ts.getTsId()
-            # workingFolder = self._getExtraPath(tsId)
-            # for ti in ts:
-            #     applyTransform = True
-            #     if ti.hasTransform():
-            #         transform = ti.getTransform()
-            #         matrix.append(transform.getMatrixAsList())
-            #     else:
-            #         applyTransform = False
-            #         break
-            # if applyTransform == True:
-            #     self.createTransformFile(tsId, matrix)
-            #     paramsXfproduct = {
-            #         'inputFile1': '%s.prexg' % tsId,
-            #         'inputFile2': '%s.tltxf' % tsId,
-            #         'outputFile': '%s_fid.xf' % tsId
-            #     }
-            #
-            #     argsXfproduct = "-InputFile1 %(inputFile1)s " \
-            #                     "-InputFile2 %(inputFile2)s " \
-            #                     "-OutputFile %(outputFile)s"
-            #
-            #     #self.runJob('xfproduct', argsXfproduct % paramsXfproduct, cwd=workingFolder)
-            #     fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
-            #     fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
-            #     os.rename(fileIn, fileOut)
-            # else:
-            #     fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
-            #     fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
-            #     os.rename(fileIn, fileOut)
-
-
     def computeOutputStackStep(self):
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         for ts in self.inputSetOfTiltSeries.get():
@@ -467,7 +426,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             tltFilePath = os.path.join(self._getExtraPath(), tltFileName)
             tltList = self.parseAngleTltFile(tltFilePath)
 
-            transformationMatricesFile = tsId + "/" + tsId + "_fid.xf"
+            transformationMatricesFile = tsId + "/" + tsId + ".fidxf"
             transformationMatricesFilePath = os.path.join(self._getExtraPath(), transformationMatricesFile)
             newTransformationMatricesList = self.formatTransformationMatrix(transformationMatricesFilePath)
 
@@ -513,7 +472,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             paramsAlginment = {
                 'input': "%s_transformed.st" % tsId,
                 'output': '%s_fidali.st' % tsId,
-                'xform': "%s_fid.xf" % tsId,
+                'xform': "%s.fidxf" % tsId,
                 'bin': int(self.binning.get()),
                 'mode': 0,
                 'float': 2,
@@ -619,7 +578,8 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
-            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
+            if os.path.exists(os.path.join(workingFolder, "%s.st" % tsId)):
+                os.remove(os.path.join(workingFolder, "%s.st" % tsId))
             os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
             os.remove(os.path.join(workingFolder, "%s_transformed.st" % tsId))
 
