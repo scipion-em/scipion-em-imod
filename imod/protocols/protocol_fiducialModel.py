@@ -25,12 +25,13 @@
 # **************************************************************************
 
 import os
-
+import shutil
+import numpy as np
 import pyworkflow as pw
 import pyworkflow.em as pyem
 import pyworkflow.protocol.params as params
+import pyworkflow.em.data as data
 import tomo.objects as tomoObj
-
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
@@ -62,6 +63,12 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.")
+
+        form.addParam('fiducialDiameter',
+                      params.FloatParam,
+                      label='Fiducial diameter',
+                      default='4.95',
+                      help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
                       params.IntParam,
@@ -128,8 +135,8 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeOutputStackStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
-        self._insertFunctionStep('_createOutputStep')
-
+        self._insertFunctionStep('createOutputStep')
+        #self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -147,11 +154,36 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                          outputStackFn=prefix + '.st',
                          outputTltFn=prefix + '.rawtlt')
 
+            """Apply the transformation form the input tilt-series"""
+            inputStack = prefix + '.st'
+            transformedStack = prefix + '_transformed.st'
+            newStack = True
+            for index, ti in enumerate(ts):
+                if ti.hasTransform():
+                    ih = pyem.ImageHandler()
+                    if newStack:
+                        ih.createEmptyImage(fnOut=transformedStack,
+                                            xDim=ti.getXDim(),
+                                            yDim=ti.getYDim(),
+                                            nDim=ts.getSize())
+                        newStack = False
+                    transform = ti.getTransform().getMatrix()
+                    transformArray = np.array(transform)
+                    ih.applyTransform(inputFile=str(index+1)+'@'+inputStack,
+                                      outputFile=str(index+1)+'@'+transformedStack,
+                                      transformMatrix=transformArray,
+                                      shape=(ti.getXDim(), ti.getYDim()),
+                                      borderAverage=True)
+                else:
+                    shutil.copyfile(inputStack, transformedStack)
+                    break
+
     def generateTrackComStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             paramsDict = {
                           'tsId': ts.getTsId(),
-                          'rotationAngle': self.rotationAngle.get()
+                          'rotationAngle': self.rotationAngle.get(),
+                          'fiducialDiameter': self.fiducialDiameter.get()
                           }
             self.translateTrackCom(ts.getTsId(), paramsDict)
 
@@ -184,14 +216,14 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             paramsBeadtrack = {
                 'inputSeedModel': '%s.seed' % tsId,
                 'outputModel': '%s.fid' % tsId,
-                'imageFile': '%s.st' % tsId,
+                'imageFile': '%s_transformed.st' % tsId,
                 'imagesAreBinned': 1,
                 'tiltFile': '%s.rawtlt' %tsId,
                 'tiltDefaultGrouping': 7,
                 'magDefaultGrouping': 5,
                 'rotDefaultGrouping': 1,
                 'minViewsForTiltalign': 4,
-                'beadDiameter': 4.95,
+                'beadDiameter': self.fiducialDiameter.get(),
                 'fillGaps': 1,
                 'maxGapSize': 5,
                 'minTiltRangeToFindAxis': 10.0,
@@ -245,7 +277,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                             "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
                             "-MaxRescueDistance %(maxRescueDistance)f " \
                             "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
-                            "DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
+                            "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
 
             self.runJob('beadtrack', argsBeadtrack % paramsBeadtrack, cwd=workingFolder)
 
@@ -259,7 +291,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                                 'outputFile': '%s_fid.txt' % tsId
                                 }
             argsGapPoint2Model = "-InputFile %(inputFile)s " \
-                              "-OutputFile %(outputFile)s"
+                                 "-OutputFile %(outputFile)s"
             self.runJob('model2point', argsGapPoint2Model % paramsGapPoint2Model, cwd=workingFolder)
 
             paramsNoGapPoint2Model = {
@@ -267,7 +299,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                                 'outputFile': '%s_noGaps_fid.txt' % tsId
                                 }
             argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
-                              "-OutputFile %(outputFile)s"
+                                   "-OutputFile %(outputFile)s"
             self.runJob('model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model, cwd=workingFolder)
 
     def computeFiducialAlignmentStep(self):
@@ -276,7 +308,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             workingFolder = self._getExtraPath(tsId)
             paramsTiltAlign = {
                 'modelFile': '%s.fid' % tsId,
-                'imageFile': '%s.st' %tsId,
+                'imageFile': '%s_transformed.st' %tsId,
                 'imagesAreBinned': 1,
                 'outputModelFile': '%s_fidxyz.mod' %tsId,
                 'outputResidualFile': '%s_resid.txt' %tsId,
@@ -385,35 +417,43 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 
     def mergeAlignmentsStep(self):
         for ts in self.inputSetOfTiltSeries.get():
-            matrix = []
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
-            for ti in ts:
-                applyTransform = True
-                if ti.hasTransform():
-                    transform = ti.getTransform()
-                    matrix.append(transform.getMatrixAsList())
-                else:
-                    applyTransform = False
-                    break
-            if applyTransform == True:
-                self.createTransformFile(tsId, matrix)
-                paramsXfproduct = {
-                    'inputFile1': '%s.prexg' % tsId,
-                    'inputFile2': '%s.tltxf' % tsId,
-                    'outputFile': '%s_fid.xf' % tsId
-                }
+            fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
+            fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
+            os.rename(fileIn, fileOut)
+            # matrix = []
+            # tsId = ts.getTsId()
+            # workingFolder = self._getExtraPath(tsId)
+            # for ti in ts:
+            #     applyTransform = True
+            #     if ti.hasTransform():
+            #         transform = ti.getTransform()
+            #         matrix.append(transform.getMatrixAsList())
+            #     else:
+            #         applyTransform = False
+            #         break
+            # if applyTransform == True:
+            #     self.createTransformFile(tsId, matrix)
+            #     paramsXfproduct = {
+            #         'inputFile1': '%s.prexg' % tsId,
+            #         'inputFile2': '%s.tltxf' % tsId,
+            #         'outputFile': '%s_fid.xf' % tsId
+            #     }
+            #
+            #     argsXfproduct = "-InputFile1 %(inputFile1)s " \
+            #                     "-InputFile2 %(inputFile2)s " \
+            #                     "-OutputFile %(outputFile)s"
+            #
+            #     #self.runJob('xfproduct', argsXfproduct % paramsXfproduct, cwd=workingFolder)
+            #     fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
+            #     fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
+            #     os.rename(fileIn, fileOut)
+            # else:
+            #     fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
+            #     fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
+            #     os.rename(fileIn, fileOut)
 
-                argsXfproduct = "-InputFile1 %(inputFile1)s " \
-                                "-InputFile2 %(inputFile2)s " \
-                                "-OutputFile %(outputFile)s"
-
-                self.runJob('xfproduct', argsXfproduct % paramsXfproduct, cwd=workingFolder)
-
-            else:
-                fileIn = os.path.join(workingFolder, '%s.tltxf' % tsId)
-                fileOut = os.path.join(workingFolder, '%s_fid.xf' % tsId)
-                os.rename(fileIn, fileOut)
 
     def computeOutputStackStep(self):
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
@@ -422,20 +462,43 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
+
             tltFileName = tsId + "/" + tsId + "_interpolated.tlt"
             tltFilePath = os.path.join(self._getExtraPath(), tltFileName)
             tltList = self.parseAngleTltFile(tltFilePath)
 
+            transformationMatricesFile = tsId + "/" + tsId + "_fid.xf"
+            transformationMatricesFilePath = os.path.join(self._getExtraPath(), transformationMatricesFile)
+            newTransformationMatricesList = self.formatTransformationMatrix(transformationMatricesFilePath)
+
             for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(ti, copyId=True)
-                newTi.setLocation(ti.getLocation()[1])
+                newTi.setLocation(index + 1, ti.getLocation()[1])
                 newTi.setTiltAngle(float(tltList[index]))
+
+                if ti.hasTransform():
+                    transform = data.Transform()
+                    previousTransform = ti.getTransform().getMatrix()
+                    newTransform = newTransformationMatricesList[:, :, index]
+                    previousTransformArray = np.array(previousTransform)
+                    newTransformArray = np.array(newTransform)
+                    outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                    transform.setMatrix(outputTransformMatrix)
+                    newTi.setTransform(transform)
+
                 newTs.append(newTi)
+
             newTs.write()
             outputSetOfTiltSeries.update(newTs)
             outputSetOfTiltSeries.write()
         self._store()
+
+        for ts in outputSetOfTiltSeries:
+            for ti in ts:
+                print(ti.getTransform())
+                print(ti.getTiltAngle())
+
 
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -448,7 +511,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 
             workingFolder = self._getExtraPath(tsId)
             paramsAlginment = {
-                'input': "%s.st" % tsId,
+                'input': "%s_transformed.st" % tsId,
                 'output': '%s_fidali.st' % tsId,
                 'xform': "%s_fid.xf" % tsId,
                 'bin': int(self.binning.get()),
@@ -482,7 +545,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
-    def _createOutputStep(self):
+    def createOutputStep(self):
         """Create the output set of landmark models with gaps"""
         self.newSetOfLandmarkModelsGaps = self._createSetOfLandmarkModels(suffix='Gaps')
         for ts in self.inputSetOfTiltSeries.get():
@@ -541,8 +604,25 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._defineOutputs(outputFiducialModelNoGaps=self.newSetOfLandmarkModelsNoGaps)
         self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarkModelsNoGaps)
 
-        """Create the output set of coordinates 3D from the fiduacials in the tilt series"""
+        """Create the output set of coordinates 3D from the fiducials in the tilt series"""
+        #self.newSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.newSetOfTomograms, suffix='FiducialModels')
+        #for ts in self.inputSetOfTiltSeries.get():
+            #tsId = ts.getTsId()
+            #print(tsId)
+            #coorFilePath = tsId + "/" + tsId + "_fid.xyz"
+            #xDim = ts.getXDim()
+            #yDim = ts.getYDim()
+            #coorList = self.parse3dCoordinatesFile(coorFilePath, xDim, yDim)
+            #TODO: generate output as a setOf3DCoordinates
+
+    def cleanDirectory(self):
         for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
+            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
+            os.remove(os.path.join(workingFolder, "%s_transformed.st" % tsId))
+
 
 
     # --------------------------- UTILS functions ----------------------------
@@ -583,7 +663,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
 # "SeparateGroup view_list" with the list of views, one line per group
 #
 $beadtrack -StandardInput
-ImageFile	%(tsId)s.st
+ImageFile	%(tsId)s_transformed.st
 ImagesAreBinned	1
 InputSeedModel	%(tsId)s.seed
 OutputModel	%(tsId)s.fid
@@ -592,7 +672,7 @@ TiltFile	%(tsId)s.rawtlt
 TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
-BeadDiameter	4.95
+BeadDiameter	%(fiducialDiameter)f
 FillGaps
 MaxGapSize	5
 RoundsOfTracking	2
@@ -652,6 +732,35 @@ $if (-e ./savework) ./savework
         angleList.reverse()
         return angleList
 
+    def formatTransformationMatrix(self, matrixFile):
+        with open(matrixFile, "r") as matrix:
+            lines = matrix.readlines()
+        numberLines = len(lines)
+        frameMatrix = np.empty([3, 3, numberLines])
+        i = 0
+        for line in lines:
+            values = line.split()
+            frameMatrix[0, 0, i] = float(values[0])
+            frameMatrix[1, 0, i] = float(values[1])
+            frameMatrix[0, 1, i] = float(values[2])
+            frameMatrix[1, 1, i] = float(values[3])
+            frameMatrix[0, 2, i] = float(values[4])
+            frameMatrix[1, 2, i] = float(values[5])
+            frameMatrix[2, 0, i] = 0.0
+            frameMatrix[2, 1, i] = 0.0
+            frameMatrix[2, 2, i] = 1.0
+            i += 1
+        return frameMatrix
+
+    def parse3dCoordinatesFile(self, coorFilePath, xDim, yDim):
+        coorList = []
+        with open(coorFilePath) as f:
+            coorText = f.read().splitlines()
+            for line in coorText:
+                vector = line.split()
+                coorList.append([float(vector[1]) - xDim/2, float(vector[2]) - yDim/2, float(vector[3])])
+        return coorList
+
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
@@ -677,20 +786,48 @@ $if (-e ./savework) ./savework
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'newSetOfLandmarks'):
-            summary.append("Input Tilt-Series: %d.\nFiducial models generated: %d.\n"
+        if hasattr(self, 'outputFiducialModelGaps'):
+            summary.append("Input Tilt-Series: %d.\nFiducial models generated presenting gaps: %d."
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.newSetOfLandmarkModelsGaps.getSize()))
-        else:
+                              self.outputFiducialModelGaps.getSize()))
+
+        if hasattr(self, 'outputFiducialModelNoGaps'):
+            summary.append("Fiducial models generated with no gaps: %d."
+                           % (self.outputFiducialModelNoGaps.getSize()))
+
+        if hasattr(self, 'outputSetOfTiltSeries'):
+            summary.append("Transformation matrices updated from the input Tilt-Series: %d."
+                           % (self.outputSetOfTiltSeries.getSize()))
+
+        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Interpolated Tilt-Series calculated: %d."
+                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+
+        if not summary:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'newSetOfLandmarks'):
-            methods.append("The fiducial model has been computed for %d "
-                           "Tilt-series using the IMOD procedure.\n"
+        if hasattr(self, 'outputFiducialModelGaps'):
+            methods.append("The fiducial model (presenting gaps) has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
+                           % (self.outputFiducialModelGaps.getSize()))
+
+        if hasattr(self, 'outputFiducialModelNoGaps'):
+            methods.append("The fiducial model (with no gaps) has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
+                           % (self.outputFiducialModelNoGaps.getSize()))
+
+        if hasattr(self, 'outputSetOfTiltSeries'):
+            methods.append("The transformation matrices has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
                            % (self.outputSetOfTiltSeries.getSize()))
-        else:
+
+        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
+                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+
+        if not methods:
             methods.append("Output classes not ready yet.")
         return methods
