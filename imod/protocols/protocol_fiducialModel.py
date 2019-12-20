@@ -40,7 +40,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model based on the IMOD procedure.
     More info:
-        https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
     _label = 'fiducial model'
@@ -134,7 +134,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
         self._insertFunctionStep('createOutputStep')
-        #self._insertFunctionStep('cleanDirectory')
+        self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -172,7 +172,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                                       transformMatrix=transformArray,
                                       shape=(ti.getXDim(), ti.getYDim()),
                                       borderAverage=True)
-                    print(str(ts.getSize()-index))
                 else:
                     os.rename(inputStack, transformedStack)
                     break
@@ -564,15 +563,25 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
         self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfLandmarkModelsNoGaps)
 
         """Create the output set of coordinates 3D from the fiducials in the tilt series"""
-        #self.newSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.newSetOfTomograms, suffix='FiducialModels')
-        #for ts in self.inputSetOfTiltSeries.get():
-            #tsId = ts.getTsId()
-            #print(tsId)
-            #coorFilePath = tsId + "/" + tsId + "_fid.xyz"
-            #xDim = ts.getXDim()
-            #yDim = ts.getYDim()
-            #coorList = self.parse3dCoordinatesFile(coorFilePath, xDim, yDim)
-            #TODO: generate output as a setOf3DCoordinates
+        self.newSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
+                                                                    suffix='FiducialModels')
+        for index, ts in enumerate(self.getOutputSetOfTiltSeries()):
+            tsId = ts.getTsId()
+            coorFileName = tsId + "/" + tsId + "_fid.xyz"
+            xDim = ts.getFirstItem().getXDim()
+            yDim = ts.getFirstItem().getYDim()
+            coorList = self.parse3DCoordinatesFile(coorFileName, xDim, yDim)
+            print (coorList)
+            for element in coorList:
+                newCoor3D = tomoObj.Coordinate3D(x=element[0],
+                                                 y=element[1],
+                                                 z=element[2])
+                newCoor3D.setVolId(index+1)
+                newCoor3D.setVolName(tsId)
+                self.newSetOfCoordinates3D.append(newCoor3D)
+
+        self._defineOutputs(outputSetOfCoordinates3D=self.newSetOfCoordinates3D)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfCoordinates3D)
 
     def cleanDirectory(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -582,8 +591,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 os.remove(os.path.join(workingFolder, "%s.st" % tsId))
             os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
             os.remove(os.path.join(workingFolder, "%s_transformed.st" % tsId))
-
-
 
     # --------------------------- UTILS functions ----------------------------
     def createTransformFile(self, tsId, matrix):
@@ -712,8 +719,9 @@ $if (-e ./savework) ./savework
             i += 1
         return frameMatrix
 
-    def parse3dCoordinatesFile(self, coorFilePath, xDim, yDim):
+    def parse3DCoordinatesFile(self, coorFileName, xDim, yDim):
         coorList = []
+        coorFilePath = os.path.join(self._getExtraPath(),coorFileName)
         with open(coorFilePath) as f:
             coorText = f.read().splitlines()
             for line in coorText:
@@ -763,6 +771,11 @@ $if (-e ./savework) ./savework
             summary.append("Interpolated Tilt-Series calculated: %d."
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
+        if hasattr(self, 'outputSetOfCoordinates3D'):
+            summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputSetOfCoordinates3D.getSize()))
+
         if not summary:
             summary.append("Output classes not ready yet.")
         return summary
@@ -787,6 +800,11 @@ $if (-e ./savework) ./savework
         if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
             methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+
+        if hasattr(self, 'outputSetOfCoordinates3D'):
+            methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
+                           % (self.outputSetOfCoordinates3D.getSize(),
+                              self.inputSetOfTiltSeries.get().getSize()))
 
         if not methods:
             methods.append("Output classes not ready yet.")
