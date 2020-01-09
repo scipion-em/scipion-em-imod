@@ -28,3 +28,4 @@
 # ----------------- Constants values --------------------------------------
 
 IMOD_HOME = 'IMOD_HOME'
+ETOMO_CMD = 'etomo'

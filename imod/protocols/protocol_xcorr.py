@@ -276,3 +276,4 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         else:
             methods.append("Output classes not ready yet.")
         return methods
+

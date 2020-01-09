@@ -33,6 +33,8 @@ from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
 from tomo.protocols import ProtTomoReconstruct
 from tomo.convert import writeTiStack
 
+from imod import ETOMO_CMD
+
 
 class ProtImodEtomo(ProtTomoReconstruct):
     """
@@ -53,30 +55,30 @@ class ProtImodEtomo(ProtTomoReconstruct):
                       default=0,
                       label='Action', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Choose *Register tomogram" option when you want to generate'
-                           'the output Tomogram from your processing with '
-                           'etomo. ')
+                      help='Choose *Register tomogram" option when you want to '
+                           'generate the output Tomogram from your processing '
+                           'with etomo. ')
 
         group = form.addGroup('Build Tomogram',
                               condition='action==0')
         group.addParam('inputTiltSeries', params.PointerParam,
-                      pointerClass='TiltSeries',
-                      important=True,
-                      label='Input Tilt-Series',
-                      help='???')
+                       pointerClass='TiltSeries',
+                       important=True,
+                       label='Input Tilt-Series',
+                       help='???')
 
         group.addParam('excludeList', params.StringParam, default='',
-                      label='Exclusion list',
-                      help='Provide tilt images IDs (usually starting at 1) '
-                           'that you want to exclude from the processing. ')
+                       label='Exclusion list',
+                       help='Provide tilt images IDs (usually starting at 1) '
+                            'that you want to exclude from the processing. ')
 
         group.addParam('binning', params.IntParam, default=2,
-                      label='Bin the input images',
-                      help='Binning of the input images.')
+                       label='Bin the input images',
+                       help='Binning of the input images.')
 
         group.addParam('markersDiameter', params.IntParam, default=20,
-                      label='Fiducial markers diameter (nm)',
-                      help='Size of gold beads in nanometers.')
+                       label='Fiducial markers diameter (nm)',
+                       help='Size of gold beads in nanometers.')
 
         group.addParam('rotationAngle', params.FloatParam,
                        label='Tilt rotation angle (deg)',
@@ -84,6 +86,10 @@ class ProtImodEtomo(ProtTomoReconstruct):
                             'images.')
 
     # -------------------------- INSERT steps functions ---------------------
+    # Overwrite the following function to prevent streaming from base class
+    def _stepsCheck(self):
+        pass
+
     def _insertAllSteps(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
@@ -93,9 +99,9 @@ class ProtImodEtomo(ProtTomoReconstruct):
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsId):
         ts = self.inputTiltSeries.get()
-        workingFolder = self._getExtraPath(tsId)
-        prefix = os.path.join(workingFolder, tsId)
+        workingFolder = self._getWorkingPath()
         pw.utils.makePath(workingFolder)
+        prefix = os.path.join(workingFolder, tsId)
 
         # Write new stack discarding excluded tilts
         excludeList = map(int, self.excludeList.get().split())
@@ -137,29 +143,7 @@ class ProtImodEtomo(ProtTomoReconstruct):
 
     def runEtomoStep(self, tsId):
         workingFolder = self._getExtraPath(tsId)
-        self.runJob('etomo', '%s.edf' % tsId, cwd=workingFolder)
-
-        tomoFn = os.path.join(workingFolder, '%s_full.rec' % tsId)
-        if os.path.exists(tomoFn):
-            self._createOutput(tomoFn)
-
-    def _createOutput(self, tomoFn):
-        inputTs = self.inputTiltSeries.get()
-        outTomos = self._createSetOfTomograms()
-        samplingRate = inputTs.getSamplingRate()
-
-        if self.binning > 1:
-            samplingRate *= self.binning.get()
-
-        outTomos.setSamplingRate(samplingRate)
-
-        t = Tomogram(location=tomoFn+':mrc')
-        t.setObjId(inputTs.getObjId())
-        t.setTsId(inputTs.getTsId())
-        outTomos.append(t)
-
-        self._defineOutputs(outputTomograms=outTomos)
-        self._defineSourceRelation(self.inputTiltSeries, outTomos)
+        self.runJob(ETOMO_CMD, '%s.edf' % tsId, cwd=workingFolder)
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
@@ -272,3 +256,53 @@ ProcessTrack.TomogramCombination=Not started
         """
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
+
+    def _getWorkingPath(self, *paths):
+        ts = self._getInputTs()
+        return self._getExtraPath(ts.getTsId(), *paths)
+
+    def _registerTs(self, outputName, outputPath):
+        """ Register a tilt-series. """
+
+    def _registerReconsTomo(self):
+        outputName = 'outputTomogram'
+
+        if hasattr(self, outputName):
+            raise Exception("The output tomogram has already been registered. ")
+
+        ts = self.inputTiltSeries.get()
+        tsId = ts.getTsId()
+        tomoFn = self._getWorkingPath('%s_full.rec' % tsId)
+
+        if not os.path.exists(tomoFn):
+            raise Exception('Output file %s does not exists. ' % tomoFn)
+
+        samplingRate = ts.getSamplingRate()
+        if self.binning > 1:
+            samplingRate *= self.binning.get()
+
+        t = Tomogram(location=tomoFn + ':mrc')
+        t.setSamplingRate(samplingRate)
+        t.setObjId(ts.getObjId())
+        t.setTsId(tsId)
+
+        return outputName, t
+
+    def registerOutput(self, outputKey):
+        """ Method used to register output selected by the user. """
+        outputDict = {
+            'saveTsPreAli': (self._registerTs, ['.preali']),
+            'saveTsAli': (self._registerTs, ['.ali']),
+            'saveReconsTomo': (self._registerReconsTomo, [])
+        }
+
+        if outputKey not in outputDict:
+            raise Exception("Invalid key '%s' for registerOutput." % outputKey)
+
+        # Call the specific function to create the output for this case
+        func, args = outputDict[outputKey]
+        outputName, output = func(*args)
+
+        self._defineOutputs(**{outputName: output})
+        self._defineSourceRelation(self.inputTiltSeries, output)
+        self._store()
