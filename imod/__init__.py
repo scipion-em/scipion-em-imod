@@ -24,16 +24,18 @@
 # *
 # **************************************************************************
 
-import pyworkflow.em
-from pyworkflow.install.funcs import progInPath
+import pwem
+
 
 from .constants import IMOD_HOME, ETOMO_CMD
+from distutils.spawn import find_executable
 
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
-class Plugin(pyworkflow.em.Plugin):
+
+class Plugin(pwem.Plugin):
 
     _validationMsg = None
 
@@ -52,10 +54,8 @@ class Plugin(pyworkflow.em.Plugin):
         """
 
         if not cls._validationMsg:
-            cls._validationMsg = ["imod's %s command not found in path, please install it." % ETOMO_CMD] if not progInPath(ETOMO_CMD) else []
+            cls._validationMsg = ["imod's %s command not found in path, please install it." % ETOMO_CMD] if not find_executable(ETOMO_CMD) else []
 
         return cls._validationMsg
 
-
-pyworkflow.em.Domain.registerPlugin(__name__)
 
