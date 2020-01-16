@@ -27,16 +27,18 @@
 import os
 import numpy as np
 import pyworkflow as pw
-import pyworkflow.em as pyem
 import pyworkflow.protocol.params as params
-import pyworkflow.em.data as data
+from pwem.convert import ImageHandler
+from pwem.objects import Transform
+from pwem.protocols import EMProtocol
+
 import tomo.objects as tomoObj
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
 
-class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
+class ProtFiducialModel(EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model based on the IMOD procedure.
     More info:
@@ -158,7 +160,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             newStack = True
             for index, ti in enumerate(ts):
                 if ti.hasTransform():
-                    ih = pyem.ImageHandler()
+                    ih = ImageHandler()
                     if newStack:
                         ih.createEmptyImage(fnOut=transformedStack,
                                             xDim=ti.getXDim(),
@@ -167,8 +169,8 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                         newStack = False
                     transform = ti.getTransform().getMatrix()
                     transformArray = np.array(transform)
-                    ih.applyTransform(inputFile=str(index+1)+'@'+inputStack,
-                                      outputFile=str(ts.getSize()-index)+'@'+transformedStack,
+                    ih.applyTransform(inputFile=str(index + 1) + '@' + inputStack,
+                                      outputFile=str(ts.getSize() - index) + '@' + transformedStack,
                                       transformMatrix=transformArray,
                                       shape=(ti.getXDim(), ti.getYDim()),
                                       borderAverage=True)
@@ -179,10 +181,10 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
     def generateTrackComStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             paramsDict = {
-                          'tsId': ts.getTsId(),
-                          'rotationAngle': self.rotationAngle.get(),
-                          'fiducialDiameter': self.fiducialDiameter.get()
-                          }
+                'tsId': ts.getTsId(),
+                'rotationAngle': self.rotationAngle.get(),
+                'fiducialDiameter': self.fiducialDiameter.get()
+            }
             self.translateTrackCom(ts.getTsId(), paramsDict)
 
     def generateFiducialSeedStep(self):
@@ -216,7 +218,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 'outputModel': '%s.fid' % tsId,
                 'imageFile': '%s_transformed.st' % tsId,
                 'imagesAreBinned': 1,
-                'tiltFile': '%s.rawtlt' %tsId,
+                'tiltFile': '%s.rawtlt' % tsId,
                 'tiltDefaultGrouping': 7,
                 'magDefaultGrouping': 5,
                 'rotDefaultGrouping': 1,
@@ -285,17 +287,17 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             workingFolder = self._getExtraPath(tsId)
 
             paramsGapPoint2Model = {
-                                'inputFile': '%s.fid' % tsId,
-                                'outputFile': '%s_fid.txt' % tsId
-                                }
+                'inputFile': '%s.fid' % tsId,
+                'outputFile': '%s_fid.txt' % tsId
+            }
             argsGapPoint2Model = "-InputFile %(inputFile)s " \
                                  "-OutputFile %(outputFile)s"
             self.runJob('model2point', argsGapPoint2Model % paramsGapPoint2Model, cwd=workingFolder)
 
             paramsNoGapPoint2Model = {
-                                'inputFile': '%s_noGaps.fid' % tsId,
-                                'outputFile': '%s_noGaps_fid.txt' % tsId
-                                }
+                'inputFile': '%s_noGaps.fid' % tsId,
+                'outputFile': '%s_noGaps_fid.txt' % tsId
+            }
             argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
                                    "-OutputFile %(outputFile)s"
             self.runJob('model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model, cwd=workingFolder)
@@ -306,16 +308,16 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             workingFolder = self._getExtraPath(tsId)
             paramsTiltAlign = {
                 'modelFile': '%s.fid' % tsId,
-                'imageFile': '%s_transformed.st' %tsId,
+                'imageFile': '%s_transformed.st' % tsId,
                 'imagesAreBinned': 1,
-                'outputModelFile': '%s_fidxyz.mod' %tsId,
-                'outputResidualFile': '%s_resid.txt' %tsId,
-                'outputFidXYZFile': '%s_fid.xyz' %tsId,
-                'outputTiltFile': '%s_interpolated.tlt' %tsId,
-                'outputTransformFile': '%s.fidxf' %tsId,
-                'outputFilledInModel': '%s_noGaps.fid' %tsId,
+                'outputModelFile': '%s_fidxyz.mod' % tsId,
+                'outputResidualFile': '%s_resid.txt' % tsId,
+                'outputFidXYZFile': '%s_fid.xyz' % tsId,
+                'outputTiltFile': '%s_interpolated.tlt' % tsId,
+                'outputTransformFile': '%s.fidxf' % tsId,
+                'outputFilledInModel': '%s_noGaps.fid' % tsId,
                 'rotationAngle': self.rotationAngle.get(),
-                'tiltFile': '%s.rawtlt' %tsId,
+                'tiltFile': '%s.rawtlt' % tsId,
                 'angleOffset': 0.0,
                 'rotOption': 1,
                 'rotDefaultGrouping': 5,
@@ -340,9 +342,9 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 'axisZShift': 0.0,
                 'shiftZFromOriginal': 1,
                 'localAlignments': 0,
-                'outputLocalFile': '%slocal.xf' %tsId,
+                'outputLocalFile': '%slocal.xf' % tsId,
                 'targetPatchSizeXandY': '700,700',
-                'minSizeOrOverlapXandY':	'0.5,0.5',
+                'minSizeOrOverlapXandY': '0.5,0.5',
                 'minFidsTotalAndEachSurface': '8,3',
                 'fixXYZCoordinates': 0,
                 'localOutputOptions': '1,0,1',
@@ -436,7 +438,7 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
                 newTi.setTiltAngle(float(tltList[index]))
 
                 if ti.hasTransform():
-                    transform = data.Transform()
+                    transform = Transform()
                     previousTransform = ti.getTransform().getMatrix()
                     newTransform = newTransformationMatricesList[:, :, index]
                     previousTransformArray = np.array(previousTransform)
@@ -456,7 +458,6 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             for ti in ts:
                 print(ti.getTransform())
                 print(ti.getTiltAngle())
-
 
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -571,12 +572,12 @@ class ProtFiducialModel(pyem.EMProtocol, ProtTomoBase):
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
             coorList = self.parse3DCoordinatesFile(coorFileName, xDim, yDim)
-            print (coorList)
+            print(coorList)
             for element in coorList:
                 newCoor3D = tomoObj.Coordinate3D(x=element[0],
                                                  y=element[1],
                                                  z=element[2])
-                newCoor3D.setVolId(index+1)
+                newCoor3D.setVolId(index + 1)
                 newCoor3D.setVolName(tsId)
                 self.newSetOfCoordinates3D.append(newCoor3D)
 
@@ -681,7 +682,8 @@ $if (-e ./savework) ./savework
             with open(trackFilePath, 'w') as f:
                 f.write(template % paramsDict)
 
-    def parseFiducialModelFile(self, fiducialFilePath):
+    @staticmethod
+    def parseFiducialModelFile(fiducialFilePath):
         fiducialList = []
         with open(fiducialFilePath) as f:
             fiducialText = f.read().splitlines()
@@ -699,7 +701,8 @@ $if (-e ./savework) ./savework
         angleList.reverse()
         return angleList
 
-    def formatTransformationMatrix(self, matrixFile):
+    @staticmethod
+    def formatTransformationMatrix(matrixFile):
         with open(matrixFile, "r") as matrix:
             lines = matrix.readlines()
         numberLines = len(lines)
@@ -721,12 +724,12 @@ $if (-e ./savework) ./savework
 
     def parse3DCoordinatesFile(self, coorFileName, xDim, yDim):
         coorList = []
-        coorFilePath = os.path.join(self._getExtraPath(),coorFileName)
+        coorFilePath = os.path.join(self._getExtraPath(), coorFileName)
         with open(coorFilePath) as f:
             coorText = f.read().splitlines()
             for line in coorText:
                 vector = line.split()
-                coorList.append([float(vector[1]) - xDim/2, float(vector[2]) - yDim/2, float(vector[3])])
+                coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
         return coorList
 
     def getOutputInterpolatedSetOfTiltSeries(self):
