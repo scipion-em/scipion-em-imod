@@ -27,18 +27,19 @@
 import os
 import numpy as np
 import pyworkflow as pw
-import pyworkflow.em as pyem
-import pyworkflow.em.data as data
+import pwem
+import pwem.objects as data
 import pyworkflow.protocol.params as params
+from pwem.protocols import EMProtocol
+
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
 
-class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
+class ProtImodXcorr(EMProtocol, ProtTomoBase):
     """
     Tilt-series' cross correlation alignment based on the IMOD procedure.
-
     More info:
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
@@ -46,7 +47,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
     _label = 'xcorr prealignment'
 
     def __init__(self, **kwargs):
-        pyem.EMProtocol.__init__(self, **kwargs)
+        EMProtocol.__init__(self, **kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -87,6 +88,7 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
+        self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -177,8 +179,8 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
+
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
@@ -192,6 +194,14 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
+
+    def cleanDirectory(self):
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
+            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
+
 
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):
@@ -268,3 +278,4 @@ class ProtImodXcorr(pyem.EMProtocol, ProtTomoBase):
         else:
             methods.append("Output classes not ready yet.")
         return methods
+
