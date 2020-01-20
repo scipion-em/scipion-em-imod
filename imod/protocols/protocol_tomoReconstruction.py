@@ -25,28 +25,22 @@
 # **************************************************************************
 
 import os
-import numpy as np
+from pwem.protocols import EMProtocol
 import pyworkflow as pw
-import pyworkflow.em as pyem
-import pyworkflow.em.data as data
 import pyworkflow.protocol.params as params
-import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
 
-class ProtTomoReconstruction(pyem.EMProtocol, ProtTomoBase):
+class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
     """
-    Tomogram reconstruction procedure  based on the IMOD procedure.
+    Tomogram reconstruction procedure based on the IMOD procedure.
 
     More info:
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'tomo reconstruction'
-
-    def __init__(self, **kwargs):
-        pyem.EMProtocol.__init__(self, **kwargs)
+    _label = 'tomogram reconstruction'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -66,7 +60,7 @@ class ProtTomoReconstruction(pyem.EMProtocol, ProtTomoBase):
                            'obtained transformation matrices.')
 
         group = form.addGroup('Interpolated tilt-series',
-                      condition='computeAlignment==0')
+                              condition='computeAlignment==0')
 
         group.addParam('binning', params.FloatParam,
                        default=1.0,
@@ -104,5 +98,6 @@ class ProtTomoReconstruction(pyem.EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             workingFolder = self._getExtraPath(tsId)
-            #self.runJob('cp', '/home/fede/Downloads/Etomo_tutorialData/BBa.ali /home/fede/ScipionUserData/projects/Tomo_IMOD/Runs/019116_ProtTomoReconstruction/extra/BBa/BBa.ali')
-            self.runJob('tilt', '-InputProjections %s.st -OutputFile %s.mrc -TILTFILE %s.rawtlt -THICKNESS 100' % (tsId, tsId, tsId), cwd=workingFolder)
+            # self.runJob('cp', '/home/fede/Downloads/Etomo_tutorialData/BBa.ali /home/fede/ScipionUserData/projects/Tomo_IMOD/Runs/019116_ProtTomoReconstruction/extra/BBa/BBa.ali')
+            self.runJob('tilt', '-InputProjections %s.st -OutputFile %s.mrc -TILTFILE %s.rawtlt -THICKNESS 100' % (
+            tsId, tsId, tsId), cwd=workingFolder)
