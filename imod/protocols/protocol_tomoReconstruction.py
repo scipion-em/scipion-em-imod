@@ -51,18 +51,13 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-Series')
 
-        form.addParam('computeAlignment', params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Generate interpolated tilt-series', important=True,
+        form.addParam('tomoThickness', params.EnumParam,
+                      default=100,
+                      label='Tomogram thickness', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+                      help='Size in pixels of the tomogram in the z axis (beam direction).')
 
-        group = form.addGroup('Interpolated tilt-series',
-                              condition='computeAlignment==0')
-
-        group.addParam('binning', params.FloatParam,
+        form.addParam('binning', params.FloatParam,
                        default=1.0,
                        label='Binning',
                        help='Binning to be applied to the interpolated tilt-series. '
