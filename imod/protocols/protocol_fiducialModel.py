@@ -589,9 +589,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
     def translateTrackCom(self, tsId, paramsDict):
         trackFileName = tsId + "/" + tsId + "_track.com"
         trackFilePath = os.path.join(self._getExtraPath(), trackFileName)
-
-        else:
-            template = """# Command file for running BEADTRACK
+        template = """# Command file for running BEADTRACK
 #
 ####CreatedVersion####4.9.12
 #
@@ -654,8 +652,8 @@ DeletionCriterionMinAndSD	0.04,2.0
 SobelFilterCentering
 $if (-e ./savework) ./savework
 """
-            with open(trackFilePath, 'w') as f:
-                f.write(template % paramsDict)
+        with open(trackFilePath, 'w') as f:
+            f.write(template % paramsDict)
 
     @staticmethod
     def parseFiducialModelFile(fiducialFilePath):
