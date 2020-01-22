@@ -85,26 +85,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
-        form.addParam('importTrackFile',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Import track file',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Import a customized track file for the execution of the program.")
-
-        groupTrackFile = form.addGroup('Track file',
-                                       expertLevel=params.LEVEL_ADVANCED,
-                                       condition='importTrackFile==0')
-
-        groupTrackFile.addParam('trackFilePath',
-                                params.PathParam,
-                                label='File path',
-                                expertLevel=params.LEVEL_ADVANCED,
-                                help="Customized file path location.")
-
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -610,11 +590,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         trackFileName = tsId + "/" + tsId + "_track.com"
         trackFilePath = os.path.join(self._getExtraPath(), trackFileName)
 
-        if self.importTrackFile == 0:
-            with open(self.trackFilePath.get(), 'r') as f:
-                userTrackFile = f.read()
-            with open(trackFilePath, 'w') as f:
-                f.write(userTrackFile)
         else:
             template = """# Command file for running BEADTRACK
 #
