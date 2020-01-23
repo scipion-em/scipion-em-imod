@@ -67,8 +67,8 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
         form.addParam('fiducialDiameter',
                       params.FloatParam,
-                      label='Fiducial diameter',
-                      default='4.95',
+                      label='Fiducial diameter (nm)',
+                      default='10',
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -434,11 +434,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             outputSetOfTiltSeries.write()
         self._store()
 
-        for ts in outputSetOfTiltSeries:
-            for ti in ts:
-                print(ti.getTransform())
-                print(ti.getTiltAngle())
-
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
 
@@ -552,7 +547,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
             coorList = self.parse3DCoordinatesFile(coorFileName, xDim, yDim)
-            print(coorList)
             for element in coorList:
                 newCoor3D = tomoObj.Coordinate3D(x=element[0],
                                                  y=element[1],
