@@ -67,8 +67,8 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
         form.addParam('fiducialDiameter',
                       params.FloatParam,
-                      label='Fiducial diameter',
-                      default='4.95',
+                      label='Fiducial diameter (nm)',
+                      default='10',
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -84,26 +84,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                       default='0.0',
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
-
-        form.addParam('importTrackFile',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Import track file',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Import a customized track file for the execution of the program.")
-
-        groupTrackFile = form.addGroup('Track file',
-                                       expertLevel=params.LEVEL_ADVANCED,
-                                       condition='importTrackFile==0')
-
-        groupTrackFile.addParam('trackFilePath',
-                                params.PathParam,
-                                label='File path',
-                                expertLevel=params.LEVEL_ADVANCED,
-                                help="Customized file path location.")
 
         form.addParam('computeAlignment',
                       params.EnumParam,
@@ -454,11 +434,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             outputSetOfTiltSeries.write()
         self._store()
 
-        for ts in outputSetOfTiltSeries:
-            for ti in ts:
-                print(ti.getTransform())
-                print(ti.getTiltAngle())
-
     def computeInterpolatedStackStep(self):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
 
@@ -572,7 +547,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
             coorList = self.parse3DCoordinatesFile(coorFileName, xDim, yDim)
-            print(coorList)
             for element in coorList:
                 newCoor3D = tomoObj.Coordinate3D(x=element[0],
                                                  y=element[1],
@@ -609,14 +583,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
     def translateTrackCom(self, tsId, paramsDict):
         trackFileName = tsId + "/" + tsId + "_track.com"
         trackFilePath = os.path.join(self._getExtraPath(), trackFileName)
-
-        if self.importTrackFile == 0:
-            with open(self.trackFilePath.get(), 'r') as f:
-                userTrackFile = f.read()
-            with open(trackFilePath, 'w') as f:
-                f.write(userTrackFile)
-        else:
-            template = """# Command file for running BEADTRACK
+        template = """# Command file for running BEADTRACK
 #
 ####CreatedVersion####4.9.12
 #
@@ -679,8 +646,8 @@ DeletionCriterionMinAndSD	0.04,2.0
 SobelFilterCentering
 $if (-e ./savework) ./savework
 """
-            with open(trackFilePath, 'w') as f:
-                f.write(template % paramsDict)
+        with open(trackFilePath, 'w') as f:
+            f.write(template % paramsDict)
 
     @staticmethod
     def parseFiducialModelFile(fiducialFilePath):
