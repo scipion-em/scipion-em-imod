@@ -25,11 +25,15 @@
 # **************************************************************************
 
 import os
-from pwem.protocols import EMProtocol
+import numpy as np
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
+import pyworkflow.utils.path as path
+from pwem.protocols import EMProtocol
+from pwem.convert import ImageHandler
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
+from tomo.objects import Tomogram, TomoAcquisition
 
 
 class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
@@ -51,48 +55,85 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-Series')
 
-        form.addParam('tomoThickness', params.EnumParam,
+        form.addParam('tomoThickness', params.FloatParam,
                       default=100,
                       label='Tomogram thickness', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Size in pixels of the tomogram in the z axis (beam direction).')
 
-        form.addParam('binning', params.FloatParam,
-                       default=1.0,
-                       label='Binning',
-                       help='Binning to be applied to the interpolated tilt-series. '
-                            'Must be a integer bigger than 1')
-
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Angle from the vertical to the tilt axis in raw images.")
-
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('computeReconstructionStep')
+        self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            prefix = os.path.join(workingFolder, tsId)
-            pw.utils.makePath(workingFolder)
-            tiList = [ti.clone() for ti in ts]
-            tiList.sort(key=lambda ti: ti.getTiltAngle())
-            tiList.reverse()
-            writeTiStack(tiList,
-                         outputStackFn=prefix + '.st',
-                         outputTltFn=prefix + '.rawtlt')
+            inputTsFileName = ts.getFirstItem().getLocation()[1]
+            extraPrefix = self._getExtraPath(tsId)
+            tmpPrefix = self._getTmpPath(tsId)
+            path.makePath(tmpPrefix)
+            path.makePath(extraPrefix)
+
+            """Apply the transformation form the input tilt-series"""
+            inputStack = inputTsFileName
+            transformedStack = os.path.join(tmpPrefix, "%s.st" % tsId)
+            newStack = True
+            for index, ti in enumerate(ts):
+                if ti.hasTransform():
+                    print((ti.getTransform().getMatrix()))
+                    ih = ImageHandler()
+                    if newStack:
+                        ih.createEmptyImage(fnOut=transformedStack,
+                                            xDim=ti.getXDim(),
+                                            yDim=ti.getYDim(),
+                                            nDim=ts.getSize())
+                        newStack = False
+                    transform = ti.getTransform().getMatrix()
+                    transformArray = np.array(transform)
+                    ih.applyTransform(inputFile=str(index + 1) + '@' + inputStack,
+                                      outputFile=str(ts.getSize() - index) + '@' + transformedStack,
+                                      transformMatrix=transformArray,
+                                      shape=(ti.getXDim(), ti.getYDim()),
+                                      borderAverage=True)
+                else:
+                    path.createLink(inputTsFileName, os.path.join(tmpPrefix, "%s.st" % tsId))
+                    break
+
+            """Generate angle file"""
+            angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+            self.generateAngleFile(ts, angleFilePath)
 
     def computeReconstructionStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            # self.runJob('cp', '/home/fede/Downloads/Etomo_tutorialData/BBa.ali /home/fede/ScipionUserData/projects/Tomo_IMOD/Runs/019116_ProtTomoReconstruction/extra/BBa/BBa.ali')
-            self.runJob('tilt', '-InputProjections %s.st -OutputFile %s.mrc -TILTFILE %s.rawtlt -THICKNESS 100' % (
-            tsId, tsId, tsId), cwd=workingFolder)
+            tomoPathOut = self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId))
+            tsPathIn = ts.getFirstItem().getLocation()[1]
+            angleFilePath = self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId))
+
+            self.runJob('tilt', '-InputProjections %s -OutputFile %s -TILTFILE %s -THICKNESS %d' %
+                        (tsPathIn, tomoPathOut, angleFilePath, self.tomoThickness.get()))
+
+    def createOutputStep(self):
+        self.outputSetOfTomograms = self._createSetOfTomograms()
+        self.outputSetOfTomograms.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            newTomogram = Tomogram()
+            newTomogram.setLocation(os.path.join(self._getExtraPath(tsId), '%s.mrc' % tsId))
+            self.outputSetOfTomograms.append(newTomogram)
+        self._defineOutputs(outputTomograms=self.outputSetOfTomograms)
+        self._defineSourceRelation(self.inputSetOfTiltSeries, self.outputSetOfTomograms)
+
+        path.moveTree(self._getTmpPath(), self._getExtraPath())
+
+    @staticmethod
+    def generateAngleFile(inputTs, angleFilePath):
+        angleList = []
+        for ti in inputTs:
+            angleList.append(ti.getTiltAngle())
+        angleList.reverse()
+        with open(angleFilePath, 'w') as f:
+            f.writelines("%s\n" % angle for angle in angleList)
