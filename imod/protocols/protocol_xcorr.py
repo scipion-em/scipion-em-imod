@@ -30,8 +30,8 @@ import pyworkflow as pw
 import pwem
 import pwem.objects as data
 import pyworkflow.protocol.params as params
+import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
-
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
@@ -88,31 +88,40 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
-        self._insertFunctionStep('cleanDirectory')
+        #self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            prefix = os.path.join(workingFolder, tsId)
-            pw.utils.makePath(workingFolder)
-            tiList = [ti.clone() for ti in ts]
-            tiList.sort(key=lambda ti: ti.getTiltAngle())
-            tiList.reverse()
-            writeTiStack(tiList,
-                         outputStackFn=prefix + '.st',
-                         outputTltFn=prefix + '.rawtlt')
+            extraPrefix = self._getExtraPath(tsId)
+            tmpPrefix = self._getTmpPath(tsId)
+            path.makePath(tmpPrefix)
+            path.makePath(extraPrefix)
+            inputTsFileName = ts.getFirstItem().getLocation()[1]
+            outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+
+            """Apply the transformation form the input tilt-series"""
+            if ts.getFirstItem().hasTransform():
+                ts.applyTransform(outputTsFileName)
+            else:
+                path.createLink(inputTsFileName, outputTsFileName)
+
+            """Generate angle file"""
+            angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+            ts.generateTltFile(angleFilePath, reverse=True)
 
     def computeXcorrStep(self):
-        # Compute transformation matrix for each tilt series
+        """Compute transformation matrix for each tilt series"""
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
+            extraPrefix = self._getExtraPath(tsId)
+            tmpPrefix = self._getTmpPath(tsId)
+
             paramsXcorr = {
-                'input': '%s.st' % tsId,
-                'output': '%s.prexf' % tsId,
-                'tiltfile': '%s.rawtlt' % tsId,
+                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+                'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
+                'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
                 'RotationAngle': self.rotationAngle.get(),
                 'FilterSigma1': 0.03,
                 'FilterSigma2': 0.05,
@@ -125,16 +134,17 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                         "-FilterSigma1 %(FilterSigma1)f " \
                         "-FilterSigma2 %(FilterSigma2)f " \
                         "-FilterRadius2 %(FilterRadius2)f"
-            self.runJob('tiltxcorr', argsXcorr % paramsXcorr, cwd=workingFolder)
+            self.runJob('tiltxcorr', argsXcorr % paramsXcorr)
+
             paramsXftoxg = {
-                'input': '%s.prexf' % tsId,
-                'goutput': '%s.prexg' % tsId,
+                'input': os.path.join(extraPrefix, '%s.prexf' % tsId),
+                'goutput': os.path.join(extraPrefix, '%s.prexg' % tsId),
             }
             argsXftoxg = "-input %(input)s " \
                         "-goutput %(goutput)s"
-            self.runJob('xftoxg', argsXftoxg % paramsXftoxg, cwd=workingFolder)
+            self.runJob('xftoxg', argsXftoxg % paramsXftoxg)
 
-        # Generate output tilt series
+        """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
@@ -163,11 +173,13 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputInterpolatedSetOfTiltSeries.append(newTs)
-            workingFolder = self._getExtraPath(tsId)
+            extraPrefix = self._getExtraPath(tsId)
+            tmpPrefix = self._getTmpPath(tsId)
+
             paramsAlginment = {
-                'input': "%s.st" % tsId,
-                'output': '%s_preali.st' % tsId,
-                'xform': "%s.prexg" % tsId,
+                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+                'output': os.path.join(extraPrefix, '%s_preali.st' % tsId),
+                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
                 'bin': int(self.binning.get()),
                 'mode': 0,
                 'float': 2,
@@ -179,12 +191,12 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
+            self.runJob('newstack', argsAlignment % paramsAlginment)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1, (os.path.join(workingFolder, '%s_preali.st' % tsId)))
+                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
                 if self.binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)

@@ -71,40 +71,22 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
     def convertInputStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            inputTsFileName = ts.getFirstItem().getLocation()[1]
             extraPrefix = self._getExtraPath(tsId)
             tmpPrefix = self._getTmpPath(tsId)
             path.makePath(tmpPrefix)
             path.makePath(extraPrefix)
+            inputTsFileName = ts.getFirstItem().getLocation()[1]
+            outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
             """Apply the transformation form the input tilt-series"""
-            inputStack = inputTsFileName
-            transformedStack = os.path.join(tmpPrefix, "%s.st" % tsId)
-            newStack = True
-            for index, ti in enumerate(ts):
-                if ti.hasTransform():
-                    print((ti.getTransform().getMatrix()))
-                    ih = ImageHandler()
-                    if newStack:
-                        ih.createEmptyImage(fnOut=transformedStack,
-                                            xDim=ti.getXDim(),
-                                            yDim=ti.getYDim(),
-                                            nDim=ts.getSize())
-                        newStack = False
-                    transform = ti.getTransform().getMatrix()
-                    transformArray = np.array(transform)
-                    ih.applyTransform(inputFile=str(index + 1) + '@' + inputStack,
-                                      outputFile=str(ts.getSize() - index) + '@' + transformedStack,
-                                      transformMatrix=transformArray,
-                                      shape=(ti.getXDim(), ti.getYDim()),
-                                      borderAverage=True)
-                else:
-                    path.createLink(inputTsFileName, os.path.join(tmpPrefix, "%s.st" % tsId))
-                    break
+            if ts.getFirstItem().hasTransform():
+                ts.applyTransform(outputTsFileName)
+            else:
+                path.createLink(inputTsFileName, outputTsFileName)
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            self.generateAngleFile(ts, angleFilePath)
+            ts.generateTltFile(angleFilePath, reverse=True)
 
     def computeReconstructionStep(self):
         for ts in self.inputSetOfTiltSeries.get():
