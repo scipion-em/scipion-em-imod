@@ -1,10 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
 # *
-# * [1] SciLifeLab, Stockholm University
-# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
+# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -25,10 +23,23 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+"""
+This module contains utils functions for IMOD protocols
+"""
 
-from .protocol_etomo import ProtImodEtomo
-from .protocol_auto3d import ProtImodAuto3D
-from .protocol_xcorr import ProtImodXcorr
-from .protocol_fiducialModel import ProtFiducialModel
-from .protocol_tomoReconstruction import ProtTomoReconstruction
-from .protocol_newstack import ProtNewstack
+import csv
+
+def formatTransformFile(ts, transformFilePath):
+    tsMatrixTransformList = []
+    for ti in ts:
+        transform = ti.getTransform().getMatrix().flatten()
+        transformIMOD = [transform[0],
+                         transform[1],
+                         transform[3],
+                         transform[4],
+                         transform[2],
+                         transform[5]]
+        tsMatrixTransformList.append(transformIMOD)
+    with open(transformFilePath, 'w') as f:
+        csvW = csv.writer(f, delimiter='\t')
+        csvW.writerows(tsMatrixTransformList)

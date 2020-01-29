@@ -26,8 +26,6 @@
 
 import os
 import numpy as np
-import pyworkflow as pw
-import pwem
 import pwem.objects as data
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
