@@ -26,6 +26,7 @@
 
 import os
 import numpy as np
+import imod.utils as utils
 import pwem.objects as data
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -86,7 +87,6 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
-        #self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -107,7 +107,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            ts.generateTltFile(angleFilePath, reverse=True)
+            ts.generateTltFile(angleFilePath)
 
     def computeXcorrStep(self):
         """Compute transformation matrix for each tilt series"""
@@ -146,7 +146,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
-            alignmentMatrix = self.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
+            alignmentMatrix = utils.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
@@ -174,7 +174,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
             extraPrefix = self._getExtraPath(tsId)
             tmpPrefix = self._getTmpPath(tsId)
 
-            paramsAlginment = {
+            paramsAlignment = {
                 'input': os.path.join(tmpPrefix, '%s.st' % tsId),
                 'output': os.path.join(extraPrefix, '%s_preali.st' % tsId),
                 'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
@@ -189,7 +189,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlginment)
+            self.runJob('newstack', argsAlignment % paramsAlignment)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -205,35 +205,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
-    def cleanDirectory(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
-            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
-
-
     # --------------------------- UTILS functions ----------------------------
-    def formatTransformationMatrix(self, matrixFile):
-        with open(matrixFile, "r") as matrix:
-            lines = matrix.readlines()
-        numberLines = len(lines)
-        frameMatrix = np.empty([3, 3, numberLines])
-        i = 0
-        for line in lines:
-            values = line.split()
-            frameMatrix[0, 0, i] = float(values[0])
-            frameMatrix[1, 0, i] = float(values[1])
-            frameMatrix[0, 1, i] = float(values[2])
-            frameMatrix[1, 1, i] = float(values[3])
-            frameMatrix[0, 2, i] = float(values[4])
-            frameMatrix[1, 2, i] = float(values[5])
-            frameMatrix[2, 0, i] = 0.0
-            frameMatrix[2, 1, i] = 0.0
-            frameMatrix[2, 2, i] = 1.0
-            i += 1
-        return frameMatrix
-
     def getOutputSetOfTiltSeries(self):
         if not hasattr(self, "outputSetOfTiltSeries"):
             outputSetOfTiltSeries = self._createSetOfTiltSeries()

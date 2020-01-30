@@ -26,6 +26,7 @@
 
 import os
 import numpy as np
+import imod.utils as utils
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -116,7 +117,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
         self._insertFunctionStep('createOutputStep')
-        #self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -137,7 +137,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            ts.generateTltFile(angleFilePath, reverse=True)
+            ts.generateTltFile(angleFilePath)
 
     def generateTrackComStep(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -365,7 +365,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
 
             paramsGapPoint2Model = {
                 'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
@@ -393,11 +392,11 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
             tltFileName = tsId + "_interpolated.tlt"
             tltFilePath = os.path.join(self._getExtraPath(tsId), tltFileName)
-            tltList = self.parseAngleTltFile(tltFilePath)
+            tltList = utils.formatAngleList(tltFilePath)
 
             transformationMatricesFile = tsId + ".fidxf"
             transformationMatricesFilePath = os.path.join(self._getExtraPath(tsId), transformationMatricesFile)
-            newTransformationMatricesList = self.formatTransformationMatrix(transformationMatricesFilePath)
+            newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
             for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -457,7 +456,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
             tltFileName = tsId + "_interpolated.tlt"
             tltFilePath = os.path.join(self._getExtraPath(tsId), tltFileName)
-            tltList = self.parseAngleTltFile(tltFilePath)
+            tltList = utils.formatAngleList(tltFilePath)
             for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(ti, copyId=True)
@@ -481,7 +480,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
             fiducialGapFileName =tsId + "_fid.txt"
             fiducialGapFilePath = os.path.join(self._getExtraPath(tsId), fiducialGapFileName)
-            fiducialGapList = self.parseFiducialModelFile(fiducialGapFilePath)
+            fiducialGapList = utils.formatFiducialList(fiducialGapFilePath)
 
             fiducialModelGapFileName = tsId + ".fid"
             fiducialModelGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelGapFileName)
@@ -510,7 +509,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
             fiducialNoGapFileName = tsId + "_noGaps_fid.txt"
             fiducialNoGapFilePath = os.path.join(self._getExtraPath(tsId), fiducialNoGapFileName)
-            fiducialNoGapList = self.parseFiducialModelFile(fiducialNoGapFilePath)
+            fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
             fiducialModelNoGapFileName = tsId + "_noGaps.fid"
             fiducialModelNoGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelNoGapFileName)
@@ -541,7 +540,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             coordFilePath = os.path.join(self._getExtraPath(tsId), coordFileName)
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
-            coordList = self.parse3DCoordinatesFile(coordFilePath, xDim, yDim)
+            coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
             for element in coordList:
                 newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                   y=element[1],
@@ -553,28 +552,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         self._defineOutputs(outputSetOfCoordinates3D=self.newSetOfCoordinates3D)
         self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfCoordinates3D)
 
-    def cleanDirectory(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            workingFolder = self._getExtraPath(tsId)
-            if os.path.exists(os.path.join(workingFolder, "%s.st" % tsId)):
-                os.remove(os.path.join(workingFolder, "%s.st" % tsId))
-            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
-            os.remove(os.path.join(workingFolder, "%s_transformed.st" % tsId))
-
     # --------------------------- UTILS functions ----------------------------
-    def createTransformFile(self, tsId, matrix):
-        matrixFile = self._getExtraPath('%s/%s.prexg' % (tsId, tsId))
-        with open(matrixFile, "w") as fOut:
-            for line in matrix:
-                fOut.write('%12.7f' % line[0])
-                fOut.write('%12.7f' % line[3])
-                fOut.write('%12.7f' % line[1])
-                fOut.write('%12.7f' % line[4])
-                fOut.write('%12.3f' % line[2])
-                fOut.write('%12.3f' % line[5])
-                fOut.write('\n')
-
     def translateTrackCom(self, tsId, paramsDict):
         trackFileName = tsId + "_track.com"
         trackFilePath = os.path.join(self._getExtraPath(tsId), trackFileName)
@@ -643,55 +621,6 @@ $if (-e ./savework) ./savework
 """
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
-
-    @staticmethod
-    def parseFiducialModelFile(fiducialFilePath):
-        fiducialList = []
-        with open(fiducialFilePath) as f:
-            fiducialText = f.read().splitlines()
-            for line in fiducialText:
-                vector = line.split()
-                fiducialList.append(vector)
-        return fiducialList
-
-    def parseAngleTltFile(self, tltFilePath):
-        angleList = []
-        with open(tltFilePath) as f:
-            tltText = f.read().splitlines()
-            for line in tltText:
-                angleList.append(float(line))
-        angleList.reverse()
-        return angleList
-
-    @staticmethod
-    def formatTransformationMatrix(matrixFile):
-        with open(matrixFile, "r") as matrix:
-            lines = matrix.readlines()
-        numberLines = len(lines)
-        frameMatrix = np.empty([3, 3, numberLines])
-        i = 0
-        for line in lines:
-            values = line.split()
-            frameMatrix[0, 0, i] = float(values[0])
-            frameMatrix[1, 0, i] = float(values[1])
-            frameMatrix[0, 1, i] = float(values[2])
-            frameMatrix[1, 1, i] = float(values[3])
-            frameMatrix[0, 2, i] = float(values[4])
-            frameMatrix[1, 2, i] = float(values[5])
-            frameMatrix[2, 0, i] = 0.0
-            frameMatrix[2, 1, i] = 0.0
-            frameMatrix[2, 2, i] = 1.0
-            i += 1
-        return frameMatrix
-
-    def parse3DCoordinatesFile(self, coordFilePath, xDim, yDim):
-        coorList = []
-        with open(coordFilePath) as f:
-            coorText = f.read().splitlines()
-            for line in coorText:
-                vector = line.split()
-                coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
-        return coorList
 
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):

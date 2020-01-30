@@ -86,7 +86,7 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            ts.generateTltFile(angleFilePath, reverse=True)
+            ts.generateTltFile(angleFilePath)
 
     def computeReconstructionStep(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -111,11 +111,3 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
 
         path.moveTree(self._getTmpPath(), self._getExtraPath())
 
-    @staticmethod
-    def generateAngleFile(inputTs, angleFilePath):
-        angleList = []
-        for ti in inputTs:
-            angleList.append(ti.getTiltAngle())
-        angleList.reverse()
-        with open(angleFilePath, 'w') as f:
-            f.writelines("%s\n" % angle for angle in angleList)
