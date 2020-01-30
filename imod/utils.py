@@ -28,8 +28,12 @@ This module contains utils functions for IMOD protocols
 """
 
 import csv
+import numpy as np
+
 
 def formatTransformFile(ts, transformFilePath):
+    """This method takes a tilt series and the output transformation file path
+    and creates an IMOD-based transform file in the location indicated"""
     tsMatrixTransformList = []
     for ti in ts:
         transform = ti.getTransform().getMatrix().flatten()
@@ -43,3 +47,74 @@ def formatTransformFile(ts, transformFilePath):
     with open(transformFilePath, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')
         csvW.writerows(tsMatrixTransformList)
+
+
+def formatTransformationMatrix(matrixFile):
+    """This method takes the IMOD-based transformation matrix file path
+    and returns a 3D matrix containing the transformation matrices for each tilt-image
+    belonging to the tilt-series"""
+    with open(matrixFile, "r") as matrix:
+        lines = matrix.readlines()
+    numberLines = len(lines)
+    frameMatrix = np.empty([3, 3, numberLines])
+    i = 0
+    for line in lines:
+        values = line.split()
+        frameMatrix[0, 0, i] = float(values[0])
+        frameMatrix[1, 0, i] = float(values[2])
+        frameMatrix[0, 1, i] = float(values[1])
+        frameMatrix[1, 1, i] = float(values[3])
+        frameMatrix[0, 2, i] = float(values[4])
+        frameMatrix[1, 2, i] = float(values[5])
+        frameMatrix[2, 0, i] = 0.0
+        frameMatrix[2, 1, i] = 0.0
+        frameMatrix[2, 2, i] = 1.0
+        i += 1
+    return frameMatrix
+
+
+def formatFiducialList(fiducialFilePath):
+    """This method takes the IMOD-based fiducial model file path and returns a list
+    containing the coordinates and chain ID of each fiducial belonging to the
+    tilt-series"""
+    fiducialList = []
+    with open(fiducialFilePath) as f:
+        fiducialText = f.read().splitlines()
+        for line in fiducialText:
+            vector = line.split()
+            fiducialList.append(vector)
+    return fiducialList
+
+
+def formatAngleFile(inputTs, angleFilePath):
+    angleList = []
+    for ti in inputTs:
+        angleList.append(ti.getTiltAngle())
+    angleList.reverse()
+    with open(angleFilePath, 'w') as f:
+        f.writelines("%s\n" % angle for angle in angleList)
+
+
+def formatAngleList(tltFilePath):
+    """This method takes the IMOD-based angle file path and returns a list containing
+    the angles for each tilt-image belonging to the tilt-series"""
+    angleList = []
+    with open(tltFilePath) as f:
+        tltText = f.read().splitlines()
+        for line in tltText:
+            angleList.append(float(line))
+    angleList.reverse()
+    return angleList
+
+
+def format3DCoordinatesList(coordFilePath, xDim, yDim):
+    """This method takes the IMOD-based fiducial coordinates file path and returns a
+    list containing each coordinate for each fiducial belonging to the tilt-series"""
+    coorList = []
+    with open(coordFilePath) as f:
+        coorText = f.read().splitlines()
+        for line in coorText:
+            vector = line.split()
+            coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
+    return coorList
+
