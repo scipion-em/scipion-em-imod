@@ -101,23 +101,24 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
             extraPrefix = self._getExtraPath(tsId)
             tmpPrefix = self._getTmpPath(tsId)
 
-            paramsAlignment = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
-                'bin': int(self.binning.get()),
-                'mode': 0,
-                'float': 2,
-                'imagebinned': 1.0}
+            if ts.getFirstItem().hasTransform():
+                paramsAlignment = {
+                    'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+                    'output': os.path.join(extraPrefix, '%s.st' % tsId),
+                    'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+                    'bin': int(self.binning.get()),
+                    'mode': 0,
+                    'float': 2,
+                    'imagebinned': 1.0}
 
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-xform %(xform)s " \
-                            "-bin %(bin)d " \
-                            "-mode %(mode)s " \
-                            "-float %(float)s " \
-                            "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlignment)
+                argsAlignment = "-input %(input)s " \
+                                "-output %(output)s " \
+                                "-xform %(xform)s " \
+                                "-bin %(bin)d " \
+                                "-mode %(mode)s " \
+                                "-float %(float)s " \
+                                "-imagebinned %(imagebinned)s"
+                self.runJob('newstack', argsAlignment % paramsAlignment)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -147,3 +148,23 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
 
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("The interpolation has been computed for %d "
+                           "Tilt-series using the IMOD newstack program.\n"
+                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods
