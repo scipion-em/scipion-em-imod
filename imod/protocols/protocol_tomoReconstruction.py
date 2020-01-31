@@ -30,7 +30,7 @@ import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
-from pwem.convert import ImageHandler
+from pwem.emlib.image import ImageHandler
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from tomo.objects import Tomogram, TomoAcquisition

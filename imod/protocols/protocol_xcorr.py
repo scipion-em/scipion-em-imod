@@ -33,7 +33,6 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
-from tomo.convert import writeTiStack
 
 
 class ProtImodXcorr(EMProtocol, ProtTomoBase):
