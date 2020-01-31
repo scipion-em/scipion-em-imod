@@ -30,7 +30,7 @@ import imod.utils as utils
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.convert import ImageHandler
+from pwem.emlib.image import ImageHandler
 from pwem.objects import Transform
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
@@ -478,25 +478,30 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
 
-            fiducialGapFileName =tsId + "_fid.txt"
-            fiducialGapFilePath = os.path.join(self._getExtraPath(tsId), fiducialGapFileName)
-            fiducialGapList = utils.formatFiducialList(fiducialGapFilePath)
-
             fiducialModelGapFileName = tsId + ".fid"
             fiducialModelGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelGapFileName)
 
             landmarkModelGapsFileName = tsId + "_gaps.sfid"
             landmarkModelGapsFilePath = os.path.join(self._getExtraPath(tsId), landmarkModelGapsFileName)
 
+            landmarkModelGapsResidFileName = '%s_resid.txt' % tsId
+            landmarkModelGapsResidPath = os.path.join(self._getExtraPath(tsId), landmarkModelGapsResidFileName)
+            fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+
             landmarkModel = LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
 
             prevTiltIm = 0
             chainId = 0
-            for index, fiducial in enumerate(fiducialGapList):
+            for index, fiducial in enumerate(fiducialGapResidList):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
-                landmarkModel.addLandmark(fiducial[0], fiducial[1], fiducial[2], chainId)
+                landmarkModel.addLandmark(xCoor=fiducial[0],
+                                          yCoor=fiducial[1],
+                                          tiltIm=fiducial[2],
+                                          chainId=chainId,
+                                          xResid=fiducial[3],
+                                          yResid=fiducial[4])
             self.newSetOfLandmarkModelsGaps.append(landmarkModel)
 
         self._defineOutputs(outputFiducialModelGaps=self.newSetOfLandmarkModelsGaps)
@@ -517,15 +522,35 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             landmarkModelNoGapsFileName = tsId + "_noGaps.sfid"
             landmarkModelNoGapsFilePath = os.path.join(self._getExtraPath(tsId), landmarkModelNoGapsFileName)
 
+            landmarkModelNoGapsResidFileName = '%s_resid.txt' % tsId
+            landmarkModelNoGapsResidPath = os.path.join(self._getExtraPath(tsId), landmarkModelNoGapsResidFileName)
+            fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
+
             landmarkModel = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
 
             prevTiltIm = 0
             chainId = 0
+            indexFake = 0
             for index, fiducial in enumerate(fiducialNoGapList):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
-                landmarkModel.addLandmark(fiducial[0], fiducial[1], fiducial[2], chainId)
+                if fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+                    landmarkModel.addLandmark(xCoor=fiducial[0],
+                                              yCoor=fiducial[1],
+                                              tiltIm=fiducial[2],
+                                              chainId=chainId,
+                                              xResid=fiducialNoGapsResidList[indexFake][3],
+                                              yResid=fiducialNoGapsResidList[indexFake][4])
+                    indexFake += 1
+                else:
+                    landmarkModel.addLandmark(xCoor=fiducial[0],
+                                              yCoor=fiducial[1],
+                                              tiltIm=fiducial[2],
+                                              chainId=chainId,
+                                              xResid='0',
+                                              yResid='0')
+
             self.newSetOfLandmarkModelsNoGaps.append(landmarkModel)
 
         self._defineOutputs(outputFiducialModelNoGaps=self.newSetOfLandmarkModelsNoGaps)

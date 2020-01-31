@@ -75,7 +75,7 @@ def formatTransformationMatrix(matrixFile):
 
 def formatFiducialList(fiducialFilePath):
     """This method takes the IMOD-based fiducial model file path and returns a list
-    containing the coordinates and chain ID of each fiducial belonging to the
+    containing the coordinates of each fiducial for each tilt-image belonging to the
     tilt-series"""
     fiducialList = []
     with open(fiducialFilePath) as f:
@@ -84,6 +84,24 @@ def formatFiducialList(fiducialFilePath):
             vector = line.split()
             fiducialList.append(vector)
     return fiducialList
+
+
+def formatFiducialResidList(fiducialFilePath):
+    """This method takes the IMOD-based fiducial residual model file path and returns a
+    list containing the coordinates and residual values of each fiducial for each
+    tilt-image belonging to the tilt-series. Since IMOD establishes a float value for each
+    coordinate the are parsed to int"""
+    fiducialResidList = []
+    with open(fiducialFilePath) as f:
+        fiducialText = f.read().splitlines()
+        for line in fiducialText[1:]:
+            vector = line.split()
+            fiducialResidList.append([round(float(vector[0])),
+                                      round(float(vector[1])),
+                                      vector[2],
+                                      vector[3],
+                                      vector[4]])
+    return fiducialResidList
 
 
 def formatAngleFile(inputTs, angleFilePath):
@@ -117,4 +135,3 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
             vector = line.split()
             coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
     return coorList
-
