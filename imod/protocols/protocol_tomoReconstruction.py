@@ -75,14 +75,10 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
             tmpPrefix = self._getTmpPath(tsId)
             path.makePath(tmpPrefix)
             path.makePath(extraPrefix)
-            inputTsFileName = ts.getFirstItem().getLocation()[1]
             outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
             """Apply the transformation form the input tilt-series"""
-            if ts.getFirstItem().hasTransform():
-                ts.applyTransform(outputTsFileName)
-            else:
-                path.createLink(inputTsFileName, outputTsFileName)
+            ts.applyTransform(outputTsFileName)
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)

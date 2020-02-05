@@ -126,14 +126,10 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             tmpPrefix = self._getTmpPath(tsId)
             path.makePath(tmpPrefix)
             path.makePath(extraPrefix)
-            inputTsFileName = ts.getFirstItem().getLocation()[1]
             outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
             """Apply the transformation form the input tilt-series"""
-            if ts.getFirstItem().hasTransform():
-                ts.applyTransform(outputTsFileName)
-            else:
-                path.createLink(inputTsFileName, outputTsFileName)
+            ts.applyTransform(outputTsFileName)
 
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
@@ -260,7 +256,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                 'outputResidualFile': os.path.join(extraPrefix, '%s_resid.txt' % tsId),
                 'outputFidXYZFile': os.path.join(extraPrefix, '%s_fid.xyz' % tsId),
                 'outputTiltFile': os.path.join(extraPrefix, '%s_interpolated.tlt' % tsId),
-                'outputTransformFile': os.path.join(extraPrefix, '%s.fidxf' % tsId),
+                'outputTransformFile': os.path.join(extraPrefix, '%s_fid.xf' % tsId),
                 'outputFilledInModel': os.path.join(extraPrefix, '%s_noGaps.fid' % tsId),
                 'rotationAngle': self.rotationAngle.get(),
                 'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
@@ -288,7 +284,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                 'axisZShift': 0.0,
                 'shiftZFromOriginal': 1,
                 'localAlignments': 0,
-                'outputLocalFile': os.path.join(extraPrefix, '%slocal.xf' % tsId),
+                'outputLocalFile': os.path.join(extraPrefix, '%s_local.xf' % tsId),
                 'targetPatchSizeXandY': '700,700',
                 'minSizeOrOverlapXandY': '0.5,0.5',
                 'minFidsTotalAndEachSurface': '8,3',
@@ -394,7 +390,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             tltFilePath = os.path.join(self._getExtraPath(tsId), tltFileName)
             tltList = utils.formatAngleList(tltFilePath)
 
-            transformationMatricesFile = tsId + ".fidxf"
+            transformationMatricesFile = tsId + "_fid.xf"
             transformationMatricesFilePath = os.path.join(self._getExtraPath(tsId), transformationMatricesFile)
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
@@ -440,7 +436,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, '%s.st' % tsId),
                 'output': os.path.join(extraPrefix, '%s_fidali.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.fidxf" % tsId),
+                'xform': os.path.join(extraPrefix, "%s_fid.xf" % tsId),
                 'bin': int(self.binning.get()),
                 'mode': 0,
                 'float': 2,
@@ -531,11 +527,11 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             prevTiltIm = 0
             chainId = 0
             indexFake = 0
-            for index, fiducial in enumerate(fiducialNoGapList):
+            for fiducial in fiducialNoGapList:
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(fiducial[2])
-                if fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+                if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                     landmarkModel.addLandmark(xCoor=fiducial[0],
                                               yCoor=fiducial[1],
                                               tiltIm=fiducial[2],
@@ -558,7 +554,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
         """Create the output set of coordinates 3D from the fiducials in the tilt series"""
         self.newSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
-                                                                    suffix='FiducialModels')
+                                                                    suffix='LandmarkModel')
         for index, ts in enumerate(self.getOutputSetOfTiltSeries()):
             tsId = ts.getTsId()
             coordFileName = tsId + "_fid.xyz"
