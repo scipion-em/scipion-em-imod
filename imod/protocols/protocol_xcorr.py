@@ -176,7 +176,8 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                 'bin': int(self.binning.get()),
                 'mode': 0,
                 'float': 2,
-                'imagebinned': 1.0}
+                'imagebinned': 1.0
+            }
             argsAlignment = "-input %(input)s " \
                             "-output %(output)s " \
                             "-xform %(xform)s " \
@@ -199,6 +200,9 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
+
+        """Debug code"""
+        path.moveTree(self._getTmpPath(), self._getExtraPath())
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTiltSeries(self):

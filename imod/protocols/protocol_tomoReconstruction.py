@@ -44,7 +44,7 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'tomogram reconstruction'
+    _label = 'tomo reconstruction'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -105,5 +105,5 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
         self._defineOutputs(outputTomograms=self.outputSetOfTomograms)
         self._defineSourceRelation(self.inputSetOfTiltSeries, self.outputSetOfTomograms)
 
+        """Debug code ***"""
         path.moveTree(self._getTmpPath(), self._getExtraPath())
-

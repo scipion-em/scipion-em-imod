@@ -170,6 +170,10 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                 argsAutofidseed += " -TwoSurfaces"
             self.runJob('autofidseed', argsAutofidseed % paramsAutofidseed)
 
+            autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
+            path.makePath(autofidseedDirPath)
+            path.moveTree("autofidseed.dir", autofidseedDirPath)
+
     def generateFiducialModelStep(self):
         for ts in self.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
@@ -572,6 +576,9 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
 
         self._defineOutputs(outputSetOfCoordinates3D=self.newSetOfCoordinates3D)
         self._defineSourceRelation(self.inputSetOfTiltSeries, self.newSetOfCoordinates3D)
+
+        """Debug code ***"""
+        path.moveTree(self._getTmpPath(), self._getExtraPath())
 
     # --------------------------- UTILS functions ----------------------------
     def translateTrackCom(self, tsId, paramsDict):
