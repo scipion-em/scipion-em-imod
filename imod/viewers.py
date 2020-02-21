@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -33,13 +35,15 @@ import imod.protocols
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
-    with the Xmipp program xmipp_showj
+    with the Imod program 3dmod
     """
     _environments = [pwviewer.DESKTOP_TKINTER]
     _targets = [
         tomo.objects.TiltSeries,
         tomo.objects.Tomogram,
         tomo.objects.SetOfTomograms,
+        tomo.objects.SetOfTiltSeries,
+        tomo.objects.SetOfLandmarkModels,
     ]
 
     def _visualize(self, obj, **kwargs):
@@ -48,12 +52,15 @@ class ImodViewer(pwviewer.Viewer):
 
         if issubclass(cls, tomo.objects.TiltSeries):
             views.append(ImodObjectView(obj.getFirstItem()))
-
         elif issubclass(cls, tomo.objects.Tomogram):
             views.append(ImodObjectView(obj))
         elif issubclass(cls, tomo.objects.SetOfTomograms):
             for t in obj:
                 views.append(ImodObjectView(t))
+        elif issubclass(cls, tomo.objects.SetOfTiltSeries):
+            views.append(ImodSetView(obj))
+        elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
+            views.append(ImodSetOfLandmarkModelsView(obj))
 
         return views
     
@@ -64,7 +71,28 @@ class ImodObjectView(pwviewer.CommandView):
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, '3dmod "%s"' % fn)
+        pwviewer.CommandView.__init__(self, '3dmod %s' % fn)
+
+
+class ImodSetView(pwviewer.CommandView):
+    """ Wrapper to visualize different type of objects with the 3dmod.
+    """
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            # Remove :mrc if present
+            fn += " " + item.getFirstItem().getFileName().split(':')[0]
+        pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
+
+class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
+    """ Wrapper to visualize landmark models with the 3dmod.
+    """
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            # Remove :mrc if present
+            fn += " " + item.getModelName()
+        pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
@@ -128,4 +156,3 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 
     def _notImplemented(self, param=None):
         return [self.errorMessage('Output not implemented yet. ')]
-

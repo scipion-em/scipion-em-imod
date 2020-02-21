@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -27,5 +29,6 @@
 from .protocol_etomo import ProtImodEtomo
 from .protocol_auto3d import ProtImodAuto3D
 from .protocol_xcorr import ProtImodXcorr
+from .protocol_fiducialModel import ProtFiducialModel
 
 

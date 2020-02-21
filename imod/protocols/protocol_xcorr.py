@@ -40,7 +40,6 @@ from tomo.convert import writeTiStack
 class ProtImodXcorr(EMProtocol, ProtTomoBase):
     """
     Tilt-series' cross correlation alignment based on the IMOD procedure.
-
     More info:
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
@@ -89,6 +88,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         self._insertFunctionStep('computeXcorrStep')
         if self.computeAlignment.get() == 0:
             self._insertFunctionStep('computeInterpolatedStackStep')
+        self._insertFunctionStep('cleanDirectory')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -179,8 +179,8 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                             "-mode %(mode)s " \
                             "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
-
             self.runJob('newstack', argsAlignment % paramsAlginment, cwd=workingFolder)
+
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
@@ -194,6 +194,14 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
             outputInterpolatedSetOfTiltSeries.write()
         self._store()
+
+    def cleanDirectory(self):
+        for ts in self.inputSetOfTiltSeries.get():
+            tsId = ts.getTsId()
+            workingFolder = self._getExtraPath(tsId)
+            os.remove(os.path.join(workingFolder, "%s.st" % tsId))
+            os.remove(os.path.join(workingFolder, "%s.rawtlt" % tsId))
+
 
     # --------------------------- UTILS functions ----------------------------
     def formatTransformationMatrix(self, matrixFile):
@@ -270,3 +278,4 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         else:
             methods.append("Output classes not ready yet.")
         return methods
+
