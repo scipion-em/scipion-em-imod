@@ -55,8 +55,7 @@ class ImodViewer(pwviewer.Viewer):
         elif issubclass(cls, tomo.objects.Tomogram):
             views.append(ImodObjectView(obj))
         elif issubclass(cls, tomo.objects.SetOfTomograms):
-            for t in obj:
-                views.append(ImodObjectView(t))
+            views.append(ImodSetOfTomogramsView(obj))
         elif issubclass(cls, tomo.objects.SetOfTiltSeries):
             views.append(ImodSetView(obj))
         elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
@@ -85,7 +84,7 @@ class ImodSetView(pwviewer.CommandView):
         pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
 
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
-    """ Wrapper to visualize landmark models with the 3dmod.
+    """ Wrapper to visualize landmark models with 3dmod.
     """
     def __init__(self, set, **kwargs):
         fn = ""
@@ -93,6 +92,15 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
             # Remove :mrc if present
             fn += " " + item.getModelName()
         pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
+
+class ImodSetOfTomogramsView(pwviewer.CommandView):
+    """ Wrapper to visualize set of tomograms with 3dmod.
+    """
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            fn += " " + item.getLocation()[1]
+        pwviewer.CommandView.__init__(self, '3dmod -s 0,0%s' % fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
