@@ -63,85 +63,119 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('computeReconstructionStep')
-        self._insertFunctionStep('createOutputStep')
+        for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('computeReconstructionStep', ts.getObjId())
+            self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
-            path.makePath(tmpPrefix)
-            path.makePath(extraPrefix)
-            outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+    def convertInputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
-            """Apply the transformation form the input tilt-series"""
-            ts.applyTransform(outputTsFileName)
-            # self.runJob('clip flipzy',
-            #             ts.getFirstItem().getLocation()[1] + " " + os.path.join(tmpPrefix, "%s_flip.st" % tsId))
-            # #path.createLink(ts.getFirstItem().getLocation()[1], os.path.join(tmpPrefix, "%s_flip.st" % tsId))
-            #
-            # newStack = True
-            # for index, ti in enumerate(ts):
-            #     if ti.hasTransform():
-            #         ih = ImageHandler()
-            #         if newStack:
-            #             ih.createEmptyImage(fnOut=os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId),
-            #                                 xDim=ti.getXDim(),
-            #                                 yDim=ti.getYDim(),
-            #                                 nDim=ts.getSize())
-            #             newStack = False
-            #         transform = ti.getTransform().getMatrix()
-            #         transformArray = np.array(transform)
-            #         ih.applyTransform(inputFile=str(index + 1) + '@' + os.path.join(tmpPrefix, "%s_flip.st" % tsId),
-            #                           outputFile=str(index + 1) + '@' + os.path.join(tmpPrefix,
-            #                                                                          "%s_flip_transf.st" % tsId),
-            #                           transformMatrix=transformArray,
-            #                           shape=(ti.getXDim(), ti.getYDim()))
-            # #self.runJob('clip flipyz',
-            # #            os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId) + " " + os.path.join(tmpPrefix,
-            # #                                                                                     "%s_transf.st" % tsId))
+        """Apply the transformation form the input tilt-series"""
+        ts.applyTransform(outputTsFileName)
+        # self.runJob('clip flipzy',
+        #             ts.getFirstItem().getLocation()[1] + " " + os.path.join(tmpPrefix, "%s_flip.st" % tsId))
+        # #path.createLink(ts.getFirstItem().getLocation()[1], os.path.join(tmpPrefix, "%s_flip.st" % tsId))
+        #
+        # newStack = True
+        # for index, ti in enumerate(ts):
+        #     if ti.hasTransform():
+        #         ih = ImageHandler()
+        #         if newStack:
+        #             ih.createEmptyImage(fnOut=os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId),
+        #                                 xDim=ti.getXDim(),
+        #                                 yDim=ti.getYDim(),
+        #                                 nDim=ts.getSize())
+        #             newStack = False
+        #         transform = ti.getTransform().getMatrix()
+        #         transformArray = np.array(transform)
+        #         ih.applyTransform(inputFile=str(index + 1) + '@' + os.path.join(tmpPrefix, "%s_flip.st" % tsId),
+        #                           outputFile=str(index + 1) + '@' + os.path.join(tmpPrefix,
+        #                                                                          "%s_flip_transf.st" % tsId),
+        #                           transformMatrix=transformArray,
+        #                           shape=(ti.getXDim(), ti.getYDim()))
+        # #self.runJob('clip flipyz',
+        # #            os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId) + " " + os.path.join(tmpPrefix,
+        # #                                                                                     "%s_transf.st" % tsId))
 
-            """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            ts.generateTltFile(angleFilePath)
+        """Generate angle file"""
+        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        ts.generateTltFile(angleFilePath)
 
-    def computeReconstructionStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
+    def computeReconstructionStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
 
-            paramsTilt = {
-                'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
-                'OutputFile': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
-                'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
-                'Thickness': self.tomoThickness.get()
-            }
-            argsTilt = "-InputProjections %(InputProjections)s " \
-                       "-OutputFile %(OutputFile)s " \
-                       "-TILTFILE %(TiltFile)s " \
-                       "-THICKNESS %(Thickness)d"
-            self.runJob('tilt', argsTilt % paramsTilt)
+        paramsTilt = {
+            'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
+            'OutputFile': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
+            'Thickness': self.tomoThickness.get()
+        }
+        argsTilt = "-InputProjections %(InputProjections)s " \
+                   "-OutputFile %(OutputFile)s " \
+                   "-TILTFILE %(TiltFile)s " \
+                   "-THICKNESS %(Thickness)d"
+        self.runJob('tilt', argsTilt % paramsTilt)
 
-            paramsNewstack = {
-                'input': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
-                'output': self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)),
-            }
-            argsNewstack = "-input %(input)s " \
-                           "-output %(output)s"
-            self.runJob('newstack', argsNewstack % paramsNewstack)
+        paramsNewstack = {
+            'input': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'output': self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)),
+        }
+        argsNewstack = "-input %(input)s " \
+                       "-output %(output)s"
+        self.runJob('newstack', argsNewstack % paramsNewstack)
 
-    def createOutputStep(self):
-        self.outputSetOfTomograms = self._createSetOfTomograms()
-        self.outputSetOfTomograms.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            newTomogram = Tomogram()
-            newTomogram.setLocation(os.path.join(self._getExtraPath(tsId), '%s.mrc' % tsId))
-            self.outputSetOfTomograms.append(newTomogram)
-        self._defineOutputs(outputTomograms=self.outputSetOfTomograms)
-        self._defineSourceRelation(self.inputSetOfTiltSeries, self.outputSetOfTomograms)
+    def createOutputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        outputSetOfTomograms = self.getOutputSetOfTomograms()
+
+        newTomogram = Tomogram()
+        newTomogram.setLocation(os.path.join(extraPrefix, "%s.mrc" % tsId))
+        outputSetOfTomograms.append(newTomogram)
+        outputSetOfTomograms.update(newTomogram)
+        outputSetOfTomograms.write()
+        self._store()
 
         """Debug code ***"""
         path.moveTree(self._getTmpPath(), self._getExtraPath())
+
+    # --------------------------- UTILS functions ----------------------------
+    def getOutputSetOfTomograms(self):
+        if not hasattr(self, "outputSetOfTomograms"):
+            outputSetOfTomograms = self._createSetOfTomograms()
+            outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
+            self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
+        return self.outputSetOfTomograms
+
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if hasattr(self, 'outputSetOfTomograms'):
+            summary.append("Input Tilt-Series: %d.\nTomograms reconstructed: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputSetOfTomograms.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputSetOfTomograms'):
+            methods.append("The reconstruction has been computed for %d "
+                           "Tilt-series using the IMOD procedure.\n"
+                           % (self.outputSetOfTomograms.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods

@@ -65,7 +65,7 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
                            'obtained transformation matrices.')
 
         group = form.addGroup('Interpolated tilt-series',
-                      condition='computeAlignment==0')
+                              condition='computeAlignment==0')
 
         group.addParam('binning', params.FloatParam,
                        default=1.0,
@@ -82,123 +82,123 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('computeXcorrStep')
-        if self.computeAlignment.get() == 0:
-            self._insertFunctionStep('computeInterpolatedStackStep')
+        for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('computeXcorrStep', ts.getObjId())
+            if self.computeAlignment.get() == 0:
+                self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
-            path.makePath(tmpPrefix)
-            path.makePath(extraPrefix)
-            outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+    def convertInputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
-            """Apply the transformation form the input tilt-series"""
-            ts.applyTransform(outputTsFileName)
+        """Apply the transformation form the input tilt-series"""
+        ts.applyTransform(outputTsFileName)
 
-            """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
-            ts.generateTltFile(angleFilePath)
+        """Generate angle file"""
+        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        ts.generateTltFile(angleFilePath)
 
-    def computeXcorrStep(self):
+    def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            paramsXcorr = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
-                'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-                'RotationAngle': self.rotationAngle.get(),
-                'FilterSigma1': 0.03,
-                'FilterSigma2': 0.05,
-                'FilterRadius2': 0.25
-            }
-            argsXcorr = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-tiltfile %(tiltfile)s " \
-                        "-RotationAngle %(RotationAngle)f " \
-                        "-FilterSigma1 %(FilterSigma1)f " \
-                        "-FilterSigma2 %(FilterSigma2)f " \
-                        "-FilterRadius2 %(FilterRadius2)f"
-            self.runJob('tiltxcorr', argsXcorr % paramsXcorr)
+        paramsXcorr = {
+            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
+            'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
+            'RotationAngle': self.rotationAngle.get(),
+            'FilterSigma1': 0.03,
+            'FilterSigma2': 0.05,
+            'FilterRadius2': 0.25
+        }
+        argsXcorr = "-input %(input)s " \
+                    "-output %(output)s " \
+                    "-tiltfile %(tiltfile)s " \
+                    "-RotationAngle %(RotationAngle)f " \
+                    "-FilterSigma1 %(FilterSigma1)f " \
+                    "-FilterSigma2 %(FilterSigma2)f " \
+                    "-FilterRadius2 %(FilterRadius2)f"
+        self.runJob('tiltxcorr', argsXcorr % paramsXcorr)
 
-            paramsXftoxg = {
-                'input': os.path.join(extraPrefix, '%s.prexf' % tsId),
-                'goutput': os.path.join(extraPrefix, '%s.prexg' % tsId),
-            }
-            argsXftoxg = "-input %(input)s " \
-                        "-goutput %(goutput)s"
-            self.runJob('xftoxg', argsXftoxg % paramsXftoxg)
+        paramsXftoxg = {
+            'input': os.path.join(extraPrefix, '%s.prexf' % tsId),
+            'goutput': os.path.join(extraPrefix, '%s.prexg' % tsId),
+        }
+        argsXftoxg = "-input %(input)s " \
+                     "-goutput %(goutput)s"
+        self.runJob('xftoxg', argsXftoxg % paramsXftoxg)
 
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            alignmentMatrix = utils.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            outputSetOfTiltSeries.append(newTs)
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(tiltImage.getLocation())
-                transform = data.Transform()
-                transform.setMatrix(alignmentMatrix[:, :, index])
-                newTi.setTransform(transform)
-                newTs.append(newTi)
-            newTs.write()
-            outputSetOfTiltSeries.update(newTs)
-            outputSetOfTiltSeries.write()
+        tsId = ts.getTsId()
+        alignmentMatrix = utils.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputSetOfTiltSeries.append(newTs)
+        for index, tiltImage in enumerate(ts):
+            newTi = tomoObj.TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setLocation(tiltImage.getLocation())
+            transform = data.Transform()
+            transform.setMatrix(alignmentMatrix[:, :, index])
+            newTi.setTransform(transform)
+            newTs.append(newTi)
+        newTs.write()
+        outputSetOfTiltSeries.update(newTs)
+        outputSetOfTiltSeries.write()
         self._store()
 
-    def computeInterpolatedStackStep(self):
+    def computeInterpolatedStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            outputInterpolatedSetOfTiltSeries.append(newTs)
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        tsId = ts.getTsId()
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputInterpolatedSetOfTiltSeries.append(newTs)
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            paramsAlignment = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                'output': os.path.join(extraPrefix, '%s_preali.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
-                'bin': int(self.binning.get()),
-                'mode': 0,
-                'float': 2,
-                'imagebinned': 1.0
-            }
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-xform %(xform)s " \
-                            "-bin %(bin)d " \
-                            "-mode %(mode)s " \
-                            "-float %(float)s " \
-                            "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlignment)
+        paramsAlignment = {
+            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'output': os.path.join(extraPrefix, '%s_preali.st' % tsId),
+            'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+            'bin': int(self.binning.get()),
+            'mode': 0,
+            'float': 2,
+            'imagebinned': 1.0
+        }
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-xform %(xform)s " \
+                        "-bin %(bin)d " \
+                        "-mode %(mode)s " \
+                        "-float %(float)s " \
+                        "-imagebinned %(imagebinned)s"
+        self.runJob('newstack', argsAlignment % paramsAlignment)
 
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-                newTs.append(newTi)
+        for index, tiltImage in enumerate(ts):
+            newTi = tomoObj.TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
-            newTs.write()
-            outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
-            outputInterpolatedSetOfTiltSeries.write()
+                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+            newTs.append(newTi)
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+        newTs.write()
+        outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
+        outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
         """Debug code"""
@@ -259,4 +259,3 @@ class ProtImodXcorr(EMProtocol, ProtTomoBase):
         else:
             methods.append("Output classes not ready yet.")
         return methods
-

@@ -60,78 +60,80 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('generateTransformFileStep')
-        self._insertFunctionStep('generateOutputStackStep')
+        for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
+            self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
-            path.makePath(tmpPrefix)
-            path.makePath(extraPrefix)
-            inputTsFileName = ts.getFirstItem().getLocation()[1]
-            outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+    def convertInputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+        inputTsFileName = ts.getFirstItem().getLocation()[1]
+        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
-            """Create link to input stack"""
-            path.createLink(inputTsFileName, outputTsFileName)
+        """Create link to input stack"""
+        path.createLink(inputTsFileName, outputTsFileName)
 
-    def generateTransformFileStep(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            if not ts.getFirstItem().hasTransform():
-                inputTsFilePath = ts.getFirstItem().getLocation()[1]
-                outputTsFilePath = os.path.join(extraPrefix, '%s.st' % tsId)
-                path.createLink(inputTsFilePath, outputTsFilePath)
-            else:
-                utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
+    def generateTransformFileStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        if not ts.getFirstItem().hasTransform():
+            inputTsFilePath = ts.getFirstItem().getLocation()[1]
+            outputTsFilePath = os.path.join(extraPrefix, '%s.st' % tsId)
+            path.createLink(inputTsFilePath, outputTsFilePath)
+        else:
+            utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
 
-
-    def generateOutputStackStep(self):
+    def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
 
-        for ts in self.inputSetOfTiltSeries.get():
-            tsId = ts.getTsId()
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            outputInterpolatedSetOfTiltSeries.append(newTs)
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputInterpolatedSetOfTiltSeries.append(newTs)
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            if ts.getFirstItem().hasTransform():
-                paramsAlignment = {
-                    'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                    'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                    'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
-                    'bin': int(self.binning.get()),
-                    'mode': 0,
-                    'float': 2,
-                    'imagebinned': 1.0}
+        if ts.getFirstItem().hasTransform():
+            paramsAlignment = {
+                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+                'output': os.path.join(extraPrefix, '%s.st' % tsId),
+                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+                'bin': int(self.binning.get()),
+                'mode': 0,
+                'float': 2,
+                'imagebinned': 1.0}
 
-                argsAlignment = "-input %(input)s " \
-                                "-output %(output)s " \
-                                "-xform %(xform)s " \
-                                "-bin %(bin)d " \
-                                "-mode %(mode)s " \
-                                "-float %(float)s " \
-                                "-imagebinned %(imagebinned)s"
-                self.runJob('newstack', argsAlignment % paramsAlignment)
+            argsAlignment = "-input %(input)s " \
+                            "-output %(output)s " \
+                            "-xform %(xform)s " \
+                            "-bin %(bin)d " \
+                            "-mode %(mode)s " \
+                            "-float %(float)s " \
+                            "-imagebinned %(imagebinned)s"
+            self.runJob('newstack', argsAlignment % paramsAlignment)
 
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.st' % tsId)))
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-                newTs.append(newTi)
+        for index, tiltImage in enumerate(ts):
+            newTi = tomoObj.TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.st' % tsId)))
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
-            newTs.write()
-            outputInterpolatedSetOfTiltSeries.update(newTs)
-            outputInterpolatedSetOfTiltSeries.write()
+                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+            newTs.append(newTi)
+
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+
+        newTs.write()
+        outputInterpolatedSetOfTiltSeries.update(newTs)
+        outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
