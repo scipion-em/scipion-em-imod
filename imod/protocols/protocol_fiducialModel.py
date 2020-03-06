@@ -117,7 +117,8 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
             if self.computeAlignment.get() == 0:
                 self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
+            self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
+        self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -480,7 +481,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
-    def createOutputStep(self, tsObjId):
+    def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -584,6 +585,15 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         """Debug code ***"""
         path.moveTree(self._getTmpPath(), self._getExtraPath())
 
+    def createOutputStep(self):
+        self.getOutputSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
+        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
+        self.getOutputFiducialModelGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
+        self.getOutputFiducialModelNoGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
+        self.getOutputSetOfCoordinates3Ds().setStreamState(pw.object.Set.STREAM_CLOSED)
+
+        self._store()
+
     # --------------------------- UTILS functions ----------------------------
     def translateTrackCom(self, tsId, paramsDict):
         trackFileName = tsId + "_track.com"
@@ -659,6 +669,7 @@ $if (-e ./savework) ./savework
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
@@ -672,6 +683,7 @@ $if (-e ./savework) ./savework
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputInterpolatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
@@ -680,6 +692,7 @@ $if (-e ./savework) ./savework
         if not hasattr(self, "outputFiducialModelGaps"):
             outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFiducialModelGaps.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
         return self.outputFiducialModelGaps
@@ -688,6 +701,7 @@ $if (-e ./savework) ./savework
         if not hasattr(self, "outputFiducialModelNoGaps"):
             outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
             outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFiducialModelNoGaps.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
         return self.outputFiducialModelNoGaps
@@ -697,6 +711,7 @@ $if (-e ./savework) ./savework
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfCoordinates3D.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
         return self.outputSetOfCoordinates3D
