@@ -62,11 +62,12 @@ class ImodViewer(pwviewer.Viewer):
             views.append(ImodSetOfLandmarkModelsView(obj))
 
         return views
-    
+
 
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod.
     """
+
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
@@ -76,6 +77,7 @@ class ImodObjectView(pwviewer.CommandView):
 class ImodSetView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod.
     """
+
     def __init__(self, set, **kwargs):
         fn = ""
         for item in set:
@@ -83,19 +85,22 @@ class ImodSetView(pwviewer.CommandView):
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
 
+
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     """ Wrapper to visualize landmark models with 3dmod.
     """
+
     def __init__(self, set, **kwargs):
         fn = ""
         for item in set:
-            # Remove :mrc if present
             fn += " " + item.getModelName()
         pwviewer.CommandView.__init__(self, '3dmod%s' % fn)
+
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
     """ Wrapper to visualize set of tomograms with 3dmod.
     """
+
     def __init__(self, set, **kwargs):
         fn = ""
         for item in set:

@@ -107,16 +107,12 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
                 'output': os.path.join(extraPrefix, '%s.st' % tsId),
                 'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
                 'bin': int(self.binning.get()),
-                'mode': 0,
-                'float': 2,
                 'imagebinned': 1.0}
 
             argsAlignment = "-input %(input)s " \
                             "-output %(output)s " \
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
-                            "-mode %(mode)s " \
-                            "-float %(float)s " \
                             "-imagebinned %(imagebinned)s"
             self.runJob('newstack', argsAlignment % paramsAlignment)
 
