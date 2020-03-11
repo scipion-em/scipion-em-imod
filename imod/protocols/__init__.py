@@ -30,5 +30,5 @@ from .protocol_etomo import ProtImodEtomo
 from .protocol_auto3d import ProtImodAuto3D
 from .protocol_xcorr import ProtImodXcorr
 from .protocol_fiducialModel import ProtFiducialModel
-
-
+from .protocol_tomoReconstruction import ProtTomoReconstruction
+from .protocol_newstack import ProtNewstack
