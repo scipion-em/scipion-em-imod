@@ -578,9 +578,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         outputSetOfCoordinates3D.write()
         self._store()
 
-        """Debug code ***"""
-        path.moveTree(self._getTmpPath(), self._getExtraPath())
-
     def createOutputStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
         self.getOutputInterpolatedSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)

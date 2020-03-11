@@ -147,9 +147,6 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
         outputSetOfTomograms.write()
         self._store()
 
-        """Debug code ***"""
-        path.moveTree(self._getTmpPath(), self._getExtraPath())
-
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTomograms(self):
         if not hasattr(self, "outputSetOfTomograms"):
