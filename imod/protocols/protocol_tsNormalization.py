@@ -67,7 +67,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Adjust densities of sections individually:\n'
-                           '-Mode 1: sections fill the data range. Default option/n'
+                           '-Mode 1: sections fill the data range. Default option\n'
                            '-Mode 2: sections scaled to common mean and standard deviation\n'
                            '-Mode 3: sections shifted to a common mean without scaling\n'
                            '-Mode 4: sections shifted to a common mean and then rescale\n'
@@ -82,10 +82,29 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='The storage mode of the output file. The default is the mode of the first input file, '
                            'except for a 4-bit input file, where the default is to output as bytes')
-        """
-        -ScaleMinAndMax
-        """
 
+        form.addParam('scalingToggle',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Rescale densities',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='The storage mode of the output file. The default is the mode of the first input file, '
+                           'except for a 4-bit input file, where the default is to output as bytes')
+
+        group = form.addGroup('Scaling values',
+                              condition='(scalingToggle==0) | (floatDensities==3)')
+
+        group.addParam('scaleMax', params.FloatParam,
+                       default=255,
+                       label='Max.',
+                       help='Maximum value for the rescaling')
+
+        group.addParam('scaleMin', params.FloatParam,
+                       default=0,
+                       label='Min.',
+                       help='Minimum value for the rescaling')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -102,11 +121,14 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        inputTsFileName = ts.getFirstItem().getLocation()[1]
         outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
-        """Create link to input stack"""
-        path.createLink(inputTsFileName, outputTsFileName)
+        """Apply the transformation form the input tilt-series"""
+        ts.applyTransform(outputTsFileName)
+
+        """Generate angle file"""
+        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        ts.generateTltFile(angleFilePath)
 
     def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -123,13 +145,11 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, '%s.st' % tsId),
                 'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
                 'bin': int(self.binning.get()),
                 'imagebinned': 1.0}
 
             argsAlignment = "-input %(input)s " \
                             "-output %(output)s " \
-                            "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s"
             self.runJob('newstack', argsAlignment % paramsAlignment)
