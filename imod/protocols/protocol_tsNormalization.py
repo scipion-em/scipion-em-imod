@@ -56,18 +56,19 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       default=1.0,
                       label='Binning',
-                      help='Binning to be applied to the interpolated tilt-series. '
+                      help='Binning to be applied to the normalized tilt-series. '
                            'Must be a integer bigger than 1')
 
         form.addParam('floatDensities',
                       params.EnumParam,
-                      choices=['1', '2', '3', '4'],
+                      choices=['default', '1', '2', '3', '4'],
                       default=0,
                       label='Adjust densities mode',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Adjust densities of sections individually:\n'
-                           '-Mode 1: sections fill the data range. Default option\n'
+                           '-Default: no adjustment performed\n'
+                           '-Mode 1: sections fill the data range\n'
                            '-Mode 2: sections scaled to common mean and standard deviation\n'
                            '-Mode 3: sections shifted to a common mean without scaling\n'
                            '-Mode 4: sections shifted to a common mean and then rescale\n'
@@ -80,7 +81,8 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       label='Storage data type',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='The storage mode of the output file. The default is the mode of the first input file, '
+                      help='Apply one density scaling to all sections to map current min and max to the given Min and '
+                           'Max. The storage mode of the output file. The default is the mode of the first input file, '
                            'except for a 4-bit input file, where the default is to output as bytes')
 
         form.addParam('scalingToggle',
@@ -94,7 +96,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                            'except for a 4-bit input file, where the default is to output as bytes')
 
         group = form.addGroup('Scaling values',
-                              condition='(scalingToggle==0) | (floatDensities==3)')
+                              condition='(scalingToggle==0) | (floatDensities==4)')
 
         group.addParam('scaleMax', params.FloatParam,
                        default=255,
@@ -110,7 +112,6 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
@@ -131,28 +132,38 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         ts.generateTltFile(angleFilePath)
 
     def generateOutputStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+        outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+        outputNormalizedSetOfTiltSeries.append(newTs)
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        if ts.getFirstItem().hasTransform():
-            paramsAlignment = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                'bin': int(self.binning.get()),
-                'imagebinned': 1.0}
+        paramsAlignment = {
+            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'output': os.path.join(extraPrefix, '%s.st' % tsId),
+            'bin': int(self.binning.get()),
+            'imagebinned': 1.0,
+        }
 
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlignment)
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-bin %(bin)d " \
+                        "-imagebinned %(imagebinned)s " \
+
+        if self.floatDensities.get() != 0:
+            argsAlignment += " -FloatDensities " + str(self.floatDensities.get())
+
+        if self.getModeToOutput() is not None:
+            argsAlignment += " -ModeToOutput " + str(self.getModeToOutput())
+
+        if self.scalingToggle.get() == 0 or self.floatDensities.get() == 4:
+            argsAlignment += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
+
+        self.runJob('newstack', argsAlignment % paramsAlignment)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -166,8 +177,8 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         newTs.write()
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.write()
+        outputNormalizedSetOfTiltSeries.update(newTs)
+        outputNormalizedSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -184,6 +195,17 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
         return self.outputNormalizedSetOfTiltSeries
 
+    def getModeToOutput(self):
+        parseParamsOutputMode = {
+            0: None,
+            1: 101,
+            2: 0,
+            3: 1,
+            4: 6,
+            5: 2
+        }
+        return parseParamsOutputMode[self.modeToOutput.get()]
+
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
@@ -198,8 +220,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
-            methods.append("The interpolation has been computed for %d "
-                           "Tilt-series using the IMOD newstack program.\n"
+            methods.append("%d Tilt-series have been normalized using the IMOD newstack program.\n"
                            % (self.outputNormalizedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
