@@ -71,8 +71,8 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                            '-Mode 1: sections fill the data range\n'
                            '-Mode 2: sections scaled to common mean and standard deviation\n'
                            '-Mode 3: sections shifted to a common mean without scaling\n'
-                           '-Mode 4: sections shifted to a common mean and then rescale\n'
-                           'the resulting minimum and maximum densities to the Min and Max values specified')
+                           '-Mode 4: sections shifted to a common mean and then rescale the resulting minimum and '
+                           'maximum densities to the Min and Max values specified')
 
         form.addParam('modeToOutput',
                       params.EnumParam,
@@ -85,28 +85,45 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                            'Max. The storage mode of the output file. The default is the mode of the first input file, '
                            'except for a 4-bit input file, where the default is to output as bytes')
 
-        form.addParam('scalingToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Rescale densities',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='The storage mode of the output file. The default is the mode of the first input file, '
-                           'except for a 4-bit input file, where the default is to output as bytes')
+        groupScale = form.addGroup('Scaling values',
+                                   condition='floatDensities==4')
 
-        group = form.addGroup('Scaling values',
-                              condition='(scalingToggle==0) | (floatDensities==4)')
+        groupScale.addParam('scaleMax',
+                            params.FloatParam,
+                            default=255,
+                            label='Max.',
+                            help='Maximum value for the rescaling')
 
-        group.addParam('scaleMax', params.FloatParam,
-                       default=255,
-                       label='Max.',
-                       help='Maximum value for the rescaling')
+        groupScale.addParam('scaleMin',
+                            params.FloatParam,
+                            default=0,
+                            label='Min.',
+                            help='Minimum value for the rescaling')
 
-        group.addParam('scaleMin', params.FloatParam,
-                       default=0,
-                       label='Min.',
-                       help='Minimum value for the rescaling')
+        groupMeanSd = form.addGroup('Mean and SD',
+                                    condition='floatDensities==2')
+
+        groupMeanSd.addParam('meanSdToggle',
+                             params.EnumParam,
+                             choices=['Yes', 'No'],
+                             default=1,
+                             label='Set mean and SD',
+                             important=True,
+                             display=params.EnumParam.DISPLAY_HLIST,
+                             help='Scale all images to the given mean and standard deviation. This option implies '
+                                  '-float 2 and is incompatible with all other scaling options.')
+
+        groupMeanSd.addParam('scaleMean',
+                             params.FloatParam,
+                             default=0,
+                             label='Mean',
+                             help='Mean value for the rescaling')
+
+        groupMeanSd.addParam('scaleSd',
+                             params.FloatParam,
+                             default=1,
+                             label='SD',
+                             help='Standard deviation value for the rescaling')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -152,7 +169,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s " \
+                        "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
             argsAlignment += " -FloatDensities " + str(self.floatDensities.get())
@@ -160,8 +177,11 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         if self.getModeToOutput() is not None:
             argsAlignment += " -ModeToOutput " + str(self.getModeToOutput())
 
-        if self.scalingToggle.get() == 0 or self.floatDensities.get() == 4:
+        if self.floatDensities.get() == 4:
             argsAlignment += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
+
+        if self.meanSdToggle.get() == 0:
+            argsAlignment += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + str(self.scaleSd.get())
 
         self.runJob('newstack', argsAlignment % paramsAlignment)
 
