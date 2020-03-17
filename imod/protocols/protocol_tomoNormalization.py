@@ -30,34 +30,34 @@ import imod.utils as utils
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
-import tomo.objects as tomoObj
+from tomo.objects import Tomogram
 from tomo.protocols import ProtTomoBase
 
 
-class ProtTSNormalization(EMProtocol, ProtTomoBase):
+class ProtTomoNormalization(EMProtocol, ProtTomoBase):
     """
-    Normalize input tilt-series and change its storing formatting.
+    Normalize input tomogram and change its storing formatting.
     More info:
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'tilt-series normalization'
+    _label = 'tomo normalization'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam('inputSetOfTomograms',
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
+                      pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tomograms')
 
         form.addParam('binning',
                       params.FloatParam,
                       default=1.0,
                       label='Binning',
                       important=True,
-                      help='Binning to be applied to the normalized tilt-series. '
+                      help='Binning to be applied to the normalized tomograms. '
                            'Must be a integer bigger than 1')
 
         form.addParam('floatDensities',
@@ -156,37 +156,21 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        for tomo in self.inputSetOfTomograms.get():
+            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
-
-        """Apply the transformation form the input tilt-series"""
-        ts.applyTransform(outputTsFileName)
-
     def generateOutputStackStep(self, tsObjId):
-        outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
+        tomo = self.inputSetOfTomograms.get()[tsObjId]
+        location = tomo.getLocation()[1]
+        fileName, fileExtension = os.path.splitext(location)
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputNormalizedSetOfTiltSeries.append(newTs)
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        path.makePath(extraPrefix)
 
         paramsNewstack = {
-            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'output': os.path.join(extraPrefix, '%s.st' % tsId),
+            'input': location,
+            'output': os.path.join(extraPrefix, os.path.basename(location)),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0,
         }
@@ -217,35 +201,28 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
 
         self.runJob('newstack', argsNewstack % paramsNewstack)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.st' % tsId)))
-            if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-            newTs.append(newTi)
+        outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 
+        newTomogram = Tomogram()
+        newTomogram.setLocation(os.path.join(extraPrefix, os.path.basename(location)))
         if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
-
-        newTs.write()
-        outputNormalizedSetOfTiltSeries.update(newTs)
-        outputNormalizedSetOfTiltSeries.write()
+            newTomogram.setSamplingRate(tomo.getSamplingRate() * int(self.binning.get()))
+        outputNormalizedSetOfTomograms.append(newTomogram)
+        outputNormalizedSetOfTomograms.update(newTomogram)
+        outputNormalizedSetOfTomograms.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputNormalizedSetOfTiltSeries(self):
-        if not hasattr(self, "outputNormalizedSetOfTiltSeries"):
-            outputNormalizedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Normalized')
-            outputNormalizedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputNormalizedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+    def getOutputNormalizedSetOfTomograms(self):
+        if not hasattr(self, "outputNormalizedSetOfTomograms"):
+            outputNormalizedSetOfTomograms = self._createSetOfTomograms(suffix='Normalized')
+            outputNormalizedSetOfTomograms.copyInfo(self.inputSetOfTomograms.get())
             if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputNormalizedSetOfTiltSeries.setSamplingRate(samplingRate)
-            self._defineOutputs(outputNormalizedSetOfTiltSeries=outputNormalizedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
-        return self.outputNormalizedSetOfTiltSeries
+                samplingRate = self.inputSetOfTomograms.get().getSamplingRate()
+                outputNormalizedSetOfTomograms.setSamplingRate(samplingRate * self.binning.get())
+            self._defineOutputs(outputNormalizedSetOfTomograms=outputNormalizedSetOfTomograms)
+            self._defineSourceRelation(self.inputSetOfTomograms, outputNormalizedSetOfTomograms)
+        return self.outputNormalizedSetOfTomograms
 
     def getModeToOutput(self):
         parseParamsOutputMode = {
@@ -261,19 +238,19 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
+        if hasattr(self, 'outputNormalizedSetOfTomograms'):
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputNormalizedSetOfTiltSeries.getSize()))
+                           % (self.inputSetOfTomograms.get().getSize(),
+                              self.outputNormalizedSetOfTomograms.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been normalized using the IMOD newstack program.\n"
-                           % (self.outputNormalizedSetOfTiltSeries.getSize()))
+        if hasattr(self, 'outputNormalizedSetOfTomograms'):
+            methods.append("%d Tomograms have been normalized using the IMOD newstack program.\n"
+                           % (self.outputNormalizedSetOfTomograms.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

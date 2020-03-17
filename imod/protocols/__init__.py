@@ -33,3 +33,4 @@ from .protocol_fiducialModel import ProtFiducialModel
 from .protocol_tomoReconstruction import ProtTomoReconstruction
 from .protocol_newstack import ProtNewstack
 from .protocol_tsNormalization import ProtTSNormalization
+from .protocol_tomoNormalization import ProtTomoNormalization

@@ -80,30 +80,6 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
-        # self.runJob('clip flipzy',
-        #             ts.getFirstItem().getLocation()[1] + " " + os.path.join(tmpPrefix, "%s_flip.st" % tsId))
-        # #path.createLink(ts.getFirstItem().getLocation()[1], os.path.join(tmpPrefix, "%s_flip.st" % tsId))
-        #
-        # newStack = True
-        # for index, ti in enumerate(ts):
-        #     if ti.hasTransform():
-        #         ih = ImageHandler()
-        #         if newStack:
-        #             ih.createEmptyImage(fnOut=os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId),
-        #                                 xDim=ti.getXDim(),
-        #                                 yDim=ti.getYDim(),
-        #                                 nDim=ts.getSize())
-        #             newStack = False
-        #         transform = ti.getTransform().getMatrix()
-        #         transformArray = np.array(transform)
-        #         ih.applyTransform(inputFile=str(index + 1) + '@' + os.path.join(tmpPrefix, "%s_flip.st" % tsId),
-        #                           outputFile=str(index + 1) + '@' + os.path.join(tmpPrefix,
-        #                                                                          "%s_flip_transf.st" % tsId),
-        #                           transformMatrix=transformArray,
-        #                           shape=(ti.getXDim(), ti.getYDim()))
-        # #self.runJob('clip flipyz',
-        # #            os.path.join(tmpPrefix, "%s_flip_transf.st" % tsId) + " " + os.path.join(tmpPrefix,
-        # #                                                                                     "%s_transf.st" % tsId))
 
         """Generate angle file"""
         angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
