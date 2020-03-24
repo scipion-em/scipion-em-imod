@@ -166,19 +166,19 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
         fileName, fileExtension = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        tmpPrefix = self._getTmpPath(os.path.basename(fileName))
         path.makePath(extraPrefix)
+        path.makePath(tmpPrefix)
 
         paramsNewstack = {
             'input': location,
             'output': os.path.join(extraPrefix, os.path.basename(location)),
-            'bin': int(self.binning.get()),
             'imagebinned': 1.0,
         }
 
         argsNewstack = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s "
+                       "-output %(output)s " \
+                       "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
             argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
@@ -186,7 +186,7 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
             if self.floatDensities.get() == 2:
                 if self.meanSdToggle.get() == 0:
                     argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                     str(self.scaleSd.get())
+                                    str(self.scaleSd.get())
 
             elif self.floatDensities.get() == 4:
                 argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
@@ -194,12 +194,28 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
             else:
                 if self.scaleRangeToggle.get() == 0:
                     argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                     str(self.scaleRangeMin.get())
+                                    str(self.scaleRangeMin.get())
 
         if self.getModeToOutput() is not None:
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
         self.runJob('newstack', argsNewstack % paramsNewstack)
+
+        if self.binning.get() != 1:
+            path.moveFile(os.path.join(extraPrefix, os.path.basename(location)),
+                          os.path.join(tmpPrefix, os.path.basename(location)))
+
+            paramsBinvol = {
+                'input': os.path.join(tmpPrefix, os.path.basename(location)),
+                'output': os.path.join(extraPrefix, os.path.basename(location)),
+                'binning': self.binning.get(),
+            }
+
+            argsBinvol = "-input %(input)s " \
+                         "-output %(output)s " \
+                         "-binning %(binning)d "
+
+            self.runJob('binvol', argsBinvol % paramsBinvol)
 
         outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 
