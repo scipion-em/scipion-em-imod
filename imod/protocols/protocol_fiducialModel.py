@@ -41,7 +41,7 @@ from tomo.convert import writeTiStack
 
 class ProtFiducialModel(EMProtocol, ProtTomoBase):
     """
-    Construction of a fiducial model based on the IMOD procedure.
+    Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
@@ -55,7 +55,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-Series.')
 
         form.addParam('twoSurfaces',
                       params.EnumParam,
@@ -99,11 +99,12 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
 
-        groupInterpolation.addParam('binning', params.FloatParam,
+        groupInterpolation.addParam('binning',
+                                    params.FloatParam,
                                     default=1.0,
                                     label='Binning',
                                     help='Binning to be applied to the interpolated tilt-series. '
-                                         'Must be a integer bigger than 1')
+                                         'Must be a integer bigger than 1.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -129,6 +130,15 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
         outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+
+        # Try with newstack ***
+        paramsAlignment = {
+            'input': ts.getFirstItem().getLocation()[1],
+            'output': os.path.join(tmpPrefix,  "%s.mrcs" % tsId)
+            }
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s "
+        self.runJob('newstack', argsAlignment % paramsAlignment)
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
