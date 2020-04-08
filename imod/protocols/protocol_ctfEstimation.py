@@ -41,7 +41,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'CTF correction'
+    _label = 'CTF estimation'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -62,23 +62,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                            "These kind of center strips from all views within AngleRange are considered to have a "
                            "constant defocus and are used to compute the initial CTF after being further tessellated "
                            "into tiles.")
-
-        form.addParam('interpolationWidth',
-                      params.IntParam,
-                      label='Interpolation Width',
-                      default='15',
-                      important=True,
-                      help="The distance in pixels between the center lines of two consecutive strips. A pixel inside "
-                           "the region between those two center lines resides in both strips. As the two strips are "
-                           "corrected separately, that pixel will have 2 corrected values. The final value for that "
-                           "pixel is a linear interpolation of the 2 corrected values. If a value of 1 is entered, "
-                           "there is no such interpolation.  For a value greater than one, the entered value will be "
-                           "used whenever the strip width is less than 256 (i.e., at high tilt), and the value will be "
-                           "scaled proportional to the strip width for widths above 256.  This scaling keeps the "
-                           "computational time down and is reasonable because the defocus difference between adjacent "
-                           "wide strips at wider intervals is still less than that between the narrower strips at high "
-                           "tilt.  However, strips at constant spacing can still be obtained by entering the negative "
-                           "of the desired spacing, which disables the scaling of the spacing.")
 
         form.addParam('expectedDefocus',
                       params.FloatParam,
@@ -121,7 +104,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('ctfEstimation', ts.getObjId())
-            self._insertFunctionStep('ctfCorrection', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
@@ -132,8 +114,8 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
-        outputTltFileName = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        outputTsFileName = os.path.join(extraPrefix, '%s.st' % tsId)
+        outputTltFileName = os.path.join(tmpPrefix, '%s.rawtlt' % tsId)
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
@@ -150,7 +132,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCtfPlotter = {
-            'inputStack': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'inputStack': os.path.join(extraPrefix, '%s.st' % tsId),
             'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
             'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
             'axisAngle': 0.0,
@@ -185,42 +167,8 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
         self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter + " -config /home/fede/Downloads/ctf-sirt/F20.cfg ")
 
-    def ctfCorrection(self, tsObjId):
-        """Run ctfphaseflip IMOD program"""
-
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        paramsCtfPhaseFlip = {
-            'inputStack': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-            'outputFileName': os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId),
-            'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
-            'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
-            'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
-            'defocusTol': self.defocusTol.get(),
-            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate(),
-            'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
-            'interpolationWidth': self.interpolationWidth.get(),
-        }
-
-        argsCtfPhaseFlip = "-InputStack %(inputStack)s " \
-                           "-AngleFile %(angleFile)s " \
-                           "-OutputFileName %(outputFileName)s " \
-                           "-DefocusFile %(defocusFile)s " \
-                           "-Voltage %(voltage)d " \
-                           "-SphericalAberration %(sphericalAberration)f " \
-                           "-DefocusTol %(defocusTol)d " \
-                           "-PixelSize %(pixelSize)f " \
-                           "-AmplitudeContrast %(amplitudeContrast)f " \
-                           "-InterpolationWidth %(interpolationWidth)d "
-
-        self.runJob('ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
-
     def createOutputStep(self, tsObjId):
-        outputCtfCorrectedSetOfTiltSeries = self.getOutputCtfCorrectedSetOfTiltSeries()
+        outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -228,45 +176,45 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputCtfCorrectedSetOfTiltSeries.append(newTs)
+        outputCtfEstimatedSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId)))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)))
             newTs.append(newTi)
 
         newTs.write()
-        outputCtfCorrectedSetOfTiltSeries.update(newTs)
-        outputCtfCorrectedSetOfTiltSeries.write()
+        outputCtfEstimatedSetOfTiltSeries.update(newTs)
+        outputCtfEstimatedSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputCtfCorrectedSetOfTiltSeries(self):
-        if not hasattr(self, "outputCtfCorrectedSetOfTiltSeries"):
-            outputCtfCorrectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfCorrected')
-            outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputCtfCorrectedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            self._defineOutputs(outputCtfCorrectedSetOfTiltSeries=outputCtfCorrectedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfCorrectedSetOfTiltSeries)
-        return self.outputCtfCorrectedSetOfTiltSeries
+    def getOutputCtfEstimatedSetOfTiltSeries(self):
+        if not hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
+            outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
+            outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
+        return self.outputCtfEstimatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
+        if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nCTF corrections applpied applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputCtfCorrectedSetOfTiltSeries.getSize()))
+                              self.outputCtfEstimatedSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been CTF corrected using the IMOD newstack program.\n"
-                           % (self.outputCtfCorrectedSetOfTiltSeries.getSize()))
+        if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
+            methods.append("%d Tilt-series have been CTF Estimated using the IMOD newstack program.\n"
+                           % (self.outputCtfEstimatedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
