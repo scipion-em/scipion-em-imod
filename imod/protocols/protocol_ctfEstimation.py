@@ -38,7 +38,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
     """
 
     _label = 'CTF estimation'
@@ -114,7 +114,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(extraPrefix, '%s.st' % tsId)
+        outputTsFileName = os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)
         outputTltFileName = os.path.join(tmpPrefix, '%s.rawtlt' % tsId)
 
         """Apply the transformation form the input tilt-series"""
@@ -132,7 +132,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCtfPlotter = {
-            'inputStack': os.path.join(extraPrefix, '%s.st' % tsId),
+            'inputStack': os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId),
             'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
             'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
             'axisAngle': 0.0,
