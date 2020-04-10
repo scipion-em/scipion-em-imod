@@ -50,7 +50,10 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-Series',
+                      help='This should be a raw stack, not an aligned stack, because the interpolation used to make '
+                           'an aligned stack attenuates high frequencies and the noise power spectra would no longer '
+                           'match.')
 
         form.addParam('defocusTol',
                       params.IntParam,
@@ -165,7 +168,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f "
 
-        self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter + " -config /home/fede/Downloads/ctf-sirt/F20.cfg ")
+        self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter + " -config /home/fede/Downloads/ctf-sirt/F20.cfg")
 
     def createOutputStep(self, tsObjId):
         outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
