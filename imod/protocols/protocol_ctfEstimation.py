@@ -56,24 +56,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                            'an aligned stack attenuates high frequencies and the noise power spectra would no longer '
                            'match.')
 
-        form.addParam('noiseConfigFileToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Import noise config file',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='The configure file specifies the noise files used to estimate the noise floor, one file '
-                           'per line. The files can be specified with either absolute paths or with paths relative to '
-                           'the location of the configure file itself.')
-
-        form.addParam('noiseConfigFilePath',
-                      params.PathParam,
-                      label='Noise config file',
-                      condition='noiseConfigFileToggle==0',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Path to noise config file.')
-
         form.addParam('defocusTol',
                       params.IntParam,
                       label='Defocus tolerance',
@@ -129,32 +111,12 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
         outputTsFileName = os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)
         outputTltFileName = os.path.join(tmpPrefix, '%s.rawtlt' % tsId)
-        outputConfigFile = os.path.join(tmpPrefix, "configNoise.cfg")
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
         ts.generateTltFile(outputTltFileName)
-
-        if self.noiseConfigFileToggle.get() == 1:
-            for i in range(2):
-                outputNoiseFile = "emptyImage" + str(i) + ".mrc"
-                outputNoisePath = os.path.join(tmpPrefix, outputNoiseFile)
-
-                """Generate empty images as noise files for CTF estimation"""
-                ih = ImageHandler()
-                ih.createEmptyImage(fnOut=outputNoisePath,
-                                    xDim=ts.getFirstItem().getXDim(),
-                                    yDim=ts.getFirstItem().getYDim())
-
-        if self.noiseConfigFileToggle.get() == 1:
-            for i in range(2):
-                outputNoiseFile = "emptyImage" + str(i) + ".mrc"
-
-                """Generate de config noise file"""
-                with open(outputConfigFile, 'a') as f:
-                    f.writelines(outputNoiseFile + "\n")
 
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
@@ -163,11 +125,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
-
-        if self.noiseConfigFileToggle.get() == 1:
-            noiseConfigFile = os.path.join(tmpPrefix, "configNoise.cfg")
-        else:
-            noiseConfigFile = self.noiseConfigFilePath.get()
 
         paramsCtfPlotter = {
             'inputStack': os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId),
@@ -184,7 +141,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
             'psResolution': 101,
             'leftDefTol': 2000.0,
             'rightDefTol': 2000.0,
-            'configFile': noiseConfigFile,
         }
 
         argsCtfPlotter = "-InputStack %(inputStack)s " \
@@ -201,8 +157,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                          "-PSResolution %(psResolution)d " \
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
-                         "-ConfigFile %(configFile)s " \
-                         "-SaveAndExit "
+                         "-SaveAndExit "\
 
         self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
