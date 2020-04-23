@@ -131,15 +131,6 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
         outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
-        # Try with newstack ***
-        paramsAlignment = {
-            'input': ts.getFirstItem().getLocation()[1],
-            'output': os.path.join(tmpPrefix,  "%s.mrcs" % tsId)
-            }
-        argsAlignment = "-input %(input)s " \
-                        "-output %(output)s "
-        self.runJob('newstack', argsAlignment % paramsAlignment)
-
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
 
