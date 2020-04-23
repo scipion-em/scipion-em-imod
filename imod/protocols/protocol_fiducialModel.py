@@ -554,9 +554,9 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         chainId = 0
         indexFake = 0
         for fiducial in fiducialNoGapList:
-            if int(fiducial[2]) <= prevTiltIm:
+            if int(float(fiducial[2])) <= prevTiltIm:
                 chainId += 1
-            prevTiltIm = int(fiducial[2])
+            prevTiltIm = int(float(fiducial[2]))
             if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                 landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                 yCoor=fiducial[1],
