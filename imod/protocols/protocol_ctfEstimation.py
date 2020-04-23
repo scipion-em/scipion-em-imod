@@ -83,7 +83,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
         groupAngleRange.addParam('angleRange',
                                  params.FloatParam,
-                                 default=5,
+                                 default=120,
                                  label='Angle range',
                                  help='Size of the angle range in which the CTF is estimated.')
 
