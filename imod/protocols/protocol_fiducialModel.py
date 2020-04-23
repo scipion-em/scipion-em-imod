@@ -41,7 +41,7 @@ from tomo.convert import writeTiStack
 
 class ProtFiducialModel(EMProtocol, ProtTomoBase):
     """
-    Construction of a fiducial model based on the IMOD procedure.
+    Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
@@ -55,7 +55,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-Series.')
 
         form.addParam('twoSurfaces',
                       params.EnumParam,
@@ -99,11 +99,12 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
 
-        groupInterpolation.addParam('binning', params.FloatParam,
+        groupInterpolation.addParam('binning',
+                                    params.FloatParam,
                                     default=1.0,
                                     label='Binning',
                                     help='Binning to be applied to the interpolated tilt-series. '
-                                         'Must be a integer bigger than 1')
+                                         'Must be a integer bigger than 1.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -137,6 +138,14 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
         ts.generateTltFile(angleFilePath)
 
+        """"Link to input tilt-series (needed for fiducial model viewer)"""
+        inputTS = os.path.join(extraPrefix, "%s_preali.st" % tsId)
+        if ts.getFirstItem().hasTransform():
+            path.copyFile(outputTsFileName, inputTS)
+
+        else:
+            path.createLink(ts.getFirstItem().getLocation()[1], inputTS)
+
     def generateTrackComStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -145,7 +154,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
             'inputSeedModel': os.path.join(extraPrefix, '%s.seed' % tsId),
-            'outputModel': os.path.join(extraPrefix, '%s.fid' % tsId),
+            'outputModel': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
             'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
             'rotationAngle': self.rotationAngle.get(),
             'fiducialDiameter': self.fiducialDiameter.get()
@@ -183,7 +192,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix, '%s.seed' % tsId),
-            'outputModel': os.path.join(extraPrefix, '%s.fid' % tsId),
+            'outputModel': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
             'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
             'imagesAreBinned': 1,
             'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
@@ -255,7 +264,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         paramsTiltAlign = {
-            'modelFile': os.path.join(extraPrefix, '%s.fid' % tsId),
+            'modelFile': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
             'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
             'imagesAreBinned': 1,
             'outputModelFile': os.path.join(extraPrefix, '%s_fidxyz.mod' % tsId),
@@ -369,8 +378,8 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         paramsGapPoint2Model = {
-            'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
-            'outputFile': os.path.join(extraPrefix, '%s_fid.txt' % tsId)
+            'inputFile': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
+            'outputFile': os.path.join(extraPrefix, '%s_gaps_fid.txt' % tsId)
         }
         argsGapPoint2Model = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
@@ -484,7 +493,7 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         """Create the output set of landmark models with gaps"""
         outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
 
-        fiducialModelGapFileName = tsId + ".fid"
+        fiducialModelGapFileName = tsId + "_gaps.fid"
         fiducialModelGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelGapFileName)
 
         landmarkModelGapsFileName = tsId + "_gaps.sfid"
@@ -536,9 +545,9 @@ class ProtFiducialModel(EMProtocol, ProtTomoBase):
         chainId = 0
         indexFake = 0
         for fiducial in fiducialNoGapList:
-            if int(fiducial[2]) <= prevTiltIm:
+            if int(float(fiducial[2])) <= prevTiltIm:
                 chainId += 1
-            prevTiltIm = int(fiducial[2])
+            prevTiltIm = int(float(fiducial[2]))
             if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                 landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                 yCoor=fiducial[1],

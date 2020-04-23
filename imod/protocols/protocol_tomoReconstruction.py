@@ -59,7 +59,35 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
                       default=100,
                       label='Tomogram thickness', important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in pixels of the tomogram in the z axis (beam direction).')\
+
+        form.addParam('tomoShift',
+                      params.FloatParam,
+                      default=0,
+                      label='Tomogram shift',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Shift in pixels of the tomogram in the z axis (beam direction).')
+
+        groupRadialFrequencies = form.addGroup('Radial filtering',
+                                               help='This entry controls low-pass filtering with the radial weighting '
+                                                    'function.  The radial weighting function is linear away from the '
+                                                    'origin out to the distance in reciprocal space specified by the '
+                                                    'first value, followed by a Gaussian fall-off determined by the '
+                                                    'second value.',
+                                               expertLevel=params.LEVEL_ADVANCED)
+
+        groupRadialFrequencies.addParam('radialFirstParameter',
+                                        params.FloatParam,
+                                        default=0.35,
+                                        label='First parameter',
+                                        help='Linear region value')
+
+        groupRadialFrequencies.addParam('radialSecondParameter',
+                                        params.FloatParam,
+                                        default=0.035,
+                                        label='Second parameter',
+                                        help='Gaussian fall-off parameter')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -93,12 +121,18 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
             'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
             'OutputFile': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
             'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
-            'Thickness': self.tomoThickness.get()
+            'Thickness': self.tomoThickness.get(),
+            'FalloffIsTrueSigma': 1,
+            'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
+            'Shift': "0.0," + str(self.tomoShift.get())
         }
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
                    "-TILTFILE %(TiltFile)s " \
-                   "-THICKNESS %(Thickness)d"
+                   "-THICKNESS %(Thickness)d " \
+                   "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
+                   "-RADIAL %(Radial)s " \
+                   "-SHIFT %(Shift)s"
         self.runJob('tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
