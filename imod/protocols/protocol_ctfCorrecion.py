@@ -168,7 +168,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
     def _summary(self):
         summary = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nCTF corrections applpied applied: %d.\n"
+            summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
                            % (self.inputSetOfTiltSeries.getSize(),
                               self.outputCtfCorrectedSetOfTiltSeries.getSize()))
         else:
