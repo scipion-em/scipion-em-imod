@@ -170,6 +170,8 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
         path.makePath(tmpPrefix)
 
+        runNewstack = False
+
         paramsNewstack = {
             'input': location,
             'output': os.path.join(extraPrefix, os.path.basename(location)),
@@ -181,6 +183,7 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
                        "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
+            runNewstack = True
             argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
 
             if self.floatDensities.get() == 2:
@@ -197,16 +200,22 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
                                     str(self.scaleRangeMin.get())
 
         if self.getModeToOutput() is not None:
+            runNewstack = True
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
-        self.runJob('newstack', argsNewstack % paramsNewstack)
+        if runNewstack:
+            self.runJob('newstack', argsNewstack % paramsNewstack)
 
         if self.binning.get() != 1:
-            path.moveFile(os.path.join(extraPrefix, os.path.basename(location)),
-                          os.path.join(tmpPrefix, os.path.basename(location)))
+            if runNewstack:
+                path.moveFile(os.path.join(extraPrefix, os.path.basename(location)),
+                              os.path.join(tmpPrefix, os.path.basename(location)))
+                inputTomoPath = os.path.join(tmpPrefix, os.path.basename(location))
+            else:
+                inputTomoPath = location
 
             paramsBinvol = {
-                'input': os.path.join(tmpPrefix, os.path.basename(location)),
+                'input': inputTomoPath,
                 'output': os.path.join(extraPrefix, os.path.basename(location)),
                 'binning': self.binning.get(),
             }
