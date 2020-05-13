@@ -63,7 +63,7 @@ class TestImodXcorrPrealignment(BaseTest):
 
     def _runXcorrPrealignment(self, inputTS, computeAlignmentToggle,
                               binning, rotationAngle):
-        protXcorr = self.newProtocol(ProtImodXcorr,
+        protXcorr = self.newProtocol(ProtImodXcorrPrealignment,
                                      inputSetOfTiltSeries=inputTS,
                                      computeAlignment=computeAlignmentToggle,
                                      binning=binning,

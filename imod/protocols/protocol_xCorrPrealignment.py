@@ -35,7 +35,7 @@ import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 
 
-class ProtImodXcorr(EMProtocol, ProtTomoBase):
+class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     """
     Tilt-series' cross correlation alignment based on the IMOD procedure.
     More info:

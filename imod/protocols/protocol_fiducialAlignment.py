@@ -39,7 +39,7 @@ from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 
 
-class ProtFiducialModel(EMProtocol, ProtTomoBase):
+class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
