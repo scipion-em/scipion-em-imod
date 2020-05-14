@@ -106,7 +106,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
             'voltage': self.inputSetOfTiltSeries.getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.getAcquisition().getSphericalAberration(),
             'defocusTol': self.protCtfEstimation.get().defocusTol.get(),
-            'pixelSize': self.inputSetOfTiltSeries.getSamplingRate(),
+            'pixelSize': self.inputSetOfTiltSeries.getSamplingRate()/10,
             'amplitudeContrast': self.inputSetOfTiltSeries.getAcquisition().getAmplitudeContrast(),
             'interpolationWidth': self.interpolationWidth.get(),
         }
@@ -178,7 +178,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been CTF corrected using the IMOD newstack program.\n"
+            methods.append("%d Tilt-series have been CTF corrected using the IMOD ctfphaseflip software.\n"
                            % (self.outputCtfCorrectedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")

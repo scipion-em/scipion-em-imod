@@ -131,7 +131,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
             'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
             'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
             'axisAngle': 0.0,
-            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate(),
+            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate()/10,
             'expectedDefocus': self.expectedDefocus.get(),
             'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
@@ -197,7 +197,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
     def _summary(self):
         summary = []
         if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nCTF corrections applpied applied: %d.\n"
+            summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.outputCtfEstimatedSetOfTiltSeries.getSize()))
         else:
@@ -207,7 +207,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been CTF Estimated using the IMOD newstack program.\n"
+            methods.append("%d Tilt-series CTF have been estimated using the IMOD ctfplotter software.\n"
                            % (self.outputCtfEstimatedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
