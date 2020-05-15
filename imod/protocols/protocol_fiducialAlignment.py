@@ -46,7 +46,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'fiducial model'
+    _label = 'fiducial alignment'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

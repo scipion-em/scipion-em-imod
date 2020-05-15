@@ -57,9 +57,9 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                            'match.')
 
         form.addParam('defocusTol',
-                      params.IntParam,
+                      params.FloatParam,
                       label='Defocus tolerance',
-                      default='200',
+                      default=2000,
                       important=True,
                       help="Defocus tolerance in nanometers defining the center strips. The center strips are taken "
                            "from the central region of a view that has defocus difference less than this tolerance. "
@@ -69,13 +69,27 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
         form.addParam('expectedDefocus',
                       params.FloatParam,
-                      default=8000.0,
+                      default=8000,
                       label='Expected defocus',
                       important=True,
                       help='Expected defocus at the tilt axis in nanometers, with a positive value for underfocus. '
                            'The frequency of the first zero of the CTF curve is first computed based on this expected '
                            'defocus.  The segments of the CTF curve of the input stack around that frequency are '
                            'selected to be fitted.')
+
+        form.addParam('leftDefTol',
+                      params.FloatParam,
+                      label='Left defocus tolerance',
+                      default=2000,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Defocus tolerance in nanometers for strips to the left of the center strip.")
+
+        form.addParam('rightDefTol',
+                      params.FloatParam,
+                      label='Right defocus tolerance',
+                      default=2000,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Defocus tolerance in nanometers for strips to the right of the center strip.")
 
         groupAngleRange = form.addGroup('Autorefinement angle settings',
                                         help='This entry sets the range of angles in each fit and the step size between'
@@ -139,8 +153,8 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
             'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
             'defocusTol': self.defocusTol.get(),
             'psResolution': 101,
-            'leftDefTol': 2000.0,
-            'rightDefTol': 2000.0,
+            'leftDefTol': self.leftDefTol.get(),
+            'rightDefTol': self.rightDefTol.get(),
         }
 
         argsCtfPlotter = "-InputStack %(inputStack)s " \
