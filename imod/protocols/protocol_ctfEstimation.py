@@ -95,18 +95,19 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                                         help='This entry sets the range of angles in each fit and the step size between'
                                              'angles for the initial autofitting of the whole tilt-series.')
 
-        groupAngleRange.addParam('angleRange',
-                                 params.FloatParam,
-                                 default=120,
-                                 label='Angle range',
-                                 help='Size of the angle range in which the CTF is estimated.')
-
         groupAngleRange.addParam('angleStep',
                                  params.FloatParam,
                                  default=2,
                                  label='Angle step',
-                                 help='Step size between ranges.A value of zero for the step will make it fit to each '
+                                 help='Step size between ranges. A value of zero for the step will make it fit to each '
                                       'single image separately, regardless of the value for the range.')
+
+        groupAngleRange.addParam('angleRange',
+                                 params.FloatParam,
+                                 condition="angleStep != 0",
+                                 default=120,
+                                 label='Angle range',
+                                 help='Size of the angle range in which the CTF is estimated.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
