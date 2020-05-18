@@ -34,14 +34,14 @@ import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 
 
-class ProtNewstack(EMProtocol, ProtTomoBase):
+class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'newstack'
+    _label = 'apply transformation'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -50,7 +50,7 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('binning', params.FloatParam,
                       default=1.0,

@@ -55,7 +55,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series.')
+                      label='Input set of tilt-series.')
 
         form.addParam('twoSurfaces',
                       params.EnumParam,
@@ -69,7 +69,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         form.addParam('fiducialDiameter',
                       params.FloatParam,
                       label='Fiducial diameter (nm)',
-                      default='10',
+                      default='4.95',
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -176,7 +176,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
-                          "-TargetNumberOfBeads %(targetNumberOfBeads)d"
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
         self.runJob('autofidseed', argsAutofidseed % paramsAutofidseed)
@@ -184,6 +184,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
         path.moveTree("autofidseed.dir", autofidseedDirPath)
+        path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
     def generateFiducialModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
