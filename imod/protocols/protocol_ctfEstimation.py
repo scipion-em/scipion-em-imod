@@ -51,7 +51,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series',
+                      label='Input set of tilt-series',
                       help='This should be a raw stack, not an aligned stack, because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and the noise power spectra would no longer '
                            'match.')

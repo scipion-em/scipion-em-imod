@@ -54,7 +54,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         form.addParam('inputSetOfTiltSeries', params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('computeAlignment', params.EnumParam,
                       choices=['Yes', 'No'],

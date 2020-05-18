@@ -50,7 +50,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('binning',
                       params.FloatParam,
