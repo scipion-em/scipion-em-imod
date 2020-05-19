@@ -59,13 +59,13 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         form.addParam('defocusTol',
                       params.FloatParam,
                       label='Defocus tolerance',
-                      default=2000,
+                      default=200,
                       important=True,
-                      help="Defocus tolerance in nanometers defining the center strips. The center strips are taken "
-                           "from the central region of a view that has defocus difference less than this tolerance. "
-                           "These kind of center strips from all views within AngleRange are considered to have a "
-                           "constant defocus and are used to compute the initial CTF after being further tessellated "
-                           "into tiles.")
+                      help='Defocus tolerance in nanometers defining the center strips. The center strips are taken '
+                           'from the central region of a view that has defocus difference less than this tolerance. '
+                           'These kind of center strips from all views within AngleRange are considered to have a '
+                           'constant defocus and are used to compute the initial CTF after being further tessellated '
+                           'into tiles.')
 
         form.addParam('expectedDefocus',
                       params.FloatParam,
@@ -76,6 +76,14 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                            'The frequency of the first zero of the CTF curve is first computed based on this expected '
                            'defocus.  The segments of the CTF curve of the input stack around that frequency are '
                            'selected to be fitted.')
+
+        form.addParam('axisAngle',
+                      params.FloatParam,
+                      default=0.0,
+                      label='Axis angle',
+                      important=True,
+                      help='Specifies how much the tilt axis deviates from vertical (Y axis). This angle is in degrees.'
+                           ' It follows the right hand  rule and counter-clockwise is positive.')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -90,6 +98,15 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the right of the center strip.")
+
+        form.addParam('tileSize',
+                      params.IntParam,
+                      label='Tile size',
+                      default=256,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="The tile size each strip will be tessellated into. The size is in pixels and the tiles are "
+                           "square.  Each view is first divided into strips that are considered to have constant "
+                           "defocus.")
 
         groupAngleRange = form.addGroup('Autorefinement angle settings',
                                         help='This entry sets the range of angles in each fit and the step size between'
@@ -108,6 +125,36 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                                  default=120,
                                  label='Angle range',
                                  help='Size of the angle range in which the CTF is estimated.')
+
+        groupFrequencyRange = form.addGroup('Autorefinement frequency range',
+                                            expertLevel=params.LEVEL_ADVANCED,
+                                            help='Starting and ending frequencies of range to fit in power spectrum. '
+                                                 'The two values will be used to set the "X1 starts" and "X2 ends" '
+                                                 'fields in the fitting dialog.')
+
+        groupFrequencyRange.addParam('startFreq',
+                                     params.FloatParam,
+                                     default=0.0,
+                                     label='Start',
+                                     help='Starting frequency. "X1 starts". "X2 ends".')
+
+        groupFrequencyRange.addParam('endFreq',
+                                     params.FloatParam,
+                                     default=0.0,
+                                     label='End',
+                                     help='Ending frequency. ')
+
+        form.addParam('extraZerosToFit',
+                      params.FloatParam,
+                      label='Extra zeros to fit',
+                      default=0.0,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="By default, the ending frequency of the fitting range is set to the expected location of "
+                           "the second zero.  With this entry, the range will be extended by the given multiple of the "
+                           "interval between first and seconds zeros.  For example, entries of 1 and 2 will fit "
+                           "approximately to the third and fourth zeros, respectively.  An entry of more than 0.5 will "
+                           "trigger fitting to two exponentials, which is important for fitting multiple peaks between "
+                           "zeros.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -135,7 +182,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -145,8 +191,8 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
             'inputStack': os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId),
             'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
             'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
-            'axisAngle': 0.0,
-            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate()/10,
+            'axisAngle': self.axisAngle.get(),
+            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'expectedDefocus': self.expectedDefocus.get(),
             'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
@@ -156,6 +202,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
             'psResolution': 101,
             'leftDefTol': self.leftDefTol.get(),
             'rightDefTol': self.rightDefTol.get(),
+            'tileSize': self.tileSize.get(),
         }
 
         argsCtfPlotter = "-InputStack %(inputStack)s " \
@@ -172,7 +219,23 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                          "-PSResolution %(psResolution)d " \
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
-                         "-SaveAndExit "\
+                         "-tileSize %(tileSize)d " \
+                         "-SaveAndExit "
+
+        if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+            paramsCtfPlotter.update({
+                'startFreq': self.startFreq.get(),
+                'endFreq': self.endFreq.get()
+            })
+
+            argsCtfPlotter += "-FrequencyRangeToFit %(startFreq)f,%(endFreq)f "
+
+        if self.extraZerosToFit.get() != 0:
+            paramsCtfPlotter.update({
+                'extraZerosToFit': self.extraZerosToFit.get(),
+            })
+
+            argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
 
         self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
@@ -182,6 +245,8 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+
+        ctfInfoList = self.readCtfOutputFile(os.path.join(extraPrefix, "%s.defocus" % tsId))
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -199,6 +264,11 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    def readCtfOutputFile(self, ctfOutputFile):
+        cttInfoList = []
+
+        return cttInfoList
+
     def getOutputCtfEstimatedSetOfTiltSeries(self):
         if not hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')

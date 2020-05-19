@@ -95,9 +95,7 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
@@ -116,6 +114,13 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                             "-imagebinned %(imagebinned)s"
             self.runJob('newstack', argsAlignment % paramsAlignment)
 
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputInterpolatedSetOfTiltSeries.append(newTs)
+
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
@@ -123,9 +128,6 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
-
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         newTs.write()
         outputInterpolatedSetOfTiltSeries.update(newTs)

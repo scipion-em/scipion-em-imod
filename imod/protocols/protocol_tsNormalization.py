@@ -192,9 +192,9 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         }
 
         argsNewstack = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s "
+                       "-output %(output)s " \
+                       "-bin %(bin)d " \
+                       "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
             argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
@@ -202,7 +202,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             if self.floatDensities.get() == 2:
                 if self.meanSdToggle.get() == 0:
                     argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                     str(self.scaleSd.get())
+                                    str(self.scaleSd.get())
 
             elif self.floatDensities.get() == 4:
                 argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
@@ -210,7 +210,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             else:
                 if self.scaleRangeToggle.get() == 0:
                     argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                     str(self.scaleRangeMin.get())
+                                    str(self.scaleRangeMin.get())
 
         if self.getModeToOutput() is not None:
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
