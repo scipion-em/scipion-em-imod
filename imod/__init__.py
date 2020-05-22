@@ -41,7 +41,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(IMOD_HOME, 'imod-4.9')
+        cls._defineEmVar(IMOD_HOME, 'imod-4.10.42')
 
     @classmethod
     def getEnviron(cls):
@@ -88,3 +88,9 @@ class Plugin(pwem.Plugin):
                            neededProgs=cls.getDependencies(),
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=True)
+
+    @classmethod
+    def runImod(cls, protocol, program, args, cwd=None):
+        """ Run IMOD command from a given protocol. """
+        fullProgram = '%s/%s/bin/%s' % (cls.getVar(IMOD_HOME), "imod_4.10.42", program)
+        protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
