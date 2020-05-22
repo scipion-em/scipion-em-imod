@@ -33,6 +33,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
 
 
 class ProtCtfEstimation(EMProtocol, ProtTomoBase):
@@ -237,7 +238,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
             argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
 
-        self.runJob('ctfplotter', argsCtfPlotter % paramsCtfPlotter)
+        Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
         outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()

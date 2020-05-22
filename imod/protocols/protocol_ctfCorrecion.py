@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtCtfCorrection(EMProtocol, ProtTomoBase):
@@ -122,7 +123,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
                            "-AmplitudeContrast %(amplitudeContrast)f " \
                            "-InterpolationWidth %(interpolationWidth)d "
 
-        self.runJob('ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+        Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
         outputCtfCorrectedSetOfTiltSeries = self.getOutputCtfCorrectedSetOfTiltSeries()

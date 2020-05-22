@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
@@ -112,7 +113,7 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlignment)
+            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)

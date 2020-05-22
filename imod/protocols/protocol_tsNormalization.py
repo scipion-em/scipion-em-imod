@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtTSNormalization(EMProtocol, ProtTomoBase):
@@ -215,7 +216,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         if self.getModeToOutput() is not None:
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
-        self.runJob('newstack', argsNewstack % paramsNewstack)
+        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
