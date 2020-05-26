@@ -31,7 +31,7 @@ from .protocol_auto3d import ProtImodAuto3D
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_fiducialAlignment import ProtFiducialAlignment
 from .protocol_tomoReconstruction import ProtTomoReconstruction
-from .protocol_newstack import ProtNewstack
+from .protocol_applyTransformationMatrix import ProtApplyTransformationMatrix
 from .protocol_tsNormalization import ProtTSNormalization
 from .protocol_tomoNormalization import ProtTomoNormalization
 from .protocol_ctfCorrecion import ProtCtfCorrection

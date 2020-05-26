@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 from tomo.objects import Tomogram
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtTomoNormalization(EMProtocol, ProtTomoBase):
@@ -204,7 +205,7 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
         if runNewstack:
-            self.runJob('newstack', argsNewstack % paramsNewstack)
+            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         if self.binning.get() != 1:
             if runNewstack:
@@ -224,7 +225,7 @@ class ProtTomoNormalization(EMProtocol, ProtTomoBase):
                          "-output %(output)s " \
                          "-binning %(binning)d "
 
-            self.runJob('binvol', argsBinvol % paramsBinvol)
+            Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
         outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 

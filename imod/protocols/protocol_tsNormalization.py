@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtTSNormalization(EMProtocol, ProtTomoBase):
@@ -50,7 +51,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('binning',
                       params.FloatParam,
@@ -192,9 +193,9 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
         }
 
         argsNewstack = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s "
+                       "-output %(output)s " \
+                       "-bin %(bin)d " \
+                       "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
             argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
@@ -202,7 +203,7 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             if self.floatDensities.get() == 2:
                 if self.meanSdToggle.get() == 0:
                     argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                     str(self.scaleSd.get())
+                                    str(self.scaleSd.get())
 
             elif self.floatDensities.get() == 4:
                 argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
@@ -210,12 +211,12 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
             else:
                 if self.scaleRangeToggle.get() == 0:
                     argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                     str(self.scaleRangeMin.get())
+                                    str(self.scaleRangeMin.get())
 
         if self.getModeToOutput() is not None:
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
-        self.runJob('newstack', argsNewstack % paramsNewstack)
+        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()

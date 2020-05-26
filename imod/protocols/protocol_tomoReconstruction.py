@@ -34,6 +34,7 @@ from pwem.emlib.image import ImageHandler
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from tomo.objects import Tomogram, TomoAcquisition
+from imod import Plugin
 
 
 class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
@@ -53,7 +54,7 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
         form.addParam('inputSetOfTiltSeries', params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('tomoThickness', params.FloatParam,
                       default=100,
@@ -133,7 +134,7 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
                    "-SHIFT %(Shift)s"
-        self.runJob('tilt', argsTilt % paramsTilt)
+        Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
             'input': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
@@ -141,7 +142,7 @@ class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
         }
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s"
-        self.runJob('newstack', argsNewstack % paramsNewstack)
+        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]

@@ -37,6 +37,7 @@ import tomo.objects as tomoObj
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
+from imod import Plugin
 
 
 class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
@@ -46,7 +47,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'fiducial model'
+    _label = 'fiducial alignment'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -55,7 +56,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series.')
+                      label='Input set of tilt-series.')
 
         form.addParam('twoSurfaces',
                       params.EnumParam,
@@ -69,7 +70,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         form.addParam('fiducialDiameter',
                       params.FloatParam,
                       label='Fiducial diameter (nm)',
-                      default='10',
+                      default='4.95',
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -176,14 +177,15 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
-                          "-TargetNumberOfBeads %(targetNumberOfBeads)d"
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
-        self.runJob('autofidseed', argsAutofidseed % paramsAutofidseed)
+        Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
         path.moveTree("autofidseed.dir", autofidseedDirPath)
+        path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
     def generateFiducialModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -256,7 +258,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
 
-        self.runJob('beadtrack', argsBeadtrack % paramsBeadtrack)
+        Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def computeFiducialAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -370,7 +372,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-LocalSkewOption %(localSkewOption)d " \
                         "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d"
 
-        self.runJob('tiltalign', argsTiltAlign % paramsTiltAlign)
+        Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -383,7 +385,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         }
         argsGapPoint2Model = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
-        self.runJob('model2point', argsGapPoint2Model % paramsGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
 
         paramsNoGapPoint2Model = {
             'inputFile': os.path.join(extraPrefix, '%s_noGaps.fid' % tsId),
@@ -391,7 +393,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         }
         argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
                                "-OutputFile %(outputFile)s"
-        self.runJob('model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
 
     def computeOutputStackStep(self, tsObjId):
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
@@ -459,7 +461,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
-        self.runJob('newstack', argsAlignment % paramsAlignment)
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)

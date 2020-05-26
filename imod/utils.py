@@ -105,6 +105,8 @@ def formatFiducialResidList(fiducialFilePath):
 
 
 def formatAngleFile(inputTs, angleFilePath):
+    """This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
+    IMOD-based angle file at the given location"""
     angleList = []
     for ti in inputTs:
         angleList.append(ti.getTiltAngle())

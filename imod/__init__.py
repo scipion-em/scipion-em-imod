@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,8 +26,8 @@
 # *
 # **************************************************************************
 
+import os
 import pwem
-
 
 from .constants import IMOD_HOME, ETOMO_CMD
 from distutils.spawn import find_executable
@@ -34,14 +36,12 @@ _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
-
 class Plugin(pwem.Plugin):
-
     _validationMsg = None
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(IMOD_HOME, 'imod-4.9')
+        cls._defineEmVar(IMOD_HOME, 'imod-4.10.42')
 
     @classmethod
     def getEnviron(cls):
@@ -54,8 +54,43 @@ class Plugin(pwem.Plugin):
         """
 
         if not cls._validationMsg:
-            cls._validationMsg = ["imod's %s command not found in path, please install it." % ETOMO_CMD] if not find_executable(ETOMO_CMD) else []
+            cls._validationMsg = [
+                "imod's %s command not found in path, please install it." % ETOMO_CMD] if not find_executable(
+                ETOMO_CMD) else []
 
         return cls._validationMsg
 
+    @classmethod
+    def getDependencies(cls):
+        neededPrograms = ['libjpeg62', 'java', 'python']
 
+        return neededPrograms
+
+    @classmethod
+    def defineBinaries(cls, env):
+        version = '4.10.42'
+        IMOD_INSTALLED = 'imod_%s_installed' % version
+
+        if 'ubuntu' in os.getenv('DESKTOP_SESSION', 'unknown'):
+            # Download .sh
+            installationCmd = 'wget https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
+                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh && '
+
+            # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
+            installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -skip && '
+
+            # Create installation finished flag file
+            installationCmd += 'touch %s' % IMOD_INSTALLED
+
+            env.addPackage('imod',
+                           version=version,
+                           tar='void.tgz',
+                           neededProgs=cls.getDependencies(),
+                           commands=[(installationCmd, IMOD_INSTALLED)],
+                           default=True)
+
+    @classmethod
+    def runImod(cls, protocol, program, args, cwd=None):
+        """ Run IMOD command from a given protocol. """
+        fullProgram = '%s/%s/bin/%s' % (cls.getVar(IMOD_HOME), "imod_4.10.42", program)
+        protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)

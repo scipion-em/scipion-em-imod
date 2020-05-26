@@ -32,16 +32,17 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
-class ProtNewstack(EMProtocol, ProtTomoBase):
+class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'newstack'
+    _label = 'apply transformation'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -50,7 +51,7 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('binning', params.FloatParam,
                       default=1.0,
@@ -95,9 +96,7 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
@@ -114,7 +113,14 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s"
-            self.runJob('newstack', argsAlignment % paramsAlignment)
+            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputInterpolatedSetOfTiltSeries.append(newTs)
+
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -123,9 +129,6 @@ class ProtNewstack(EMProtocol, ProtTomoBase):
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
-
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         newTs.write()
         outputInterpolatedSetOfTiltSeries.update(newTs)

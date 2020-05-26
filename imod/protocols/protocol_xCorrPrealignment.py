@@ -33,6 +33,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
@@ -54,7 +55,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         form.addParam('inputSetOfTiltSeries', params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-Series')
+                      label='Input set of tilt-series')
 
         form.addParam('computeAlignment', params.EnumParam,
                       choices=['Yes', 'No'],
@@ -128,7 +129,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                     "-FilterSigma1 %(FilterSigma1)f " \
                     "-FilterSigma2 %(FilterSigma2)f " \
                     "-FilterRadius2 %(FilterRadius2)f"
-        self.runJob('tiltxcorr', argsXcorr % paramsXcorr)
+        Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
             'input': os.path.join(extraPrefix, '%s.prexf' % tsId),
@@ -136,7 +137,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         }
         argsXftoxg = "-input %(input)s " \
                      "-goutput %(goutput)s"
-        self.runJob('xftoxg', argsXftoxg % paramsXftoxg)
+        Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
@@ -181,7 +182,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
-        self.runJob('newstack', argsAlignment % paramsAlignment)
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()

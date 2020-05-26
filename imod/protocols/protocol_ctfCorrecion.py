@@ -32,6 +32,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
 
 
 class ProtCtfCorrection(EMProtocol, ProtTomoBase):
@@ -106,7 +107,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
             'voltage': self.inputSetOfTiltSeries.getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.getAcquisition().getSphericalAberration(),
             'defocusTol': self.protCtfEstimation.get().defocusTol.get(),
-            'pixelSize': self.inputSetOfTiltSeries.getSamplingRate(),
+            'pixelSize': self.inputSetOfTiltSeries.getSamplingRate()/10,
             'amplitudeContrast': self.inputSetOfTiltSeries.getAcquisition().getAmplitudeContrast(),
             'interpolationWidth': self.interpolationWidth.get(),
         }
@@ -122,7 +123,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
                            "-AmplitudeContrast %(amplitudeContrast)f " \
                            "-InterpolationWidth %(interpolationWidth)d "
 
-        self.runJob('ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+        Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
         outputCtfCorrectedSetOfTiltSeries = self.getOutputCtfCorrectedSetOfTiltSeries()
@@ -178,7 +179,7 @@ class ProtCtfCorrection(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been CTF corrected using the IMOD newstack program.\n"
+            methods.append("%d Tilt-series have been CTF corrected using the IMOD ctfphaseflip software.\n"
                            % (self.outputCtfCorrectedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
