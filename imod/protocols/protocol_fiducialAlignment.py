@@ -38,6 +38,7 @@ from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from imod import Plugin
+from pwem.emlib.image import ImageHandler
 
 
 class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
@@ -483,8 +484,13 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
                 newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
 
+        ih = ImageHandler()
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        newTs.setDim((x, y, z))
         newTs.write()
+
         outputInterpolatedSetOfTiltSeries.update(newTs)
+        outputNormalizedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 

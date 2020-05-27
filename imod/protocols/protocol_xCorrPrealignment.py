@@ -34,6 +34,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from pwem.emlib.image import ImageHandler
 
 
 class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
@@ -161,12 +162,10 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
     def computeInterpolatedStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
@@ -184,6 +183,13 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                         "-imagebinned %(imagebinned)s"
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputInterpolatedSetOfTiltSeries.append(newTs)
+
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
@@ -191,15 +197,16 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+
+        ih = ImageHandler()
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        newTs.setDim((x, y, z))
         newTs.write()
-        outputInterpolatedSetOfTiltSeries.update(newTs)  # update items and size info
+
+        outputInterpolatedSetOfTiltSeries.update(newTs)
+        outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
-
-        """Debug code"""
-        path.moveTree(self._getTmpPath(), self._getExtraPath())
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTiltSeries(self):

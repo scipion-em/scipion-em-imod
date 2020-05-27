@@ -33,6 +33,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from pwem.emlib.image import ImageHandler
 
 
 class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
@@ -130,8 +131,15 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
 
+        ih = ImageHandler()
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        print("-------------------------------------------------------- cipote")
+        print(ih.getDimensions(newTs.getFirstItem().getFileName()))
+        newTs.setDim((x, y, z))
         newTs.write()
+
         outputInterpolatedSetOfTiltSeries.update(newTs)
+        outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
