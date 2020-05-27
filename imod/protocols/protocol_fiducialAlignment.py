@@ -490,7 +490,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         newTs.write()
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputNormalizedSetOfTiltSeries.updateDim()
+        outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
