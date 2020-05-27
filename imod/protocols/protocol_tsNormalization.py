@@ -33,6 +33,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from pwem.emlib.image import ImageHandler
 
 
 class ProtTSNormalization(EMProtocol, ProtTomoBase):
@@ -218,6 +219,9 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
+        if self.binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
@@ -226,11 +230,13 @@ class ProtTSNormalization(EMProtocol, ProtTomoBase):
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
 
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
-
+        ih = ImageHandler()
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        newTs.setDim((x, y, z))
         newTs.write()
+
         outputNormalizedSetOfTiltSeries.update(newTs)
+        outputNormalizedSetOfTiltSeries.updateDim()
         outputNormalizedSetOfTiltSeries.write()
         self._store()
 
