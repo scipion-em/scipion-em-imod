@@ -28,6 +28,7 @@
 
 import os
 import pwem
+import pyworkflow as pw
 
 from .constants import IMOD_HOME, ETOMO_CMD
 from distutils.spawn import find_executable
@@ -37,11 +38,12 @@ _references = ['Kremer1996', 'Mastronarde2017']
 
 
 class Plugin(pwem.Plugin):
+    _homeVar = IMOD_HOME
     _validationMsg = None
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(IMOD_HOME, 'imod-4.10.42')
+        cls._defineEmVar(IMOD_HOME, 'imod-4.10.42/IMOD')
 
     @classmethod
     def getEnviron(cls):
@@ -92,5 +94,6 @@ class Plugin(pwem.Plugin):
     @classmethod
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
-        fullProgram = '%s/%s/bin/%s' % (cls.getVar(IMOD_HOME), "imod_4.10.42", program)
+        fullProgram = '%s/bin/%s' % (cls.getVar(IMOD_HOME), program)
+        protocol.runJob('sh', os.path.join(cls.getVar(IMOD_HOME), "IMOD-linux.sh"))
         protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
