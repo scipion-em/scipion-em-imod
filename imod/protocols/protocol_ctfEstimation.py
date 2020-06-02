@@ -143,7 +143,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                                      params.FloatParam,
                                      default=0.0,
                                      label='End',
-                                     help='Ending frequency. ')
+                                     help='Ending frequency.')
 
         form.addParam('extraZerosToFit',
                       params.FloatParam,
@@ -156,6 +156,76 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
                            "approximately to the third and fourth zeros, respectively.  An entry of more than 0.5 will "
                            "trigger fitting to two exponentials, which is important for fitting multiple peaks between "
                            "zeros.")
+
+        form.addParam('skipAstigmaticViews',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Skip astigmatic phase views',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Skip or break views only when finding astigmatism or phase shift')
+
+        groupAstigmatism = form.addGroup('Astigmatism settings',
+                                         expertLevel=params.LEVEL_ADVANCED,
+                                         help='Parameters for astigmatism analysis')
+
+        groupAstigmatism.addParam('searchAstigmatism',
+                                  params.EnumParam,
+                                  choices=['Yes', 'No'],
+                                  default=1,
+                                  label='Search astigmatism',
+                                  display=params.EnumParam.DISPLAY_HLIST,
+                                  help='Search for astigmatism when fitting')
+
+        groupAstigmatism.addParam('findAstigPhaseCutonToggle',
+                                  params.EnumParam,
+                                  choices=['Yes', 'No'],
+                                  default=1,
+                                  label='Find astigmatism, phase shift, and cut-on frequency?',
+                                  display=params.EnumParam.DISPLAY_HLIST,
+                                  condition='searchAstigmatism==0',
+                                  help='Find astigmatism, phase shift, and cut-on frequency')
+
+        groupAstigmatism.addParam('phaseShiftAstigmatism',
+                                  params.IntParam,
+                                  label='Phase shift',
+                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+                                  help='Phase shift for astigmatism analysis.')
+
+        groupAstigmatism.addParam('cutOnFrequencyAstigmatism',
+                                  params.IntParam,
+                                  label='Cut-on frequency',
+                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+                                  help='Cut-on frequency for astigmatism analysis.')
+
+        groupAstigmatism.addParam('minimumViewsAstigmatism',
+                                  params.IntParam,
+                                  default=3,
+                                  label='Minimum views astigmatism',
+                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+                                  help='Minimum views for finding astigmatism.')
+
+        groupAstigmatism.addParam('minimumViewsPhaseShift',
+                                  params.IntParam,
+                                  default=1,
+                                  label='Minimum views phase shift',
+                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+                                  help='Minimum views for finding phase shift.')
+
+        groupAstigmatism.addParam('numberSectionsAstigmatism',
+                                  params.IntParam,
+                                  default=36,
+                                  label='Number of sections',
+                                  condition='searchAstigmatism==0',
+                                  help='Number of sectors for astigmatism analysis.')
+
+        groupAstigmatism.addParam('maximumAstigmatism',
+                                  params.FloatParam,
+                                  default=1.2,
+                                  label='Maximum astigmatism',
+                                  condition='searchAstigmatism==0',
+                                  help='Maximum astigmatism in microns.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -226,7 +296,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         if self.startFreq.get() != 0 or self.endFreq.get() != 0:
             paramsCtfPlotter.update({
                 'startFreq': self.startFreq.get(),
-                'endFreq': self.endFreq.get()
+                'endFreq': self.endFreq.get(),
             })
 
             argsCtfPlotter += "-FrequencyRangeToFit %(startFreq)f,%(endFreq)f "
@@ -238,6 +308,33 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
 
             argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
 
+        if self.skipAstigmaticViews.get() == 0:
+            argsCtfPlotter += "-SkipOnlyForAstigPhase "
+
+        if self.searchAstigmatism.get() == 0:
+
+            if self.findAstigPhaseCutonToggle.get() == 0:
+                paramsCtfPlotter.update({
+                    'phaseShiftAstigmatism': self.phaseShiftAstigmatism.get(),
+                    'cutOnFrequencyAstigmatism': self.cutOnFrequencyAstigmatism.get(),
+                    'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get(),
+                    'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get(),
+                })
+
+                argsCtfPlotter += "-FindAstigPhaseCuton 1,%(phaseShiftAstigmatism)d,%(cutOnFrequencyAstigmatism)d " \
+                                  "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
+
+            else:
+                argsCtfPlotter += "-SearchAstigmatism " \
+
+            paramsCtfPlotter.update({
+                'numberSectionsAstigmatism': self.numberSectionsAstigmatism.get(),
+                'maximumAstigmatism': self.maximumAstigmatism.get(),
+            })
+
+            argsCtfPlotter += "-NumberOfSectors %(numberSectionsAstigmatism)d " \
+                              "-MaximumAstigmatism %(maximumAstigmatism)f " \
+
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
@@ -247,7 +344,7 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        ctfInfoList = self.readCtfOutputFile(os.path.join(extraPrefix, "%s.defocus" % tsId))
+        # ctfInfoList = self.readCtfOutputFile(os.path.join(extraPrefix, "%s.defocus" % tsId))
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)

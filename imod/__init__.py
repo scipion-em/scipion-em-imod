@@ -76,7 +76,7 @@ class Plugin(pwem.Plugin):
         if 'ubuntu' in os.getenv('DESKTOP_SESSION', 'unknown'):
             # Download .sh
             installationCmd = 'wget https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
-                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh && '
+                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
             installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -skip && '
@@ -95,5 +95,6 @@ class Plugin(pwem.Plugin):
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
         fullProgram = '%s/bin/%s' % (cls.getVar(IMOD_HOME), program)
+        protocol.runJob('export', 'IMOD_DIR=""')
         protocol.runJob('sh', os.path.join(cls.getVar(IMOD_HOME), "IMOD-linux.sh"))
         protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
