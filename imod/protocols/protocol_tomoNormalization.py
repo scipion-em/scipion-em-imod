@@ -35,7 +35,7 @@ from tomo.protocols import ProtTomoBase
 from imod import Plugin
 
 
-class ProtTomoNormalization(EMProtocol, ProtTomoBase):
+class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     """
     Normalize input tomogram and change its storing formatting.
     More info:

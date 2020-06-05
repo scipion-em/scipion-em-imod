@@ -35,7 +35,7 @@ from tomo.protocols import ProtTomoBase
 from imod import Plugin
 
 
-class ProtCtfCorrection(EMProtocol, ProtTomoBase):
+class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     """
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:

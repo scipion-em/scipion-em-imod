@@ -36,7 +36,7 @@ from pwem.emlib.image import ImageHandler
 from imod import Plugin
 
 
-class ProtCtfEstimation(EMProtocol, ProtTomoBase):
+class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
     More info:
