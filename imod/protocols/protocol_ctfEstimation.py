@@ -344,8 +344,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        # ctfInfoList = self.readCtfOutputFile(os.path.join(extraPrefix, "%s.defocus" % tsId))
-
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputCtfEstimatedSetOfTiltSeries.append(newTs)
@@ -362,11 +360,6 @@ class ProtCtfEstimation(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def readCtfOutputFile(self, ctfOutputFile):
-        cttInfoList = []
-
-        return cttInfoList
-
     def getOutputCtfEstimatedSetOfTiltSeries(self):
         if not hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
