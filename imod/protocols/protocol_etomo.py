@@ -33,7 +33,7 @@ from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
 from tomo.protocols import ProtTomoReconstruct
 from tomo.convert import writeTiStack
 
-from imod import ETOMO_CMD
+from imod import ETOMO_CMD, Plugin
 
 
 class ProtImodEtomo(ProtTomoReconstruct):
@@ -143,7 +143,7 @@ class ProtImodEtomo(ProtTomoReconstruct):
 
     def runEtomoStep(self, tsId):
         workingFolder = self._getExtraPath(tsId)
-        self.runJob(ETOMO_CMD, '%s.edf' % tsId, cwd=workingFolder)
+        self.runJob(Plugin.runImod(ETOMO_CMD), '%s.edf' % tsId, cwd=workingFolder)
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
