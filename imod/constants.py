@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. de la Rosa Trevin (delarosatrevin@scilifelab.se)
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
 # *
-# * SciLifeLab, Stockholm University
+# * [1] SciLifeLab, Stockholm University
+# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -29,3 +31,6 @@
 
 IMOD_HOME = 'IMOD_HOME'
 ETOMO_CMD = 'etomo'
+VERSION_4_10_42 = '4.10.42'
+DEFAULT_VERSION = VERSION_4_10_42
+

@@ -29,7 +29,7 @@
 import os
 import pwem
 
-from .constants import IMOD_HOME, ETOMO_CMD
+from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
 from distutils.spawn import find_executable
 
 _logo = ""
@@ -37,11 +37,33 @@ _references = ['Kremer1996', 'Mastronarde2017']
 
 
 class Plugin(pwem.Plugin):
+    _homeVar = IMOD_HOME
     _validationMsg = None
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(IMOD_HOME, 'imod-4.10.42')
+        cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
+
+    @classmethod
+    def _getEMFolder(cls, version, *paths):
+        return os.path.join("imod-%s" % version, *paths)
+
+    @classmethod
+    def _getIMODFolder(cls, version, *paths):
+        return  os.path.join(cls._getEMFolder(version, "IMOD"), *paths)
+
+    @classmethod
+    def _getProgram(cls, program):
+        """ Returns the same program  if config missing
+        or the path to the program based on the config file."""
+        # Compose path based on config
+        progFromConfig = cls.getHome("bin", program)
+
+        # Check if IMOD from config exists
+        if os.path.exists(progFromConfig):
+            return progFromConfig
+        else:
+            return program
 
     @classmethod
     def getEnviron(cls):
@@ -54,43 +76,70 @@ class Plugin(pwem.Plugin):
         """
 
         if not cls._validationMsg:
+
+            etomo = cls._getProgram(ETOMO_CMD)
+
             cls._validationMsg = [
-                "imod's %s command not found in path, please install it." % ETOMO_CMD] if not find_executable(
-                ETOMO_CMD) else []
+                "imod's %s command not found in path, please install it." % etomo] if not find_executable(
+                ETOMO_CMD) and not os.path.exists(etomo) else []
 
         return cls._validationMsg
 
     @classmethod
     def getDependencies(cls):
-        neededPrograms = ['libjpeg62', 'java', 'python']
+        neededPrograms = ['java', 'python']
 
         return neededPrograms
 
     @classmethod
     def defineBinaries(cls, env):
-        version = '4.10.42'
-        IMOD_INSTALLED = 'imod_%s_installed' % version
+        IMOD_INSTALLED = 'imod_%s_installed' % DEFAULT_VERSION
 
         if 'ubuntu' in os.getenv('DESKTOP_SESSION', 'unknown'):
             # Download .sh
-            installationCmd = 'wget https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
-                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh && '
+            installationCmd = 'wget --continue https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
+                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
-            installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -skip && '
+            installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -yes -skip && '
 
             # Create installation finished flag file
             installationCmd += 'touch %s' % IMOD_INSTALLED
 
             env.addPackage('imod',
-                           version=version,
+                           version=DEFAULT_VERSION,
                            tar='void.tgz',
+                           createBuildDir=True,
+                           buildDir=cls._getEMFolder(DEFAULT_VERSION),
                            neededProgs=cls.getDependencies(),
+                           libChecks = "libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=True)
 
     @classmethod
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
-        fullProgram = '%s/%s/bin/%s' % (cls.getVar(IMOD_HOME), "imod_4.10.42", program)
-        protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
+
+        # Get the command
+        cmd = cls.getImodCmd(program)
+
+        # Run the protocol with that command
+        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd)
+
+    @classmethod
+    def getImodCmd(cls, program):
+        """ Composes an IMOD command for a given program. """
+
+        # Program to run
+        program = cls._getProgram(program)
+
+        # Command to run
+        cmd = ""
+
+        # If absolute ... (then it is based on the config)
+        if os.path.isabs(program):
+            cmd += ". " + cls.getHome("IMOD-linux.sh") + " && "
+
+        cmd += program
+
+        return cmd

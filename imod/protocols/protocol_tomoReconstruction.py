@@ -37,7 +37,7 @@ from tomo.objects import Tomogram, TomoAcquisition
 from imod import Plugin
 
 
-class ProtTomoReconstruction(EMProtocol, ProtTomoBase):
+class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     """
     Tomogram reconstruction procedure based on the IMOD procedure.
 

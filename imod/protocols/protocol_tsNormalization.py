@@ -36,7 +36,7 @@ from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
 
-class ProtTSNormalization(EMProtocol, ProtTomoBase):
+class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:

@@ -41,7 +41,7 @@ from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
 
-class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
+class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
@@ -490,7 +490,7 @@ class ProtFiducialAlignment(EMProtocol, ProtTomoBase):
         newTs.write()
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputNormalizedSetOfTiltSeries.updateDim()
+        outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 

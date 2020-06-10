@@ -36,7 +36,7 @@ from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
 
-class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
+class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
@@ -133,8 +133,6 @@ class ProtApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        print("-------------------------------------------------------- cipote")
-        print(ih.getDimensions(newTs.getFirstItem().getFileName()))
         newTs.setDim((x, y, z))
         newTs.write()
 
