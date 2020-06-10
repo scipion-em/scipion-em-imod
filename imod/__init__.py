@@ -32,6 +32,7 @@ import pyworkflow as pw
 
 from .constants import IMOD_HOME, ETOMO_CMD
 from distutils.spawn import find_executable
+from pyworkflow.gui.project.utils import OS
 
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
@@ -73,7 +74,7 @@ class Plugin(pwem.Plugin):
         version = '4.10.42'
         IMOD_INSTALLED = 'imod_%s_installed' % version
 
-        if 'ubuntu' in os.getenv('DESKTOP_SESSION', 'unknown'):
+        if 'ubuntu' in OS.getDistro().lower():
             # Download .sh
             installationCmd = 'wget https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
                               'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
