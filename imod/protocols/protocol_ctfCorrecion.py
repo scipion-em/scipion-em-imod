@@ -50,7 +50,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         form.addParam('protCtfEstimation',
                       params.PointerParam,
                       label="IMOD CTF estimation run",
-                      pointerClass='ProtCtfEstimation',
+                      pointerClass='ProtImodCtfEstimation',
                       help='Select the previous IMOD CTF estimation run.')
 
         form.addParam('interpolationWidth',
