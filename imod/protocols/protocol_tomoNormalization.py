@@ -230,7 +230,10 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 
         newTomogram = Tomogram()
-        newTomogram.setLocation(os.path.join(extraPrefix, os.path.basename(location)))
+        if not runNewstack and self.binning.get() == 1:
+            newTomogram.setLocation(location)
+        else:
+            newTomogram.setLocation(os.path.join(extraPrefix, os.path.basename(location)))
         if self.binning > 1:
             newTomogram.setSamplingRate(tomo.getSamplingRate() * int(self.binning.get()))
         outputNormalizedSetOfTomograms.append(newTomogram)
