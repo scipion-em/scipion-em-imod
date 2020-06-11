@@ -86,6 +86,18 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       help='Specifies how much the tilt axis deviates from vertical (Y axis). This angle is in degrees.'
                            ' It follows the right hand  rule and counter-clockwise is positive.')
 
+        form.addParam('interactiveMode',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Run interactive GUI',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
+                           'to file and exit after autofitting. The program will not ask for confirmation before '
+                           'removing existing entries in the defocus table. If run in interactive mode defocus values'
+                           'MUST BE SAVED manually by the user.')
+
         form.addParam('leftDefTol',
                       params.FloatParam,
                       label='Left defocus tolerance',
@@ -291,7 +303,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
                          "-tileSize %(tileSize)d " \
-                         "-SaveAndExit "
 
         if self.startFreq.get() != 0 or self.endFreq.get() != 0:
             paramsCtfPlotter.update({
@@ -334,6 +345,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             argsCtfPlotter += "-NumberOfSectors %(numberSectionsAstigmatism)d " \
                               "-MaximumAstigmatism %(maximumAstigmatism)f " \
+
+        if self.interactiveMode.get() == 1:
+            argsCtfPlotter += "-SaveAndExit "
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 

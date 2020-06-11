@@ -36,5 +36,3 @@ from .protocol_tsNormalization import ProtImodTSNormalization
 from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_ctfCorrecion import ProtImodCtfCorrection
 from .protocol_ctfEstimation import ProtImodCtfEstimation
-from .protocol_ctfEstimationInteractive import ProtImodCtfEstimationInteractive
-
