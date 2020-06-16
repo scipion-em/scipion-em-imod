@@ -72,7 +72,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       params.EnumParam,
                       choices=['Value', 'List'],
                       default=0,
-                      label='Run interactive GUI',
+                      label='Input expected defocus as',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
@@ -83,14 +83,14 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
                       default=6000,
-                      label='Expected defocus',
+                      label='Expected defocus value',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
                       help='This value will be applied as the expected defocus for every tilt-series from the set.')
 
         form.addParam('expectedDefocusFile',
                       params.PathParam,
-                      label='Expected defocus',
+                      label='Expected defocus file',
                       important=True,
                       condition="expectedDefocusOrigin == 1",
                       help='File containing a list of expected defoci for each tilt-series of the set. This file must'
