@@ -97,6 +97,14 @@ class Plugin(pwem.Plugin):
         IMOD_INSTALLED = 'imod_%s_installed' % DEFAULT_VERSION
 
         if 'ubuntu' in OS.getDistro().lower():
+
+            # Add jpg lib
+            jpeg = env.addLibrary(
+                'jpeg',
+                tar='libjpeg-turbo-1.3.1.tgz',
+                flags=['--without-simd'],
+                default=False)
+
             # Download .sh
             installationCmd = 'wget --continue https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
                               'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
@@ -108,6 +116,7 @@ class Plugin(pwem.Plugin):
             installationCmd += 'touch %s' % IMOD_INSTALLED
 
             env.addPackage('imod',
+                           deps=[jpeg],
                            version=DEFAULT_VERSION,
                            tar='void.tgz',
                            createBuildDir=True,
