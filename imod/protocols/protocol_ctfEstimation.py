@@ -68,15 +68,34 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                            'constant defocus and are used to compute the initial CTF after being further tessellated '
                            'into tiles.')
 
-        form.addParam('expectedDefocus',
+        form.addParam('expectedDefocusOrigin',
+                      params.EnumParam,
+                      choices=['Value', 'List'],
+                      default=0,
+                      label='Run interactive GUI',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
+                           'to file and exit after autofitting. The program will not ask for confirmation before '
+                           'removing existing entries in the defocus table. If run in interactive mode defocus values'
+                           'MUST BE SAVED manually by the user.')
+
+        form.addParam('expectedDefocusValue',
                       params.FloatParam,
-                      default=8000,
+                      default=6000,
                       label='Expected defocus',
                       important=True,
-                      help='Expected defocus at the tilt axis in nanometers, with a positive value for underfocus. '
-                           'The frequency of the first zero of the CTF curve is first computed based on this expected '
-                           'defocus.  The segments of the CTF curve of the input stack around that frequency are '
-                           'selected to be fitted.')
+                      condition="expectedDefocusOrigin == 0",
+                      help='This value will be applied as the expected defocus for every tilt-series from the set.')
+
+        form.addParam('expectedDefocusFile',
+                      params.PathParam,
+                      label='Expected defocus',
+                      important=True,
+                      condition="expectedDefocusOrigin == 1",
+                      help='File containing a list of expected defoci for each tilt-series of the set. This file must'
+                           'contain two columns. The first column must be the filename of the tilt-series and the '
+                           'second the expected defocus.')
 
         form.addParam('axisAngle',
                       params.FloatParam,
@@ -85,6 +104,18 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       important=True,
                       help='Specifies how much the tilt axis deviates from vertical (Y axis). This angle is in degrees.'
                            ' It follows the right hand  rule and counter-clockwise is positive.')
+
+        form.addParam('interactiveMode',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Run interactive GUI',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
+                           'to file and exit after autofitting. The program will not ask for confirmation before '
+                           'removing existing entries in the defocus table. If run in interactive mode defocus values'
+                           'MUST BE SAVED manually by the user.')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -264,7 +295,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
             'axisAngle': self.axisAngle.get(),
             'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
-            'expectedDefocus': self.expectedDefocus.get(),
+            'expectedDefocus': self.getExpectedDefocus(tsId),
             'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
@@ -291,7 +322,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
                          "-tileSize %(tileSize)d " \
-                         "-SaveAndExit "
 
         if self.startFreq.get() != 0 or self.endFreq.get() != 0:
             paramsCtfPlotter.update({
@@ -335,6 +365,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             argsCtfPlotter += "-NumberOfSectors %(numberSectionsAstigmatism)d " \
                               "-MaximumAstigmatism %(maximumAstigmatism)f " \
 
+        if self.interactiveMode.get() == 1:
+            argsCtfPlotter += "-SaveAndExit "
+
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
@@ -368,6 +401,19 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries
+
+    def getExpectedDefocus(self, tsId):
+        if self.expectedDefocusOrigin.get() == 0:
+            return self.expectedDefocusValue.get()
+        else:
+            with open(self.expectedDefocusFile.get()) as f:
+                lines = f.readlines()
+                for line in lines:
+                    defocusTuple = line.split()
+                    if tsId in defocusTuple[0]:  # Look for the filename that contains the tsId
+                        return float(defocusTuple[1])
+                raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
+                                (tsId, (self.expectedDefocusFile.get())))
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
