@@ -86,16 +86,17 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       label='Expected defocus value',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
-                      help='This value will be applied as the expected defocus for every tilt-series from the set.')
+                      help='This value will be applied as the expected defocus in nanometers for every tilt-series '
+                           'from the set.')
 
         form.addParam('expectedDefocusFile',
                       params.PathParam,
                       label='Expected defocus file',
                       important=True,
                       condition="expectedDefocusOrigin == 1",
-                      help='File containing a list of expected defoci for each tilt-series of the set. This file must'
-                           'contain two columns. The first column must be the filename of the tilt-series and the '
-                           'second the expected defocus.')
+                      help='File containing a list of expected defoci in nanometes for each tilt-series of the set. '
+                           'This file must contain two columns. The first column must be the filename of the '
+                           'tilt-series and the second the expected defocus.')
 
         form.addParam('axisAngle',
                       params.FloatParam,
@@ -244,10 +245,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                   condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
                                   help='Minimum views for finding phase shift.')
 
-        groupAstigmatism.addParam('numberSectionsAstigmatism',
+        groupAstigmatism.addParam('numberSectorsAstigmatism',
                                   params.IntParam,
                                   default=36,
-                                  label='Number of sections',
+                                  label='Number of sectors',
                                   condition='searchAstigmatism==0',
                                   help='Number of sectors for astigmatism analysis.')
 
@@ -358,11 +359,11 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 argsCtfPlotter += "-SearchAstigmatism " \
 
             paramsCtfPlotter.update({
-                'numberSectionsAstigmatism': self.numberSectionsAstigmatism.get(),
+                'numberSectorsAstigmatism': self.numberSectorsAstigmatism.get(),
                 'maximumAstigmatism': self.maximumAstigmatism.get(),
             })
 
-            argsCtfPlotter += "-NumberOfSectors %(numberSectionsAstigmatism)d " \
+            argsCtfPlotter += "-NumberOfSectors %(numberSectorsAstigmatism)d " \
                               "-MaximumAstigmatism %(maximumAstigmatism)f " \
 
         if self.interactiveMode.get() == 1:
