@@ -154,7 +154,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         paramsTilt = {
             'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
-            'OutputFile': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'OutputFile': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
             'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
@@ -173,12 +173,18 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
-            'input': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
-            'output': self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)),
+            'input': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'output': self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)),
         }
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s"
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
+        argsTrimvol = self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)) + " "
+        argsTrimvol += self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)) + " "
+        argsTrimvol += "-yz "
+
+        Plugin.runImod(self, 'trimvol', argsTrimvol)
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
