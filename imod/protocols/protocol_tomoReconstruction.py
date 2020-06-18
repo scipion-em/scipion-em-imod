@@ -51,24 +51,58 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('inputSetOfTiltSeries', params.PointerParam,
+        form.addParam('inputSetOfTiltSeries',
+                      params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('tomoThickness', params.FloatParam,
-                      default=100,
-                      label='Tomogram thickness', important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')\
-
-        form.addParam('tomoShift',
+        form.addParam('tomoThickness',
                       params.FloatParam,
-                      default=0,
-                      label='Tomogram shift',
+                      default=100,
+                      label='Tomogram thickness',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Shift in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+
+        form.addParam('tomoShiftX',
+                      params.FloatParam,
+                      default=0,
+                      label='Tomogram shift in X',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='This entry allows one to shift the reconstructed slice in X before it is output.  If '
+                           'the X shift is positive, the slice will be shifted to the right, and the output will '
+                           'contain the left part of the whole potentially reconstructable area.')
+
+        form.addParam('tomoShiftZ',
+                      params.FloatParam,
+                      default=0,
+                      label='Tomogram shift in Z',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='This entry allows one to shift the reconstructed slice in Z before it is output. If the Z '
+                           'shift is positive, the slice is shifted upward. The Z entry is optional and defaults to 0 '
+                           'when omitted.')
+
+        form.addParam('angleOffset',
+                      params.FloatParam,
+                      default=0,
+                      label='Angle offset',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Apply an angle offset in degrees to all tilt angles. This offset positively rotates the '
+                           'reconstructed sections anticlockwise.')
+
+        form.addParam('tiltAxisOffset',
+                      params.FloatParam,
+                      default=0,
+                      label='Tilt axis offset',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Apply an offset to the tilt axis in a stack of full-sized projection images, cutting the '
+                           'X-axis at  NX/2. + offset instead of NX/2.  The DELXX entry is optional and defaults to 0 '
+                           'when omitted.')
 
         groupRadialFrequencies = form.addGroup('Radial filtering',
                                                help='This entry controls low-pass filtering with the radial weighting '
@@ -125,7 +159,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
-            'Shift': "0.0," + str(self.tomoShift.get())
+            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get())
         }
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
