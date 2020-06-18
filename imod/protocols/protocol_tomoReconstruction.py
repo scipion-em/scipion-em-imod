@@ -159,7 +159,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
-            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get())
+            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get()),
+            'Offset': str(self.angleOffset.get()) + " " + str(self.tiltAxisOffset.get()),
         }
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
@@ -167,7 +168,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-THICKNESS %(Thickness)d " \
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
-                   "-SHIFT %(Shift)s"
+                   "-SHIFT %(Shift)s " \
+                   "-OFFSET %(Offset)s"
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
