@@ -94,16 +94,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                       help='Apply an angle offset in degrees to all tilt angles. This offset positively rotates the '
                            'reconstructed sections anticlockwise.')
 
-        form.addParam('fakeInteractionsSIRT',
-                      params.IntParam,
-                      default=0,
-                      label='Iterations of a SIRT-like equivalent filter',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Modify the radial filter to produce a reconstruction equivalent to the one produced by the '
-                           'given number of iterations of SIRT. The Gaussian filter is applied at the high-frequency '
-                           'end of the filter. The functioning of this filter is described in: \n\t'
-                           'https://bio3d.colorado.edu/imod/doc/man/tilt.html')
-
         form.addParam('tiltAxisOffset',
                       params.FloatParam,
                       default=0,
@@ -113,6 +103,17 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                       help='Apply an offset to the tilt axis in a stack of full-sized projection images, cutting the '
                            'X-axis at  NX/2. + offset instead of NX/2.  The DELXX entry is optional and defaults to 0 '
                            'when omitted.')
+
+        form.addParam('fakeInteractionsSIRT',
+                      params.IntParam,
+                      default=0,
+                      label='Iterations of a SIRT-like equivalent filter',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Modify the radial filter to produce a reconstruction equivalent to the one produced by the '
+                           'given number of iterations of SIRT. The Gaussian filter is applied at the high-frequency '
+                           'end of the filter. The functioning of this filter is described in: \n\t'
+                           'https://bio3d.colorado.edu/imod/doc/man/tilt.html')
 
         groupRadialFrequencies = form.addGroup('Radial filtering',
                                                help='This entry controls low-pass filtering with the radial weighting '
@@ -172,6 +173,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get()),
             'Offset': str(self.angleOffset.get()) + " " + str(self.tiltAxisOffset.get()),
         }
+
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
                    "-TILTFILE %(TiltFile)s " \
@@ -179,15 +181,21 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
                    "-SHIFT %(Shift)s " \
-                   "-OFFSET %(Offset)s"
+                   "-OFFSET %(Offset)s "
+
+        if self.fakeInteractionsSIRT.get() != 0:
+            argsTilt += "-FakeSIRTiterations %d " % self.fakeInteractionsSIRT.get()
+
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
             'input': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
             'output': self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)),
         }
+
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s"
+
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         argsTrimvol = self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)) + " "
