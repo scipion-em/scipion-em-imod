@@ -42,7 +42,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     Tomogram reconstruction procedure based on the IMOD procedure.
 
     More info:
-        https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/tilt.html
     """
 
     _label = 'tomo reconstruction'
@@ -93,6 +93,16 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply an angle offset in degrees to all tilt angles. This offset positively rotates the '
                            'reconstructed sections anticlockwise.')
+
+        form.addParam('fakeInteractionsSIRT',
+                      params.IntParam,
+                      default=0,
+                      label='Iterations of a SIRT-like equivalent filter',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Modify the radial filter to produce a reconstruction equivalent to the one produced by the '
+                           'given number of iterations of SIRT. The Gaussian filter is applied at the high-frequency '
+                           'end of the filter. The functioning of this filter is described in: \n\t'
+                           'https://bio3d.colorado.edu/imod/doc/man/tilt.html')
 
         form.addParam('tiltAxisOffset',
                       params.FloatParam,
