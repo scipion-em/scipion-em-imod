@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -28,12 +30,10 @@ import os
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
-
 from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
 from tomo.protocols import ProtTomoReconstruct
 from tomo.convert import writeTiStack
-
-from imod import ETOMO_CMD, Plugin
+from imod import Plugin
 
 
 class ProtImodEtomo(ProtTomoReconstruct):
@@ -44,46 +44,55 @@ class ProtImodEtomo(ProtTomoReconstruct):
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'imod etomo'
+    _label = 'etomo interactive'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('action', params.EnumParam,
+        form.addParam('action',
+                      params.EnumParam,
                       choices=['Build tomogram', 'Register tomogram'],
                       default=0,
-                      label='Action', important=True,
+                      label='Action',
+                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Choose *Register tomogram" option when you want to '
-                           'generate the output Tomogram from your processing '
-                           'with etomo. ')
+                      help='Choose "Register tomogram" option when you want to generate the output Tomogram from your '
+                           'processing with etomo.')
 
         group = form.addGroup('Build Tomogram',
                               condition='action==0')
-        group.addParam('inputTiltSeries', params.PointerParam,
+
+        group.addParam('inputTiltSeries',
+                       params.PointerParam,
                        pointerClass='TiltSeries',
                        important=True,
                        label='Input Tilt-Series',
-                       help='???')
+                       help='Input tilt-series to be processed with etomo.')
 
-        group.addParam('excludeList', params.StringParam, default='',
+        group.addParam('excludeList',
+                       params.StringParam,
+                       default='',
                        label='Exclusion list',
-                       help='Provide tilt images IDs (usually starting at 1) '
-                            'that you want to exclude from the processing. ')
+                       help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
+                            'processing.')
 
-        group.addParam('binning', params.IntParam, default=2,
+        group.addParam('binning',
+                       params.IntParam,
+                       default=2,
                        label='Bin the input images',
                        help='Binning of the input images.')
 
-        group.addParam('markersDiameter', params.IntParam, default=20,
+        group.addParam('markersDiameter',
+                       params.FloatParam,
+                       default=10,
                        label='Fiducial markers diameter (nm)',
-                       help='Size of gold beads in nanometers.')
+                       help='Diameter of gold beads in nanometers.')
 
-        group.addParam('rotationAngle', params.FloatParam,
-                       label='Tilt rotation angle (deg)',
-                       help='Angle from the vertical to the tilt axis in raw '
-                            'images.')
+        group.addParam('rotationAngle',
+                       params.FloatParam,
+                       label='Tilt rotation angle in degrees',
+                       help='Angle from the vertical to the tilt axis in raw images.')
 
     # -------------------------- INSERT steps functions ---------------------
     # Overwrite the following function to prevent streaming from base class
@@ -143,7 +152,7 @@ class ProtImodEtomo(ProtTomoReconstruct):
 
     def runEtomoStep(self, tsId):
         workingFolder = self._getExtraPath(tsId)
-        self.runJob(Plugin.runImod(ETOMO_CMD), '%s.edf' % tsId, cwd=workingFolder)
+        Plugin.runImod(self, 'etomo', '%s.edf' % tsId, cwd=workingFolder)
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
