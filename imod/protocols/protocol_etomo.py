@@ -90,10 +90,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         pass
 
     def _insertAllSteps(self):
-        ts = self.inputTiltSeries.get()
-        tsId = ts.getTsId()
         self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('runEtomoStep', tsId, interactive=True)
+        self._insertFunctionStep('runEtomoStep')
+        self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -174,9 +173,43 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                 'rotationAngle': self.rotationAngle
                             })
 
-    def runEtomoStep(self, tsId):
-        workingFolder = self._getExtraPath(tsId)
-        Plugin.runImod(self, 'etomo', '%s.edf' % tsId, cwd=workingFolder)
+    def runEtomoStep(self):
+        ts = self.inputTiltSeries.get()
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        Plugin.runImod(self, 'etomo', '%s.edf' % tsId, cwd=extraPrefix)
+
+    def createOutputStep(self):
+        ts = self.inputTiltSeries.get()
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        """Prealigned tilt-series"""
+        if os.path.exists(os.path.join(extraPrefix, "%s.preali" % tsId)):
+            outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
+            outputPrealiSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputPrealiSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            self._defineOutputs(outputPrealignedSetOfTiltSeries=outputPrealiSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputPrealiSetOfTiltSeries)
+
+            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            outputPrealiSetOfTiltSeries.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
+
+            ih = ImageHandler()
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            newTs.setDim((x, y, z))
+            newTs.write()
+
+            outputInterpolatedSetOfTiltSeries.update(newTs)
+            outputInterpolatedSetOfTiltSeries.updateDim()
+            outputInterpolatedSetOfTiltSeries.write()
+            self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
