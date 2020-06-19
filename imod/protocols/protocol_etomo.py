@@ -30,13 +30,16 @@ import os
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
+import pyworkflow.utils.path as path
+from pwem.protocols import EMProtocol
 from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
-from tomo.protocols import ProtTomoReconstruct
+from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from imod import Plugin
+from imod import utils
 
 
-class ProtImodEtomo(ProtTomoReconstruct):
+class ProtImodEtomo(EMProtocol, ProtTomoBase):
     """
     Simple wrapper around etomo to manually reconstruct a Tomogram.
 
@@ -50,46 +53,33 @@ class ProtImodEtomo(ProtTomoReconstruct):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('action',
-                      params.EnumParam,
-                      choices=['Build tomogram', 'Register tomogram'],
-                      default=0,
-                      label='Action',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Choose "Register tomogram" option when you want to generate the output Tomogram from your '
-                           'processing with etomo.')
-
-        group = form.addGroup('Build Tomogram',
-                              condition='action==0')
-
-        group.addParam('inputTiltSeries',
+        form.addParam('inputTiltSeries',
                        params.PointerParam,
                        pointerClass='TiltSeries',
                        important=True,
                        label='Input Tilt-Series',
                        help='Input tilt-series to be processed with etomo.')
 
-        group.addParam('excludeList',
+        form.addParam('excludeList',
                        params.StringParam,
                        default='',
                        label='Exclusion list',
                        help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
                             'processing.')
 
-        group.addParam('binning',
+        form.addParam('binning',
                        params.IntParam,
                        default=2,
                        label='Bin the input images',
                        help='Binning of the input images.')
 
-        group.addParam('markersDiameter',
+        form.addParam('markersDiameter',
                        params.FloatParam,
                        default=10,
                        label='Fiducial markers diameter (nm)',
                        help='Diameter of gold beads in nanometers.')
 
-        group.addParam('rotationAngle',
+        form.addParam('rotationAngle',
                        params.FloatParam,
                        label='Tilt rotation angle in degrees',
                        help='Angle from the vertical to the tilt axis in raw images.')
@@ -102,26 +92,60 @@ class ProtImodEtomo(ProtTomoReconstruct):
     def _insertAllSteps(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
-        self._insertFunctionStep('convertInputStep', tsId)
+        self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runEtomoStep', tsId, interactive=True)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsId):
+    def convertInputStep(self):
         ts = self.inputTiltSeries.get()
-        workingFolder = self._getWorkingPath()
-        pw.utils.makePath(workingFolder)
-        prefix = os.path.join(workingFolder, tsId)
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
 
-        # Write new stack discarding excluded tilts
-        excludeList = map(int, self.excludeList.get().split())
-        tsStack = prefix + '.st'
-        tiList = [ti.clone() for ti in ts]
-        tiList.sort(key=lambda ti: ti.getTiltAngle())
+        """Apply transformation matrices and remove excluded views"""
+        if self.excludeList.get() == '':
+            outputTsFileName = os.path.join(extraPrefix, "%s.st" % tsId)
+            angleFilePath = os.path.join(extraPrefix, "%s.rawtlt" % tsId)
 
-        writeTiStack(tiList,
-                     outputStackFn=tsStack,
-                     outputTltFn=prefix + '.rawtlt',
-                     excludeList=excludeList)
+            """Apply the transformation form the input tilt-series"""
+            ts.applyTransform(outputTsFileName)
+
+            """Generate angle file"""
+            ts.generateTltFile(angleFilePath)
+
+        else:
+            interpolatedTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+            outputTsFileName = os.path.join(extraPrefix, "%s.st" % tsId)
+            angleFilePath = os.path.join(extraPrefix, "%s.rawtlt" % tsId)
+
+            """Apply the transformation form the input tilt-series and generate a new ts object"""
+            ts.applyTransform(interpolatedTsFileName)
+
+            interpolatedTs = tomoObj.TiltSeries(tsId=tsId)
+            interpolatedTs.copyInfo(ts)
+            outputSetOfTiltSeries.append(interpolatedTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(index + 1, interpolatedTsFileName)
+                interpolatedTs.append(newTi)
+            interpolatedTs.write()
+
+            """Write a new stack discarding excluded tilts"""
+            excludeList = map(int, self.excludeList.get().split())
+            tiList = [ti.clone() for ti in interpolatedTs]
+            tiList.sort(key=lambda ti: ti.getTiltAngle())
+
+            writeTiStack(tiList,
+                         outputStackFn=outputTsFileName,
+                         outputTltFn=angleFilePath,
+                         excludeList=excludeList)
+
+        """Generate etomo config file"""
+        workingFolder = self._getExtraPath(tsId)
 
         args = '-name %s ' % tsId
         args += '-gold %0.3f ' % self.markersDiameter
@@ -137,7 +161,7 @@ class ProtImodEtomo(ProtTomoReconstruct):
         self.runJob('copytomocoms', args, cwd=workingFolder)
 
         edfFn = os.path.join(workingFolder, '%s.edf' % tsId)
-        minTilt = min(ti.getTiltAngle() for ti in tiList)
+        minTilt = min(utils.formatAngleList(os.path.join(extraPrefix, "%s.rawtlt" % tsId)))
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
@@ -267,7 +291,7 @@ ProcessTrack.TomogramCombination=Not started
             f.write(template % paramsDict)
 
     def _getWorkingPath(self, *paths):
-        ts = self._getInputTs()
+        ts = self.inputTiltSeries.get()
         return self._getExtraPath(ts.getTsId(), *paths)
 
     def _registerTs(self, outputName, outputPath):
