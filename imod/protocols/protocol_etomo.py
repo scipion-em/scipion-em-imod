@@ -54,35 +54,35 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         form.addSection('Input')
 
         form.addParam('inputTiltSeries',
-                       params.PointerParam,
-                       pointerClass='TiltSeries',
-                       important=True,
-                       label='Input Tilt-Series',
-                       help='Input tilt-series to be processed with etomo.')
+                      params.PointerParam,
+                      pointerClass='TiltSeries',
+                      important=True,
+                      label='Input Tilt-Series',
+                      help='Input tilt-series to be processed with etomo.')
 
         form.addParam('excludeList',
-                       params.StringParam,
-                       default='',
-                       label='Exclusion list',
-                       help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
-                            'processing.')
+                      params.StringParam,
+                      default='',
+                      label='Exclusion list',
+                      help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
+                           'processing.')
 
         form.addParam('binning',
-                       params.IntParam,
-                       default=2,
-                       label='Bin the input images',
-                       help='Binning of the input images.')
+                      params.IntParam,
+                      default=2,
+                      label='Bin the input images',
+                      help='Binning of the input images.')
 
         form.addParam('markersDiameter',
-                       params.FloatParam,
-                       default=10,
-                       label='Fiducial markers diameter (nm)',
-                       help='Diameter of gold beads in nanometers.')
+                      params.FloatParam,
+                      default=10,
+                      label='Fiducial markers diameter (nm)',
+                      help='Diameter of gold beads in nanometers.')
 
         form.addParam('rotationAngle',
-                       params.FloatParam,
-                       label='Tilt rotation angle in degrees',
-                       help='Angle from the vertical to the tilt axis in raw images.')
+                      params.FloatParam,
+                      label='Tilt rotation angle in degrees',
+                      help='Angle from the vertical to the tilt axis in raw images.')
 
     # -------------------------- INSERT steps functions ---------------------
     # Overwrite the following function to prevent streaming from base class
@@ -91,7 +91,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
     def _insertAllSteps(self):
         self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('runEtomoStep')
+        self._insertFunctionStep('runEtomoStep', interactive=True)
         self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
@@ -206,9 +206,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             newTs.setDim((x, y, z))
             newTs.write()
 
-            outputInterpolatedSetOfTiltSeries.update(newTs)
-            outputInterpolatedSetOfTiltSeries.updateDim()
-            outputInterpolatedSetOfTiltSeries.write()
+            outputPrealiSetOfTiltSeries.update(newTs)
+            outputPrealiSetOfTiltSeries.updateDim()
+            outputPrealiSetOfTiltSeries.write()
             self._store()
 
     # --------------------------- UTILS functions ----------------------------
