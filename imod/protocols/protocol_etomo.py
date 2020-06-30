@@ -157,7 +157,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         args += '-rotation %0.3f ' % self.rotationAngle
         args += '-userawtlt'
 
-        self.runJob('copytomocoms', args, cwd=workingFolder)
+        Plugin.runImod(self, 'copytomocoms', args, cwd=workingFolder)
 
         edfFn = os.path.join(workingFolder, '%s.edf' % tsId)
         minTilt = min(utils.formatAngleList(os.path.join(extraPrefix, "%s.rawtlt" % tsId)))
