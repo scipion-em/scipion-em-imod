@@ -32,11 +32,14 @@ import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
-from tomo.objects import TiltSeriesDict, TiltSeries, Tomogram
+import tomo.objects as tomoObj
+from tomo.objects import Tomogram
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from imod import Plugin
 from imod import utils
+from pwem.emlib.image import ImageHandler
+
 
 
 class ProtImodEtomo(EMProtocol, ProtTomoBase):
@@ -92,7 +95,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runEtomoStep', interactive=True)
-        self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self):
@@ -177,7 +179,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        Plugin.runImod(self, 'etomo', '%s.edf' % tsId, cwd=extraPrefix)
+        Plugin.runImod(self, 'etomo', '--fg %s.edf' % tsId, cwd=extraPrefix)
+        self.createOutputStep()
 
     def createOutputStep(self):
         ts = self.inputTiltSeries.get()
@@ -187,10 +190,10 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         """Prealigned tilt-series"""
         if os.path.exists(os.path.join(extraPrefix, "%s.preali" % tsId)):
             outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
-            outputPrealiSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputPrealiSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputPrealiSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
+            outputPrealiSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
             self._defineOutputs(outputPrealignedSetOfTiltSeries=outputPrealiSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputPrealiSetOfTiltSeries)
+            self._defineSourceRelation(self.inputTiltSeries, outputPrealiSetOfTiltSeries)
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
