@@ -84,6 +84,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         form.addParam('rotationAngle',
                       params.FloatParam,
+                      default=0.0,
                       label='Tilt rotation angle in degrees',
                       help='Angle from the vertical to the tilt axis in raw images.')
 
@@ -202,11 +203,15 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
+                newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.preali' % tsId)))
+                newTs.append(newTi)
+                print(os.path.join(extraPrefix, '%s_preali.st' % tsId))
 
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
+            # ih = ImageHandler()
+            # print(newTs.getFirstItem())
+            # x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            # print((x, y, z))
+            # newTs.setDim((x, y, z))
             newTs.write()
 
             outputPrealiSetOfTiltSeries.update(newTs)
