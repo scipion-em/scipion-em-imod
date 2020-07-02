@@ -68,7 +68,12 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getEnviron(cls):
-        return None
+        env=pwem.pwutils.Environ(os.environ)
+        if 'IMOD_DIR' in env:
+            del env['IMOD_DIR']
+        if 'IMOD_PATH' in env:
+            del env['IMOD_PATH']
+        return env
 
     @classmethod
     def validateInstallation(cls):
