@@ -40,7 +40,7 @@ class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
     with the Imod program 3dmod
     """
-    _environments = [pwviewer.DESKTOP_TKINTER]
+    _environments = [pwviewer.DESKTOP_TKINTER, Plugin.getEnviron()]
     _targets = [
         tomo.objects.TiltSeries,
         tomo.objects.Tomogram,
