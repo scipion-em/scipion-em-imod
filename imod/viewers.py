@@ -50,21 +50,23 @@ class ImodViewer(pwviewer.Viewer):
     ]
 
     def _visualize(self, obj, **kwargs):
-        views = []
+        env = Plugin.getEnviron()
+        view = []
         cls = type(obj)
 
         if issubclass(cls, tomo.objects.TiltSeries):
-            views.append(ImodObjectView(obj.getFirstItem()))
+            view = ImodObjectView(obj.getFirstItem())
         elif issubclass(cls, tomo.objects.Tomogram):
-            views.append(ImodObjectView(obj))
+            view = ImodObjectView(obj)
         elif issubclass(cls, tomo.objects.SetOfTomograms):
-            views.append(ImodSetOfTomogramsView(obj))
+            view = ImodSetOfTomogramsView(obj)
         elif issubclass(cls, tomo.objects.SetOfTiltSeries):
-            views.append(ImodSetView(obj))
+            view = ImodSetView(obj)
         elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
-            views.append(ImodSetOfLandmarkModelsView(obj))
+            view = ImodSetOfLandmarkModelsView(obj)
 
-        return views
+        view._env = env
+        return [view]
 
 
 class ImodObjectView(pwviewer.CommandView):
@@ -74,8 +76,6 @@ class ImodObjectView(pwviewer.CommandView):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodSetView(pwviewer.CommandView):
@@ -87,8 +87,6 @@ class ImodSetView(pwviewer.CommandView):
             # Remove :mrc if present
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
-        print("%s %s" % (Plugin.getImodCmd('3dmod'), fn))
 
 
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
@@ -102,8 +100,6 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
             fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
         pwviewer.CommandView.__init__(self, fn)
 
-        print(fn)
-
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
     """ Wrapper to visualize set of tomograms with 3dmod """
@@ -113,8 +109,6 @@ class ImodSetOfTomogramsView(pwviewer.CommandView):
         for item in set:
             fn += " " + item.getLocation()[1]
         pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
