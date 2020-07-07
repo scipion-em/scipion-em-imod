@@ -95,8 +95,13 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     def __init__(self, set, **kwargs):
         fn = ""
         for item in set:
-            tsId = os.path.basename(item.getModelName()).split('_')[0]
-            prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
+            tsId = os.path.basename(item.getFileName()).split('_')[0]
+            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
+            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+            else:
+                prealiTSPath = ""
             fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
         pwviewer.CommandView.__init__(self, fn)
 
