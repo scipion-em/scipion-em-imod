@@ -229,7 +229,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTs.copyInfo(ts)
                 outputAliSetOfTiltSeries.append(newTs)
 
-                tltFilePath = os.path.join(extraPrefix, "%s.ali" % tsId)
+                tltFilePath = os.path.join(extraPrefix, "%s_fid.tlt" % tsId)
                 tltList = utils.formatAngleList(tltFilePath)
 
                 for index, tiltImage in enumerate(ts):
@@ -254,9 +254,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 if os.path.exists(os.path.join(extraPrefix, "%sfid.xyz" % tsId)):
                     outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
                                                                               suffix='LandmarkModel')
-                    outputSetOfCoordinates3D.copyInfo(self.inputSetOfTiltSeries.get())
+                    outputSetOfCoordinates3D.copyInfo(self.inputTiltSeries.get())
                     self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-                    self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
+                    self._defineSourceRelation(self.inputTiltSeries, outputSetOfCoordinates3D)
 
                     coordFilePath = os.path.join(extraPrefix, "%sfid.xyz" % tsId)
                     coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
@@ -264,7 +264,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                           y=element[1],
                                                           z=element[2])
-                        newCoord3D.setVolId(tsObjId + 1)
+                        newCoord3D.setVolId(1)
                         newCoord3D.setVolName(tsId)
                         outputSetOfCoordinates3D.append(newCoord3D)
                         outputSetOfCoordinates3D.update(newCoord3D)
@@ -281,10 +281,10 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                      "-OutputFile %(outputFile)s"
                 Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
 
-                outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-                outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-                self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-                self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+                outputSetOfLandmarkModelsGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+                outputSetOfLandmarkModelsGaps.copyInfo(self.inputTiltSeries.get())
+                self._defineOutputs(outputSetOfLandmarkModelsGaps=outputSetOfLandmarkModelsGaps)
+                self._defineSourceRelation(self.inputTiltSeries, outputSetOfLandmarkModelsGaps)
 
                 fiducialModelGapPath = os.path.join(extraPrefix, "%s.fid" % tsId)
 
@@ -293,7 +293,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 landmarkModelGapsResidPath = os.path.join(extraPrefix, '%s.resid' % tsId)
                 fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-                landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
+                landmarkModelGaps =tomoObj.LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
 
                 prevTiltIm = 0
                 chainId = 0
@@ -311,6 +311,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
                 outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
                 outputSetOfLandmarkModelsGaps.write()
+                self._store()
 
             """Create the output set of landmark models with no gaps"""
             if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)):
@@ -322,10 +323,10 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                        "-OutputFile %(outputFile)s"
                 Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
 
-                outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
-                outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
-                self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
-                self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
+                outputSetOfLandmarkModelsNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+                outputSetOfLandmarkModelsNoGaps.copyInfo(self.inputTiltSeries.get())
+                self._defineOutputs(outputSetOfLandmarkModelsNoGaps=outputSetOfLandmarkModelsNoGaps)
+                self._defineSourceRelation(self.inputTiltSeries, outputSetOfLandmarkModelsNoGaps)
 
                 fiducialNoGapFilePath = os.path.join(extraPrefix, tsId + "_nogaps_fid.txt")
 
@@ -338,7 +339,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 landmarkModelNoGapsResidPath = os.path.join(extraPrefix, '%s.resid' % tsId)
                 fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
-                landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+                landmarkModelNoGaps = tomoObj.LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
 
                 prevTiltIm = 0
                 chainId = 0
@@ -366,6 +367,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.write()
+                self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
