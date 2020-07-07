@@ -229,10 +229,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTs.copyInfo(ts)
                 outputAliSetOfTiltSeries.append(newTs)
 
+                tltFilePath = os.path.join(extraPrefix, "%s.ali" % tsId)
+                tltList = utils.formatAngleList(tltFilePath)
+
                 for index, tiltImage in enumerate(ts):
                     newTi = tomoObj.TiltImage()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.ali' % tsId)))
+                    newTi.setTiltAngle(float(tltList[index]))
                     newTs.append(newTi)
 
                 ih = ImageHandler()
@@ -254,7 +258,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
                     self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
 
-                    coordFilePath = os.path.join(self._getExtraPath(tsId), "%sfid.xyz" % tsId)
+                    coordFilePath = os.path.join(extraPrefix, "%sfid.xyz" % tsId)
                     coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
                     for element in coordList:
                         newCoord3D = tomoObj.Coordinate3D(x=element[0],
@@ -266,6 +270,102 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         outputSetOfCoordinates3D.update(newCoord3D)
                     outputSetOfCoordinates3D.write()
                     self._store()
+
+            """Create the output set of landmark models with gaps"""
+            if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId)):
+                paramsGapPoint2Model = {
+                    'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
+                    'outputFile': os.path.join(extraPrefix, '%s_fid.txt' % tsId)
+                }
+                argsGapPoint2Model = "-InputFile %(inputFile)s " \
+                                     "-OutputFile %(outputFile)s"
+                Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
+
+                outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+                outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+                self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+                self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+
+                fiducialModelGapPath = os.path.join(extraPrefix, "%s.fid" % tsId)
+
+                landmarkModelGapsFilePath = os.path.join(extraPrefix, "%s_gaps.sfid" % tsId)
+
+                landmarkModelGapsResidPath = os.path.join(extraPrefix, '%s.resid' % tsId)
+                fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+
+                landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
+
+                prevTiltIm = 0
+                chainId = 0
+                for index, fiducial in enumerate(fiducialGapResidList):
+                    if int(fiducial[2]) <= prevTiltIm:
+                        chainId += 1
+                    prevTiltIm = int(fiducial[2])
+                    landmarkModelGaps.addLandmark(xCoor=fiducial[0],
+                                                  yCoor=fiducial[1],
+                                                  tiltIm=fiducial[2],
+                                                  chainId=chainId,
+                                                  xResid=fiducial[3],
+                                                  yResid=fiducial[4])
+
+                outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
+                outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
+                outputSetOfLandmarkModelsGaps.write()
+
+            """Create the output set of landmark models with no gaps"""
+            if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)):
+                paramsNoGapPoint2Model = {
+                    'inputFile': os.path.join(extraPrefix, '%s_nogaps.fid' % tsId),
+                    'outputFile': os.path.join(extraPrefix, '%s_nogaps_fid.txt' % tsId)
+                }
+                argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
+                                       "-OutputFile %(outputFile)s"
+                Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+
+                outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+                outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
+                self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
+                self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
+
+                fiducialNoGapFilePath = os.path.join(extraPrefix, tsId + "_nogaps_fid.txt")
+
+                fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
+
+                fiducialModelNoGapPath = os.path.join(extraPrefix, tsId + "_nogaps.fid")
+
+                landmarkModelNoGapsFilePath = os.path.join(extraPrefix, tsId + "_nogaps.sfid")
+
+                landmarkModelNoGapsResidPath = os.path.join(extraPrefix, '%s.resid' % tsId)
+                fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
+
+                landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+
+                prevTiltIm = 0
+                chainId = 0
+                indexFake = 0
+                for fiducial in fiducialNoGapList:
+                    if int(float(fiducial[2])) <= prevTiltIm:
+                        chainId += 1
+                    prevTiltIm = int(float(fiducial[2]))
+                    if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+                        landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+                                                        yCoor=fiducial[1],
+                                                        tiltIm=fiducial[2],
+                                                        chainId=chainId,
+                                                        xResid=fiducialNoGapsResidList[indexFake][3],
+                                                        yResid=fiducialNoGapsResidList[indexFake][4])
+                        indexFake += 1
+                    else:
+                        landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+                                                        yCoor=fiducial[1],
+                                                        tiltIm=fiducial[2],
+                                                        chainId=chainId,
+                                                        xResid='0',
+                                                        yResid='0')
+
+                outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
+                outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
+                outputSetOfLandmarkModelsNoGaps.write()
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
