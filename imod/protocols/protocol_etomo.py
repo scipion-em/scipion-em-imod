@@ -205,15 +205,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.preali' % tsId)))
                 newTs.append(newTi)
-                print(os.path.join(extraPrefix, '%s_preali.st' % tsId))
 
-            # ih = ImageHandler()
-            # print(newTs.getFirstItem())
-            # x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            # print((x, y, z))
-            # newTs.setDim((x, y, z))
+            ih = ImageHandler()
+            x, y, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+            newTs.setDim((x, y, _))
             newTs.write()
 
+            outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(x))
             outputPrealiSetOfTiltSeries.update(newTs)
             outputPrealiSetOfTiltSeries.updateDim()
             outputPrealiSetOfTiltSeries.write()
@@ -380,3 +378,8 @@ ProcessTrack.TomogramCombination=Not started
         self._defineOutputs(**{outputName: output})
         self._defineSourceRelation(self.inputTiltSeries, output)
         self._store()
+
+    def getPixSizeFromDimensions(self, outputDim):
+        ih = ImageHandler()
+        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
+        return self.inputTiltSeries.get().getSamplingRate() * round(originalDim/outputDim)
