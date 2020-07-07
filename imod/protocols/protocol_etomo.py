@@ -217,6 +217,35 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             outputPrealiSetOfTiltSeries.write()
             self._store()
 
+            """Aligned tilt-series"""
+            if os.path.exists(os.path.join(extraPrefix, "%s.ali" % tsId)):
+                outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
+                outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
+                outputAliSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
+                self._defineOutputs(outputAlignedSetOfTiltSeries=outputAliSetOfTiltSeries)
+                self._defineSourceRelation(self.inputTiltSeries, outputAliSetOfTiltSeries)
+
+                newTs = tomoObj.TiltSeries(tsId=tsId)
+                newTs.copyInfo(ts)
+                outputAliSetOfTiltSeries.append(newTs)
+
+                for index, tiltImage in enumerate(ts):
+                    newTi = tomoObj.TiltImage()
+                    newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.ali' % tsId)))
+                    newTs.append(newTi)
+
+                ih = ImageHandler()
+                x, y, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
+                newTs.setDim((x, y, _))
+                newTs.write()
+
+                outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(x))
+                outputAliSetOfTiltSeries.update(newTs)
+                outputAliSetOfTiltSeries.updateDim()
+                outputAliSetOfTiltSeries.write()
+                self._store()
+
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
         template = """
