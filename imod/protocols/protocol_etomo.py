@@ -207,11 +207,11 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTs.append(newTi)
 
             ih = ImageHandler()
-            x, y, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
-            newTs.setDim((x, y, _))
+            xPreali, yPreali, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+            newTs.setDim((xPreali, yPreali, _))
             newTs.write()
 
-            outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(x))
+            outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
             outputPrealiSetOfTiltSeries.update(newTs)
             outputPrealiSetOfTiltSeries.updateDim()
             outputPrealiSetOfTiltSeries.write()
@@ -236,15 +236,36 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     newTs.append(newTi)
 
                 ih = ImageHandler()
-                x, y, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
-                newTs.setDim((x, y, _))
+                xAli, yAli, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
+                newTs.setDim((xAli, yAli, _))
                 newTs.write()
 
-                outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(x))
+                outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                 outputAliSetOfTiltSeries.update(newTs)
                 outputAliSetOfTiltSeries.updateDim()
                 outputAliSetOfTiltSeries.write()
                 self._store()
+
+                """Output set of coordinates 3D (associated to the aligned tilt-series)"""
+                if os.path.exists(os.path.join(extraPrefix, "%sfid.xyz" % tsId)):
+                    outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
+                                                                              suffix='LandmarkModel')
+                    outputSetOfCoordinates3D.copyInfo(self.inputSetOfTiltSeries.get())
+                    self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+                    self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
+
+                    coordFilePath = os.path.join(self._getExtraPath(tsId), "%sfid.xyz" % tsId)
+                    coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
+                    for element in coordList:
+                        newCoord3D = tomoObj.Coordinate3D(x=element[0],
+                                                          y=element[1],
+                                                          z=element[2])
+                        newCoord3D.setVolId(tsObjId + 1)
+                        newCoord3D.setVolName(tsId)
+                        outputSetOfCoordinates3D.append(newCoord3D)
+                        outputSetOfCoordinates3D.update(newCoord3D)
+                    outputSetOfCoordinates3D.write()
+                    self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
