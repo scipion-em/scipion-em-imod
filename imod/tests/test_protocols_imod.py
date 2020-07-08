@@ -36,14 +36,6 @@ class TestImodBase(BaseTest):
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputTS = cls.inputDataSet.getFile('ts1')
 
-
-class TestImodXcorrPrealignment(BaseTest):
-    @classmethod
-    def setUpClass(cls):
-        setupTestProject(cls)
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputTS = cls.inputDataSet.getFile('ts1')
-
     def _runImportTiltSeries(self):
         protImportTS = self.newProtocol(tomo.protocols.ProtImportTs,
                                         filesPath=self.inputTS,
@@ -70,6 +62,14 @@ class TestImodXcorrPrealignment(BaseTest):
                                      rotationAngle=rotationAngle)
         self.launchProtocol(protXcorr)
         return protXcorr
+
+
+class TestImodXcorrPrealignment(TestImodBase):
+    @classmethod
+    def setUpClass(cls):
+        setupTestProject(cls)
+        cls.inputDataSet = DataSet.getDataSet('tomo-em')
+        cls.inputTS = cls.inputDataSet.getFile('ts1')
 
     def test_outputTS(self):
         protImportTS = self._runImportTiltSeries()
