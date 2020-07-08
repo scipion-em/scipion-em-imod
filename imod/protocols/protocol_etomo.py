@@ -271,7 +271,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     outputSetOfCoordinates3D.write()
                     self._store()
 
-            """Create the output set of landmark models with gaps"""
+            """Landmark models with gaps"""
             if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId)):
                 paramsGapPoint2Model = {
                     'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
@@ -313,7 +313,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputSetOfLandmarkModelsGaps.write()
                 self._store()
 
-            """Create the output set of landmark models with no gaps"""
+            """Landmark models with no gaps"""
             if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)):
                 paramsNoGapPoint2Model = {
                     'inputFile': os.path.join(extraPrefix, '%s_nogaps.fid' % tsId),
@@ -367,6 +367,34 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.write()
+                self._store()
+
+                """Full reconstructed tomogram"""
+                if os.path.exists(os.path.join(extraPrefix, "%s_full.rec" % tsId)):
+                    outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
+                    outputSetOfFullTomograms.copyInfo(self.inputTiltSeries.get())
+                    self._defineOutputs(outputSetOfFullTomograms=outputSetOfFullTomograms)
+                    self._defineSourceRelation(self.inputTiltSeries, outputSetOfFullTomograms)
+
+                    newTomogram = tomoObj.Tomogram()
+                    newTomogram.setLocation(os.path.join(extraPrefix, "%s_full.rec:mrc" % tsId))
+                    outputSetOfFullTomograms.append(newTomogram)
+                    outputSetOfFullTomograms.update(newTomogram)
+                    outputSetOfFullTomograms.write()
+                self._store()
+
+                """Post-processed reconstructed tomogram"""
+                if os.path.exists(os.path.join(extraPrefix, "%s.rec" % tsId)):
+                    outputSetOfPostProcessTomograms = self._createSetOfTomograms()
+                    outputSetOfPostProcessTomograms.copyInfo(self.inputTiltSeries.get())
+                    self._defineOutputs(outputSetOfPostProcessTomograms=outputSetOfPostProcessTomograms)
+                    self._defineSourceRelation(self.inputTiltSeries, outputSetOfPostProcessTomograms)
+
+                    newTomogram = tomoObj.Tomogram()
+                    newTomogram.setLocation(os.path.join(extraPrefix, "%s.rec:mrc" % tsId))
+                    outputSetOfPostProcessTomograms.append(newTomogram)
+                    outputSetOfPostProcessTomograms.update(newTomogram)
+                    outputSetOfPostProcessTomograms.write()
                 self._store()
 
     # --------------------------- UTILS functions ----------------------------
