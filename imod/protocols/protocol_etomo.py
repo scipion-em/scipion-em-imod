@@ -377,7 +377,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputTiltSeries, outputSetOfFullTomograms)
 
                     newTomogram = tomoObj.Tomogram()
-                    newTomogram.setLocation(os.path.join(extraPrefix, "%s_full.rec:mrc" % tsId))
+                    newTomogram.setLocation(os.path.join(extraPrefix, "%s_full.rec" % tsId))
                     outputSetOfFullTomograms.append(newTomogram)
                     outputSetOfFullTomograms.update(newTomogram)
                     outputSetOfFullTomograms.write()
@@ -391,7 +391,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputTiltSeries, outputSetOfPostProcessTomograms)
 
                     newTomogram = tomoObj.Tomogram()
-                    newTomogram.setLocation(os.path.join(extraPrefix, "%s.rec:mrc" % tsId))
+                    newTomogram.setLocation(os.path.join(extraPrefix, "%s.rec" % tsId))
                     outputSetOfPostProcessTomograms.append(newTomogram)
                     outputSetOfPostProcessTomograms.update(newTomogram)
                     outputSetOfPostProcessTomograms.write()
