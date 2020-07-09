@@ -33,37 +33,34 @@ class TestImodBase(BaseTest):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputTS = cls.inputDataSet.getFile('ts1')
 
     @classmethod
-    def _runImportTiltSeries(cls):
-        protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
-                                       filesPath=cls.inputTS,
-                                       filesPattern=cls.inputTS,
-                                       voltage=300,
-                                       magnification=105000,
-                                       sphericalAberration=2.7,
-                                       amplitudeContrast=0.1,
-                                       samplingRate=20.2,
-                                       doseInitial=0,
-                                       dosePerFrame=0.3,
-                                       minAngle=-55.0,
-                                       maxAngle=65.0,
-                                       stepAngle=2.0)
-        cls.launchProtocol(protImportTS)
+    def _runImportTiltSeries(cls, filesPath, pattern, voltage, magnification, sphericalAberration, amplitudeContrast,
+                             samplingRate, doseInitial, dosePerFrame, minAngle, maxAngle, stepAngle):
+        cls.protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
+                                           filesPath=filesPath,
+                                           filesPattern=pattern,
+                                           voltage=voltage,
+                                           magnification=magnification,
+                                           sphericalAberration=sphericalAberration,
+                                           amplitudeContrast=amplitudeContrast,
+                                           samplingRate=samplingRate,
+                                           doseInitial=doseInitial,
+                                           dosePerFrame=dosePerFrame,
+                                           minAngle=minAngle,
+                                           maxAngle=maxAngle,
+                                           stepAngle=stepAngle)
+        cls.launchProtocol(cls.protImportTS)
         return cls.protImportTS
 
     @classmethod
-    def _runXcorrPrealignment(cls, inputTS, computeAlignmentToggle,
-                              binning, rotationAngle):
-        protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
+    def _runXcorrPrealignment(cls, inputTS, computeAlignmentToggle, binning, rotationAngle):
+        cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
                                     inputSetOfTiltSeries=inputTS,
                                     computeAlignment=computeAlignmentToggle,
                                     binning=binning,
                                     rotationAngle=rotationAngle)
-        cls.launchProtocol(protXcorr)
-
+        cls.launchProtocol(cls.protXcorr)
         return cls.protXcorr
 
 
@@ -71,19 +68,35 @@ class TestImodXcorrPrealignment(TestImodBase):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
-        cls.protImportTS = cls._runImportTiltSeries()
-        cls.protXcorr = cls._runXcorrPrealignment(inputTS=cls.inputTS,
+        cls.inputDataSet = DataSet.getDataSet('tomo-em')
+        cls.inputTS = cls.inputDataSet.getFile('ts1')
+        cls.binning = 2
+
+        cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputTS)[0],
+                                                    pattern="BB{TS}.st",
+                                                    voltage=300,
+                                                    magnification=105000,
+                                                    sphericalAberration=2.7,
+                                                    amplitudeContrast=0.1,
+                                                    samplingRate=20.2,
+                                                    doseInitial=0,
+                                                    dosePerFrame=0.3,
+                                                    minAngle=-55,
+                                                    maxAngle=65.0,
+                                                    stepAngle=2.0)
+
+        cls.protXcorr = cls._runXcorrPrealignment(inputTS=cls.protImportTS.outputTiltSeries,
                                                   computeAlignmentToggle=0,
-                                                  binning=2,
+                                                  binning=cls.binning,
                                                   rotationAngle=-12.5)
 
     def test_outputTS(self):
-        self.assertIsNotNone(protXcorr.outputSetOfTiltSeries)
+        self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
 
     def test_outputInterpolatedTS(self):
-        self.assertIsNotNone(protXcorr.outputInterpolatedSetOfTiltSeries)
+        self.assertIsNotNone(self.protXcorr.outputInterpolatedSetOfTiltSeries)
 
     def test_outputSamplingRate(self):
-        inSamplingRate = protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
-        self.assertTrue(inSamplingRate * inputBinning == outSamplingRate)
+        inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
+        outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binning == outSamplingRate)
