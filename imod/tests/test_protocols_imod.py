@@ -36,67 +36,54 @@ class TestImodBase(BaseTest):
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputTS = cls.inputDataSet.getFile('ts1')
 
-    def _runImportTiltSeries(self):
-        protImportTS = self.newProtocol(tomo.protocols.ProtImportTs,
-                                        filesPath=self.inputTS,
-                                        filesPattern=self.inputTS,
-                                        voltage=300,
-                                        magnification=105000,
-                                        sphericalAberration=2.7,
-                                        amplitudeContrast=0.1,
-                                        samplingRate=20.2,
-                                        doseInitial=0,
-                                        dosePerFrame=0.3,
-                                        minAngle=-55.0,
-                                        maxAngle=65.0,
-                                        stepAngle=2.0)
-        self.launchProtocol(protImportTS)
-        return protImportTS
+    @classmethod
+    def _runImportTiltSeries(cls):
+        protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
+                                       filesPath=cls.inputTS,
+                                       filesPattern=cls.inputTS,
+                                       voltage=300,
+                                       magnification=105000,
+                                       sphericalAberration=2.7,
+                                       amplitudeContrast=0.1,
+                                       samplingRate=20.2,
+                                       doseInitial=0,
+                                       dosePerFrame=0.3,
+                                       minAngle=-55.0,
+                                       maxAngle=65.0,
+                                       stepAngle=2.0)
+        cls.launchProtocol(protImportTS)
+        return cls.protImportTS
 
-    def _runXcorrPrealignment(self, inputTS, computeAlignmentToggle,
+    @classmethod
+    def _runXcorrPrealignment(cls, inputTS, computeAlignmentToggle,
                               binning, rotationAngle):
-        protXcorr = self.newProtocol(ProtImodXcorrPrealignment,
-                                     inputSetOfTiltSeries=inputTS,
-                                     computeAlignment=computeAlignmentToggle,
-                                     binning=binning,
-                                     rotationAngle=rotationAngle)
-        self.launchProtocol(protXcorr)
-        return protXcorr
+        protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
+                                    inputSetOfTiltSeries=inputTS,
+                                    computeAlignment=computeAlignmentToggle,
+                                    binning=binning,
+                                    rotationAngle=rotationAngle)
+        cls.launchProtocol(protXcorr)
+
+        return cls.protXcorr
 
 
 class TestImodXcorrPrealignment(TestImodBase):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputTS = cls.inputDataSet.getFile('ts1')
+        cls.protImportTS = cls._runImportTiltSeries()
+        cls.protXcorr = cls._runXcorrPrealignment(inputTS=cls.inputTS,
+                                                  computeAlignmentToggle=0,
+                                                  binning=2,
+                                                  rotationAngle=-12.5)
 
     def test_outputTS(self):
-        protImportTS = self._runImportTiltSeries()
-        inputTS = protImportTS.outputTiltSeries
-        protXcorr = self._runXcorrPrealignment(inputTS=inputTS,
-                                               computeAlignmentToggle=1,
-                                               binning=1,
-                                               rotationAngle=-12.5)
         self.assertIsNotNone(protXcorr.outputSetOfTiltSeries)
 
     def test_outputInterpolatedTS(self):
-        protImportTS = self._runImportTiltSeries()
-        inputTS = protImportTS.outputTiltSeries
-        protXcorr = self._runXcorrPrealignment(inputTS=inputTS,
-                                               computeAlignmentToggle=0,
-                                               binning=1,
-                                               rotationAngle=-12.5)
         self.assertIsNotNone(protXcorr.outputInterpolatedSetOfTiltSeries)
 
     def test_outputSamplingRate(self):
-        inputBinning=2
-        protImportTS = self._runImportTiltSeries()
-        inputTS = protImportTS.outputTiltSeries
-        protXcorr = self._runXcorrPrealignment(inputTS=inputTS,
-                                               computeAlignmentToggle=0,
-                                               binning=inputBinning,
-                                               rotationAngle=-12.5)
         inSamplingRate = protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * inputBinning == outSamplingRate)
