@@ -509,56 +509,6 @@ ProcessTrack.TomogramCombination=Not started
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
 
-    def _getWorkingPath(self, *paths):
-        ts = self.inputTiltSeries.get()
-        return self._getExtraPath(ts.getTsId(), *paths)
-
-    def _registerTs(self, outputName, outputPath):
-        """ Register a tilt-series. """
-
-    def _registerReconsTomo(self):
-        outputName = 'outputTomogram'
-
-        if hasattr(self, outputName):
-            raise Exception("The output tomogram has already been registered. ")
-
-        ts = self.inputTiltSeries.get()
-        tsId = ts.getTsId()
-        tomoFn = self._getWorkingPath('%s_full.rec' % tsId)
-
-        if not os.path.exists(tomoFn):
-            raise Exception('Output file %s does not exists. ' % tomoFn)
-
-        samplingRate = ts.getSamplingRate()
-        if self.binning > 1:
-            samplingRate *= self.binning.get()
-
-        t = Tomogram(location=tomoFn + ':mrc')
-        t.setSamplingRate(samplingRate)
-        t.setObjId(ts.getObjId())
-        t.setTsId(tsId)
-
-        return outputName, t
-
-    def registerOutput(self, outputKey):
-        """ Method used to register output selected by the user. """
-        outputDict = {
-            'saveTsPreAli': (self._registerTs, ['.preali']),
-            'saveTsAli': (self._registerTs, ['.ali']),
-            'saveReconsTomo': (self._registerReconsTomo, [])
-        }
-
-        if outputKey not in outputDict:
-            raise Exception("Invalid key '%s' for registerOutput." % outputKey)
-
-        # Call the specific function to create the output for this case
-        func, args = outputDict[outputKey]
-        outputName, output = func(*args)
-
-        self._defineOutputs(**{outputName: output})
-        self._defineSourceRelation(self.inputTiltSeries, output)
-        self._store()
-
     def getPixSizeFromDimensions(self, outputDim):
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
