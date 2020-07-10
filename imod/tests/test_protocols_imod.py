@@ -109,6 +109,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.binningPrealignment = 2
 
+        cls.binningFiducialAlignment = 2
+
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
                                                     voltage=300,
@@ -140,6 +142,14 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
 
+        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+                                                              twoSurfaces=0,
+                                                              fiducialDiameter=4.95,
+                                                              numberFiducial=25,
+                                                              rotationAngle=0,
+                                                              computeAlignment=1,
+                                                              binning=cls.binningFiducialAlignment)
+
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
 
@@ -158,3 +168,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binningPrealignment == outSamplingRate)
+
+    # def test_fiducialAlignmentOutputTS(self):
+    # self.assertIsNotNone(sel)
