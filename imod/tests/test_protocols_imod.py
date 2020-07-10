@@ -104,6 +104,22 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protApplyTransformationMatrix)
         return cls.protApplyTransformationMatrix
 
+    @classmethod
+    def _runTomoReconstruction(cls, inputSoTS, tomoThickness, tomoShiftX, tomoShiftZ, angleOffset, tiltAxisOffset,
+                               fakeInteractionsSIRT, radialFirstParameter, radialSecondParameter):
+        cls.protTomoReconstruction = cls.newProtocol(ProtImodTomoReconstruction,
+                                                     inputSetOfTiltSeries=inputSoTS,
+                                                     tomoThickness=tomoThickness,
+                                                     tomoShiftX=tomoShiftX,
+                                                     tomoShiftZ=tomoShiftZ,
+                                                     angleOffset=angleOffset,
+                                                     tiltAxisOffset=tiltAxisOffset,
+                                                     fakeInteractionsSIRT=fakeInteractionsSIRT,
+                                                     radialFirstParameter=radialFirstParameter,
+                                                     radialSecondParameter=radialSecondParameter)
+        cls.launchProtocol(cls.protTomoReconstruction)
+        return cls.protTomoReconstruction
+
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
