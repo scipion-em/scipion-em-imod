@@ -56,10 +56,10 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runXcorrPrealignment(cls, inputTS, computeAlignmentToggle, binning, rotationAngle):
         cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
-                                    inputSetOfTiltSeries=inputTS,
-                                    computeAlignment=computeAlignmentToggle,
-                                    binning=binning,
-                                    rotationAngle=rotationAngle)
+                                        inputSetOfTiltSeries=inputTS,
+                                        computeAlignment=computeAlignmentToggle,
+                                        binning=binning,
+                                        rotationAngle=rotationAngle)
         cls.launchProtocol(cls.protXcorr)
         return cls.protXcorr
 
@@ -100,3 +100,10 @@ class TestImodXcorrPrealignment(TestImodBase):
         inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binning == outSamplingRate)
+#
+# class TestTiltSeriesNormalization(TestImodBase):
+#     @classmethod
+#     def setUpClass(cls):
+#         setupTestProject(cls)
+#         cls
+
