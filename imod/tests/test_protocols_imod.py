@@ -161,6 +161,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_prealignmentOutputTS(self):
         self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
 
+    def test_prealignmentTransformMatrixOutputTS(self):
+        self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
+
     def test_prealignmentOutputInterpolatedTS(self):
         self.assertIsNotNone(self.protXcorr.outputInterpolatedSetOfTiltSeries)
 
