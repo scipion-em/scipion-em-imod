@@ -172,5 +172,5 @@ class TestImodReconstructionWorkflow(TestImodBase):
         outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binningPrealignment == outSamplingRate)
 
-    # def test_fiducialAlignmentOutputTS(self):
-    # self.assertIsNotNone(sel)
+    def test_fiducialAlignmentOutputTS(self):
+        self.assertIsNotNone(self.protFiducialAlignment.outputSetOfTiltSeries)
