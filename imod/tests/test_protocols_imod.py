@@ -137,6 +137,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.binningApplyTransformMatrix = 2
 
+        cls.thicknessTomo = 100
+
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
                                                     voltage=300,
@@ -179,6 +181,17 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.protApplyTransformationMatrix = \
             cls._runApplyTransformationMatrix(inputSoTS=cls.protFiducialAlignment.outputSetOfTiltSeries,
                                               binning=cls.binningApplyTransformMatrix)
+
+        cls.protTomoReconstruction = \
+            cls._runTomoReconstruction(inputSoTS=cls.protFiducialAlignment.outputSetOfTiltSeries,
+                                       tomoThickness=cls.thicknessTomo,
+                                       tomoShiftX=0.0,
+                                       tomoShiftZ=0.0,
+                                       angleOffset=0.0,
+                                       tiltAxisOffset=0.0,
+                                       fakeInteractionsSIRT=0,
+                                       radialFirstParameter=0.35,
+                                       radialSecondParameter=0.035)
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
@@ -242,4 +255,3 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protApplyTransformationMatrix.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binningApplyTransformMatrix == outSamplingRate)
-
