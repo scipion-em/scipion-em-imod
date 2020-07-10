@@ -101,6 +101,8 @@ class TestImodBase(BaseTest):
         cls.protApplyTransformationMatrix = cls.newProtocol(ProtImodApplyTransformationMatrix,
                                                             inputSetOfTiltSeries=inputSoTS,
                                                             binning=binning)
+        cls.launchProtocol(cls.protApplyTransformationMatrix)
+        return cls.protApplyTransformationMatrix
 
 
 class TestImodReconstructionWorkflow(TestImodBase):
@@ -116,6 +118,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.binningPrealignment = 2
 
         cls.binningFiducialAlignment = 2
+
+        cls.binningApplyTransformMatrix = 2
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
@@ -155,6 +159,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                               rotationAngle=0,
                                                               computeAlignment=0,
                                                               binning=cls.binningFiducialAlignment)
+
+        cls.protApplyTransformationMatrix = \
+            cls._runApplyTransformationMatrix(inputSoTS=cls.protFiducialAlignment.outputSetOfTiltSeries,
+                                              binning=cls.binningApplyTransformMatrix)
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
