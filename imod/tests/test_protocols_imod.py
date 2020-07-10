@@ -190,6 +190,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_fiducialAlignmentOutputFiducialModelGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
 
+    def test_fiducialAlignmentOutputFiducialModelGapsSize(self):
+        self.assertTrue(self.protFiducialAlignment.outputFiducialModelGaps.getSize() == 2)
+
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
 
