@@ -221,3 +221,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_applyTransformationMatrixOutputInterpolatedTS(self):
         self.assertIsNotNone(self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries)
+
+    def test_applyTransformationMatrixOutputInterpolatedTSSamplingRate(self):
+        inSamplingRate = self.protApplyTransformationMatrix.inputSetOfTiltSeries.get().getSamplingRate()
+        outSamplingRate = self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binningApplyTransformMatrix == outSamplingRate)
+
