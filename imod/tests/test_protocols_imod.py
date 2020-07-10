@@ -54,16 +54,6 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
-    def _runXcorrPrealignment(cls, inputSoTS, computeAlignmentToggle, binning, rotationAngle):
-        cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
-                                        inputSetOfTiltSeries=inputSoTS,
-                                        computeAlignment=computeAlignmentToggle,
-                                        binning=binning,
-                                        rotationAngle=rotationAngle)
-        cls.launchProtocol(cls.protXcorr)
-        return cls.protXcorr
-
-    @classmethod
     def _runTSNormalization(cls, inputSoTS, binning, floatDensities, modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean, scaleSd, scaleMax, scaleMin):
         cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
@@ -83,51 +73,28 @@ class TestImodBase(BaseTest):
         return cls.protTSNormalization
 
 
-class TestImodXcorrPrealignment(TestImodBase):
+    @classmethod
+    def _runXcorrPrealignment(cls, inputSoTS, computeAlignmentToggle, binning, rotationAngle):
+        cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
+                                        inputSetOfTiltSeries=inputSoTS,
+                                        computeAlignment=computeAlignmentToggle,
+                                        binning=binning,
+                                        rotationAngle=rotationAngle)
+        cls.launchProtocol(cls.protXcorr)
+        return cls.protXcorr
+
+
+class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
+
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
-        cls.binning = 2
 
-        cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    pattern="BB{TS}.st",
-                                                    voltage=300,
-                                                    magnification=105000,
-                                                    sphericalAberration=2.7,
-                                                    amplitudeContrast=0.1,
-                                                    samplingRate=20.2,
-                                                    doseInitial=0,
-                                                    dosePerFrame=0.3,
-                                                    minAngle=-55,
-                                                    maxAngle=65.0,
-                                                    stepAngle=2.0)
+        cls.binningNormalization = 2
 
-        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protImportTS.outputTiltSeries,
-                                                  computeAlignmentToggle=0,
-                                                  binning=cls.binning,
-                                                  rotationAngle=-12.5)
-
-    def test_outputTS(self):
-        self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
-
-    def test_outputInterpolatedTS(self):
-        self.assertIsNotNone(self.protXcorr.outputInterpolatedSetOfTiltSeries)
-
-    def test_outputSamplingRate(self):
-        inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
-        self.assertTrue(inSamplingRate * self.binning == outSamplingRate)
-
-
-class TestTiltSeriesNormalization(TestImodBase):
-    @classmethod
-    def setUpClass(cls):
-        setupTestProject(cls)
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputSoTS = cls.inputDataSet.getFile('ts1')
-        cls.binning = 2
+        cls.binningPrealignment = 2
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
@@ -143,19 +110,38 @@ class TestTiltSeriesNormalization(TestImodBase):
                                                     stepAngle=2.0)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
-                                                              binning=cls.binning,
-                                                              floatDensities=0,
-                                                              modeToOutput=0,
-                                                              scaleRangeToggle=1,
-                                                              scaleRangeMax=255,
-                                                              scaleRangeMin=0,
-                                                              meanSdToggle=1,
-                                                              scaleMean=0,
-                                                              scaleSd=1,
-                                                              scaleMax=255,
-                                                              scaleMin=0)
+                                                          binning=cls.binningNormalization,
+                                                          floatDensities=0,
+                                                          modeToOutput=0,
+                                                          scaleRangeToggle=1,
+                                                          scaleRangeMax=255,
+                                                          scaleRangeMin=0,
+                                                          meanSdToggle=1,
+                                                          scaleMean=0,
+                                                          scaleSd=1,
+                                                          scaleMax=255,
+                                                          scaleMin=0)
 
-    def test_outputNormalizedTS(self):
+        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                  computeAlignmentToggle=0,
+                                                  binning=cls.binningPrealignment,
+                                                  rotationAngle=-12.5)
+
+    def test_normalizationOutputTS(self):
+        self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
+
+    def test_normalizationOutputTSSamplingRate(self):
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.get().getSamplingRate()
-        self.assertTrue(inSamplingRate * self.binning == outSamplingRate)
+        outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binningNormalization == outSamplingRate)
+
+    def test_prealignmentOutputTS(self):
+        self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
+
+    def test_prealignmentOutputInterpolatedTS(self):
+        self.assertIsNotNone(self.protXcorr.outputInterpolatedSetOfTiltSeries)
+
+    def test_prealignmentOutputInterpolatedTSSamplingRate(self):
+        inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
+        outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binningPrealignment == outSamplingRate)
