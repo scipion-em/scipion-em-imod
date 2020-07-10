@@ -147,7 +147,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                               fiducialDiameter=4.95,
                                                               numberFiducial=25,
                                                               rotationAngle=0,
-                                                              computeAlignment=1,
+                                                              computeAlignment=0,
                                                               binning=cls.binningFiducialAlignment)
 
     def test_normalizationOutputTS(self):
@@ -178,3 +178,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_fiducialAlignmentTransformMatrixOutputTS(self):
         self.assertIsNotNone(
             self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
+
+    def test_fiducialAlignmentOutputInterpolatedTS(self):
+        self.assertIsNotNone(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries)
