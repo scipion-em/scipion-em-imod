@@ -188,4 +188,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(inSamplingRate * self.binningFiducialAlignment == outSamplingRate)
 
     def test_fiducialAlignmentOutputCoordinates3D(self):
+        self.assertIsNotNone(self.protFiducialAlignment.outputSetOfCoordinates3D)
+
+    def test_fiducialAlignmentOutputCoordinates3D(self):
         self.assertTrue(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 50)
