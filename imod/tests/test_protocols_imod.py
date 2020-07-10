@@ -125,11 +125,25 @@ class TestTiltSeriesNormalization(TestImodBase):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
+        cls.inputDataSet = DataSet.getDataSet('tomo-em')
+        cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+        cls.binning = 2
 
-        cls.protImportTS = TestImodXcorrPrealignment.protImportTS
+        cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
+                                                    pattern="BB{TS}.st",
+                                                    voltage=300,
+                                                    magnification=105000,
+                                                    sphericalAberration=2.7,
+                                                    amplitudeContrast=0.1,
+                                                    samplingRate=20.2,
+                                                    doseInitial=0,
+                                                    dosePerFrame=0.3,
+                                                    minAngle=-55,
+                                                    maxAngle=65.0,
+                                                    stepAngle=2.0)
 
-        cls.protNormalizeTiltSeries = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
-                                                              binning=2,
+        cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                              binning=cls.binning,
                                                               floatDensities=0,
                                                               modeToOutput=0,
                                                               scaleRangeToggle=1,
@@ -142,4 +156,6 @@ class TestTiltSeriesNormalization(TestImodBase):
                                                               scaleMin=0)
 
     def test_outputNormalizedTS(self):
-        pass
+        inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
+        outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.get().getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binning == outSamplingRate)
