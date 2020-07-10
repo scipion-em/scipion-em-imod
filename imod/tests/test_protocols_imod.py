@@ -72,7 +72,6 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protTSNormalization)
         return cls.protTSNormalization
 
-
     @classmethod
     def _runXcorrPrealignment(cls, inputSoTS, computeAlignmentToggle, binning, rotationAngle):
         cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
@@ -82,6 +81,20 @@ class TestImodBase(BaseTest):
                                         rotationAngle=rotationAngle)
         cls.launchProtocol(cls.protXcorr)
         return cls.protXcorr
+
+    @classmethod
+    def _runFiducialAlignemnt(cls, inputSoTS, twoSurfaces, fiducialDiameter, numberFiducial, rotationAngle,
+                              computeAlignment, binning):
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
+                                                    inputSetOfTiltSeries=inputSoTS,
+                                                    twoSurfaces=twoSurfaces,
+                                                    fiducialDiameter=fiducialDiameter,
+                                                    numberFiducial=numberFiducial,
+                                                    rotationAngle=rotationAngle,
+                                                    computeAlignment=computeAlignment,
+                                                    binning=binning)
+        cls.launchProtocol(cls.protFiducialAlignment)
+        return cls.protFiducialAlignment
 
 
 class TestImodReconstructionWorkflow(TestImodBase):
