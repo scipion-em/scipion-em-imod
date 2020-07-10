@@ -255,3 +255,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protApplyTransformationMatrix.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binningApplyTransformMatrix == outSamplingRate)
+
+    def test_tomoReconstructionOutputTomogram(self):
+        self.assertIsNotNone(self.protTomoReconstruction.outputSetOfTomograms)
