@@ -258,3 +258,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_tomoReconstructionOutputTomogram(self):
         self.assertIsNotNone(self.protTomoReconstruction.outputSetOfTomograms)
+
+    def test_tomoReconstructionOutputTomogramSize(self):
+        self.assertTrue(self.protTomoReconstruction.outputSetOfTomograms.getSize() == 2)
