@@ -272,7 +272,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._store()
 
             """Landmark models with gaps"""
-            if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId)):
+            if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId)
+                              and os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId))):
                 paramsGapPoint2Model = {
                     'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
                     'outputFile': os.path.join(extraPrefix, '%s_fid.txt' % tsId)
@@ -314,7 +315,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store()
 
             """Landmark models with no gaps"""
-            if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)):
+            if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)
+                              and os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId))):
                 paramsNoGapPoint2Model = {
                     'inputFile': os.path.join(extraPrefix, '%s_nogaps.fid' % tsId),
                     'outputFile': os.path.join(extraPrefix, '%s_nogaps_fid.txt' % tsId)
