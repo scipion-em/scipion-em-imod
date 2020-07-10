@@ -96,6 +96,12 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protFiducialAlignment)
         return cls.protFiducialAlignment
 
+    @classmethod
+    def _runApplyTransformationMatrix(cls, inputSoTS, binning):
+        cls.protApplyTransformationMatrix = cls.newProtocol(ProtImodApplyTransformationMatrix,
+                                                            inputSetOfTiltSeries=inputSoTS,
+                                                            binning=binning)
+
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
