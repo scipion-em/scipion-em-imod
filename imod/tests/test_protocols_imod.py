@@ -174,3 +174,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputTS(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfTiltSeries)
+
+    def test_fiducialAlignmentTransformMatrixOutputTS(self):
+        self.assertIsNotNone(
+            self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
