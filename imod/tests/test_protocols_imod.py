@@ -186,3 +186,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protFiducialAlignment.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSamplingRate()
         self.assertTrue(inSamplingRate * self.binningFiducialAlignment == outSamplingRate)
+
+    def test_fiducialAlignmentOutputCoordinates3D(self):
+        self.assertTrue(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 50)
