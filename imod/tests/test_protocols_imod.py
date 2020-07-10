@@ -181,3 +181,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputInterpolatedTS(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries)
+
+    def test_fiducialAlignmentOutputInterpolatedTSSamplingRate(self):
+        inSamplingRate = self.protFiducialAlignment.inputSetOfTiltSeries.get().getSamplingRate()
+        outSamplingRate = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binningFiducialAlignment == outSamplingRate)
