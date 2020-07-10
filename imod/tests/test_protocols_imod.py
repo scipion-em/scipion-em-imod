@@ -190,8 +190,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_fiducialAlignmentOutputFiducialModelGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
 
+    def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
+        self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
+
     def test_fiducialAlignmentOutputCoordinates3D(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfCoordinates3D)
 
-    def test_fiducialAlignmentOutputCoordinates3D(self):
+    def test_fiducialAlignmentOutputCoordinates3DSize(self):
         self.assertTrue(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 50)
