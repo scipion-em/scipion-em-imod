@@ -26,6 +26,7 @@
 
 from pyworkflow.tests import *
 from imod.protocols import *
+from pwem.emlib.image import ImageHandler
 import tomo
 
 
@@ -261,3 +262,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_tomoReconstructionOutputTomogramSize(self):
         self.assertTrue(self.protTomoReconstruction.outputSetOfTomograms.getSize() == 2)
+
+    def test_tomoReconstructionOutputTomogramDimensions(self):
+        ih = ImageHandler()
+        self.assertTrue(
+            ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem()) == (512, 512, 100, 1))
