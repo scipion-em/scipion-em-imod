@@ -266,4 +266,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_tomoReconstructionOutputTomogramDimensions(self):
         ih = ImageHandler()
         self.assertTrue(
-            ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem()) == (512, 512, 100, 1))
+            ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem()) ==
+            (512, 512, self.thicknessTomo, 1))
+
