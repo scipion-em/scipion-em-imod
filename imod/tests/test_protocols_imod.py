@@ -353,6 +353,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_tomoNormalizationOutputSize(self):
         self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
 
+    def test_tomoNormalizationOutputSamplingRate(self):
+        inSamplingRate = self.protTomoNormalization.inputSetOfTomograms.get().getSamplingRate()
+        outSamplingRate = self.protTomoNormalization.outputNormalizedSetOfTomograms.getSamplingRate()
+        self.assertTrue(inSamplingRate * self.binningTomoNormalization == outSamplingRate)
+
 
 class TestImodCTFCorrectionWorkflow(TestImodBase):
     @classmethod
