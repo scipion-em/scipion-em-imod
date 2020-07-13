@@ -350,6 +350,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_tomoNormalizationOutput(self):
         self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
 
+    def test_tomoNormalizationOutputSize(self):
+        self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
+
 
 class TestImodCTFCorrectionWorkflow(TestImodBase):
     @classmethod
