@@ -123,7 +123,7 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
-                          axisAngle, interactiveMode, leftDefTol,rightDefTol, tileSize, angleStep, angleRange,
+                          axisAngle, interactiveMode, leftDefTol, rightDefTol, tileSize, angleStep, angleRange,
                           startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
                           findAstigPhaseCutonToggle, phaseShiftAstigmatism, cutOnFrequencyAstigmatism,
                           minimumViewsAstigmatism, minimumViewsPhaseShift, numberSectorsAstigmatism,
@@ -325,4 +325,29 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     minAngle=-55,
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
+
+        cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                      defocusTol=200.0,
+                                                      expectedDefocusOrigin=0,
+                                                      expectedDefocusValue=6000,
+                                                      expectedDefocusFile="",
+                                                      axisAngle=0.0,
+                                                      interactiveMode=1,
+                                                      leftDefTol=2000.0,
+                                                      rightDefTol=2000.0,
+                                                      tileSize=256,
+                                                      angleStep=2.0,
+                                                      angleRange=20.0,
+                                                      startFreq=0.0,
+                                                      endFreq=0.0,
+                                                      extraZerosToFit=0.0,
+                                                      skipAstigmaticViews=1,
+                                                      searchAstigmatism=1,
+                                                      findAstigPhaseCutonToggle=1,
+                                                      phaseShiftAstigmatism=0,
+                                                      cutOnFrequencyAstigmatism=0,
+                                                      minimumViewsAstigmatism=3,
+                                                      minimumViewsPhaseShift=1,
+                                                      numberSectorsAstigmatism=36,
+                                                      maximumAstigmatism=1.2)
 
