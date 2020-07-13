@@ -359,4 +359,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       numberSectorsAstigmatism=36,
                                                       maximumAstigmatism=1.2)
 
+        cls.protCTFCorrection = cls._runCTFCorrection(protCtfEstimation=cls.protCTFEstimation,
+                                                      interpolationWidth=15)
+
 
