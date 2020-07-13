@@ -156,6 +156,14 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protCTFEstimation)
         return cls.protCTFEstimation
 
+    @classmethod
+    def _runCTFCorrection(cls, protCtfEstimation, interpolationWidth):
+        cls.protCTFCorrection = cls.newProtocol(ProtImodCtfCorrection,
+                                                protCtfEstimation=protCtfEstimation,
+                                                interpolationWidth=interpolationWidth)
+        cls.launchProtocol(cls.protCTFCorrection)
+        return cls.protCTFCorrection
+
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
@@ -350,4 +358,5 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       minimumViewsPhaseShift=1,
                                                       numberSectorsAstigmatism=36,
                                                       maximumAstigmatism=1.2)
+
 
