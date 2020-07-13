@@ -362,4 +362,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         cls.protCTFCorrection = cls._runCTFCorrection(protCtfEstimation=cls.protCTFEstimation,
                                                       interpolationWidth=15)
 
+    def test_ctfEstimationOutput(self):
+        self.assertIsNotNone(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries)
+
 
