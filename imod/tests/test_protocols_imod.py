@@ -122,6 +122,25 @@ class TestImodBase(BaseTest):
         return cls.protTomoReconstruction
 
     @classmethod
+    def _runTomoNormalization(cls, inputSetOfTomograms, binning, floatDensities, modeToOutput, scaleRangeToggle,
+                              scaleRangeMax, scaleRangeMin, meanSdToggle, scaleMean, scaleSd, scaleMax, scaleMin):
+        cls.protTomoNormalization = cls.newProtocol(ProtImodTomoNormalization,
+                                                    inputSetOfTomograms=inputSetOfTomograms,
+                                                    binning=binning,
+                                                    floatDensities=floatDensities,
+                                                    modeToOutput=modeToOutput,
+                                                    scaleRangeToggle=scaleRangeToggle,
+                                                    scaleRangeMax=scaleRangeMax,
+                                                    scaleRangeMin=scaleRangeMin,
+                                                    meanSdToggle=meanSdToggle,
+                                                    scaleMean=scaleMean,
+                                                    scaleSd=scaleSd,
+                                                    scaleMax=scaleMax,
+                                                    scaleMin=scaleMin)
+        cls.launchProtocol(cls.protTomoNormalization)
+        return cls.protTomoNormalization
+
+    @classmethod
     def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
                           axisAngle, interactiveMode, leftDefTol, rightDefTol, tileSize, angleStep, angleRange,
                           startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
