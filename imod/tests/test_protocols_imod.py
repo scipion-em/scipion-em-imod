@@ -365,4 +365,9 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
     def test_ctfEstimationOutput(self):
         self.assertIsNotNone(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries)
 
+    def test_ctfEstimationOutputDefocusFile(self):
+        tsId = self.protCTFEstimation.inputSetOfTiltSeries.get().getFirstItem().getTsId()
+        defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
+        self.assertTrue(os.path.exists(defocusFile))
+
 
