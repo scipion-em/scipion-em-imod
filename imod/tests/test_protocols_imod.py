@@ -121,6 +121,41 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protTomoReconstruction)
         return cls.protTomoReconstruction
 
+    @classmethod
+    def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
+                          axisAngle, interactiveMode, leftDefTol,rightDefTol, tileSize, angleStep, angleRange,
+                          startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
+                          findAstigPhaseCutonToggle, phaseShiftAstigmatism, cutOnFrequencyAstigmatism,
+                          minimumViewsAstigmatism, minimumViewsPhaseShift, numberSectorsAstigmatism,
+                          maximumAstigmatism):
+        cls.protCTFEstimation = cls.newProtocol(ProtImodCtfEstimation,
+                                                inputSetOfTiltSeries=inputSoTS,
+                                                defocusTol=defocusTol,
+                                                expectedDefocusOrigin=expectedDefocusOrigin,
+                                                expectedDefocusValue=expectedDefocusValue,
+                                                expectedDefocusFile=expectedDefocusFile,
+                                                axisAngle=axisAngle,
+                                                interactiveMode=interactiveMode,
+                                                leftDefTol=leftDefTol,
+                                                rightDefTol=rightDefTol,
+                                                tileSize=tileSize,
+                                                angleStep=angleStep,
+                                                angleRange=angleRange,
+                                                startFreq=startFreq,
+                                                endFreq=endFreq,
+                                                extraZerosToFit=extraZerosToFit,
+                                                skipAstigmaticViews=skipAstigmaticViews,
+                                                searchAstigmatism=searchAstigmatism,
+                                                findAstigPhaseCutonToggle=findAstigPhaseCutonToggle,
+                                                phaseShiftAstigmatism=phaseShiftAstigmatism,
+                                                cutOnFrequencyAstigmatism=cutOnFrequencyAstigmatism,
+                                                minimumViewsAstigmatism=minimumViewsAstigmatism,
+                                                minimumViewsPhaseShift=minimumViewsPhaseShift,
+                                                numberSectorsAstigmatism=numberSectorsAstigmatism,
+                                                maximumAstigmatism=maximumAstigmatism)
+        cls.launchProtocol(cls.protCTFEstimation)
+        return cls.protCTFEstimation
+
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
