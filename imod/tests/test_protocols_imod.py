@@ -192,7 +192,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
 
-        cls.binningNormalization = 2
+        cls.binningTsNormalization = 2
 
         cls.binningPrealignment = 2
 
@@ -201,6 +201,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.binningApplyTransformMatrix = 2
 
         cls.thicknessTomo = 100
+
+        cls.binningTomoNormalization = 2
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
@@ -216,7 +218,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     stepAngle=2.0)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
-                                                          binning=cls.binningNormalization,
+                                                          binning=cls.binningTsNormalization,
                                                           floatDensities=0,
                                                           modeToOutput=0,
                                                           scaleRangeToggle=1,
@@ -256,13 +258,27 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                        radialFirstParameter=0.35,
                                        radialSecondParameter=0.035)
 
+        cls.protTomoNormalization = \
+            cls._runTomoNormalization(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
+                                      binning=cls.binningTomoNormalization,
+                                      floatDensities=0,
+                                      modeToOutput=0,
+                                      scaleRangeToggle=1,
+                                      scaleRangeMax=255,
+                                      scaleRangeMin=0,
+                                      meanSdToggle=1,
+                                      scaleMean=0,
+                                      scaleSd=1,
+                                      scaleMax=255,
+                                      scaleMin=0)
+
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
 
     def test_normalizationOutputTSSamplingRate(self):
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getSamplingRate()
-        self.assertTrue(inSamplingRate * self.binningNormalization == outSamplingRate)
+        self.assertTrue(inSamplingRate * self.binningTsNormalization == outSamplingRate)
 
     def test_prealignmentOutputTS(self):
         self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
