@@ -304,3 +304,25 @@ class TestImodReconstructionWorkflow(TestImodBase):
             ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem()) ==
             (512, 512, self.thicknessTomo, 1))
 
+
+class TestImodCTFCorrectionWorkflow(TestImodBase):
+    @classmethod
+    def setUpClass(cls):
+        setupTestProject(cls)
+
+        cls.inputDataSet = DataSet.getDataSet('tomo-em')
+        cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+
+        cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
+                                                    pattern="BB{TS}.st",
+                                                    voltage=300,
+                                                    magnification=105000,
+                                                    sphericalAberration=2.7,
+                                                    amplitudeContrast=0.1,
+                                                    samplingRate=20.2,
+                                                    doseInitial=0,
+                                                    dosePerFrame=0.3,
+                                                    minAngle=-55,
+                                                    maxAngle=65.0,
+                                                    stepAngle=2.0)
+
