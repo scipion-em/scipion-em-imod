@@ -398,6 +398,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     outputSetOfPostProcessTomograms.update(newTomogram)
                     outputSetOfPostProcessTomograms.write()
                 self._store()
+        self.closeMappers()
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
