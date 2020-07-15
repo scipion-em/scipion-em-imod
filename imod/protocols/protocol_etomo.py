@@ -269,7 +269,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store()
 
         """Landmark models with gaps"""
-        if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId) and os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId))):
+        if os.path.exists(os.path.join(extraPrefix, "%s.fid" % tsId)) and \
+                os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId)):
             paramsGapPoint2Model = {
                 'inputFile': os.path.join(extraPrefix, '%s.fid' % tsId),
                 'outputFile': os.path.join(extraPrefix, '%s_fid.txt' % tsId)
