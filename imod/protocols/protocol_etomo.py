@@ -41,7 +41,6 @@ from imod import utils
 from pwem.emlib.image import ImageHandler
 
 
-
 class ProtImodEtomo(EMProtocol, ProtTomoBase):
     """
     Simple wrapper around etomo to manually reconstruct a Tomogram.
@@ -294,7 +293,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 landmarkModelGapsResidPath = os.path.join(extraPrefix, '%s.resid' % tsId)
                 fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-                landmarkModelGaps =tomoObj.LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
+                landmarkModelGaps = tomoObj.LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
 
                 prevTiltIm = 0
                 chainId = 0
@@ -350,7 +349,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     if int(float(fiducial[2])) <= prevTiltIm:
                         chainId += 1
                     prevTiltIm = int(float(fiducial[2]))
-                    if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+                    if indexFake < len(fiducialNoGapsResidList) and \
+                            fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                         landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                         yCoor=fiducial[1],
                                                         tiltIm=fiducial[2],
@@ -516,3 +516,64 @@ ProcessTrack.TomogramCombination=Not started
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
         return self.inputTiltSeries.get().getSamplingRate() * round(originalDim/outputDim)
+
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = ["The following outputs have been generated from the "
+                   "operations performed over the input tilt-series:"]
+
+        if hasattr(self, 'outputPrealignedSetOfTiltSeries'):
+            summary.append("- Tilt-series prealignment.")
+
+        if hasattr(self, 'outputAlignedSetOfTiltSeries'):
+            summary.append("- Tilt-series alignment.")
+
+        if hasattr(self, 'outputSetOfCoordinates3D'):
+            summary.append("- Landmark 3D coordinates have been extracted.")
+
+        if hasattr(self, 'outputSetOfLandmarkModelsGaps'):
+            summary.append("- Landmark model with gaps has been generated.")
+
+        if hasattr(self, 'outputSetOfLandmarkModelsNoGaps'):
+            summary.append("- Landmark model without gaps has been generated.")
+
+        if hasattr(self, 'outputSetOfFullTomograms'):
+            summary.append("- Full raw reconstructed tomogram.")
+
+        if hasattr(self, 'outputSetOfPostProcessTomograms'):
+            summary.append("- Post processed reconstructed tomogram.")
+
+        if summary == ["The following operations has been performed over the input tilt-series:"]:
+            summary = ["Output classes not ready yet."]
+
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputFiducialModelGaps'):
+            methods.append("The fiducial model (presenting gaps) has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
+                           % (self.outputFiducialModelGaps.getSize()))
+
+        if hasattr(self, 'outputFiducialModelNoGaps'):
+            methods.append("The fiducial model (with no gaps) has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
+                           % (self.outputFiducialModelNoGaps.getSize()))
+
+        if hasattr(self, 'outputSetOfTiltSeries'):
+            methods.append("The transformation matrices has been computed for %d "
+                           "Tilt-series using the IMOD procedure."
+                           % (self.outputSetOfTiltSeries.getSize()))
+
+        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+            methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
+                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+
+        if hasattr(self, 'outputSetOfCoordinates3D'):
+            methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
+                           % (self.outputSetOfCoordinates3D.getSize(),
+                              self.inputSetOfTiltSeries.get().getSize()))
+
+        if not methods:
+            methods.append("Output classes not ready yet.")
+        return methods
