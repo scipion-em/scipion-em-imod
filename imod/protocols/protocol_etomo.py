@@ -549,31 +549,31 @@ ProcessTrack.TomogramCombination=Not started
         return summary
 
     def _methods(self):
-        methods = []
-        if hasattr(self, 'outputFiducialModelGaps'):
-            methods.append("The fiducial model (presenting gaps) has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.outputFiducialModelGaps.getSize()))
+        methods = ["The following outputs have been generated from the "
+                   "operations performed over the input tilt-series:"]
 
-        if hasattr(self, 'outputFiducialModelNoGaps'):
-            methods.append("The fiducial model (with no gaps) has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.outputFiducialModelNoGaps.getSize()))
+        if hasattr(self, 'outputPrealignedSetOfTiltSeries'):
+            methods.append("- Tilt-series prealignment.")
 
-        if hasattr(self, 'outputSetOfTiltSeries'):
-            methods.append("The transformation matrices has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.outputSetOfTiltSeries.getSize()))
-
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+        if hasattr(self, 'outputAlignedSetOfTiltSeries'):
+            methods.append("- Tilt-series alignment.")
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
-            methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
-                           % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfTiltSeries.get().getSize()))
+            methods.append("- Landmark 3D coordinates have been extracted.")
 
-        if not methods:
-            methods.append("Output classes not ready yet.")
+        if hasattr(self, 'outputSetOfLandmarkModelsGaps'):
+            methods.append("- Landmark model with gaps has been generated.")
+
+        if hasattr(self, 'outputSetOfLandmarkModelsNoGaps'):
+            methods.append("- Landmark model without gaps has been generated.")
+
+        if hasattr(self, 'outputSetOfFullTomograms'):
+            methods.append("- Full raw reconstructed tomogram.")
+
+        if hasattr(self, 'outputSetOfPostProcessTomograms'):
+            methods.append("- Post processed reconstructed tomogram.")
+
+        if methods == ["The following operations has been performed over the input tilt-series:"]:
+            methods = ["Output classes not ready yet."]
+
         return methods
