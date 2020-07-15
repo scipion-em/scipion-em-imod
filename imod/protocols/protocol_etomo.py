@@ -183,9 +183,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         self.createOutputStep()
 
     def createOutputStep(self):
-        ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+        ts = self.inputTiltSeries.get()
 
         """Prealigned tilt-series"""
         if os.path.exists(os.path.join(extraPrefix, "%s.preali" % tsId)):
@@ -261,8 +261,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                       y=element[1],
                                                       z=element[2])
-                    newCoord3D.setVolId(1)
-                    newCoord3D.setVolName(tsId)
+                    newCoord3D.setVolume(ts)
+                    newCoord3D.setVolId(ts.getObjId())
                     outputSetOfCoordinates3D.append(newCoord3D)
                     outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
