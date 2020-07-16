@@ -37,11 +37,13 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runImportTiltSeries(cls, filesPath, pattern, voltage, magnification, sphericalAberration, amplitudeContrast,
-                             samplingRate, doseInitial, dosePerFrame, minAngle, maxAngle, stepAngle):
+                             samplingRate, doseInitial, dosePerFrame, anglesFrom=0, minAngle=0.0, maxAngle=0.0,
+                             stepAngle=1.0):
         cls.protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
                                            filesPath=filesPath,
                                            filesPattern=pattern,
                                            voltage=voltage,
+                                           anglesFrom=anglesFrom,
                                            magnification=magnification,
                                            sphericalAberration=sphericalAberration,
                                            amplitudeContrast=amplitudeContrast,
@@ -366,20 +368,18 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         setupTestProject(cls)
 
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+        cls.inputSoTS = cls.inputDataSet.getFile('tsCtf')
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    pattern="BB{TS}.st",
+                                                    pattern="WTI042413_1series4.st",
+                                                    anglesFrom=2,
                                                     voltage=300,
-                                                    magnification=105000,
-                                                    sphericalAberration=2.7,
-                                                    amplitudeContrast=0.1,
-                                                    samplingRate=20.2,
+                                                    magnification=50000,
+                                                    sphericalAberration=0.0,
+                                                    amplitudeContrast=0.07,
+                                                    samplingRate=6.73981,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3,
-                                                    minAngle=-55,
-                                                    maxAngle=65.0,
-                                                    stepAngle=2.0)
+                                                    dosePerFrame=0.3)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
