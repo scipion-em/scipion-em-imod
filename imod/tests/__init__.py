@@ -31,4 +31,4 @@ DataSet(name='tomo-em',
         files={
             'ts1': 'tutorialData/BBa.st',
             'ts2': 'tutorialData/BBb.st',
-            'tsCtf': 'tutorialData/WTI042413_1series4.st'})
+            'tsCtf': 'tutorialDataImodCTF/WTI042413_1series4.st'})
