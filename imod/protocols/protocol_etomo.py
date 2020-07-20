@@ -183,9 +183,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         self.createOutputStep()
 
     def createOutputStep(self):
+        ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        ts = self.inputTiltSeries.get()
 
         """Prealigned tilt-series"""
         if os.path.exists(os.path.join(extraPrefix, "%s.preali" % tsId)):
