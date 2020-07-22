@@ -721,7 +721,8 @@ $if (-e ./savework) ./savework
         if not hasattr(self, "outputSetOfCoordinates3D"):
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
                                                                       suffix='LandmarkModel')
-            outputSetOfCoordinates3D.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
             outputSetOfCoordinates3D.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
