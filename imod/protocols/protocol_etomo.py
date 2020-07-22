@@ -31,6 +31,7 @@ import os
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pyworkflow.mapper import SqliteDb
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.objects import Tomogram
@@ -251,7 +252,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             if os.path.exists(os.path.join(extraPrefix, "%sfid.xyz" % tsId)):
                 outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
                                                                           suffix='LandmarkModel')
-                outputSetOfCoordinates3D.copyInfo(self.inputTiltSeries.get())
+                outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.get().getSamplingRate())
+                outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
                 self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
                 self._defineSourceRelation(self.inputTiltSeries, outputSetOfCoordinates3D)
 
@@ -312,7 +314,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Landmark models with no gaps"""
-        if not os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)
+        if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)
                           and os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId))):
             paramsNoGapPoint2Model = {
                 'inputFile': os.path.join(extraPrefix, '%s_nogaps.fid' % tsId),
@@ -369,34 +371,35 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             outputSetOfLandmarkModelsNoGaps.write()
             self._store()
 
-            """Full reconstructed tomogram"""
-            if os.path.exists(os.path.join(extraPrefix, "%s_full.rec" % tsId)):
-                outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
-                outputSetOfFullTomograms.copyInfo(self.inputTiltSeries.get())
-                self._defineOutputs(outputSetOfFullTomograms=outputSetOfFullTomograms)
-                self._defineSourceRelation(self.inputTiltSeries, outputSetOfFullTomograms)
+        """Full reconstructed tomogram"""
+        if os.path.exists(os.path.join(extraPrefix, "%s_full.rec" % tsId)):
+            outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
+            outputSetOfFullTomograms.copyInfo(self.inputTiltSeries.get())
+            self._defineOutputs(outputSetOfFullTomograms=outputSetOfFullTomograms)
+            self._defineSourceRelation(self.inputTiltSeries, outputSetOfFullTomograms)
 
-                newTomogram = tomoObj.Tomogram()
-                newTomogram.setLocation(os.path.join(extraPrefix, "%s_full.rec" % tsId))
-                outputSetOfFullTomograms.append(newTomogram)
-                outputSetOfFullTomograms.update(newTomogram)
-                outputSetOfFullTomograms.write()
-            self._store()
+            newTomogram = tomoObj.Tomogram()
+            newTomogram.setLocation(os.path.join(extraPrefix, "%s_full.rec" % tsId))
+            outputSetOfFullTomograms.append(newTomogram)
+            outputSetOfFullTomograms.update(newTomogram)
+            outputSetOfFullTomograms.write()
+        self._store()
 
-            """Post-processed reconstructed tomogram"""
-            if os.path.exists(os.path.join(extraPrefix, "%s.rec" % tsId)):
-                outputSetOfPostProcessTomograms = self._createSetOfTomograms()
-                outputSetOfPostProcessTomograms.copyInfo(self.inputTiltSeries.get())
-                self._defineOutputs(outputSetOfPostProcessTomograms=outputSetOfPostProcessTomograms)
-                self._defineSourceRelation(self.inputTiltSeries, outputSetOfPostProcessTomograms)
+        """Post-processed reconstructed tomogram"""
+        if os.path.exists(os.path.join(extraPrefix, "%s.rec" % tsId)):
+            outputSetOfPostProcessTomograms = self._createSetOfTomograms()
+            outputSetOfPostProcessTomograms.copyInfo(self.inputTiltSeries.get())
+            self._defineOutputs(outputSetOfPostProcessTomograms=outputSetOfPostProcessTomograms)
+            self._defineSourceRelation(self.inputTiltSeries, outputSetOfPostProcessTomograms)
 
-                newTomogram = tomoObj.Tomogram()
-                newTomogram.setLocation(os.path.join(extraPrefix, "%s.rec" % tsId))
-                outputSetOfPostProcessTomograms.append(newTomogram)
-                outputSetOfPostProcessTomograms.update(newTomogram)
-                outputSetOfPostProcessTomograms.write()
-            self._store()
+            newTomogram = tomoObj.Tomogram()
+            newTomogram.setLocation(os.path.join(extraPrefix, "%s.rec" % tsId))
+            outputSetOfPostProcessTomograms.append(newTomogram)
+            outputSetOfPostProcessTomograms.update(newTomogram)
+            outputSetOfPostProcessTomograms.write()
+        self._store()
         self.closeMappers()
+       # SqliteDb.closeConnection("outputPrealiSetOfTiltSeries.sqlite")
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
