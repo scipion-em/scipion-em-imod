@@ -588,8 +588,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                               y=element[1],
                                               z=element[2])
-            newCoord3D.setVolId(tsObjId + 1)
-            newCoord3D.setVolName(tsId)
+            newCoord3D.setVolume(ts)
+            newCoord3D.setVolId(tsObjId)
             outputSetOfCoordinates3D.append(newCoord3D)
             outputSetOfCoordinates3D.update(newCoord3D)
         outputSetOfCoordinates3D.write()
