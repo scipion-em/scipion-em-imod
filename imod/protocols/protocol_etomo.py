@@ -314,8 +314,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Landmark models with no gaps"""
-        if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)
-                          and os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId))):
+        if os.path.exists(os.path.join(extraPrefix, "%s_nogaps.fid" % tsId)) and \
+                os.path.exists(os.path.join(extraPrefix, '%s.resid' % tsId)):
             paramsNoGapPoint2Model = {
                 'inputFile': os.path.join(extraPrefix, '%s_nogaps.fid' % tsId),
                 'outputFile': os.path.join(extraPrefix, '%s_nogaps_fid.txt' % tsId)
@@ -383,7 +383,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             outputSetOfFullTomograms.append(newTomogram)
             outputSetOfFullTomograms.update(newTomogram)
             outputSetOfFullTomograms.write()
-        self._store()
+            self._store()
 
         """Post-processed reconstructed tomogram"""
         if os.path.exists(os.path.join(extraPrefix, "%s.rec" % tsId)):
@@ -397,9 +397,10 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             outputSetOfPostProcessTomograms.append(newTomogram)
             outputSetOfPostProcessTomograms.update(newTomogram)
             outputSetOfPostProcessTomograms.write()
-        self._store()
+            self._store()
         self.closeMappers()
-       # SqliteDb.closeConnection("outputPrealiSetOfTiltSeries.sqlite")
+
+        SqliteDb.closeConnection("/home/fede/ScipionUserData/projects/Tomo_IMOD/Runs/077291_ProtImportTs/tiltseries.sqlite")
 
     # --------------------------- UTILS functions ----------------------------
     def _writeEtomoEdf(self, fn, paramsDict):
