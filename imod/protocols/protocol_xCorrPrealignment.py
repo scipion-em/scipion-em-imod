@@ -155,18 +155,20 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             'input': os.path.join(tmpPrefix, '%s.st' % tsId),
             'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
             'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-            'RotationAngle': self.rotationAngle.get(),
-            'FilterSigma1': 0.03,
-            'FilterSigma2': 0.05,
-            'FilterRadius2': 0.25
+            'rotationAngle': self.rotationAngle.get(),
+            'filterSigma1': self.filterSigma1.get(),
+            'filterSigma2': self.filterSigma2.get(),
+            'filterRadius1': self.filterRadius1.get(),
+            'filterRadius2': self.filterRadius2.get()
         }
         argsXcorr = "-input %(input)s " \
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
-                    "-RotationAngle %(RotationAngle)f " \
-                    "-FilterSigma1 %(FilterSigma1)f " \
-                    "-FilterSigma2 %(FilterSigma2)f " \
-                    "-FilterRadius2 %(FilterRadius2)f"
+                    "-RotationAngle %(rotationAngle)f " \
+                    "-FilterSigma1 %(filterSigma1)f " \
+                    "-FilterSigma2 %(filterSigma2)f " \
+                    "-FilterRadius1 %(filterRadius1)f " \
+                    "-FilterRadius2 %(filterRadius2)f "
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
