@@ -170,7 +170,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         summary = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self.protCtfEstimation.get().outputCtfEstimatedSetOfTiltSeries.getSize(),
                               self.outputCtfCorrectedSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")

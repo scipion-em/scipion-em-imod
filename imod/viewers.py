@@ -50,21 +50,23 @@ class ImodViewer(pwviewer.Viewer):
     ]
 
     def _visualize(self, obj, **kwargs):
-        views = []
+        env = Plugin.getEnviron()
+        view = []
         cls = type(obj)
 
         if issubclass(cls, tomo.objects.TiltSeries):
-            views.append(ImodObjectView(obj.getFirstItem()))
+            view = ImodObjectView(obj.getFirstItem())
         elif issubclass(cls, tomo.objects.Tomogram):
-            views.append(ImodObjectView(obj))
+            view = ImodObjectView(obj)
         elif issubclass(cls, tomo.objects.SetOfTomograms):
-            views.append(ImodSetOfTomogramsView(obj))
+            view = ImodSetOfTomogramsView(obj)
         elif issubclass(cls, tomo.objects.SetOfTiltSeries):
-            views.append(ImodSetView(obj))
+            view = ImodSetView(obj)
         elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
-            views.append(ImodSetOfLandmarkModelsView(obj))
+            view = ImodSetOfLandmarkModelsView(obj)
 
-        return views
+        view._env = env
+        return [view]
 
 
 class ImodObjectView(pwviewer.CommandView):
@@ -74,8 +76,6 @@ class ImodObjectView(pwviewer.CommandView):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodSetView(pwviewer.CommandView):
@@ -88,8 +88,6 @@ class ImodSetView(pwviewer.CommandView):
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
 
-        print("%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
 
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     """ Wrapper to visualize landmark models with 3dmod """
@@ -97,12 +95,15 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     def __init__(self, set, **kwargs):
         fn = ""
         for item in set:
-            tsId = os.path.basename(item.getModelName()).split('_')[0]
-            prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
+            tsId = os.path.basename(item.getFileName()).split('_')[0]
+            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
+            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+            else:
+                prealiTSPath = ""
             fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
         pwviewer.CommandView.__init__(self, fn)
-
-        print(fn)
 
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
@@ -113,8 +114,6 @@ class ImodSetOfTomogramsView(pwviewer.CommandView):
         for item in set:
             fn += " " + item.getLocation()[1]
         pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
