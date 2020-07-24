@@ -279,7 +279,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
-            methods.append("%d Tilt-series have been normalized using the IMOD newstack program.\n"
+            methods.append("%d tilt-series have been normalized using the IMOD newstack program.\n"
                            % (self.outputNormalizedSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")

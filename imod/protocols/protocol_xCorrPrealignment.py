@@ -56,7 +56,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         form.addParam('inputSetOfTiltSeries', params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Input set of tilt-series.')
 
         form.addParam('computeAlignment', params.EnumParam,
                       choices=['Yes', 'No'],
@@ -73,7 +73,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                        default=1.0,
                        label='Binning',
                        help='Binning to be applied to the interpolated tilt-series. '
-                            'Must be a integer bigger than 1')
+                            'Must be a integer bigger than 1.')
 
         form.addParam('rotationAngle',
                       params.FloatParam,
@@ -81,6 +81,43 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                       default='0.0',
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
+
+        form.addParam('filterRadius1',
+                      params.FloatParam,
+                      label='Filter radius 1',
+                      default='0.0',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Low spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
+                           "that is 1 at this cutoff radius and falls off below this radius with a standard deviation "
+                           "specified by FilterSigma2. Spatial frequency units range from 0 to 0.5. Use FilterSigma1 "
+                           "instead of this entry for more predictable attenuation of low frequencies.")
+
+        form.addParam('filterRadius2',
+                      params.FloatParam,
+                      label='Filter radius 2',
+                      default='0.25',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="High spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
+                           "that is 1 at this cutoff radius and falls off above this radius with a standard deviation "
+                           "specified by FilterSigma2.")
+
+        form.addParam('filterSigma1',
+                      params.FloatParam,
+                      label='Filter sigma 1',
+                      default='0.03',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Sigma value to filter low frequencies in the correlations with a curve that is an inverted "
+                           "Gaussian.  This filter is 0 at 0 frequency and decays up to 1 with the given sigma value. "
+                           "However, if a negative value of radius1 is entered, this filter will be zero from 0 to "
+                           "|radius1| then decay up to 1.")
+
+        form.addParam('filterSigma2',
+                      params.FloatParam,
+                      label='Filter sigma 2',
+                      default='0.05',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Sigma value for the Gaussian rolloff below and above the cutoff frequencies specified by "
+                           "FilterRadius1 and FilterRadius2")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -118,18 +155,20 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             'input': os.path.join(tmpPrefix, '%s.st' % tsId),
             'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
             'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-            'RotationAngle': self.rotationAngle.get(),
-            'FilterSigma1': 0.03,
-            'FilterSigma2': 0.05,
-            'FilterRadius2': 0.25
+            'rotationAngle': self.rotationAngle.get(),
+            'filterSigma1': self.filterSigma1.get(),
+            'filterSigma2': self.filterSigma2.get(),
+            'filterRadius1': self.filterRadius1.get(),
+            'filterRadius2': self.filterRadius2.get()
         }
         argsXcorr = "-input %(input)s " \
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
-                    "-RotationAngle %(RotationAngle)f " \
-                    "-FilterSigma1 %(FilterSigma1)f " \
-                    "-FilterSigma2 %(FilterSigma2)f " \
-                    "-FilterRadius2 %(FilterRadius2)f"
+                    "-RotationAngle %(rotationAngle)f " \
+                    "-FilterSigma1 %(filterSigma1)f " \
+                    "-FilterSigma2 %(filterSigma2)f " \
+                    "-FilterRadius1 %(filterRadius1)f " \
+                    "-FilterRadius2 %(filterRadius2)f "
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {

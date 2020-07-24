@@ -278,7 +278,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     def _methods(self):
         methods = []
         if hasattr(self, 'outputNormalizedSetOfTomograms'):
-            methods.append("%d Tomograms have been normalized using the IMOD newstack program.\n"
+            methods.append("%d tomograms have been normalized using the IMOD newstack program.\n"
                            % (self.outputNormalizedSetOfTomograms.getSize()))
         else:
             methods.append("Output classes not ready yet.")
