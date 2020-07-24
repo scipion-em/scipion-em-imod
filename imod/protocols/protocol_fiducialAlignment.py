@@ -588,8 +588,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                               y=element[1],
                                               z=element[2])
-            newCoord3D.setVolId(tsObjId + 1)
-            newCoord3D.setVolName(tsId)
+            newCoord3D.setVolume(ts)
+            newCoord3D.setVolId(tsObjId)
             outputSetOfCoordinates3D.append(newCoord3D)
             outputSetOfCoordinates3D.update(newCoord3D)
         outputSetOfCoordinates3D.write()
@@ -597,7 +597,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
     def createOutputStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
-        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
+        if self.computeAlignment.get() == 0:
+            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
         self.getOutputFiducialModelGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
         self.getOutputFiducialModelNoGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
         self.getOutputSetOfCoordinates3Ds().setStreamState(pw.object.Set.STREAM_CLOSED)
@@ -720,7 +721,8 @@ $if (-e ./savework) ./savework
         if not hasattr(self, "outputSetOfCoordinates3D"):
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
                                                                       suffix='LandmarkModel')
-            outputSetOfCoordinates3D.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
             outputSetOfCoordinates3D.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)

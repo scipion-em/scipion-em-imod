@@ -40,7 +40,7 @@ class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
     with the Imod program 3dmod
     """
-    _environments = [pwviewer.DESKTOP_TKINTER]
+    _environments = [pwviewer.DESKTOP_TKINTER, Plugin.getEnviron()]
     _targets = [
         tomo.objects.TiltSeries,
         tomo.objects.Tomogram,
@@ -73,7 +73,9 @@ class ImodObjectView(pwviewer.CommandView):
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod %s') % fn)
+        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
+
+        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodSetView(pwviewer.CommandView):
@@ -86,6 +88,8 @@ class ImodSetView(pwviewer.CommandView):
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
 
+        print("%s %s" % (Plugin.getImodCmd('3dmod'), fn))
+
 
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     """ Wrapper to visualize landmark models with 3dmod """
@@ -95,18 +99,22 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
         for item in set:
             tsId = os.path.basename(item.getModelName()).split('_')[0]
             prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
-            fn += Plugin.getImodCmd("3dmod") + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
+            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
         pwviewer.CommandView.__init__(self, fn)
+
+        print(fn)
 
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
     """ Wrapper to visualize set of tomograms with 3dmod """
 
     def __init__(self, set, **kwargs):
-        fn = ""
+        fn = " -s 0,0 "
         for item in set:
             fn += " " + item.getLocation()[1]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod -s 0,0%s') % fn)
+        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
+
+        print(Plugin.getImodCmd('3dmod') + fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):

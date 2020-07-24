@@ -27,7 +27,7 @@
 # **************************************************************************
 
 from .protocol_etomo import ProtImodEtomo
-from .protocol_auto3d import ProtImodAuto3D
+# from .protocol_auto3d import ProtImodAuto3D
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_tomoReconstruction import ProtImodTomoReconstruction

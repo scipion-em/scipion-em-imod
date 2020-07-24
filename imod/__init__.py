@@ -33,6 +33,7 @@ from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
 from distutils.spawn import find_executable
 from pyworkflow.gui.project.utils import OS
 
+__version__ = '3.0.2'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -68,7 +69,12 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getEnviron(cls):
-        return None
+        env=pwem.pwutils.Environ(os.environ)
+        if 'IMOD_DIR' in env:
+            del env['IMOD_DIR']
+        if 'IMOD_PATH' in env:
+            del env['IMOD_PATH']
+        return env
 
     @classmethod
     def validateInstallation(cls):

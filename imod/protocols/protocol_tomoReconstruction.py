@@ -42,7 +42,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     Tomogram reconstruction procedure based on the IMOD procedure.
 
     More info:
-        https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/tilt.html
     """
 
     _label = 'tomo reconstruction'
@@ -51,24 +51,69 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('inputSetOfTiltSeries', params.PointerParam,
+        form.addParam('inputSetOfTiltSeries',
+                      params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('tomoThickness', params.FloatParam,
-                      default=100,
-                      label='Tomogram thickness', important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')\
-
-        form.addParam('tomoShift',
+        form.addParam('tomoThickness',
                       params.FloatParam,
-                      default=0,
-                      label='Tomogram shift',
+                      default=100,
+                      label='Tomogram thickness',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Shift in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+
+        form.addParam('tomoShiftX',
+                      params.FloatParam,
+                      default=0,
+                      label='Tomogram shift in X',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='This entry allows one to shift the reconstructed slice in X before it is output.  If '
+                           'the X shift is positive, the slice will be shifted to the right, and the output will '
+                           'contain the left part of the whole potentially reconstructable area.')
+
+        form.addParam('tomoShiftZ',
+                      params.FloatParam,
+                      default=0,
+                      label='Tomogram shift in Z',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='This entry allows one to shift the reconstructed slice in Z before it is output. If the Z '
+                           'shift is positive, the slice is shifted upward. The Z entry is optional and defaults to 0 '
+                           'when omitted.')
+
+        form.addParam('angleOffset',
+                      params.FloatParam,
+                      default=0,
+                      label='Angle offset',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Apply an angle offset in degrees to all tilt angles. This offset positively rotates the '
+                           'reconstructed sections anticlockwise.')
+
+        form.addParam('tiltAxisOffset',
+                      params.FloatParam,
+                      default=0,
+                      label='Tilt axis offset',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Apply an offset to the tilt axis in a stack of full-sized projection images, cutting the '
+                           'X-axis at  NX/2. + offset instead of NX/2.  The DELXX entry is optional and defaults to 0 '
+                           'when omitted.')
+
+        form.addParam('fakeInteractionsSIRT',
+                      params.IntParam,
+                      default=0,
+                      label='Iterations of a SIRT-like equivalent filter',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Modify the radial filter to produce a reconstruction equivalent to the one produced by the '
+                           'given number of iterations of SIRT. The Gaussian filter is applied at the high-frequency '
+                           'end of the filter. The functioning of this filter is described in: \n\t'
+                           'https://bio3d.colorado.edu/imod/doc/man/tilt.html')
 
         groupRadialFrequencies = form.addGroup('Radial filtering',
                                                help='This entry controls low-pass filtering with the radial weighting '
@@ -120,29 +165,44 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         paramsTilt = {
             'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
-            'OutputFile': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'OutputFile': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
             'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
-            'Shift': "0.0," + str(self.tomoShift.get())
+            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get()),
+            'Offset': str(self.angleOffset.get()) + " " + str(self.tiltAxisOffset.get()),
         }
+
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
                    "-TILTFILE %(TiltFile)s " \
                    "-THICKNESS %(Thickness)d " \
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
-                   "-SHIFT %(Shift)s"
+                   "-SHIFT %(Shift)s " \
+                   "-OFFSET %(Offset)s "
+
+        if self.fakeInteractionsSIRT.get() != 0:
+            argsTilt += "-FakeSIRTiterations %d " % self.fakeInteractionsSIRT.get()
+
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
-            'input': self._getExtraPath(os.path.join(tsId, "%s.rec" % tsId)),
-            'output': self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)),
+            'input': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
+            'output': self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)),
         }
+
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s"
+
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
+        argsTrimvol = self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)) + " "
+        argsTrimvol += self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)) + " "
+        argsTrimvol += "-yz "
+
+        Plugin.runImod(self, 'trimvol', argsTrimvol)
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
