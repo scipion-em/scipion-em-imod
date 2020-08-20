@@ -63,7 +63,6 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
 
@@ -74,7 +73,6 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
         inputTsFileName = ts.getFirstItem().getLocation()[1]
         outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
@@ -85,6 +83,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
         utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
 
     def generateOutputStackStep(self, tsObjId):
@@ -94,11 +93,10 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
 
         if ts.getFirstItem().hasTransform():
             paramsAlignment = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
+                'input': ts.getFirstItem().getLocation()[1],
                 'output': os.path.join(extraPrefix, '%s.st' % tsId),
                 'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
                 'bin': int(self.binning.get()),
