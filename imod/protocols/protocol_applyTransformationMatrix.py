@@ -85,12 +85,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        if not ts.getFirstItem().hasTransform():
-            inputTsFilePath = ts.getFirstItem().getLocation()[1]
-            outputTsFilePath = os.path.join(extraPrefix, '%s.st' % tsId)
-            path.createLink(inputTsFilePath, outputTsFilePath)
-        else:
-            utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
+        utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
 
     def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -156,6 +151,17 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+        validateMsgs = []
+
+        for ts in self.inputSetOfTiltSeries.get():
+            if not ts.getFirstItem().hasTransform():
+                validateMsgs.append("Some tilt-series from the input set of tilt-series is missing from a "
+                                    "transformation matrix.")
+                break
+
+        return validateMsgs
+
     def _summary(self):
         summary = []
         if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
