@@ -67,18 +67,6 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        inputTsFileName = ts.getFirstItem().getLocation()[1]
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
-
-        """Create link to input stack"""
-        path.createLink(inputTsFileName, outputTsFileName)
-
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
