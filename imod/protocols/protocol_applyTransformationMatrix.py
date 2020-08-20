@@ -82,20 +82,20 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        if ts.getFirstItem().hasTransform():
-            paramsAlignment = {
-                'input': ts.getFirstItem().getLocation()[1],
-                'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
-                'bin': int(self.binning.get()),
-                'imagebinned': 1.0}
+        paramsAlignment = {
+            'input': ts.getFirstItem().getLocation()[1],
+            'output': os.path.join(extraPrefix, '%s.st' % tsId),
+            'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+            'bin': int(self.binning.get()),
+            'imagebinned': 1.0}
 
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-xform %(xform)s " \
-                            "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s"
-            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-xform %(xform)s " \
+                        "-bin %(bin)d " \
+                        "-imagebinned %(imagebinned)s"
+
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
