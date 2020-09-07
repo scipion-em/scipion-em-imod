@@ -57,8 +57,8 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         form.addParam('binning', params.FloatParam,
                       default=1.0,
                       label='Binning',
-                      help='Binning to be applied to the interpolated tilt-series. '
-                           'Must be a integer bigger than 1')
+                      help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
+                           'binned by the given factor. Must be an integer bigger than 1')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
