@@ -82,6 +82,7 @@ def formatFiducialList(fiducialFilePath):
         fiducialText = f.read().splitlines()
         for line in fiducialText:
             vector = line.split()
+            vector = [round(float(i)) for i in vector]
             fiducialList.append(vector)
     return fiducialList
 
