@@ -136,14 +136,12 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        fileName = ts.getFirstItem().parseFileName()
-        outputTsFileName = os.path.join(tmpPrefix, fileName)
-
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        angleFilePath = os.path.join(tmpPrefix, "%s.tlt" % ts.getFirstItem().parseFileExtension(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
     def computeXcorrStep(self, tsObjId):
