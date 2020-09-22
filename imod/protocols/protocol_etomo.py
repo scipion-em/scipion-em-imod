@@ -209,7 +209,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             ih = ImageHandler()
             xPreali, _, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
             newTs.setDim(ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc"))
-            newTs.write()
+            newTs.write(properties=False)
 
             outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
             outputPrealiSetOfTiltSeries.update(newTs)
@@ -241,7 +241,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             ih = ImageHandler()
             xAli, yAli, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
             newTs.setDim(ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc"))
-            newTs.write()
+            newTs.write(properties=False)
 
             outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
             outputAliSetOfTiltSeries.update(newTs)
