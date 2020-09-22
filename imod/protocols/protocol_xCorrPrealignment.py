@@ -135,7 +135,9 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
+
+        fileName = ts.getFirstItem().parseFileName()
+        outputTsFileName = os.path.join(tmpPrefix, fileName)
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
@@ -186,6 +188,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputSetOfTiltSeries.append(newTs)
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
@@ -194,9 +197,11 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             transform.setMatrix(alignmentMatrix[:, :, index])
             newTi.setTransform(transform)
             newTs.append(newTi)
+
         newTs.write()
         outputSetOfTiltSeries.update(newTs)
         outputSetOfTiltSeries.write()
+
         self._store()
 
     def computeInterpolatedStackStep(self, tsObjId):
@@ -232,7 +237,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName("_preali"))))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
