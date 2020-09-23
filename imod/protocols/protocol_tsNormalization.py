@@ -180,15 +180,13 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputNormalizedSetOfTiltSeries.append(newTs)
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsNewstack = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName("_norm")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0,
         }
@@ -219,22 +217,27 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputNormalizedSetOfTiltSeries.append(newTs)
+
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, ts.getFirstItem().parseFileName())
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName("_norm"))))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
 
         ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().parseFileName())
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        print(newTs.getFirstItem().getFileName(), "AAAAAAAAAAAAAAAAAAAAAAAAAAAaa")
         newTs.setDim((x, y, z))
-        newTs.write(properties=False)
 
+        newTs.write(properties=False)
         outputNormalizedSetOfTiltSeries.update(newTs)
         outputNormalizedSetOfTiltSeries.updateDim()
         outputNormalizedSetOfTiltSeries.write()
