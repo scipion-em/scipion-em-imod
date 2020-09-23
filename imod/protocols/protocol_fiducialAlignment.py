@@ -131,16 +131,17 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileExtension(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
         """"Link to input tilt-series (needed for fiducial model viewer)"""
+        # TODO: there is no need to come from a prealigned stack
         inputTS = os.path.join(extraPrefix, "%s_preali.st" % tsId)
         if ts.getFirstItem().hasTransform():
             path.copyFile(outputTsFileName, inputTS)
@@ -154,7 +155,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         paramsDict = {
-            'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'inputSeedModel': os.path.join(extraPrefix, '%s.seed' % tsId),
             'outputModel': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
             'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
