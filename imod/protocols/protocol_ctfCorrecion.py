@@ -142,7 +142,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId)))
             newTs.append(newTi)
 
-        newTs.write()
+        newTs.write(properties=False)
         outputCtfCorrectedSetOfTiltSeries.update(newTs)
         outputCtfCorrectedSetOfTiltSeries.write()
         self._store()

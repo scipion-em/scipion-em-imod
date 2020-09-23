@@ -233,7 +233,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().parseFileName())
         newTs.setDim((x, y, z))
-        newTs.write()
+        newTs.write(properties=False)
 
         outputNormalizedSetOfTiltSeries.update(newTs)
         outputNormalizedSetOfTiltSeries.updateDim()
