@@ -388,7 +388,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)))
             newTs.append(newTi)
 
-        newTs.write()
+        newTs.write(properties=False)
         outputCtfEstimatedSetOfTiltSeries.update(newTs)
         outputCtfEstimatedSetOfTiltSeries.write()
         self._store()
