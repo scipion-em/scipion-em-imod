@@ -72,7 +72,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
-        utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
+        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
 
     def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -83,12 +83,12 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         paramsAlignment = {
-            'input': ts.getFirstItem().getLocation()[1],
-            'output': os.path.join(extraPrefix, '%s.st' % tsId),
-            'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+            'input': ts.getFirstItem().getFileName(),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_interpolated")),
+            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
-            'imagebinned': 1.0}
-
+            'imagebinned': 1.0
+        }
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
@@ -107,7 +107,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s.st' % tsId)))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated"))))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)

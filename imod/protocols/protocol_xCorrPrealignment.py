@@ -224,6 +224,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
+
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
