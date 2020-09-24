@@ -181,7 +181,6 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-        tsId = ts.getTsId()
         alignmentMatrix = utils.formatTransformationMatrix(
             os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")))
         newTs = tomoObj.TiltSeries(tsId=tsId)
