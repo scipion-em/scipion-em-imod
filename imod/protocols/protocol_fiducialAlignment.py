@@ -415,14 +415,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
 
     def computeOutputStackStep(self, tsObjId):
-        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputSetOfTiltSeries.append(newTs)
 
         tltFilePath = os.path.join(extraPrefix,
                                    ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt"))
@@ -433,10 +428,15 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                             ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
         newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
+        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+        outputSetOfTiltSeries.append(newTs)
+
         for index, ti in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(ti, copyId=True)
-            newTi.setLocation(index + 1, ti.parseFileName())
+            newTi.setLocation(ti.getLocation())
             newTi.setTiltAngle(float(tltList[index]))
 
             if ti.hasTransform():
