@@ -142,7 +142,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         """"Link to input tilt-series (needed for fiducial model viewer)"""
         # TODO: there is no need to come from a prealigned stack
-        inputTS = os.path.join(extraPrefix, "%s_preali.st" % tsId)
+        inputTS = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_preali"))
         if ts.getFirstItem().hasTransform():
             path.copyFile(outputTsFileName, inputTS)
 
