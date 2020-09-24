@@ -461,6 +461,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         outputSetOfTiltSeries.update(newTs)
         outputSetOfTiltSeries.write()
+
         self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):

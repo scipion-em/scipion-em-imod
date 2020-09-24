@@ -198,6 +198,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             newTs.append(newTi)
 
         newTs.write(properties=False)
+
         outputSetOfTiltSeries.update(newTs)
         outputSetOfTiltSeries.write()
 
