@@ -236,7 +236,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName("_preali"))))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_preali"))))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
