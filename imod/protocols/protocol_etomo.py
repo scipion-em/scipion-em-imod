@@ -108,19 +108,19 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         """Apply transformation matrices and remove excluded views"""
         if self.excludeList.get() == '':
-            outputTsFileName = os.path.join(extraPrefix, "%s.st" % tsId)
-            angleFilePath = os.path.join(extraPrefix, "%s.rawtlt" % tsId)
 
             """Apply the transformation form the input tilt-series"""
+            outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
             ts.applyTransform(outputTsFileName)
 
             """Generate angle file"""
+            angleFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
 
         else:
-            interpolatedTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
-            outputTsFileName = os.path.join(extraPrefix, "%s.st" % tsId)
-            angleFilePath = os.path.join(extraPrefix, "%s.rawtlt" % tsId)
+            interpolatedTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+            outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+            angleFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
 
             """Apply the transformation form the input tilt-series and generate a new ts object"""
             ts.applyTransform(interpolatedTsFileName)
@@ -147,9 +147,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                          excludeList=excludeList)
 
         """Generate etomo config file"""
-        workingFolder = self._getExtraPath(tsId)
-
-        args = '-name %s ' % tsId
+        args = '-name %s ' % ts.getFirstItem().parseFileName(extension="")
         args += '-gold %0.3f ' % self.markersDiameter
 
         # Imod use the pixel size in NM
@@ -160,10 +158,11 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         args += '-rotation %0.3f ' % self.rotationAngle
         args += '-userawtlt'
 
-        Plugin.runImod(self, 'copytomocoms', args, cwd=workingFolder)
+        Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
-        edfFn = os.path.join(workingFolder, '%s.edf' % tsId)
-        minTilt = min(utils.formatAngleList(os.path.join(extraPrefix, "%s.rawtlt" % tsId)))
+        edfFn = os.path.join(extraPrefix, '%s.edf' % tsId)
+        minTilt = min(utils.formatAngleList(os.path.join(extraPrefix,
+                                                         ts.getFirstItem().parseFileName(extension=".tlt"))))
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
