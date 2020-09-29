@@ -81,7 +81,8 @@ def formatFiducialList(fiducialFilePath):
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
         for line in fiducialText:
-            vector = line.split()
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            vector = line.replace('-', ' -').split()
             vector = [round(float(i)) for i in vector]
             fiducialList.append(vector)
     return fiducialList
@@ -96,7 +97,8 @@ def formatFiducialResidList(fiducialFilePath):
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
         for line in fiducialText[1:]:
-            vector = line.split()
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            vector = line.replace('-', ' -').split()
             fiducialResidList.append([round(float(vector[0])),
                                       round(float(vector[1])),
                                       int(vector[2]),
