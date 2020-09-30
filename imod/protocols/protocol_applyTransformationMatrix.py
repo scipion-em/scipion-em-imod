@@ -57,40 +57,22 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         form.addParam('binning', params.FloatParam,
                       default=1.0,
                       label='Binning',
-                      help='Binning to be applied to the interpolated tilt-series. '
-                           'Must be a integer bigger than 1')
+                      help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
+                           'binned by the given factor. Must be an integer bigger than 1')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-        inputTsFileName = ts.getFirstItem().getLocation()[1]
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
-
-        """Create link to input stack"""
-        path.createLink(inputTsFileName, outputTsFileName)
-
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        if not ts.getFirstItem().hasTransform():
-            inputTsFilePath = ts.getFirstItem().getLocation()[1]
-            outputTsFilePath = os.path.join(extraPrefix, '%s.st' % tsId)
-            path.createLink(inputTsFilePath, outputTsFilePath)
-        else:
-            utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
+        path.makePath(extraPrefix)
+        utils.formatTransformFile(ts, os.path.join(extraPrefix, "%s.prexg" % tsId))
 
     def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -99,22 +81,21 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
 
-        if ts.getFirstItem().hasTransform():
-            paramsAlignment = {
-                'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-                'output': os.path.join(extraPrefix, '%s.st' % tsId),
-                'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
-                'bin': int(self.binning.get()),
-                'imagebinned': 1.0}
+        paramsAlignment = {
+            'input': ts.getFirstItem().getLocation()[1],
+            'output': os.path.join(extraPrefix, '%s.st' % tsId),
+            'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+            'bin': int(self.binning.get()),
+            'imagebinned': 1.0}
 
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-xform %(xform)s " \
-                            "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s"
-            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-xform %(xform)s " \
+                        "-bin %(bin)d " \
+                        "-imagebinned %(imagebinned)s"
+
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -156,6 +137,17 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+        validateMsgs = []
+
+        for ts in self.inputSetOfTiltSeries.get():
+            if not ts.getFirstItem().hasTransform():
+                validateMsgs.append("Some tilt-series from the input set of tilt-series is missing from a "
+                                    "transformation matrix.")
+                break
+
+        return validateMsgs
+
     def _summary(self):
         summary = []
         if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):

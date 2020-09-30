@@ -59,8 +59,8 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
                       default=1.0,
                       label='Binning',
                       important=True,
-                      help='Binning to be applied to the normalized tilt-series. '
-                           'Must be a integer bigger than 1')
+                      help='Binning to be applied to the normalized tilt-series in IMOD convention. Images will be '
+                           'binned by the given factor. Must be an integer bigger than 1')
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -102,14 +102,14 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
         form.addParam('scaleRangeMax',
                       params.FloatParam,
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
+                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
                       default=255,
                       label='Max.',
                       help='Maximum value for the rescaling')
 
         form.addParam('scaleRangeMin',
                       params.FloatParam,
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
+                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')

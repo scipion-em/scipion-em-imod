@@ -75,7 +75,7 @@ class ImodObjectView(pwviewer.CommandView):
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
         fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
+        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + ' ' + fn)
 
 
 class ImodSetView(pwviewer.CommandView):
