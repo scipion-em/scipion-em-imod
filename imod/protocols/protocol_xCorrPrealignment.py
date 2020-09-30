@@ -214,7 +214,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         paramsAlignment = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_preali")),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
@@ -237,7 +237,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_preali"))))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
