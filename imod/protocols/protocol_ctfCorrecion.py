@@ -106,7 +106,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         paramsCtfPhaseFlip = {
             'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'outputFileName': os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId),
+            'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'defocusFile': os.path.join(
                 self.protCtfEstimation.get()._getExtraPath(tsId),
                 self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].getFirstItem().parseFileName(extension=".defocus")),
@@ -146,8 +146,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_ctfCorrected"))))
-            print(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_ctfCorrected")))
+                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
         newTs.write(properties=False)
