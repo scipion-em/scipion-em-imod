@@ -142,7 +142,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         """"Link to input tilt-series (needed for fiducial model viewer)"""
         # TODO: there is no need to come from a prealigned stack
-        inputTS = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_preali"))
+        inputTS = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
         if ts.getFirstItem().hasTransform():
             path.copyFile(outputTsFileName, inputTS)
 
@@ -475,7 +475,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         paramsAlignment = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fidali")),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0}
@@ -502,7 +502,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         for index, ti in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(ti, copyId=True)
-            newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName(suffix="_fidali")))
+            newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName()))
             newTi.setTiltAngle(float(tltList[index]))
             if self.binning > 1:
                 newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
