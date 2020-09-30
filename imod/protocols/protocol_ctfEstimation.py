@@ -276,7 +276,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_ctfEstimated"))
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
@@ -292,7 +292,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCtfPlotter = {
-            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_ctfEstimated")),
+            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
             'axisAngle': self.axisAngle.get(),
