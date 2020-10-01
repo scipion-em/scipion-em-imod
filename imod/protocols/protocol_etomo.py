@@ -201,18 +201,26 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             newTs.copyInfo(ts)
             outputPrealiSetOfTiltSeries.append(newTs)
 
+            ih = ImageHandler()
+
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1,
-                                  (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".preali"))))
+                newTi.setLocation(
+                    index + 1,
+                    (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".preali")))
+                    )
+                xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
+                newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
+                print(newTi.getLocation())
                 newTs.append(newTi)
 
-            ih = ImageHandler()
-            xPreali, _, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
-            newTs.setDim(ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc"))
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+            newTs.setDim((x, y, z))
+
             newTs.write(properties=False)
 
+            xPreali, _, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
             outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
             outputPrealiSetOfTiltSeries.update(newTs)
             outputPrealiSetOfTiltSeries.write()
