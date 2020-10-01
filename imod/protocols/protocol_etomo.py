@@ -209,18 +209,16 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.setLocation(
                     index + 1,
                     (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".preali")))
-                    )
+                )
                 xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                 newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
-                print(newTi.getLocation())
                 newTs.append(newTi)
 
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
-            newTs.setDim((x, y, z))
+            xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+            newTs.setDim((xPreali, yPreali, zPreali))
 
             newTs.write(properties=False)
 
-            xPreali, _, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
             outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
             outputPrealiSetOfTiltSeries.update(newTs)
             outputPrealiSetOfTiltSeries.write()
@@ -238,20 +236,26 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             newTs.copyInfo(ts)
             outputAliSetOfTiltSeries.append(newTs)
 
+            ih = ImageHandler()
+
             tltFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_fid', extension=".tlt"))
             tltList = utils.formatAngleList(tltFilePath)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(index + 1, (os.path.join(extraPrefix,
-                                                           ts.getFirstItem().parseFileName(extension=".ali"))))
+                newTi.setLocation(
+                    index + 1,
+                    (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".ali")))
+                )
                 newTi.setTiltAngle(float(tltList[index]))
+                xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
+                newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                 newTs.append(newTi)
 
-            ih = ImageHandler()
-            xAli, yAli, _, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
-            newTs.setDim(ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc"))
+            xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
+            newTs.setDim((xPreali, yPreali, zPreali))
+
             newTs.write(properties=False)
 
             outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
