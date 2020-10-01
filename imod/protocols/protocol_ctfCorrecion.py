@@ -86,10 +86,14 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTltFileName = os.path.join(tmpPrefix, '%s.rawtlt' % tsId)
+
+        """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        ts.generateTltFile(outputTltFileName)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+        self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].generateTltFile(angleFilePath)
 
     def ctfCorrection(self, tsObjId):
         """Run ctfphaseflip IMOD program"""
@@ -100,10 +104,12 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCtfPhaseFlip = {
-            'inputStack': os.path.join(self.protCtfEstimation.get()._getExtraPath(tsId), '%s_ctfEstimated.st' % tsId),
-            'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-            'outputFileName': os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId),
-            'defocusFile': os.path.join(self.protCtfEstimation.get()._getExtraPath(tsId), '%s.defocus' % tsId),
+            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'defocusFile': os.path.join(
+                self.protCtfEstimation.get()._getExtraPath(tsId),
+                self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].getFirstItem().parseFileName(extension=".defocus")),
             'voltage': self.inputSetOfTiltSeries.getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.getAcquisition().getSphericalAberration(),
             'defocusTol': self.protCtfEstimation.get().defocusTol.get(),
@@ -139,10 +145,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfCorrected.st' % tsId)))
+            newTi.setLocation(index + 1,
+                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
-        newTs.write()
+        newTs.write(properties=False)
         outputCtfCorrectedSetOfTiltSeries.update(newTs)
         outputCtfCorrectedSetOfTiltSeries.write()
         self._store()

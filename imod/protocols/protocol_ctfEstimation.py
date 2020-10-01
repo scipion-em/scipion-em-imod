@@ -274,14 +274,15 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)
-        outputTltFileName = os.path.join(tmpPrefix, '%s.rawtlt' % tsId)
 
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        ts.generateTltFile(outputTltFileName)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+        ts.generateTltFile(angleFilePath)
+
 
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
@@ -291,9 +292,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCtfPlotter = {
-            'inputStack': os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId),
-            'angleFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
-            'defocusFile': os.path.join(extraPrefix, '%s.defocus' % tsId),
+            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
             'axisAngle': self.axisAngle.get(),
             'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'expectedDefocus': self.getExpectedDefocus(tsId),
@@ -376,7 +377,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -385,10 +385,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_ctfEstimated.st' % tsId)))
+            newTi.setLocation(tiltImage.getLocation())
+            if tiltImage.hasTransform():
+                newTi.setTransform(tiltImage.getTransform())
             newTs.append(newTi)
 
-        newTs.write()
+        newTs.write(properties=False)
         outputCtfEstimatedSetOfTiltSeries.update(newTs)
         outputCtfEstimatedSetOfTiltSeries.write()
         self._store()

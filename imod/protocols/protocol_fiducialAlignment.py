@@ -131,17 +131,18 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
         """"Link to input tilt-series (needed for fiducial model viewer)"""
-        inputTS = os.path.join(extraPrefix, "%s_preali.st" % tsId)
+        # TODO: there is no need to come from a prealigned stack
+        inputTS = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
         if ts.getFirstItem().hasTransform():
             path.copyFile(outputTsFileName, inputTS)
 
@@ -153,15 +154,17 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         paramsDict = {
-            'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'inputSeedModel': os.path.join(extraPrefix, '%s.seed' % tsId),
-            'outputModel': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
-            'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
             'fiducialDiameter': self.fiducialDiameter.get()
         }
-        self.translateTrackCom(tsId, paramsDict)
+
+        self.translateTrackCom(ts, paramsDict)
 
     def generateFiducialSeedStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -169,7 +172,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         paramsAutofidseed = {
-            'trackCommandFile': os.path.join(extraPrefix, '%s_track.com' % tsId),
+            'trackCommandFile': os.path.join(extraPrefix,
+                                             ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
             'RotationAngle': self.rotationAngle.get(),
@@ -181,6 +185,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                           "-TargetNumberOfBeads %(targetNumberOfBeads)d "
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
+
         Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
@@ -194,11 +199,11 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         paramsBeadtrack = {
-            'inputSeedModel': os.path.join(extraPrefix, '%s.seed' % tsId),
-            'outputModel': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
-            'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'imagesAreBinned': 1,
-            'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'tiltDefaultGrouping': 7,
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
@@ -267,17 +272,23 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         paramsTiltAlign = {
-            'modelFile': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
-            'imageFile': os.path.join(tmpPrefix, '%s.st' % tsId),
+            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'imagesAreBinned': 1,
-            'outputModelFile': os.path.join(extraPrefix, '%s_fidxyz.mod' % tsId),
-            'outputResidualFile': os.path.join(extraPrefix, '%s_resid.txt' % tsId),
-            'outputFidXYZFile': os.path.join(extraPrefix, '%s_fid.xyz' % tsId),
-            'outputTiltFile': os.path.join(extraPrefix, '%s_interpolated.tlt' % tsId),
-            'outputTransformFile': os.path.join(extraPrefix, '%s_fid.xf' % tsId),
-            'outputFilledInModel': os.path.join(extraPrefix, '%s_noGaps.fid' % tsId),
+            'outputModelFile': os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
+            'outputResidualFile': os.path.join(extraPrefix,
+                                               ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt")),
+            'outputFidXYZFile': os.path.join(extraPrefix,
+                                             ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz")),
+            'outputTiltFile': os.path.join(extraPrefix,
+                                           ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt")),
+            'outputTransformFile': os.path.join(extraPrefix,
+                                                ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
+            'outputFilledInModel': os.path.join(extraPrefix,
+                                                ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
             'rotationAngle': self.rotationAngle.get(),
-            'tiltFile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'angleOffset': 0.0,
             'rotOption': 1,
             'rotDefaultGrouping': 5,
@@ -302,7 +313,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'axisZShift': 0.0,
             'shiftZFromOriginal': 1,
             'localAlignments': 0,
-            'outputLocalFile': os.path.join(extraPrefix, '%s_local.xf' % tsId),
+            'outputLocalFile': os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_local", extension=".xf")),
             'targetPatchSizeXandY': '700,700',
             'minSizeOrOverlapXandY': '0.5,0.5',
             'minFidsTotalAndEachSurface': '8,3',
@@ -381,43 +393,50 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         paramsGapPoint2Model = {
-            'inputFile': os.path.join(extraPrefix, '%s_gaps.fid' % tsId),
-            'outputFile': os.path.join(extraPrefix, '%s_gaps_fid.txt' % tsId)
+            'inputFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
         }
         argsGapPoint2Model = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
+
         Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
 
         paramsNoGapPoint2Model = {
-            'inputFile': os.path.join(extraPrefix, '%s_noGaps.fid' % tsId),
-            'outputFile': os.path.join(extraPrefix, '%s_noGaps_fid.txt' % tsId)
+            'inputFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
         }
         argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
                                "-OutputFile %(outputFile)s"
+
         Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
 
     def computeOutputStackStep(self, tsObjId):
-        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
 
+        tltFilePath = os.path.join(extraPrefix,
+                                   ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt"))
+        tltList = utils.formatAngleList(tltFilePath)
+
+        transformationMatricesFilePath = os.path.join(
+                                            extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+        newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
+
+        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputSetOfTiltSeries.append(newTs)
 
-        tltFileName = tsId + "_interpolated.tlt"
-        tltFilePath = os.path.join(self._getExtraPath(tsId), tltFileName)
-        tltList = utils.formatAngleList(tltFilePath)
-
-        transformationMatricesFile = tsId + "_fid.xf"
-        transformationMatricesFilePath = os.path.join(self._getExtraPath(tsId), transformationMatricesFile)
-        newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
-
         for index, ti in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(ti, copyId=True)
-            newTi.setLocation(index + 1, ti.getLocation()[1])
+            newTi.setLocation(ti.getLocation())
             newTi.setTiltAngle(float(tltList[index]))
 
             if ti.hasTransform():
@@ -435,11 +454,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                 newTransformArray = np.array(newTransform)
                 transform.setMatrix(newTransformArray)
                 newTi.setTransform(transform)
+
             newTs.append(newTi)
 
-        newTs.write()
+        newTs.write(properties=False)
+
         outputSetOfTiltSeries.update(newTs)
         outputSetOfTiltSeries.write()
+
         self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
@@ -452,9 +474,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsAlignment = {
-            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'output': os.path.join(extraPrefix, '%s_fidali.st' % tsId),
-            'xform': os.path.join(extraPrefix, "%s_fid.xf" % tsId),
+            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0}
         argsAlignment = "-input %(input)s " \
@@ -462,14 +484,16 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
+
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputInterpolatedSetOfTiltSeries.append(newTs)
 
-        tltFileName = tsId + "_interpolated.tlt"
-        tltFilePath = os.path.join(extraPrefix, tltFileName)
+        tltFilePath = os.path.join(extraPrefix,
+                                   ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt"))
+
         tltList = utils.formatAngleList(tltFilePath)
 
         if self.binning > 1:
@@ -478,7 +502,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         for index, ti in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(ti, copyId=True)
-            newTi.setLocation(index + 1, os.path.join(extraPrefix, '%s_fidali.st' % tsId))
+            newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName()))
             newTi.setTiltAngle(float(tltList[index]))
             if self.binning > 1:
                 newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
@@ -487,7 +511,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
-        newTs.write()
+        newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
         outputInterpolatedSetOfTiltSeries.updateDim()
@@ -497,21 +521,19 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
 
         """Create the output set of landmark models with gaps"""
         outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
 
-        fiducialModelGapFileName = tsId + "_gaps.fid"
-        fiducialModelGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelGapFileName)
+        fiducialModelGapPath = os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
 
-        landmarkModelGapsFileName = tsId + "_gaps.sfid"
-        landmarkModelGapsFilePath = os.path.join(self._getExtraPath(tsId), landmarkModelGapsFileName)
-
-        landmarkModelGapsResidFileName = '%s_resid.txt' % tsId
-        landmarkModelGapsResidPath = os.path.join(self._getExtraPath(tsId), landmarkModelGapsResidFileName)
+        landmarkModelGapsResidPath = os.path.join(extraPrefix,
+                                                  ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-        landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
+        landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsResidPath, fiducialModelGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -533,18 +555,18 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         """Create the output set of landmark models with no gaps"""
         outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
 
-        fiducialNoGapFileName = tsId + "_noGaps_fid.txt"
-        fiducialNoGapFilePath = os.path.join(self._getExtraPath(tsId), fiducialNoGapFileName)
+        fiducialNoGapFilePath = os.path.join(extraPrefix,
+                                             ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
         fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
-        fiducialModelNoGapFileName = tsId + "_noGaps.fid"
-        fiducialModelNoGapPath = os.path.join(self._getExtraPath(tsId), fiducialModelNoGapFileName)
+        fiducialModelNoGapPath = os.path.join(extraPrefix,
+                                              ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid"))
 
-        landmarkModelNoGapsFileName = tsId + "_noGaps.sfid"
-        landmarkModelNoGapsFilePath = os.path.join(self._getExtraPath(tsId), landmarkModelNoGapsFileName)
+        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+                                                   ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".sfid"))
 
-        landmarkModelNoGapsResidFileName = '%s_resid.txt' % tsId
-        landmarkModelNoGapsResidPath = os.path.join(self._getExtraPath(tsId), landmarkModelNoGapsResidFileName)
+        landmarkModelNoGapsResidPath = os.path.join(extraPrefix,
+                                                    ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
         landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
@@ -579,8 +601,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         """Create the output set of coordinates 3D from the fiducials in the tilt series"""
         outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
 
-        coordFileName = tsId + "_fid.xyz"
-        coordFilePath = os.path.join(self._getExtraPath(tsId), coordFileName)
+        coordFilePath = os.path.join(extraPrefix,
+                                     ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))
+
         xDim = ts.getFirstItem().getXDim()
         yDim = ts.getFirstItem().getYDim()
         coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
@@ -606,9 +629,13 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def translateTrackCom(self, tsId, paramsDict):
-        trackFileName = tsId + "_track.com"
-        trackFilePath = os.path.join(self._getExtraPath(tsId), trackFileName)
+    def translateTrackCom(self, ts, paramsDict):
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        trackFilePath = os.path.join(extraPrefix,
+                                     ts.getFirstItem().parseFileName(suffix="_track", extension=".com"))
+
         template = """# Command file for running BEADTRACK
 #
 ####CreatedVersion####4.9.12

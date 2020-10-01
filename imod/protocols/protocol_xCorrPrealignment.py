@@ -135,13 +135,13 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
     def computeXcorrStep(self, tsObjId):
@@ -152,9 +152,9 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsXcorr = {
-            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'output': os.path.join(extraPrefix, '%s.prexf' % tsId),
-            'tiltfile': os.path.join(tmpPrefix, '%s.rawtlt' % tsId),
+            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
+            'tiltfile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
             'filterSigma1': self.filterSigma1.get(),
             'filterSigma2': self.filterSigma2.get(),
@@ -172,8 +172,8 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
-            'input': os.path.join(extraPrefix, '%s.prexf' % tsId),
-            'goutput': os.path.join(extraPrefix, '%s.prexg' % tsId),
+            'input': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
+            'goutput': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
         }
         argsXftoxg = "-input %(input)s " \
                      "-goutput %(goutput)s"
@@ -181,11 +181,12 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-        tsId = ts.getTsId()
-        alignmentMatrix = utils.formatTransformationMatrix(self._getExtraPath('%s/%s.prexg' % (tsId, tsId)))
+        alignmentMatrix = utils.formatTransformationMatrix(
+            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputSetOfTiltSeries.append(newTs)
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
@@ -194,9 +195,12 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             transform.setMatrix(alignmentMatrix[:, :, index])
             newTi.setTransform(transform)
             newTs.append(newTi)
-        newTs.write()
+
+        newTs.write(properties=False)
+
         outputSetOfTiltSeries.update(newTs)
         outputSetOfTiltSeries.write()
+
         self._store()
 
     def computeInterpolatedStackStep(self, tsObjId):
@@ -209,9 +213,9 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsAlignment = {
-            'input': os.path.join(tmpPrefix, '%s.st' % tsId),
-            'output': os.path.join(extraPrefix, '%s_preali.st' % tsId),
-            'xform': os.path.join(extraPrefix, "%s.prexg" % tsId),
+            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
@@ -220,6 +224,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
+
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
@@ -232,7 +237,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, '%s_preali.st' % tsId)))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
@@ -240,7 +245,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
-        newTs.write()
+        newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
         outputInterpolatedSetOfTiltSeries.updateDim()

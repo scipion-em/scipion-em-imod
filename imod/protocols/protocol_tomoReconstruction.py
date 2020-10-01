@@ -150,23 +150,26 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
-        outputTsFileName = os.path.join(tmpPrefix, "%s.st" % tsId)
 
         """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, "%s.rawtlt" % tsId)
+        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
         paramsTilt = {
-            'InputProjections': self._getTmpPath(os.path.join(tsId, "%s.st" % tsId)),
-            'OutputFile': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
-            'TiltFile': self._getTmpPath(os.path.join(tsId, "%s.rawtlt" % tsId)),
+            'InputProjections': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'OutputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".rec")),
+            'TiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
@@ -189,8 +192,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
-            'input': self._getTmpPath(os.path.join(tsId, "%s.rec" % tsId)),
-            'output': self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)),
+            'input':  os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".rec")),
+            'output':  os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")),
         }
 
         argsNewstack = "-input %(input)s " \
@@ -198,11 +201,21 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
-        argsTrimvol = self._getTmpPath(os.path.join(tsId, "%s_flipped.mrc" % tsId)) + " "
-        argsTrimvol += self._getExtraPath(os.path.join(tsId, "%s.mrc" % tsId)) + " "
-        argsTrimvol += "-yz "
+        paramsTrimVol = {
+            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")),
+            'rotation': "-yz "
+        }
 
-        Plugin.runImod(self, 'trimvol', argsTrimvol)
+        argsTrimvol = "%(input)s " \
+                      "%(output)s " \
+                      "%(rotation)s "
+
+        # argsTrimvol = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")) + " "
+        # argsTrimvol += os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")) + " "
+        # argsTrimvol += "-yz "
+
+        Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -212,7 +225,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         outputSetOfTomograms = self.getOutputSetOfTomograms()
 
         newTomogram = Tomogram()
-        newTomogram.setLocation(os.path.join(extraPrefix, "%s.mrc" % tsId))
+        newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
         outputSetOfTomograms.write()
