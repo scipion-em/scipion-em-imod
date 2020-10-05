@@ -367,8 +367,8 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
     def setUpClass(cls):
         setupTestProject(cls)
 
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputSoTS = cls.inputDataSet.getFile('tsCtf')
+        cls.inputDataSet = DataSet.getDataSet('tutorialDataImodCTF')
+        cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="WTI042413_1series4.st",
