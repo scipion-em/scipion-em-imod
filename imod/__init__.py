@@ -102,7 +102,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         IMOD_INSTALLED = 'imod_%s_installed' % DEFAULT_VERSION
 
-        if 'ubuntu' in OS.getDistro().lower():
+        if 'linux' in OS.getPlatform().lower():
 
             # Add jpg lib
             jpeg = env.addLibrary(
@@ -128,7 +128,7 @@ class Plugin(pwem.Plugin):
                            createBuildDir=True,
                            buildDir=cls._getEMFolder(DEFAULT_VERSION),
                            neededProgs=cls.getDependencies(),
-                           libChecks = "libjpeg62",
+                           libChecks="libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=True)
 
