@@ -328,7 +328,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         self.assertTrue(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 50 or
-                        self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 49)
+                        self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 49 or
+                        self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 51)
 
     def test_applyTransformationMatrixOutputInterpolatedTS(self):
         self.assertIsNotNone(self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries)
