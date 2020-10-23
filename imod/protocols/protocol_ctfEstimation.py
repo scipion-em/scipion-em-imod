@@ -374,11 +374,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
 
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
             outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
-
-            tsId = ts.getTsId()
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
