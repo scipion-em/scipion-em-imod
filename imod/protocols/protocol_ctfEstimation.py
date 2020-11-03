@@ -373,27 +373,30 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
-        outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputCtfEstimatedSetOfTiltSeries.append(newTs)
+        extraPrefix = self._getExtraPath(tsId)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(tiltImage.getLocation())
-            if tiltImage.hasTransform():
-                newTi.setTransform(tiltImage.getTransform())
-            newTs.append(newTi)
+        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
+            outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
 
-        newTs.write(properties=False)
-        outputCtfEstimatedSetOfTiltSeries.update(newTs)
-        outputCtfEstimatedSetOfTiltSeries.write()
-        self._store()
+            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            outputCtfEstimatedSetOfTiltSeries.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(tiltImage.getLocation())
+                if tiltImage.hasTransform():
+                    newTi.setTransform(tiltImage.getTransform())
+                newTs.append(newTi)
+
+            newTs.write(properties=False)
+            outputCtfEstimatedSetOfTiltSeries.update(newTs)
+            outputCtfEstimatedSetOfTiltSeries.write()
+            self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputCtfEstimatedSetOfTiltSeries(self):
