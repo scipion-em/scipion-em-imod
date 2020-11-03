@@ -400,7 +400,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputCtfEstimatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
+        if hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
+            self.outputCtfEstimatedSetOfTiltSeries.enableAppend()
+        else:
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
             outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
