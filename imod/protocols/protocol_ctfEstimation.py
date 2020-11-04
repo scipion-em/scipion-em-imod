@@ -406,6 +406,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
             outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputCtfEstimatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries
