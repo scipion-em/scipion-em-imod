@@ -30,13 +30,11 @@ import imod.utils as utils
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.emlib.image import ImageHandler
 from pwem.objects import Transform
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
-from tomo.convert import writeTiStack
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
