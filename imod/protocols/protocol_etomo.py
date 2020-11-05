@@ -31,10 +31,8 @@ import os
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pyworkflow.mapper import SqliteDb
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.objects import Tomogram
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
 from imod import Plugin
