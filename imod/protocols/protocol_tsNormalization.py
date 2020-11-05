@@ -25,8 +25,7 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
+import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -244,7 +243,9 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputNormalizedSetOfTiltSeries(self):
-        if not hasattr(self, "outputNormalizedSetOfTiltSeries"):
+        if hasattr(self, "outputNormalizedSetOfTiltSeries"):
+            self.outputNormalizedSetOfTiltSeries.enableAppend()
+        else:
             outputNormalizedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Normalized')
             outputNormalizedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputNormalizedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
@@ -252,6 +253,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputNormalizedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputNormalizedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputNormalizedSetOfTiltSeries=outputNormalizedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
         return self.outputNormalizedSetOfTiltSeries

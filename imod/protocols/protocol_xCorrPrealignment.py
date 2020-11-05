@@ -25,9 +25,9 @@
 # **************************************************************************
 
 import os
-import numpy as np
 import imod.utils as utils
 import pwem.objects as data
+import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -254,16 +254,21 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTiltSeries(self):
-        if not hasattr(self, "outputSetOfTiltSeries"):
+        if hasattr(self, "outputSetOfTiltSeries"):
+            self.outputSetOfTiltSeries.enableAppend()
+        else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
 
     def getOutputInterpolatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+            self.outputInterpolatedSetOfTiltSeries.enableAppend()
+        else:
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
@@ -271,6 +276,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputInterpolatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries

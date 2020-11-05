@@ -25,14 +25,12 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
+import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
-from pwem.emlib.image import ImageHandler
 from imod import Plugin
 
 
@@ -283,7 +281,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
-
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -406,6 +403,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
             outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputCtfEstimatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries

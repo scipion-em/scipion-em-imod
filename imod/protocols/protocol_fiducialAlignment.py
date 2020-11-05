@@ -30,13 +30,11 @@ import imod.utils as utils
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.emlib.image import ImageHandler
 from pwem.objects import Transform
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
-from tomo.convert import writeTiStack
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
@@ -703,7 +701,9 @@ $if (-e ./savework) ./savework
             f.write(template % paramsDict)
 
     def getOutputSetOfTiltSeries(self):
-        if not hasattr(self, "outputSetOfTiltSeries"):
+        if hasattr(self, "outputSetOfTiltSeries"):
+            self.outputSetOfTiltSeries.enableAppend()
+        else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
@@ -713,7 +713,9 @@ $if (-e ./savework) ./savework
         return self.outputSetOfTiltSeries
 
     def getOutputInterpolatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+            self.outputInterpolatedSetOfTiltSeries.enableAppend()
+        else:
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
@@ -727,7 +729,9 @@ $if (-e ./savework) ./savework
         return self.outputInterpolatedSetOfTiltSeries
 
     def getOutputFiducialModelGaps(self):
-        if not hasattr(self, "outputFiducialModelGaps"):
+        if hasattr(self, "outputFiducialModelGaps"):
+            self.outputFiducialModelGaps.enableAppend()
+        else:
             outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
             outputFiducialModelGaps.setStreamState(pw.object.Set.STREAM_OPEN)
@@ -736,7 +740,9 @@ $if (-e ./savework) ./savework
         return self.outputFiducialModelGaps
 
     def getOutputFiducialModelNoGaps(self):
-        if not hasattr(self, "outputFiducialModelNoGaps"):
+        if hasattr(self, "outputFiducialModelNoGaps"):
+            self.outputFiducialModelNoGaps.enableAppend()
+        else:
             outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
             outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
             outputFiducialModelNoGaps.setStreamState(pw.object.Set.STREAM_OPEN)
@@ -745,7 +751,9 @@ $if (-e ./savework) ./savework
         return self.outputFiducialModelNoGaps
 
     def getOutputSetOfCoordinates3Ds(self):
-        if not hasattr(self, "outputSetOfCoordinates3D"):
+        if hasattr(self, "outputSetOfCoordinates3D"):
+            self.outputSetOfCoordinates3D.enableAppend()
+        else:
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
