@@ -25,8 +25,7 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
+import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
