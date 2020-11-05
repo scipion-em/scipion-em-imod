@@ -66,7 +66,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                       default='',
                       label='Exclusion list',
                       help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
-                           'processing.')
+                           'processing separated by blank spaces.')
 
         form.addParam('binning',
                       params.IntParam,
@@ -123,9 +123,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             """Apply the transformation form the input tilt-series and generate a new ts object"""
             ts.applyTransform(interpolatedTsFileName)
 
+            interpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
+            interpolatedSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
+            interpolatedSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
+
             interpolatedTs = tomoObj.TiltSeries(tsId=tsId)
             interpolatedTs.copyInfo(ts)
-            outputSetOfTiltSeries.append(interpolatedTs)
+
+            interpolatedSetOfTiltSeries.append(interpolatedTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
