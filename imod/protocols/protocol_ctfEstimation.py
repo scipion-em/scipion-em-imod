@@ -281,7 +281,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
-
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
