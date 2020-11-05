@@ -230,9 +230,12 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTomograms(self):
-        if not hasattr(self, "outputSetOfTomograms"):
+        if hasattr(self, "outputSetOfTomograms"):
+            self.outputSetOfTomograms.enableAppend()
+        else:
             outputSetOfTomograms = self._createSetOfTomograms()
             outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTomograms.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
