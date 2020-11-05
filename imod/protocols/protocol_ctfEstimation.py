@@ -25,15 +25,12 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
-from pwem.emlib.image import ImageHandler
 from imod import Plugin
 
 
