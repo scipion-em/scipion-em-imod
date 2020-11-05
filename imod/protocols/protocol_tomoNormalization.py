@@ -243,12 +243,15 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputNormalizedSetOfTomograms(self):
-        if not hasattr(self, "outputNormalizedSetOfTomograms"):
+        if hasattr(self, "outputNormalizedSetOfTomograms"):
+            self.outputNormalizedSetOfTomograms.enableAppend()
+        else:
             outputNormalizedSetOfTomograms = self._createSetOfTomograms(suffix='Normalized')
             outputNormalizedSetOfTomograms.copyInfo(self.inputSetOfTomograms.get())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTomograms.get().getSamplingRate()
                 outputNormalizedSetOfTomograms.setSamplingRate(samplingRate * self.binning.get())
+            outputNormalizedSetOfTomograms.setStreamState(pw.object.Set.STREAM_OPEN)
             self._defineOutputs(outputNormalizedSetOfTomograms=outputNormalizedSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTomograms, outputNormalizedSetOfTomograms)
         return self.outputNormalizedSetOfTomograms
