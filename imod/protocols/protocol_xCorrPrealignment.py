@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import os
-import numpy as np
 import imod.utils as utils
 import pwem.objects as data
 import pyworkflow.protocol.params as params
