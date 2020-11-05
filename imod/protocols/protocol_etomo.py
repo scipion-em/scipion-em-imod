@@ -104,11 +104,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
+        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+
         """Apply transformation matrices and remove excluded views"""
         if self.excludeList.get() == '':
 
             """Apply the transformation form the input tilt-series"""
-            outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
             ts.applyTransform(outputTsFileName)
 
             """Generate angle file"""
@@ -117,7 +118,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         else:
             interpolatedTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-            outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
             angleFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".rawtlt"))
 
             """Apply the transformation form the input tilt-series and generate a new ts object"""
@@ -140,7 +140,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             interpolatedTs.write()
 
             """Write a new stack discarding excluded tilts"""
-            excludeList = map(int, self.excludeList.get().split())
+            excludeList = [int(i) for i in self.excludeList.get().split()]
             tiList = [ti.clone() for ti in interpolatedTs]
             tiList.sort(key=lambda ti: ti.getTiltAngle())
 
