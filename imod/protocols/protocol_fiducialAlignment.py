@@ -27,12 +27,12 @@
 import os
 import numpy as np
 import imod.utils as utils
-import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
+from pyworkflow.object import Set
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
@@ -617,12 +617,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self._store()
 
     def createOutputStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
         if self.computeAlignment.get() == 0:
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(pw.object.Set.STREAM_CLOSED)
-        self.getOutputFiducialModelGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
-        self.getOutputFiducialModelNoGaps().setStreamState(pw.object.Set.STREAM_CLOSED)
-        self.getOutputSetOfCoordinates3Ds().setStreamState(pw.object.Set.STREAM_CLOSED)
+            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -707,7 +707,7 @@ $if (-e ./savework) ./savework
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
@@ -723,7 +723,7 @@ $if (-e ./savework) ./savework
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
@@ -734,7 +734,7 @@ $if (-e ./savework) ./savework
         else:
             outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelGaps.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
         return self.outputFiducialModelGaps
@@ -745,7 +745,7 @@ $if (-e ./savework) ./savework
         else:
             outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
             outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelNoGaps.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
         return self.outputFiducialModelNoGaps
@@ -758,7 +758,7 @@ $if (-e ./savework) ./savework
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
-            outputSetOfCoordinates3D.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
         return self.outputSetOfCoordinates3D
