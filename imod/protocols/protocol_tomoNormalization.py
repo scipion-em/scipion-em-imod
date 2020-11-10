@@ -25,7 +25,7 @@
 # **************************************************************************
 
 import os
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -59,7 +59,6 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
                       important=True,
                       help='Binning to be applied to the normalized tomograms in IMOD convention. Volumes will be '
                            'binned by the given factor. Must be an integer bigger than 1')
-
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -251,7 +250,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
             if self.binning > 1:
                 samplingRate = self.inputSetOfTomograms.get().getSamplingRate()
                 outputNormalizedSetOfTomograms.setSamplingRate(samplingRate * self.binning.get())
-            outputNormalizedSetOfTomograms.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputNormalizedSetOfTomograms.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputNormalizedSetOfTomograms=outputNormalizedSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTomograms, outputNormalizedSetOfTomograms)
         return self.outputNormalizedSetOfTomograms
