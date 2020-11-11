@@ -25,14 +25,12 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
-from pwem.emlib.image import ImageHandler
 from imod import Plugin
 
 
@@ -283,7 +281,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         ts.generateTltFile(angleFilePath)
 
-
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -373,34 +370,40 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
-        outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputCtfEstimatedSetOfTiltSeries.append(newTs)
+        extraPrefix = self._getExtraPath(tsId)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(tiltImage.getLocation())
-            if tiltImage.hasTransform():
-                newTi.setTransform(tiltImage.getTransform())
-            newTs.append(newTi)
+        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
+            outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
 
-        newTs.write(properties=False)
-        outputCtfEstimatedSetOfTiltSeries.update(newTs)
-        outputCtfEstimatedSetOfTiltSeries.write()
-        self._store()
+            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            outputCtfEstimatedSetOfTiltSeries.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(tiltImage.getLocation())
+                if tiltImage.hasTransform():
+                    newTi.setTransform(tiltImage.getTransform())
+                newTs.append(newTi)
+
+            newTs.write(properties=False)
+            outputCtfEstimatedSetOfTiltSeries.update(newTs)
+            outputCtfEstimatedSetOfTiltSeries.write()
+            self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputCtfEstimatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
+        if hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
+            self.outputCtfEstimatedSetOfTiltSeries.enableAppend()
+        else:
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
             outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputCtfEstimatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries

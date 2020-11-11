@@ -327,8 +327,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfCoordinates3D)
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
-        self.assertTrue(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 50 or
-                        self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() == 49)
+        tolerance = 1
+        expectedSize = 50
+        self.assertTrue(
+            abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
 
     def test_applyTransformationMatrixOutputInterpolatedTS(self):
         self.assertIsNotNone(self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries)
@@ -367,8 +369,8 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
     def setUpClass(cls):
         setupTestProject(cls)
 
-        cls.inputDataSet = DataSet.getDataSet('tomo-em')
-        cls.inputSoTS = cls.inputDataSet.getFile('tsCtf')
+        cls.inputDataSet = DataSet.getDataSet('tutorialDataImodCTF')
+        cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="WTI042413_1series4.st",

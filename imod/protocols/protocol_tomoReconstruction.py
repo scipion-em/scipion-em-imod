@@ -25,15 +25,12 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
-from pwem.emlib.image import ImageHandler
 from tomo.protocols import ProtTomoBase
-from tomo.convert import writeTiStack
-from tomo.objects import Tomogram, TomoAcquisition
+from tomo.objects import Tomogram
 from imod import Plugin
 
 
@@ -233,9 +230,12 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTomograms(self):
-        if not hasattr(self, "outputSetOfTomograms"):
+        if hasattr(self, "outputSetOfTomograms"):
+            self.outputSetOfTomograms.enableAppend()
+        else:
             outputSetOfTomograms = self._createSetOfTomograms()
             outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
