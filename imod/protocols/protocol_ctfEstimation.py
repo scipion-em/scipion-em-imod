@@ -25,7 +25,7 @@
 # **************************************************************************
 
 import os
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -403,7 +403,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
             outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputCtfEstimatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputCtfEstimatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries

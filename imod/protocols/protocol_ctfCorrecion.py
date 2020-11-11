@@ -25,9 +25,7 @@
 # **************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -163,7 +161,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
             outputCtfCorrectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfCorrected')
             outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries)
             outputCtfCorrectedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.getDim())
-            outputCtfCorrectedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputCtfCorrectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputCtfCorrectedSetOfTiltSeries=outputCtfCorrectedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfCorrectedSetOfTiltSeries)
         return self.outputCtfCorrectedSetOfTiltSeries

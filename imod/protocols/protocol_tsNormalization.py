@@ -25,7 +25,7 @@
 # **************************************************************************
 
 import os
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -253,7 +253,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputNormalizedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputNormalizedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputNormalizedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputNormalizedSetOfTiltSeries=outputNormalizedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
         return self.outputNormalizedSetOfTiltSeries

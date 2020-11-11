@@ -25,7 +25,7 @@
 # **************************************************************************
 
 import os
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -235,7 +235,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
             outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTomograms.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms

@@ -27,7 +27,7 @@
 import os
 import imod.utils as utils
 import pwem.objects as data
-import pyworkflow as pw
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -260,7 +260,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
@@ -276,7 +276,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(pw.object.Set.STREAM_OPEN)
+            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
