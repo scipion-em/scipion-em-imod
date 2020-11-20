@@ -370,6 +370,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
             ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem()) ==
             (512, 512, self.thicknessTomo, 1))
 
+    def test_tomoProjectionTiltSeriesSize(self):
+        self.assertTrue(self.protTomoProjection.outputProjectedSetOfTiltSeries.getSize() == 2)
+
     def test_tomoNormalizationOutput(self):
         self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
 
