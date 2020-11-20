@@ -185,6 +185,17 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protCTFCorrection)
         return cls.protCTFCorrection
 
+    @classmethod
+    def _runTomoProjection(cls, inputSetOfTomograms, minAngle, maxAngle, stepAngle, rotationAxis):
+        cls.protTomoProjection = cls.newProtocol(ProtImodTomoProjection,
+                                                 inputSetOfTomograms=inputSetOfTomograms,
+                                                 minAngle=minAngle,
+                                                 maxAngle=maxAngle,
+                                                 stepAngle=stepAngle,
+                                                 rotationAxis=rotationAxis)
+        cls.launchProtocol(cls.protTomoProjection)
+        return cls.protTomoProjection
+
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
