@@ -390,6 +390,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
             ih.getDimensions(self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem()) ==
             (256, 256, 61))
 
+    def test_tomoProjectionOutputTiltSeriesSamplingRate(self):
+        inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
+        outSamplingRate = self.protTomoProjection.outputProjectedSetOfTiltSeries.getSamplingRate()
+        self.assertTrue(inSamplingRate == outSamplingRate)
+
 
 class TestImodCTFCorrectionWorkflow(TestImodBase):
     @classmethod
