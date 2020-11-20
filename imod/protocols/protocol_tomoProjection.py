@@ -78,6 +78,16 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
                       important=True,
                       help='Step angle of the projection range')
 
+        form.addParam('rotationAxis',
+                      params.EnumParam,
+                      choices=['X', 'Y', 'Z'],
+                      default=self.AXIS_Y,
+                      label='Rotation axis for projection',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Axis to tilt around (X, Y, or Z). Y axis usually corresponds to the typical rotation axis '
+                           'acquisition.')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
