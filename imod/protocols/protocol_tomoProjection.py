@@ -95,17 +95,32 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tomoObjId):
+    def projectTomogram(self, tomoObjId):
         tomo = self.inputSetOfTomograms.get()[tomoObjId]
-        tsId = tomo.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+
+        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
+
+        extraPrefix = self._getExtraPath(tomoId)
+        tmpPrefix = self._getTmpPath(tomoId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, tomo.getFirstItem().parseFileName())
-        tomo.applyTransform(outputTsFileName)
+        paramsXYZproj = {
+            'input': tomo.getFileName(),
+            'output': os.path.join(extraPrefix, os.path.basename(tomo.getFileName())),
+            'axis': self.getRotationAxis(),
+            'angles': str(self.minAngle.get() + ',' +
+                          self.maxAngle.get() + ',' +
+                          self.rangeAngle.get()),
+        }
+
+        argsXYZproj = "-input %(input)s " \
+                       "-output %(output)s " \
+                       "-axis %(bin)f " \
+                       "-angles %(imagebinned)s "
+
+        Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
+
 
     def generateOutputStackStep(self, tsObjId):
         outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
