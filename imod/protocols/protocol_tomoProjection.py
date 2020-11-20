@@ -109,18 +109,17 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             'input': tomo.getFileName(),
             'output': os.path.join(extraPrefix, os.path.basename(tomo.getFileName())),
             'axis': self.getRotationAxis(),
-            'angles': str(self.minAngle.get() + ',' +
-                          self.maxAngle.get() + ',' +
-                          self.rangeAngle.get()),
+            'angles': str(self.minAngle.get()) + ',' +
+                      str(self.maxAngle.get()) + ',' +
+                      str(self.stepAngle.get()),
         }
 
         argsXYZproj = "-input %(input)s " \
-                       "-output %(output)s " \
-                       "-axis %(bin)fsci3 " \
-                       "-angles %(imagebinned)s "
+                      "-output %(output)s " \
+                      "-axis %(axis)s " \
+                      "-angles %(angles)s "
 
         Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
-
 
     def generateOutputStackStep(self, tsObjId):
         outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
