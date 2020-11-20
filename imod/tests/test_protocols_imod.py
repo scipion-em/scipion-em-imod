@@ -447,10 +447,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_tomoProjectionOutputTiltSeriesDimension(self):
         ih = ImageHandler()
-        outputDimensions = \
-            self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem().getFirstItem().getFileName()
+        outputDimensions = ih.getDimensions(
+            self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem().getFirstItem().getFileName())
 
-        self.assertTrue(ih.getDimensions(outputDimensions == (256, 256, 61, 1)))
+        self.assertTrue(outputDimensions == (256, 256, 61, 1))
 
     def test_tomoProjectionOutputTiltSeriesSamplingRate(self):
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
