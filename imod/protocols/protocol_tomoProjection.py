@@ -192,12 +192,12 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         return self.outputNormalizedSetOfTiltSeries
 
     def getRotationAxis(self):
-        parseParamsOutputMode = {
+        parseParamsRotationAxis = {
             self.AXIS_X: 'X',
             self.AXIS_Y: 'Y',
             self.AXIS_Z: 'Z',
         }
-        return parseParamsOutputMode[self.modeToOutput.get()]
+        return parseParamsRotationAxis[self.rotationAxis.get()]
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
