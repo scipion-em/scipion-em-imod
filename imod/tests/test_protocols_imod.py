@@ -285,6 +285,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMax=255,
                                       scaleMin=0)
 
+        cls.protTomoProjection = \
+            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputSetOfTomograms,
+                                   minAngle=-60.0,
+                                   maxAngle=60.0,
+                                   stepAngle=2.0,
+                                   rotationAxis=1)
+
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
 
