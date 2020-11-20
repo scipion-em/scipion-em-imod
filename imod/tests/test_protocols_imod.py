@@ -403,8 +403,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_tomoNormalizationOutput(self):
         self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
 
-        tomoId = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getTsId()
-        self.assertTrue(os.path.exists(os.path.join(self.protTomoReconstruction._getExtraPath(tomoId), "BBa.mrc")))
+        location = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getLocation()[1]
+        fileName, _ = os.path.splitext(location)
+        tomoId = os.path.basename(fileName)
+
+        self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), "BBa.mrc")))
 
     def test_tomoNormalizationOutputSize(self):
         self.assertTrue(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
