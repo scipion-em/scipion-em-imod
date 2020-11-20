@@ -134,7 +134,11 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.copyInfo(tomo)
         outputProjectedSetOfTiltSeries.append(newTs)
 
-        for index, tiltImage in enumerate(ts):
+        print("------------------------------------------------------")
+        print(self.getProjectionRange())
+        print(len(self.getTiltAngleList()))
+
+        for index in range(self.getProjectionRange()):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tomo, copyId=True)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
@@ -171,8 +175,18 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         }
         return parseParamsRotationAxis[self.rotationAxis.get()]
 
-    def getRange(self):
-        return (self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()
+    def getProjectionRange(self):
+        return int((self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()) + 1
+
+    def getTiltAngleList(self):
+        tiltAngleList = []
+
+        angle = self.minAngle.get()
+        while angle <= self.maxAngle.get():
+            tiltAngleList.append(angle)
+            angle += self.stepAngle.get()
+
+        return tiltAngleList
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
