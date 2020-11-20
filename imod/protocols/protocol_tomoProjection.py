@@ -37,123 +37,46 @@ from pwem.emlib.image import ImageHandler
 
 class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
     """
-    Normalize input tilt-series and change its storing formatting.
+    Re-project a tomogram given a geometric description (axis and angles).
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
     """
 
     _label = 'tomo projection'
 
+    AXIS_X = 0
+    AXIS_Y = 1
+    AXIS_Z = 2
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam('inputSetOfTomograms',
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
+                      pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Input set of tomograms')
 
-        form.addParam('binning',
+        form.addParam('minAngle',
                       params.FloatParam,
-                      default=1.0,
-                      label='Binning',
+                      default=-60.0,
+                      label='Minimum angle of rotation',
                       important=True,
-                      help='Binning to be applied to the normalized tilt-series in IMOD convention. Images will be '
-                           'binned by the given factor. Must be an integer bigger than 1')
+                      help='Minimum angle of the projection range')
 
-        form.addParam('floatDensities',
-                      params.EnumParam,
-                      choices=['default', '1', '2', '3', '4'],
-                      default=0,
-                      label='Adjust densities mode',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Adjust densities of sections individually:\n'
-                           '-Default: no adjustment performed\n'
-                           '-Mode 1: sections fill the data range\n'
-                           '-Mode 2: sections scaled to common mean and standard deviation.\n'
-                           '-Mode 3: sections shifted to a common mean without scaling\n'
-                           '-Mode 4: sections shifted to a common mean and then rescale the resulting minimum and '
-                           'maximum densities to the Min and Max values specified')
-
-        form.addParam('modeToOutput',
-                      params.EnumParam,
-                      choices=['default', '4-bit', 'byte', 'signed 16-bit', 'unsigned 16-bit', '32-bit float'],
-                      default=0,
-                      label='Storage data type',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Apply one density scaling to all sections to map current min and max to the given Min and '
-                           'Max. The storage mode of the output file. The default is the mode of the first input file, '
-                           'except for a 4-bit input file, where the default is to output as bytes')
-
-        form.addParam('scaleRangeToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
-                      default=1,
-                      label='Set scaling range values',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='This option will rescale the densities of all sections by the same '
-                           'factors so that the original minimum and maximum density will be mapped '
-                           'to the Min and Max values that are entered')
-
-        form.addParam('scaleRangeMax',
+        form.addParam('maxAngle',
                       params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=255,
-                      label='Max.',
-                      help='Maximum value for the rescaling')
+                      default=60.0,
+                      label='Maximum angle of rotation',
+                      important=True,
+                      help='Maximum angle of the projection range')
 
-        form.addParam('scaleRangeMin',
+        form.addParam('stepAngle',
                       params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=0,
-                      label='Min.',
-                      help='Minimum value for the rescaling')
-
-        groupMeanSd = form.addGroup('Mean and SD',
-                                    condition='floatDensities==2',
-                                    help='Scale all images to the given mean and standard deviation. This option '
-                                         'implies -float 2 and is incompatible with all other scaling options. If no '
-                                         'values are set, mean=0 and SD=1 by default')
-
-        groupMeanSd.addParam('meanSdToggle',
-                             params.EnumParam,
-                             choices=['Yes', 'No'],
-                             default=1,
-                             label='Set mean and SD',
-                             important=True,
-                             display=params.EnumParam.DISPLAY_HLIST,
-                             help='Set mean and SD values')
-
-        groupMeanSd.addParam('scaleMean',
-                             params.FloatParam,
-                             default=0,
-                             label='Mean',
-                             help='Mean value for the rescaling')
-
-        groupMeanSd.addParam('scaleSd',
-                             params.FloatParam,
-                             default=1,
-                             label='SD',
-                             help='Standard deviation value for the rescaling')
-
-        groupScale = form.addGroup('Scaling values',
-                                   condition='floatDensities==4')
-
-        groupScale.addParam('scaleMax',
-                            params.FloatParam,
-                            default=255,
-                            label='Max.',
-                            help='Maximum value for the rescaling')
-
-        groupScale.addParam('scaleMin',
-                            params.FloatParam,
-                            default=0,
-                            label='Min.',
-                            help='Minimum value for the rescaling')
+                      default=-60.0,
+                      label='Step angle of rotation',
+                      important=True,
+                      help='Step angle of the projection range')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
