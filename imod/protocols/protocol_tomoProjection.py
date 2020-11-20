@@ -132,6 +132,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         
         newTs = tomoObj.TiltSeries(tsId=tomoId)
         newTs.copyInfo(tomo)
+        newTs.setTsId(tomoId)
         outputProjectedSetOfTiltSeries.append(newTs)
 
         tiltAngleList = self.getTiltAngleList()
