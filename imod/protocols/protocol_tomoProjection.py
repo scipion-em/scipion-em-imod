@@ -73,7 +73,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
         form.addParam('stepAngle',
                       params.FloatParam,
-                      default=-60.0,
+                      default=2.0,
                       label='Step angle of rotation',
                       important=True,
                       help='Step angle of the projection range')
@@ -116,7 +116,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
         argsXYZproj = "-input %(input)s " \
                        "-output %(output)s " \
-                       "-axis %(bin)f " \
+                       "-axis %(bin)fsci3 " \
                        "-angles %(imagebinned)s "
 
         Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
@@ -219,10 +219,13 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         validateMsgs = []
 
         if self.minAngle.get() > self.maxAngle.get():
-            validateMsgs = "ERROR: Maximum angle of rotation bigger than minimum"
+            validateMsgs.append("ERROR: Maximum angle of rotation bigger than minimum.")
 
-        if (self.maxAngle.get() - self.minAngle.get()) <self.stepAngle.get():
-            validateMsgs = "ERROR: Angle step of rotation bigger than range"
+        if (self.maxAngle.get() - self.minAngle.get()) < self.stepAngle.get():
+            validateMsgs.append("ERROR: Angle step of rotation bigger than range.")
+
+        if self.stepAngle.get() < 0:
+            validateMsgs.append("ERROR: Angle step of rotation mus be bigger than zero.")
 
         return validateMsgs
 
