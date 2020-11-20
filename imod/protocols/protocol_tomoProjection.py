@@ -134,13 +134,12 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.copyInfo(tomo)
         outputProjectedSetOfTiltSeries.append(newTs)
 
-        print("------------------------------------------------------")
-        print(self.getProjectionRange())
-        print(len(self.getTiltAngleList()))
+        tiltAngleList = self.getTiltAngleList()
 
         for index in range(self.getProjectionRange()):
             newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tomo, copyId=True)
+            newTi.setTiltAngle(tiltAngleList[index])
+            newTi.setTsId(tomoId)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
             newTs.append(newTi)
 
