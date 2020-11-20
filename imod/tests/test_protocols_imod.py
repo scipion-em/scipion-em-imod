@@ -286,7 +286,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMin=0)
 
         cls.protTomoProjection = \
-            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputSetOfTomograms,
+            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputNormalizedSetOfTomograms,
                                    minAngle=-60.0,
                                    maxAngle=60.0,
                                    stepAngle=2.0,
@@ -386,9 +386,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_tomoProjectionOutputTiltSeriesDimension(self):
         ih = ImageHandler()
-        self.assertTrue(
-            ih.getDimensions(self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem()) ==
-            (256, 256, 61))
+        self.assertTrue(ih.getDimensions(
+            self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem().getFirstItem().getFileName()) ==
+            (256, 256, 61, 1))
 
     def test_tomoProjectionOutputTiltSeriesSamplingRate(self):
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
