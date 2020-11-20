@@ -80,22 +80,22 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        for tomo in self.inputSetOfTomograms.get():
+            self._insertFunctionStep('projectTomogram', tomo.getObjId())
+            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+    def convertInputStep(self, tomoObjId):
+        tomo = self.inputSetOfTomograms.get()[tomoObjId]
+        tsId = tomo.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
         """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
+        outputTsFileName = os.path.join(tmpPrefix, tomo.getFirstItem().parseFileName())
+        tomo.applyTransform(outputTsFileName)
 
     def generateOutputStackStep(self, tsObjId):
         outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
@@ -193,6 +193,17 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         return parseParamsOutputMode[self.modeToOutput.get()]
 
     # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+        validateMsgs = []
+
+        if self.minAngle.get() > self.maxAngle.get():
+            validateMsgs = "ERROR: Maximum angle of rotation bigger than minimum"
+
+        if (self.maxAngle.get() - self.minAngle.get()) <self.stepAngle.get():
+            validateMsgs = "ERROR: Angle step of rotation bigger than range"
+
+        return validateMsgs
+
     def _summary(self):
         summary = []
         if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
