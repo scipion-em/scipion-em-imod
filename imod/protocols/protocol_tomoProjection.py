@@ -121,61 +121,23 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
 
-    def generateOutputStackStep(self, tsObjId):
-        outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
+    def generateOutputStackStep(self, tomoObjId):
+        tomo = self.inputSetOfTomograms.get()[tomoObjId]
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
 
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+        extraPrefix = self._getExtraPath(tomoId)
 
-        paramsNewstack = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_norm")),
-            'bin': int(self.binning.get()),
-            'imagebinned': 1.0,
-        }
-
-        argsNewstack = "-input %(input)s " \
-                       "-output %(output)s " \
-                       "-bin %(bin)d " \
-                       "-imagebinned %(imagebinned)s "
-
-        if self.floatDensities.get() != 0:
-            argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
-
-            if self.floatDensities.get() == 2:
-                if self.meanSdToggle.get() == 0:
-                    argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                    str(self.scaleSd.get())
-
-            elif self.floatDensities.get() == 4:
-                argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
-
-            else:
-                if self.scaleRangeToggle.get() == 0:
-                    argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                    str(self.scaleRangeMin.get())
-
-        if self.getModeToOutput() is not None:
-            argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
-
-        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputNormalizedSetOfTiltSeries.append(newTs)
-
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+        outputProjectedSetOfTiltSeries = self.getOutputProjectedSetOfTiltSeries()
+        
+        newTs = tomoObj.TiltSeries(tsId=tomoId)
+        newTs.copyInfo(tomo)
+        outputProjectedSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_norm"))))
-            if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+            newTi.copyInfo(tomo, copyId=True)
+            newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
             newTs.append(newTi)
 
         ih = ImageHandler()
@@ -183,27 +145,23 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         newTs.write(properties=False)
-        outputNormalizedSetOfTiltSeries.update(newTs)
-        outputNormalizedSetOfTiltSeries.updateDim()
-        outputNormalizedSetOfTiltSeries.write()
+        outputProjectedSetOfTiltSeries.update(newTs)
+        outputProjectedSetOfTiltSeries.updateDim()
+        outputProjectedSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputNormalizedSetOfTiltSeries(self):
-        if hasattr(self, "outputNormalizedSetOfTiltSeries"):
-            self.outputNormalizedSetOfTiltSeries.enableAppend()
+    def getOutputProjectedSetOfTiltSeries(self):
+        if hasattr(self, "outputProjectedSetOfTiltSeries"):
+            self.outputProjectedSetOfTiltSeries.enableAppend()
         else:
-            outputNormalizedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Normalized')
-            outputNormalizedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputNormalizedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputNormalizedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputNormalizedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputNormalizedSetOfTiltSeries=outputNormalizedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
-        return self.outputNormalizedSetOfTiltSeries
+            outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
+            outputProjectedSetOfTiltSeries.copyInfo(self.inputSetOfTomograms.get())
+            outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
+            outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTomograms, outputProjectedSetOfTiltSeries)
+        return self.outputProjectedSetOfTiltSeries
 
     def getRotationAxis(self):
         parseParamsRotationAxis = {
@@ -212,6 +170,9 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             self.AXIS_Z: 'Z',
         }
         return parseParamsRotationAxis[self.rotationAxis.get()]
+
+    def getRange(self):
+        return (self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
