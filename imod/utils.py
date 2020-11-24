@@ -163,6 +163,6 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
 
 def formatDefocusFile(defocusFilePath):
     """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
-    astismagtism of the es the angles for each tilt-image belonging to the tilt-series"""
+    astismagtism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
     defocusList = []
 
