@@ -375,6 +375,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
+        outputCtf = self.getOutputSetOfCTFModelTomoSeries()
+
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
             outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
 
@@ -407,6 +409,17 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries
+
+    def getOutputSetOfCTFModelTomoSeries(self):
+        if hasattr(self, "outputSetOfCTFModelTomoSeries"):
+            self.outputSetOfCTFModelTomoSeries.enableAppend()
+        else:
+            outputSetOfCTFModelTomoSeries = self._createSetOfCTFModelSeries()
+            outputSetOfCTFModelTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            #outputSetOfCTFModelTomoSeries.setDIM()
+            outputSetOfCTFModelTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfCTFModelTomoSeries=outputSetOfCTFModelTomoSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFModelTomoSeries)
 
     def getExpectedDefocus(self, tsId):
         if self.expectedDefocusOrigin.get() == 0:
