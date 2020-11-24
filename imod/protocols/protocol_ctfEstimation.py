@@ -375,7 +375,25 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        outputCtf = self.getOutputSetOfCTFModelTomoSeries()
+        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
+            outputSetOfCTFModelSeries = self.getOutputSetOfCTFModelTomoSeries()
+
+            newCTFModelSeries = tomoObj.CTFModelTomoSeries()
+            newCTFModelSeries.setTiltSeries(ts)
+            outputSetOfCTFModelSeries.append(newCTFModelSeries)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(tiltImage.getLocation())
+                if tiltImage.hasTransform():
+                    newTi.setTransform(tiltImage.getTransform())
+                newTs.append(newTi)
+
+            newTs.write(properties=False)
+            outputCtfEstimatedSetOfTiltSeries.update(newTs)
+            outputCtfEstimatedSetOfTiltSeries.write()
+            self._store()
 
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
             outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
@@ -416,10 +434,11 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFModelTomoSeries = self._createSetOfCTFModelSeries()
             outputSetOfCTFModelTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            #outputSetOfCTFModelTomoSeries.setDIM()
+            # outputSetOfCTFModelTomoSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputSetOfCTFModelTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFModelTomoSeries=outputSetOfCTFModelTomoSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFModelTomoSeries)
+        return self.outputSetOfCTFModelTomoSeries
 
     def getExpectedDefocus(self, tsId):
         if self.expectedDefocusOrigin.get() == 0:
