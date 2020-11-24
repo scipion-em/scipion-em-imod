@@ -376,23 +376,26 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
-            outputSetOfCTFModelSeries = self.getOutputSetOfCTFModelTomoSeries()
+            outputSetOfCTFModelTomoSeries = self.getOutputSetOfCTFModelTomoSeries()
 
-            newCTFModelSeries = tomoObj.CTFModelTomoSeries()
-            newCTFModelSeries.setTiltSeries(ts)
-            outputSetOfCTFModelSeries.append(newCTFModelSeries)
+            newCTFModelTomoSeries = tomoObj.CTFModelTomoSeries()
+            newCTFModelTomoSeries.setTiltSeries(ts)
+            outputSetOfCTFModelTomoSeries.append(newCTFModelTomoSeries)
 
             for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(tiltImage.getLocation())
-                if tiltImage.hasTransform():
-                    newTi.setTransform(tiltImage.getTransform())
-                newTs.append(newTi)
+                newCTFModelTomo = tomoObj.CTFModelTomo()
+                newCTFModelTomo.copyInfo(tiltImage)
+                newCTFModelTomoSeries.append(newCTFModelTomo)
+                # newTi = tomoObj.TiltImage()
+                # newTi.copyInfo(tiltImage, copyId=True)
+                # newTi.setLocation(tiltImage.getLocation())
+                # if tiltImage.hasTransform():
+                #     newTi.setTransform(tiltImage.getTransform())
+                # newTs.append(newTi)
 
-            newTs.write(properties=False)
-            outputCtfEstimatedSetOfTiltSeries.update(newTs)
-            outputCtfEstimatedSetOfTiltSeries.write()
+            newCTFModelTomoSeries.write(properties=False)
+            outputSetOfCTFModelTomoSeries.update(newCTFModelTomoSeries)
+            outputSetOfCTFModelTomoSeries.write()
             self._store()
 
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
