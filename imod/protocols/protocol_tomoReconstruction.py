@@ -203,6 +203,13 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             })
             argsTilt += "-FakeSIRTiterations %(FakeSIRTInteractions)d "
 
+        if self.usesGpu():
+            paramsTilt.update({
+                "useGPU": self.getGpuList()[0]
+            })
+
+            argsTilt += "-UseGPU %(useGPU)d "
+
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsNewstack = {
