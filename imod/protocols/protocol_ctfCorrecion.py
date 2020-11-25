@@ -142,6 +142,13 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
                            "-AmplitudeContrast %(amplitudeContrast)f " \
                            "-InterpolationWidth %(interpolationWidth)d "
 
+        if self.params.USE_GPU.get():
+            paramsCtfPhaseFlip.update({
+                "useGPU": self.params.GPU_LIST.get()
+            })
+
+            argsCtfPhaseFlip += "-UseGPU %(useGPU)d "
+
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
