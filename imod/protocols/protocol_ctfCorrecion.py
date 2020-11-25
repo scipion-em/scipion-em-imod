@@ -142,9 +142,9 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
                            "-AmplitudeContrast %(amplitudeContrast)f " \
                            "-InterpolationWidth %(interpolationWidth)d "
 
-        if self.params.USE_GPU.get():
+        if self.usesGpu():
             paramsCtfPhaseFlip.update({
-                "useGPU": self.params.GPU_LIST.get()
+                "useGPU": self.getGpuList()[0]
             })
 
             argsCtfPhaseFlip += "-UseGPU %(useGPU)d "
