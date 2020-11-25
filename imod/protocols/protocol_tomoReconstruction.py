@@ -205,10 +205,12 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         if self.usesGpu():
             paramsTilt.update({
-                "useGPU": self.getGpuList()[0]
+                "useGPU": self.getGpuList()[0],
+                "actionIfGPUFails": "2,2",
             })
 
-            argsTilt += "-UseGPU %(useGPU)d "
+            argsTilt += "-UseGPU %(useGPU)d " \
+                        "-ActionIfGPUFails %(actionIfGPUFails)s "
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
