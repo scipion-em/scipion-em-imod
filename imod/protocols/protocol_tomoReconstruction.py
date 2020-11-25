@@ -222,10 +222,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                       "%(output)s " \
                       "%(rotation)s "
 
-        # argsTrimvol = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")) + " "
-        # argsTrimvol += os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")) + " "
-        # argsTrimvol += "-yz "
-
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsObjId):
