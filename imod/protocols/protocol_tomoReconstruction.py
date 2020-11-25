@@ -198,7 +198,10 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-OFFSET %(Offset)s "
 
         if self.fakeInteractionsSIRT.get() != 0:
-            argsTilt += "-FakeSIRTiterations %d " % self.fakeInteractionsSIRT.get()
+            paramsTilt.update({
+                'FakeSIRTInteractions': self.fakeInteractionsSIRT.get()
+            })
+            argsTilt += "-FakeSIRTiterations %(FakeSIRTInteractions)d "
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
