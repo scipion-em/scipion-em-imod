@@ -161,8 +161,24 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
     return coorList
 
 
-# def formatDefocusFile(defocusFilePath):
-#     """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
-#     astismagtism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
-#     defocusList = []
+def formatDefocusFile(defocusFilePath):
+    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
+    astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
+    defocusList = []
+
+    with open(defocusFilePath) as f:
+        defocusText = f.readlines()
+        for index, line in enumerate(defocusText):
+            vector = line.split()
+            if  index == 0:
+                "Remove last element from the first line (it contains the mode of the estimation run)"
+                mode = vector.pop()
+            defocusList.append(vector)
+
+        return defocusList, mode
+
+
+def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
+    pass
+
 
