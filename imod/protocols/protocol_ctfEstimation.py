@@ -257,6 +257,20 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                   condition='searchAstigmatism==0',
                                   help='Maximum astigmatism in microns.')
 
+        form.addHidden(params.USE_GPU,
+                       params.BooleanParam,
+                       default=True,
+                       label="Use GPU for execution",
+                       help="This protocol has both CPU and GPU implementation.\
+                       Select the one you want to use.")
+
+        form.addHidden(params.GPU_LIST,
+                       params.StringParam,
+                       default='0',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="GPU ID. To pick the best available one set 0. For a specific GPU set its number ID.")
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
