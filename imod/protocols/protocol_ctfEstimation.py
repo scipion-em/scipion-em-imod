@@ -197,7 +197,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       help='Skip or break views only when finding astigmatism or phase shift')
 
         groupAstigmatism = form.addGroup('Astigmatism settings',
-                                         expertLevel=params.LEVEL_ADVANCED,
                                          help='Parameters for astigmatism analysis')
 
         groupAstigmatism.addParam('searchAstigmatism',
