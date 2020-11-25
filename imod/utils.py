@@ -162,23 +162,36 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
 
 
 def formatDefocusFile(defocusFilePath):
-    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
-    astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
-    defocusList = []
+    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus information
+    from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
+    defocusTable = []
 
     with open(defocusFilePath) as f:
         defocusText = f.readlines()
         for index, line in enumerate(defocusText):
             vector = line.split()
-            if  index == 0:
+            if index == 0:
                 "Remove last element from the first line (it contains the mode of the estimation run)"
                 mode = vector.pop()
-            defocusList.append(vector)
+            defocusTable.append(vector)
 
-        return defocusList, mode
+        return defocusTable, mode
 
 
 def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
-    pass
+    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
+    astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
+    defocusAstigmatismTable = []
 
+    with open(defocusAstigmatismFilePath) as f:
+        defocusText = f.readlines()
+        for index, line in enumerate(defocusText):
+            vector = line.split()
+            if index == 0:
+                "Get mode of estimation from the first line (remove rest of the information form this line)"
+                mode = vector.pop()
+            else:
+                defocusAstigmatismTable.append(vector)
+
+        return defocusAstigmatismTable, mode
 
