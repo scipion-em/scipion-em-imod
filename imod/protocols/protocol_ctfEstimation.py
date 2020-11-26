@@ -32,6 +32,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from imod import utils
 
 
 class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
@@ -380,6 +381,13 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFModelTomoSeries = tomoObj.CTFModelTomoSeries()
             newCTFModelTomoSeries.setTiltSeries(ts)
             outputSetOfCTFModelTomoSeries.append(newCTFModelTomoSeries)
+
+            defocusInfoTable, mode = utils.formatDefocusAstigmatismFile(
+                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
+            )
+            print(defocusInfoTable)
+            print(mode)
+
 
             for index, tiltImage in enumerate(ts):
                 newCTFModelTomo = tomoObj.CTFModelTomo()
