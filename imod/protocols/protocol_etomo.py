@@ -104,7 +104,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".st"))
 
         """Apply transformation matrices and remove excluded views"""
         if self.excludeList.get() == '':
