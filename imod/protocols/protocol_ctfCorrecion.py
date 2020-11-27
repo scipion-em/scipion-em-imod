@@ -69,6 +69,20 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
                            "tilt. However, strips at constant spacing can still be obtained by entering the negative "
                            "of the desired spacing, which disables the scaling of the spacing.")
 
+        form.addHidden(params.USE_GPU,
+                       params.BooleanParam,
+                       default=True,
+                       label="Use GPU for execution",
+                       help="This protocol has both CPU and GPU implementation.\
+                       Select the one you want to use.")
+
+        form.addHidden(params.GPU_LIST,
+                       params.StringParam,
+                       default='0',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="GPU ID. To pick the best available one set 0. For a specific GPU set its number ID.")
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         self.inputSetOfTiltSeries = self.protCtfEstimation.get().outputCtfEstimatedSetOfTiltSeries
@@ -127,6 +141,13 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
                            "-PixelSize %(pixelSize)f " \
                            "-AmplitudeContrast %(amplitudeContrast)f " \
                            "-InterpolationWidth %(interpolationWidth)d "
+
+        if self.usesGpu():
+            paramsCtfPhaseFlip.update({
+                "useGPU": self.getGpuList()[0]
+            })
+
+            argsCtfPhaseFlip += "-UseGPU %(useGPU)d "
 
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
