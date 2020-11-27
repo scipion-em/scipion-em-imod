@@ -132,6 +132,20 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                                         label='Second parameter',
                                         help='Gaussian fall-off parameter')
 
+        form.addHidden(params.USE_GPU,
+                       params.BooleanParam,
+                       default=True,
+                       label="Use GPU for execution",
+                       help="This protocol has both CPU and GPU implementation.\
+                               Select the one you want to use.")
+
+        form.addHidden(params.GPU_LIST,
+                       params.StringParam,
+                       default='0',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="GPU ID. To pick the best available one set 0. For a specific GPU set its number ID.")
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -184,7 +198,19 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-OFFSET %(Offset)s "
 
         if self.fakeInteractionsSIRT.get() != 0:
-            argsTilt += "-FakeSIRTiterations %d " % self.fakeInteractionsSIRT.get()
+            paramsTilt.update({
+                'FakeSIRTInteractions': self.fakeInteractionsSIRT.get()
+            })
+            argsTilt += "-FakeSIRTiterations %(FakeSIRTInteractions)d "
+
+        if self.usesGpu():
+            paramsTilt.update({
+                "useGPU": self.getGpuList()[0],
+                "actionIfGPUFails": "2,2",
+            })
+
+            argsTilt += "-UseGPU %(useGPU)d " \
+                        "-ActionIfGPUFails %(actionIfGPUFails)s "
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
@@ -207,10 +233,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         argsTrimvol = "%(input)s " \
                       "%(output)s " \
                       "%(rotation)s "
-
-        # argsTrimvol = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")) + " "
-        # argsTrimvol += os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")) + " "
-        # argsTrimvol += "-yz "
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
