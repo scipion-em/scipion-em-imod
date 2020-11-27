@@ -386,7 +386,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
             )
             print(defocusInfoTable)
-            print(mode)
+
+            scipionTable = utils.refactorCTFEstimationInfo(defocusInfoTable)
+            print("----------------------------------")
+            print(scipionTable)
 
 
             for index, tiltImage in enumerate(ts):

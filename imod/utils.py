@@ -170,6 +170,7 @@ def formatDefocusFile(defocusFilePath):
         defocusText = f.readlines()
         for index, line in enumerate(defocusText):
             vector = line.split()
+            [float(i) for i in vector]
             if index == 0:
                 "Remove last element from the first line (it contains the mode of the estimation run)"
                 mode = vector.pop()
@@ -187,6 +188,7 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
         defocusText = f.readlines()
         for index, line in enumerate(defocusText):
             vector = line.split()
+            [float(i) for i in vector]
             if index == 0:
                 "Get mode of estimation from the first line (remove rest of the information form this line)"
                 mode = vector.pop()
@@ -203,9 +205,11 @@ def refactorCTFEstimationInfo(ctfInfoIMODTable):
 
     for element in ctfInfoIMODTable:
         " Segregate information from range"
-        for index in range(element[0], element[1] + 1):
+        print(element)
+        print(element[1])
+        for index in range(int(element[0]), int(element[1]) + 1):
             vector = [index] + element[4:]
-            ctfInfoIMODTable.append(vector)
+            ctfInfoScipionTable.append(vector)
 
     return ctfInfoScipionTable
 
