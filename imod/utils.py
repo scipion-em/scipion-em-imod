@@ -196,14 +196,19 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
         return defocusAstigmatismTable, mode
 
 
-# def refactorCTFEstimationInfo(ctfInfoIMODTable):
-#     """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
-#     containing the same information in a format readable for Scipion """
-#     ctfInfoScipionTable = []
-#
-#     for element in ctfInfoIMODTable:
-#         " Segregate information from rage"
-#         for index in range(element[0], element[1] + 1):
+def refactorCTFEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
+    containing the same information in a format readable for Scipion """
+    ctfInfoScipionTable = []
+
+    for element in ctfInfoIMODTable:
+        " Segregate information from range"
+        for index in range(element[0], element[1] + 1):
+            vector = [index] + element[4:]
+            ctfInfoIMODTable.append(vector)
+
+    return ctfInfoScipionTable
+
 
 
 
