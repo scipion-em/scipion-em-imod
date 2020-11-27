@@ -32,8 +32,8 @@ import numpy as np
 
 
 def formatTransformFile(ts, transformFilePath):
-    """This method takes a tilt series and the output transformation file path and creates an IMOD-based transform
-    file in the location indicated"""
+    """ This method takes a tilt series and the output transformation file path and creates an IMOD-based transform
+    file in the location indicated. """
 
     tsMatrixTransformList = []
 
@@ -53,8 +53,8 @@ def formatTransformFile(ts, transformFilePath):
 
 
 def formatTransformationMatrix(matrixFile):
-    """This method takes an IMOD-based transformation matrix file path and returns a 3D matrix containing the
-    transformation matrices for each tilt-image belonging to the tilt-series"""
+    """ This method takes an IMOD-based transformation matrix file path and returns a 3D matrix containing the
+    transformation matrices for each tilt-image belonging to the tilt-series. """
 
     with open(matrixFile, "r") as matrix:
         lines = matrix.readlines()
@@ -80,8 +80,8 @@ def formatTransformationMatrix(matrixFile):
 
 
 def formatFiducialList(fiducialFilePath):
-    """This method takes an IMOD-based fiducial model file path and returns a list containing the coordinates of each
-    fiducial for each tilt-image belonging to the tilt-series"""
+    """ This method takes an IMOD-based fiducial model file path and returns a list containing the coordinates of each
+    fiducial for each tilt-image belonging to the tilt-series. """
 
     fiducialList = []
 
@@ -97,9 +97,9 @@ def formatFiducialList(fiducialFilePath):
 
 
 def formatFiducialResidList(fiducialFilePath):
-    """This method takes an IMOD-based fiducial residual model file path and returns a list containing the coordinates
+    """ This method takes an IMOD-based fiducial residual model file path and returns a list containing the coordinates
     and residual values of each fiducial for each tilt-image belonging to the tilt-series. Since IMOD establishes a
-    float value for each coordinate the are parsed to int"""
+    float value for each coordinate the are parsed to int. """
 
     fiducialResidList = []
 
@@ -118,8 +118,8 @@ def formatFiducialResidList(fiducialFilePath):
 
 
 def formatAngleFile(inputTs, angleFilePath):
-    """This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
-    IMOD-based angle file at the given location"""
+    """ This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
+    IMOD-based angle file at the given location. """
 
     angleList = []
 
@@ -132,8 +132,8 @@ def formatAngleFile(inputTs, angleFilePath):
 
 
 def formatAngleList(tltFilePath):
-    """This method takes an IMOD-based angle file path and returns a list containing the angles for each tilt-image
-    belonging to the tilt-series"""
+    """ This method takes an IMOD-based angle file path and returns a list containing the angles for each tilt-image
+    belonging to the tilt-series. """
 
     angleList = []
 
@@ -147,8 +147,8 @@ def formatAngleList(tltFilePath):
 
 
 def format3DCoordinatesList(coordFilePath, xDim, yDim):
-    """This method takes an IMOD-based fiducial coordinates file path and returns a list containing each coordinate
-    for each fiducial belonging to the tilt-series"""
+    """ This method takes an IMOD-based fiducial coordinates file path and returns a list containing each coordinate
+    for each fiducial belonging to the tilt-series. """
 
     coorList = []
 
@@ -162,8 +162,8 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
 
 
 def formatDefocusFile(defocusFilePath):
-    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus information
-    from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
+    """ This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus information
+    from the estimation of the ctf of each tilt-image belonging to the tilt-series. """
     defocusTable = []
 
     with open(defocusFilePath) as f:
@@ -179,8 +179,8 @@ def formatDefocusFile(defocusFilePath):
 
 
 def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
-    """This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
-    astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series"""
+    """ This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
+    astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series. """
     defocusAstigmatismTable = []
 
     with open(defocusAstigmatismFilePath) as f:
@@ -198,7 +198,7 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
 
 def refactorCTFEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
-    containing the same information in a format readable for Scipion """
+    containing the same information in a format readable for Scipion. """
     ctfInfoScipionTable = []
 
     for element in ctfInfoIMODTable:
