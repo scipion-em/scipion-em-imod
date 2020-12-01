@@ -382,9 +382,13 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFModelTomoSeries.setTiltSeries(ts)
             outputSetOfCTFModelTomoSeries.append(newCTFModelTomoSeries)
 
-            defocusInfoTable, mode = utils.formatDefocusAstigmatismFile(
-                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
-            )
+            if self.searchAstigmatism==1:
+                defocusInfoTable, mode = utils.formatDefocusFile(
+                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+            else:
+                defocusInfoTable, mode = utils.formatDefocusAstigmatismFile(
+                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+
             print(defocusInfoTable)
 
             scipionTable = utils.refactorCTFEstimationInfo(defocusInfoTable)

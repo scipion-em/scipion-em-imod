@@ -205,10 +205,8 @@ def refactorCTFEstimationInfo(ctfInfoIMODTable):
 
     for element in ctfInfoIMODTable:
         " Segregate information from range"
-        print(element)
-        print(element[1])
         for index in range(int(element[0]), int(element[1]) + 1):
-            vector = [index] + element[4:]
+            vector = [element[0]] + element[4:]
             ctfInfoScipionTable.append(vector)
 
     return ctfInfoScipionTable
