@@ -201,19 +201,37 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
 def refactorCTFEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
     containing the same information in a format readable for Scipion. """
-    ctfInfoScipionTable = []
+    ctfInfoScipionTable = [None] * len(ctfInfoIMODTable)
 
-    for element in ctfInfoIMODTable:
-        " Segregate information from range"
-        for index in range(int(element[0]), int(element[1]) + 1):
-            vector = [element[0]] + element[4:]
-            ctfInfoScipionTable.append(vector)
+    # Defocus estimation
+    if len(ctfInfoIMODTable[0]) == 5:
+        defocusUList = [[None]] * len(ctfInfoIMODTable)
+        defocusVList = [[None]] * len(ctfInfoIMODTable)
+        defocusAngleList = [[None]] * len(ctfInfoIMODTable)
 
-    return ctfInfoScipionTable
+        for element in ctfInfoIMODTable:
 
+            " Segregate information from range"
+            for index in range(int(element[0]), int(element[1]) + 1):
+                defocusUList[index-1].append(element[4])
+                defocusVList[index - 1].append(element[4])
+                defocusAngleList[index - 1].append(90)
 
+        return defocusUList, defocusVList, defocusAngleList
 
+    # Defocus and astigmatism estimation
+    if len(ctfInfoIMODTable[0]) == 7:
+        defocusUList = []
+        defocusVList = []
+        defocusAngleList = []
 
+        return defocusUList, defocusVList, defocusAngleList
 
+    # Defocus, astigmatism and phase shift estimation
+    if len(ctfInfoIMODTable[0]) == 8:
+        defocusUList = []
+        defocusVList = []
+        defocusAngleList = []
+        phaseShiftList = []
 
-
+        return defocusUList, defocusVList, defocusAngleList, phaseShiftList

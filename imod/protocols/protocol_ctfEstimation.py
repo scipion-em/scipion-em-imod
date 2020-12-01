@@ -379,57 +379,33 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputSetOfCTFModelTomoSeries = self.getOutputSetOfCTFModelTomoSeries()
 
             newCTFModelTomoSeries = tomoObj.CTFModelTomoSeries()
+            newCTFModelTomoSeries.copyInfo(ts)
             newCTFModelTomoSeries.setTiltSeries(ts)
+            newCTFModelTomoSeries.setEstimationRange(self.angleRange.get())
             outputSetOfCTFModelTomoSeries.append(newCTFModelTomoSeries)
 
-            if self.searchAstigmatism==1:
-                defocusInfoTable, mode = utils.formatDefocusFile(
+            if self.searchAstigmatism == 1:
+                defocusInfoList, mode = utils.formatDefocusFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
             else:
-                defocusInfoTable, mode = utils.formatDefocusAstigmatismFile(
+                defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-            print(defocusInfoTable)
+            defocusInfoTable = utils.refactorCTFEstimationInfo(defocusInfoList)
 
-            scipionTable = utils.refactorCTFEstimationInfo(defocusInfoTable)
-            print("----------------------------------")
-            print(scipionTable)
-
-
-            for index, tiltImage in enumerate(ts):
+            for index, _ in enumerate(ts):
                 newCTFModelTomo = tomoObj.CTFModelTomo()
-                newCTFModelTomo.copyInfo(tiltImage)
+
+                for vector in defocusInfoTable:
+                    if index == vector[0]:
+                        defocusU
+
+                newCTFModelTomo.setIndex(index)
                 newCTFModelTomoSeries.append(newCTFModelTomo)
-                # newTi = tomoObj.TiltImage()
-                # newTi.copyInfo(tiltImage, copyId=True)
-                # newTi.setLocation(tiltImage.getLocation())
-                # if tiltImage.hasTransform():
-                #     newTi.setTransform(tiltImage.getTransform())
-                # newTs.append(newTi)
 
             newCTFModelTomoSeries.write(properties=False)
             outputSetOfCTFModelTomoSeries.update(newCTFModelTomoSeries)
             outputSetOfCTFModelTomoSeries.write()
-            self._store()
-
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
-            outputCtfEstimatedSetOfTiltSeries = self.getOutputCtfEstimatedSetOfTiltSeries()
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            outputCtfEstimatedSetOfTiltSeries.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
-                newTi.setLocation(tiltImage.getLocation())
-                if tiltImage.hasTransform():
-                    newTi.setTransform(tiltImage.getTransform())
-                newTs.append(newTi)
-
-            newTs.write(properties=False)
-            outputCtfEstimatedSetOfTiltSeries.update(newTs)
-            outputCtfEstimatedSetOfTiltSeries.write()
             self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -469,6 +445,11 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                         return float(defocusTuple[1])
                 raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
+
+    def getDefocusInfoVector(self, defocusInfoTable, index):
+
+        # return defocusUList, defocusVList, defocusAngleList, phaseShiftList
+        pass
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
