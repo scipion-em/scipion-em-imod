@@ -376,13 +376,13 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
-            outputSetOfCTFModelTomoSeries = self.getOutputSetOfCTFModelTomoSeries()
+            outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
 
-            newCTFModelTomoSeries = tomoObj.CTFModelTomoSeries()
-            newCTFModelTomoSeries.copyInfo(ts)
-            newCTFModelTomoSeries.setTiltSeries(ts)
-            newCTFModelTomoSeries.setEstimationRange(self.angleRange.get())
-            outputSetOfCTFModelTomoSeries.append(newCTFModelTomoSeries)
+            newCTFTomoSeries = tomoObj.CTFTomoSeries()
+            newCTFTomoSeries.copyInfo(ts)
+            newCTFTomoSeries.setTiltSeries(ts)
+            newCTFTomoSeries.setEstimationRange(self.angleRange.get())
+            outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
             if self.searchAstigmatism == 1:
                 defocusInfoList, mode = utils.formatDefocusFile(
@@ -391,21 +391,23 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-            defocusInfoTable = utils.refactorCTFEstimationInfo(defocusInfoList)
+            defocusUList, defocusVList, defocusAngleList = utils.refactorCTFEstimationInfo(defocusInfoList)
+
+            print(defocusUList)
+            print(defocusVList)
+            print(defocusAngleList)
 
             for index, _ in enumerate(ts):
-                newCTFModelTomo = tomoObj.CTFModelTomo()
+                newCTFTomo = tomoObj.CTFTomo()
+                newCTFTomo.setIndex(index)
 
-                for vector in defocusInfoTable:
-                    if index == vector[0]:
-                        defocusU
+                newCTFTomo._
 
-                newCTFModelTomo.setIndex(index)
-                newCTFModelTomoSeries.append(newCTFModelTomo)
+                newCTFTomoSeries.append(newCTFTomo)
 
-            newCTFModelTomoSeries.write(properties=False)
-            outputSetOfCTFModelTomoSeries.update(newCTFModelTomoSeries)
-            outputSetOfCTFModelTomoSeries.write()
+            newCTFTomoSeries.write(properties=False)
+            outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
+            outputSetOfCTFTomoSeries.write()
             self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -421,17 +423,17 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
         return self.outputCtfEstimatedSetOfTiltSeries
 
-    def getOutputSetOfCTFModelTomoSeries(self):
-        if hasattr(self, "outputSetOfCTFModelTomoSeries"):
-            self.outputSetOfCTFModelTomoSeries.enableAppend()
+    def getOutputSetOfCTFTomoSeries(self):
+        if hasattr(self, "outputSetOfCTFTomoSeries"):
+            self.outputSetOfCTFTomoSeries.enableAppend()
         else:
-            outputSetOfCTFModelTomoSeries = self._createSetOfCTFModelSeries()
-            outputSetOfCTFModelTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            # outputSetOfCTFModelTomoSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfCTFModelTomoSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCTFModelTomoSeries=outputSetOfCTFModelTomoSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFModelTomoSeries)
-        return self.outputSetOfCTFModelTomoSeries
+            outputSetOfCTFTomoSeries = self._createSetOfCTFSeries()
+            outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            # outputSetOfCTFTomoSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
+        return self.outputSetOfCTFTomoSeries
 
     def getExpectedDefocus(self, tsId):
         if self.expectedDefocusOrigin.get() == 0:
