@@ -29,6 +29,7 @@ This module contains utils functions for IMOD protocols
 
 import csv
 import numpy as np
+import pyworkflow.object as pwobj
 
 
 def formatTransformFile(ts, transformFilePath):
@@ -207,44 +208,45 @@ def refactorCTFEstimationInfo(ctfInfoIMODTable):
     print("------------------------")
     print(ctfInfoIMODTable[0])
     if len(ctfInfoIMODTable[0]) == 5:
-        defocusUList = {}
-        defocusVList = {}
-        defocusAngleList = {}
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
 
         for element in ctfInfoIMODTable:
 
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
-                if index in defocusUList.keys():
-                    defocusUList[index].append(element[4])
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
-                    defocusUList[index] = [element[4]]
+                    defocusUDict[index] = pwobj.List([pwobj.Float(element[4])])
 
-                if index in defocusVList.keys():
-                    defocusVList[index].append(element[4])
+                if index in defocusVDict.keys():
+                    defocusVDict[index].append(element[4])
                 else:
-                    defocusVList[index] = [element[4]]
+                    defocusVDict[index] = [element[4]]
 
-                if index in defocusAngleList.keys():
-                    defocusAngleList.append(90)
+                if index in defocusAngleDict.keys():
+                    defocusAngleDict[index].append(90)
                 else:
-                    defocusAngleList[index] = [90]
+                    defocusAngleDict[index] = [90]
 
-        return defocusUList, defocusVList, defocusAngleList
+        return defocusUDict
+        #return defocusUDict, defocusVDict, defocusAngleDict
 
     # Defocus and astigmatism estimation
     if len(ctfInfoIMODTable[0]) == 7:
-        defocusUList = []
-        defocusVList = []
-        defocusAngleList = []
+        defocusUDict = []
+        defocusVDict = []
+        defocusAngleDict = []
 
-        return defocusUList, defocusVList, defocusAngleList
+        return defocusUDict, defocusVDict, defocusAngleDict
 
     # Defocus, astigmatism and phase shift estimation
     if len(ctfInfoIMODTable[0]) == 8:
-        defocusUList = []
-        defocusVList = []
-        defocusAngleList = []
+        defocusUDict = []
+        defocusVDict = []
+        defocusAngleDict = []
         phaseShiftList = []
 
-        return defocusUList, defocusVList, defocusAngleList, phaseShiftList
+        return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftList
