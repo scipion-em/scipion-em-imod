@@ -26,6 +26,7 @@
 
 import os
 from pyworkflow.object import Set
+import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -391,38 +392,33 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-            defocusUList, defocusVList, defocusAngleList = utils.refactorCTFEstimationInfo(defocusInfoList)
-
-            print(defocusUList)
-            print(defocusVList)
-            print(defocusAngleList)
+            #defocusUDict, defocusVDict, defocusAngleDict = utils.refactorCTFEstimationInfo(defocusInfoList)
+            defocusUDict = utils.refactorCTFEstimationInfo(defocusInfoList)
+            print(defocusUDict)
 
             for index, _ in enumerate(ts):
                 newCTFTomo = tomoObj.CTFTomo()
-                newCTFTomo.setIndex(index)
+                newCTFTomo.setIndex(index + 1)
 
-                newCTFTomo._
+                print(defocusUDict[index + 1])
+
+                newCTFTomo._defocusUList = defocusUDict[index + 1]
+               # newCTFTomo._defocusVList = defocusVDict[index + 1]
+               # newCTFTomo._defocusAngleList = defocusAngleDict[index + 1]
+
+                #print(defocusVDict[index + 1])
+                #print(defocusAngleDict[index + 1])
 
                 newCTFTomoSeries.append(newCTFTomo)
 
             newCTFTomoSeries.write(properties=False)
+
             outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
             outputSetOfCTFTomoSeries.write()
+
             self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputCtfEstimatedSetOfTiltSeries(self):
-        if hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
-            self.outputCtfEstimatedSetOfTiltSeries.enableAppend()
-        else:
-            outputCtfEstimatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfEstimated')
-            outputCtfEstimatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputCtfEstimatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputCtfEstimatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputCtfEstimatedSetOfTiltSeries=outputCtfEstimatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfEstimatedSetOfTiltSeries)
-        return self.outputCtfEstimatedSetOfTiltSeries
-
     def getOutputSetOfCTFTomoSeries(self):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
             self.outputSetOfCTFTomoSeries.enableAppend()
@@ -447,11 +443,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                         return float(defocusTuple[1])
                 raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
-
-    def getDefocusInfoVector(self, defocusInfoTable, index):
-
-        # return defocusUList, defocusVList, defocusAngleList, phaseShiftList
-        pass
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
