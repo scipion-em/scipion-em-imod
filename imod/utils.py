@@ -204,18 +204,31 @@ def refactorCTFEstimationInfo(ctfInfoIMODTable):
     ctfInfoScipionTable = [None] * len(ctfInfoIMODTable)
 
     # Defocus estimation
+    print("------------------------")
+    print(ctfInfoIMODTable[0])
     if len(ctfInfoIMODTable[0]) == 5:
-        defocusUList = [[None]] * len(ctfInfoIMODTable)
-        defocusVList = [[None]] * len(ctfInfoIMODTable)
-        defocusAngleList = [[None]] * len(ctfInfoIMODTable)
+        defocusUList = {}
+        defocusVList = {}
+        defocusAngleList = {}
 
         for element in ctfInfoIMODTable:
 
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
-                defocusUList[index-1].append(element[4])
-                defocusVList[index - 1].append(element[4])
-                defocusAngleList[index - 1].append(90)
+                if index in defocusUList.keys():
+                    defocusUList[index].append(element[4])
+                else:
+                    defocusUList[index] = [element[4]]
+
+                if index in defocusVList.keys():
+                    defocusVList[index].append(element[4])
+                else:
+                    defocusVList[index] = [element[4]]
+
+                if index in defocusAngleList.keys():
+                    defocusAngleList.append(90)
+                else:
+                    defocusAngleList[index] = [90]
 
         return defocusUList, defocusVList, defocusAngleList
 
