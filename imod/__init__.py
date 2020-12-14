@@ -111,15 +111,11 @@ class Plugin(pwem.Plugin):
                 flags=['--without-simd'],
                 default=False)
 
-            # https://bio3d.colorado.edu/imod/AMD64-RHEL5/imod_4.11.0_RHEL6-64_CUDA8.0.sh
             # Download .sh
-            # installationCmd = 'wget --continue https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
-            #                   'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
             installationCmd = 'wget --continue https://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
                               'imod_4.11.0_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
-            # installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -yes -skip && '
             installationCmd += 'sh imod_4.11.0_RHEL6-64_CUDA8.0.sh -dir . -yes -skip && '
 
 
