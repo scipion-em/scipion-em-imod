@@ -402,7 +402,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
                 print(defocusUDict[index + 1])
 
-                newCTFTomo._defocusUList = defocusUDict[index + 1]
+                newCTFTomo._defocusUList = pwobj.List(defocusUDict[index + 1])
                # newCTFTomo._defocusVList = defocusVDict[index + 1]
                # newCTFTomo._defocusAngleList = defocusAngleDict[index + 1]
 
