@@ -68,12 +68,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                       help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
                            'processing separated by blank spaces.')
 
-        form.addParam('binning',
-                      params.IntParam,
-                      default=2,
-                      label='Bin the input images',
-                      help='Binning of the input images.')
-
         form.addParam('markersDiameter',
                       params.FloatParam,
                       default=10,
@@ -157,7 +151,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         pixelSizeNm = ts.getSamplingRate() / 10.
 
         args += '-pixel %0.3f ' % pixelSizeNm
-        args += '-binning %d ' % self.binning
         args += '-rotation %0.3f ' % self.rotationAngle
         args += '-userawtlt'
 
@@ -173,7 +166,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                 'pixelSize': pixelSizeNm,
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
-                                'binning': self.binning,
                                 'markerDiameter': self.markersDiameter,
                                 'rotationAngle': self.rotationAngle
                             })
@@ -504,7 +496,7 @@ Setup.AxisB.TiltAngle.RangeStep=1.0
 Setup.Combine.FiducialMatchListA=
 Setup.Combine.FiducialMatchListB=
 Setup.B.SizeToOutputInXandY=/
-Setup.Binning=%(binning)s
+Setup.Binning=1
 Setup.Combine.ModelBased=false
 ReconstructionState.MadeZFactorsB=no result
 ReconstructionState.MadeZFactorsA=no result
