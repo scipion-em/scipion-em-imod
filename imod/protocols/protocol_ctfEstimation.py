@@ -395,16 +395,26 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             #defocusUDict, defocusVDict, defocusAngleDict = utils.refactorCTFEstimationInfo(defocusInfoList)
             defocusUDict = utils.refactorCTFEstimationInfo(defocusInfoList)
 
+            import time
+            #time.sleep(10)
+            print(os.getpid())
+
             for index, _ in enumerate(ts):
                 newCTFTomo = tomoObj.CTFTomo()
-                newCTFTomo.setIndex(index + 1)
+                newCTFTomo.setIndex(pwobj.Integer(index + 1))
 
-                print(defocusUDict[index + 1])
+                # newCTFTomo._defocusUList = pwobj.CsvList([pwobj.Integer(1),
+                #                                          pwobj.Integer(2)])
 
-                newCTFTomo._defocusUList = pwobj.List([1,2,3])
-                newCTFTomo._defocusUList.append(defocusUDict[index + 1])
-               # newCTFTomo._defocusVList = defocusVDict[index + 1]
-               # newCTFTomo._defocusAngleList = defocusAngleDict[index + 1]
+                newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
+                newCTFTomo._defocusUList.set([1.1, 2.2, 3])
+
+                # newCTFTomo.appendDefocusUList(defocusUDict[index + 1])
+
+
+                # newCTFTomo._defocusUList.append(defocusUDict[index + 1])
+                # newCTFTomo._defocusVList = defocusVDict[index + 1]
+                # newCTFTomo._defocusAngleList = defocusAngleDict[index + 1]
 
                 #print(defocusVDict[index + 1])
                 #print(defocusAngleDict[index + 1])
