@@ -202,11 +202,8 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
 def refactorCTFEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
     containing the same information in a format readable for Scipion. """
-    ctfInfoScipionTable = [None] * len(ctfInfoIMODTable)
 
     # Defocus estimation
-    print("------------------------")
-    print(ctfInfoIMODTable[0])
     if len(ctfInfoIMODTable[0]) == 5:
         defocusUDict = {}
         defocusVDict = {}
