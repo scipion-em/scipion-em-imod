@@ -26,7 +26,6 @@
 
 import os
 import math
-import numpy
 from pyworkflow.object import Set
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
@@ -414,53 +413,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
                 newCTFTomo.setDefocusUList(defocusUDict[index + 1])
 
-                # If no astigmatism is estimated set defocusU = defocusV and defocusAngle = 90
-                if self.searchAstigmatism == 1:
-                    newCTFTomo.setDefocusAngle(pwobj.Float(90))
-
-                    middlePoint = math.trunc(len(defocusUDict[index + 1]) / 2)
-
-                    print(middlePoint)
-
-                    # If the size of defocus estimaition in even, mean the 2 centre values
-                    if len(defocusUDict[index + 1]) % 2 == 0:
-                        print(middlePoint)
-                        print(defocusUDict[index + 1][middlePoint])
-                        print(defocusUDict[index + 1][middlePoint - 1])
-                        value=numpy.mean(
-                            defocusUDict[index + 1][middlePoint],
-                            defocusUDict[index + 1][int(middlePoint - 1])
-                        )
-                        print(value)
-                        newCTFTomo.setDefocusU(value)
-
-                        newCTFTomo.setDefocusV(numpy.mean(
-                            defocusUDict[index + 1][middlePoint],
-                            defocusUDict[index + 1][middlePoint - 1]
-                        ))
-
-                    # If the size of defocus estimaition is odd, get the centre value
-                    else:
-                        newCTFTomo.setDefocusU(defocusUDict[index + 1][middlePoint])
-
-                        newCTFTomo.setDefocusV(defocusUDict[index + 1][middlePoint])
-
-                # If astigmatism is estimated
-                else:
-                    newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
-                    newCTFTomo._defocusVList.set(defocusVDict[index + 1])
-
-                    newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
-                    newCTFTomo._defocusAngleList.set(defocusAngleDict[index + 1])
-
-                # newCTFTomo.appendDefocusUList()
-
-                # newCTFTomo._defocusUList.append(defocusUDict[index + 1])
-                # newCTFTomo._defocusVList = defocusVDict[index + 1]
-                # newCTFTomo._defocusAngleList = defocusAngleDict[index + 1]
-
-                #print(defocusVDict[index + 1])
-                #print(defocusAngleDict[index + 1])
+                newCTFTomo.completeInfoFromList()
 
                 newCTFTomoSeries.append(newCTFTomo)
 
