@@ -256,7 +256,7 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
     else:
         raise Exception("Misleading file format, CTF estiation with astigmatism should be 7 columns long")
 
-        return defocusUDict, defocusVDict, defocusAngleDict
+    return defocusUDict, defocusVDict, defocusAngleDict
 
     # # Defocus, astigmatism and phase shift estimation
     # if len(ctfInfoIMODTable[0]) == 8:

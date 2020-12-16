@@ -399,6 +399,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
+                #Translate information to dictionary for Scipion info parsing
+                defocusUDict,defocusVDict, defocusAngleDict = \
+                    utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
+
                 if self.findAstigPhaseCutonToggle == 1:
                     pass
                     #get only astigmatism
@@ -413,6 +417,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
                 newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
                 newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+
+                if self.searchAstigmatism == 0:
+                    newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict[index + 1])
 
                 newCTFTomo.completeInfoFromList()
 
