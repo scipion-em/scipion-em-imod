@@ -232,26 +232,28 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
             defocusVDict = {}
             defocusAngleDict = {}
 
-            " Segregate information from range"
-            for index in range(int(element[0]), int(element[1]) + 1):
+            for element in ctfInfoIMODTable:
 
-                # Defocus U info
-                if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
-                else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                " Segregate information from range"
+                for index in range(int(element[0]), int(element[1]) + 1):
 
-                # Defocus V info
-                if index in defocusVDict.keys():
-                    defocusVDict[index].append(pwobj.Float(element[5]))
-                else:
-                    defocusVDict[index] = [pwobj.Float(element[5])]
+                    # Defocus U info
+                    if index in defocusUDict.keys():
+                        defocusUDict[index].append(pwobj.Float(element[4]))
+                    else:
+                        defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # Defocus angle info
-                if index in defocusAngleDict.keys():
-                    defocusAngleDict[index].append(pwobj.Float(element[6]))
-                else:
-                    defocusAngleDict[index] = [pwobj.Float(element[6])]
+                    # Defocus V info
+                    if index in defocusVDict.keys():
+                        defocusVDict[index].append(pwobj.Float(element[5]))
+                    else:
+                        defocusVDict[index] = [pwobj.Float(element[5])]
+
+                    # Defocus angle info
+                    if index in defocusAngleDict.keys():
+                        defocusAngleDict[index].append(pwobj.Float(element[6]))
+                    else:
+                        defocusAngleDict[index] = [pwobj.Float(element[6])]
 
     else:
         raise Exception("Misleading file format, CTF estiation with astigmatism should be 7 columns long")

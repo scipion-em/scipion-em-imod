@@ -422,6 +422,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                     newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
                     newCTFTomo.setDefocusVList(defocusVDict[index + 1])
 
+                    newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+
                 newCTFTomo.completeInfoFromList()
 
                 newCTFTomoSeries.append(newCTFTomo)
