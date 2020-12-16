@@ -204,11 +204,8 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
     information (5 columns) and produces a new table containing the same information in a format readable for
     Scipion. """
 
-    # Defocus estimation
     if len(ctfInfoIMODTable[0]) == 5:
         defocusUDict = {}
-        defocusVDict = {}
-        defocusAngleDict = {}
 
         for element in ctfInfoIMODTable:
 
@@ -219,37 +216,53 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-        return defocusUDict
+    else:
+        raise Exception("Misleading file format, CTF estiation with no astigmatism should be 5 columns long")
+
+    return defocusUDict
 
 
-def refactorCTFEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
-    containing the same information in a format readable for Scipion. """
+def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus and
+    astigmatism information (5 columns) and produces a new table containing the same information in a format readable
+    for Scipion. """
 
-
-    # if index in defocusVDict.keys():
-    #     defocusVDict[index].append(element[4])
-    # else:
-    #     defocusVDict[index] = [element[4]]
-    #
-    # if index in defocusAngleDict.keys():
-    #     defocusAngleDict[index].append(90)
-    # else:
-    #     defocusAngleDict[index] = [90]
-
-    # Defocus and astigmatism estimation
     if len(ctfInfoIMODTable[0]) == 7:
-        defocusUDict = []
-        defocusVDict = []
-        defocusAngleDict = []
+            defocusUDict = {}
+            defocusVDict = {}
+            defocusAngleDict = {}
+
+            " Segregate information from range"
+            for index in range(int(element[0]), int(element[1]) + 1):
+
+                # Defocus U info
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
+                else:
+                    defocusUDict[index] = [pwobj.Float(element[4])]
+
+                # Defocus V info
+                if index in defocusVDict.keys():
+                    defocusVDict[index].append(pwobj.Float(element[5]))
+                else:
+                    defocusVDict[index] = [pwobj.Float(element[5])]
+
+                # Defocus angle info
+                if index in defocusAngleDict.keys():
+                    defocusAngleDict[index].append(pwobj.Float(element[6]))
+                else:
+                    defocusAngleDict[index] = [pwobj.Float(element[6])]
+
+    else:
+        raise Exception("Misleading file format, CTF estiation with astigmatism should be 7 columns long")
 
         return defocusUDict, defocusVDict, defocusAngleDict
 
-    # Defocus, astigmatism and phase shift estimation
-    if len(ctfInfoIMODTable[0]) == 8:
-        defocusUDict = []
-        defocusVDict = []
-        defocusAngleDict = []
-        phaseShiftList = []
-
-        return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftList
+    # # Defocus, astigmatism and phase shift estimation
+    # if len(ctfInfoIMODTable[0]) == 8:
+    #     defocusUDict = []
+    #     defocusVDict = []
+    #     defocusAngleDict = []
+    #     phaseShiftList = []
+    #
+    #     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftList

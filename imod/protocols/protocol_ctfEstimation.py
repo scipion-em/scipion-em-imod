@@ -395,6 +395,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
             else:
+                #Parse information from file
                 defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
