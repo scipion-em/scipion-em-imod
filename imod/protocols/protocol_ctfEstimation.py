@@ -429,7 +429,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
                     if self.findAstigPhaseCutonToggle == 0:
                         newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
-                        newCTFTomo.setPhaseList(phaseShiftDict[index + 1])
+                        newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
 
                 newCTFTomo.completeInfoFromList()
 
