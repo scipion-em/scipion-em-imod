@@ -391,8 +391,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusInfoList, mode = utils.formatDefocusFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-                #Translate information to dictionary
-                defocusUDict = utils.refactorCTFEstimationInfo(defocusInfoList)
+                #Translate information to dictionary for Scipion info parsing
+                defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
             else:
                 defocusInfoList, mode = utils.formatDefocusAstigmatismFile(

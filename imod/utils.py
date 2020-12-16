@@ -199,9 +199,10 @@ def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
         return defocusAstigmatismTable, mode
 
 
-def refactorCTFEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
-    containing the same information in a format readable for Scipion. """
+def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based CTF estimation containing only defocus
+    information (5 columns) and produces a new table containing the same information in a format readable for
+    Scipion. """
 
     # Defocus estimation
     if len(ctfInfoIMODTable[0]) == 5:
@@ -214,23 +215,27 @@ def refactorCTFEstimationInfo(ctfInfoIMODTable):
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
                 if index in defocusUDict.keys():
-                    #defocusUDict[index].append(pwobj.Float(element[4]))
-                    defocusUDict[index].append(element[4])
+                    defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # if index in defocusVDict.keys():
-                #     defocusVDict[index].append(element[4])
-                # else:
-                #     defocusVDict[index] = [element[4]]
-                #
-                # if index in defocusAngleDict.keys():
-                #     defocusAngleDict[index].append(90)
-                # else:
-                #     defocusAngleDict[index] = [90]
-
         return defocusUDict
-        #return defocusUDict, defocusVDict, defocusAngleDict
+
+
+def refactorCTFEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based ctf estimation and produces a new table
+    containing the same information in a format readable for Scipion. """
+
+
+    # if index in defocusVDict.keys():
+    #     defocusVDict[index].append(element[4])
+    # else:
+    #     defocusVDict[index] = [element[4]]
+    #
+    # if index in defocusAngleDict.keys():
+    #     defocusAngleDict[index].append(90)
+    # else:
+    #     defocusAngleDict[index] = [90]
 
     # Defocus and astigmatism estimation
     if len(ctfInfoIMODTable[0]) == 7:
