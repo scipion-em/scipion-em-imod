@@ -395,21 +395,23 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
             else:
-                #Parse information from file
-                defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
-                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
-
-                #Translate information to dictionary for Scipion info parsing
-                defocusUDict,defocusVDict, defocusAngleDict = \
-                    utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
-
                 if self.findAstigPhaseCutonToggle == 1:
-                    pass
-                    #get only astigmatism
-                else:
-                    pass
-                    #get also phaseshift
+                    #Parse information from file
+                    defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
+                        os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
+                    #Translate information to dictionary for Scipion info parsing
+                    defocusUDict,defocusVDict, defocusAngleDict = \
+                        utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
+
+                else:
+                    # Parse information from file
+                    defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
+                        os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+
+                    # Translate information to dictionary for Scipion info parsing
+                    defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+                        utils.refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(defocusInfoList)
 
             for index, _ in enumerate(ts):
                 newCTFTomo = tomoObj.CTFTomo()
@@ -424,6 +426,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
                     newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
                     newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+
+                    if self.findAstigPhaseCutonToggle == 0:
+                        newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
+                        newCTFTomo.setPhaseList(phaseShiftDict[index + 1])
 
                 newCTFTomo.completeInfoFromList()
 
