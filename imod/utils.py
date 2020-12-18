@@ -306,3 +306,19 @@ def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                         "long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
+
+
+def generateDefocusIMODFileFromObject(ctfTomo):
+    if hasattr(ctfTomo, "_phaseShiftList"):
+        astigmatismEstimated = True if (hasattr(ctfTomo, "_defocusUList") and hasattr(ctfTomo, "_defocusVList")) \
+            else False
+
+        if astigmatismEstimated:
+            pass
+
+        else:
+            astigmatism = self.getDefocusUList() if hasattr(self, "_defocusUList") else self.getDefocusVList()
+
+
+    else:
+        pass
