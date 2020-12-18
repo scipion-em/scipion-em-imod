@@ -308,17 +308,38 @@ def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
 
 
-def generateDefocusIMODFileFromObject(ctfTomo):
-    if hasattr(ctfTomo, "_phaseShiftList"):
-        astigmatismEstimated = True if (hasattr(ctfTomo, "_defocusUList") and hasattr(ctfTomo, "_defocusVList")) \
+def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
+    """ The methods takes a ctfTomoSeries object a gnerate a defocus information file in IMOD formatting containing
+    the same information in the specified location. """
+
+    # Check if phase shift estimation has been performed
+    if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
+
+        # Check if astigmatism has been estimated (both defocus lists must exist)
+        astigmatismEstimated = True if \
+            (hasattr(ctfTomoSeries.getFirstItem(), "_defocusUList")
+             and hasattr(ctfTomoSeries.getFirstItem, "_defocusVList")) \
             else False
 
         if astigmatismEstimated:
             pass
 
         else:
-            astigmatism = self.getDefocusUList() if hasattr(self, "_defocusUList") else self.getDefocusVList()
+            defocusUDict = {}
 
+            for ctfTomo in ctfTomoSeries:
+                # Defocus U info
+                defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
+                    else ctfTomo.getDefocusVList()
 
+                index = ctfTomo.getIndex()
+                for defocus in
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
+                else:
+                    defocusUDict[index] = [pwobj.Float(element[4])]
+
+    # No phase shift has been estimated
     else:
+        #if phase shift
         pass
