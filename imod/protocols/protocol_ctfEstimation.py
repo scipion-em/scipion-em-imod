@@ -383,7 +383,11 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries = tomoObj.CTFTomoSeries()
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
-            newCTFTomoSeries.setEstimationRange(self.angleRange.get())
+
+            # We need to create now all the atributes of this object in order to append it to the set and be able to
+            # update it posteriorly.
+            newCTFTomoSeries.setNumberOfEstimationsInRange(None)
+
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
             if self.searchAstigmatism == 1:
@@ -434,6 +438,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 newCTFTomo.completeInfoFromList()
 
                 newCTFTomoSeries.append(newCTFTomo)
+
+            newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
 
             newCTFTomoSeries.write(properties=False)
 
