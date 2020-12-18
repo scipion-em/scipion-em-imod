@@ -326,18 +326,33 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
         else:
             defocusUDict = {}
+            maxIndex = 0
 
+            # Create dictionary containing the defocus estimation information
             for ctfTomo in ctfTomoSeries:
+
                 # Defocus U info
                 defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
                     else ctfTomo.getDefocusVList()
+                defocusInfoList = defocusInfoList.split(",")
 
                 index = ctfTomo.getIndex()
-                for defocus in
-                if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
-                else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+
+                if index > maxIndex:
+                    index = maxIndex
+
+                defocusUDict[index] = defocusInfoList
+
+            # Write IMOD defocus file
+            with open(defocusFilePath) as f:
+                lines = []
+                # hay que separar por indice y por estimaciones
+                for i in range(1, maxIndex + 1):
+                    lines.append("%d\t%d\t%f\t%f\t%d" % (index,
+                                                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                                                         ))
+
+
 
     # No phase shift has been estimated
     else:
