@@ -369,6 +369,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         if self.interactiveMode.get() == 1:
             argsCtfPlotter += "-SaveAndExit "
 
+        # TODO: cut on frequency
+
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
