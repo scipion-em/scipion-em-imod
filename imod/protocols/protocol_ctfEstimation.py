@@ -424,6 +424,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
                 newCTFTomo.setDefocusUList(defocusUDict[index + 1])
 
+                # TODO: Check that info is inside dictionary
+
                 if self.searchAstigmatism == 0:
                     newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
                     newCTFTomo.setDefocusVList(defocusVDict[index + 1])
