@@ -309,52 +309,59 @@ def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
-    """ The methods takes a ctfTomoSeries object a gnerate a defocus information file in IMOD formatting containing
+    """ The methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
-    # Check if phase shift estimation has been performed
-    if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
+    # Check if there is CTF estimation information as list
+    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
-        # Check if astigmatism has been estimated (both defocus lists must exist)
-        astigmatismEstimated = True if \
-            (hasattr(ctfTomoSeries.getFirstItem(), "_defocusUList")
-             and hasattr(ctfTomoSeries.getFirstItem, "_defocusVList")) \
-            else False
+        # Check if phase shift estimation has been performed
+        if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
 
-        if astigmatismEstimated:
+            # Check if astigmatism has been estimated (both defocus lists must exist)
+            astigmatismEstimated = True if \
+                (hasattr(ctfTomoSeries.getFirstItem(), "_defocusUList")
+                 and hasattr(ctfTomoSeries.getFirstItem, "_defocusVList")) \
+                else False
+
+            if astigmatismEstimated:
+                pass
+
+            else:
+                defocusUDict = {}
+                maxIndex = 0
+
+                # Create dictionary containing the defocus estimation information
+                for ctfTomo in ctfTomoSeries:
+
+                    # Defocus U info
+                    defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
+                        else ctfTomo.getDefocusVList()
+                    defocusInfoList = defocusInfoList.split(",")
+
+                    index = ctfTomo.getIndex()
+
+                    if index > maxIndex:
+                        index = maxIndex
+
+                    defocusUDict[index] = defocusInfoList
+
+                # Write IMOD defocus file
+                with open(defocusFilePath) as f:
+                    lines = []
+                    # hay que separar por indice y por estimaciones
+                    for i in range(1, maxIndex + 1):
+                        lines.append("%d\t%d\t%f\t%f\t%d" % (index,
+                                                             index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                                                             ))
+
+        # No phase shift has been estimated
+        else:
+            # if phase shift
             pass
 
-        else:
-            defocusUDict = {}
-            maxIndex = 0
 
-            # Create dictionary containing the defocus estimation information
-            for ctfTomo in ctfTomoSeries:
-
-                # Defocus U info
-                defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
-                    else ctfTomo.getDefocusVList()
-                defocusInfoList = defocusInfoList.split(",")
-
-                index = ctfTomo.getIndex()
-
-                if index > maxIndex:
-                    index = maxIndex
-
-                defocusUDict[index] = defocusInfoList
-
-            # Write IMOD defocus file
-            with open(defocusFilePath) as f:
-                lines = []
-                # hay que separar por indice y por estimaciones
-                for i in range(1, maxIndex + 1):
-                    lines.append("%d\t%d\t%f\t%f\t%d" % (index,
-                                                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                                                         ))
-
-
-
-    # No phase shift has been estimated
+    # There is no information available as list
     else:
-        #if phase shift
         pass
+
