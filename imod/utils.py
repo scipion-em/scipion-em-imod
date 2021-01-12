@@ -312,6 +312,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
     """ The methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
+    tiltSeries = ctfTomoSeries.getTiltSeries()
+
+    setSize = tiltSeries.getSize()
+
     # Check if there is CTF estimation information as list
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
@@ -329,7 +333,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
             else:
                 defocusUDict = {}
-                maxIndex = 0
 
                 # Create dictionary containing the defocus estimation information
                 for ctfTomo in ctfTomoSeries:
@@ -339,10 +342,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         else ctfTomo.getDefocusVList()
                     defocusInfoList = defocusInfoList.split(",")
 
-                    index = ctfTomo.getIndex()
-
-                    if index > maxIndex:
-                        index = maxIndex
+                    # IMOD set indexes upside down Scipion
+                    # (highest index for the tilt-image with the highest negative angle)
+                    index = setSize - ctfTomo.getIndex() - 1
 
                     defocusUDict[index] = defocusInfoList
 
@@ -350,10 +352,16 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                 with open(defocusFilePath) as f:
                     lines = []
                     # hay que separar por indice y por estimaciones
-                    for i in range(1, maxIndex + 1):
-                        lines.append("%d\t%d\t%f\t%f\t%d" % (index,
-                                                             index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                                                             ))
+                    for index in defocusUDict.keys():
+                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%d" % (
+                            index - ctfTomoSeries.getNumberOfEstimationsInRange(),
+                            index,
+                            tiltSeries[ctfTomo.getIndex()].getTiltAngle(),
+                            tiltSeries[ctfTomo.getIndex() + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
+                            -1,
+                            -1,
+                            1
+                        ))
 
         # No phase shift has been estimated
         else:
