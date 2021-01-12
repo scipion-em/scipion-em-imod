@@ -342,25 +342,26 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     # IMOD set indexes upside down Scipion
                     # (highest index for the tilt-image with the highest negative angle)
-                    index = (setSize - ctfTomo.getIndex())
+                    index = (setSize - ctfTomo.getIndex().get() + 1)
 
                     defocusUDict[index] = defocusInfoList
 
                 # Write IMOD defocus file
-                with open(defocusFilePath) as f:
+                with open(defocusFilePath, 'w') as f:
                     lines = []
-                    # hay que separar por indice y por estimaciones
+
                     for index in defocusUDict.keys():
-                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%f" % (
+                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%f\n" % (
                             index - ctfTomoSeries.getNumberOfEstimationsInRange(),
                             index,
-                            tiltSeries[ctfTomo.getIndex()].getTiltAngle(),
-                            tiltSeries[
-                                ctfTomo.getIndex() + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
+                            tiltSeries[ctfTomo.getIndex().get()].getTiltAngle(),
+                            tiltSeries[ctfTomo.getIndex().get() - ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
                             -1.0,
                             -1.0,
                             1.0
                         ))
+
+                    f.writelines(lines)
 
     # There is no information available as list (not an IMOD CTF estimation)
     else:

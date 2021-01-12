@@ -386,7 +386,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
 
-            # We need to create now all the atributes of this object in order to append it to the set and be able to
+            # We need to create now all the attributes of this object in order to append it to the set and be able to
             # update it posteriorly.
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
 
@@ -453,7 +453,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._store()
 
             # FEDE TEST ***
-            utils.generateDefocusIMODFileFromObject(newCTFTomoSeries, self._getExtraPath())
+            utils.generateDefocusIMODFileFromObject(newCTFTomoSeries, self._getExtraPath("outputdefocus_test.txt"))
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfCTFTomoSeries(self):
