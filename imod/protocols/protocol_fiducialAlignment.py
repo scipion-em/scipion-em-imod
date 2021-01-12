@@ -96,6 +96,25 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       help='Generate and save the interpolated tilt-series applying the'
                            'obtained transformation matrices.')
 
+        form.addParam('refineSobelFilter',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Refine center with Sobel filter',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Use edge-detecting Sobel filter to refine the bead positions.')
+
+        form.addParam('scalableSigmaForSobelFilter',
+                      params.FloatParam,
+                      default=0.5,
+                      condition='refineSobelFilter==0',
+                      label='Sobel sigma relative to bead size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
+                           'bead diameter. The dealt sigma is 0.5 pixels regardless of bead size.'
+                           'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
+
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
 
@@ -160,7 +179,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
             'fiducialDiameter': self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10),
-            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10
+            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -696,9 +716,19 @@ MaxRescueDistance	2.5
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
 DeletionCriterionMinAndSD	0.04,2.0
-SobelFilterCentering
+"""
+
+        if self.refineSobelFilter.get() == 0:
+            template += """SobelFilterCentering
+ScalableSigmaForSobel %(scalableSigmaForSobelFilter)f
+
 $if (-e ./savework) ./savework
 """
+        elif self.refineSobelFilter.get() == 1:
+            template += """
+$if (-e ./savework) ./savework
+"""
+
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
 
