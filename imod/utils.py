@@ -319,16 +319,15 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
     # Check if there is CTF estimation information as list
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
-        # Check if phase shift estimation has been performed
+        # Phase shift estimation has been performed
         if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
+            pass
 
-            # Check if astigmatism has been estimated (both defocus lists must exist)
-            astigmatismEstimated = True if \
-                (hasattr(ctfTomoSeries.getFirstItem(), "_defocusUList")
-                 and hasattr(ctfTomoSeries.getFirstItem, "_defocusVList")) \
-                else False
+        # No phase shift estimation has been estimated
+        else:
 
-            if astigmatismEstimated:
+            #
+            if ctfTomoSeries.getFirstItem().hasAstigmatismInfoAsList():
                 pass
 
             else:
@@ -336,7 +335,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                 # Create dictionary containing the defocus estimation information
                 for ctfTomo in ctfTomoSeries:
-
                     # Defocus U info
                     defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
                         else ctfTomo.getDefocusVList()
@@ -344,7 +342,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     # IMOD set indexes upside down Scipion
                     # (highest index for the tilt-image with the highest negative angle)
-                    index = setSize - ctfTomo.getIndex() - 1
+                    index = (setSize - ctfTomo.getIndex())
 
                     defocusUDict[index] = defocusInfoList
 
@@ -353,23 +351,18 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     lines = []
                     # hay que separar por indice y por estimaciones
                     for index in defocusUDict.keys():
-                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%d" % (
+                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%f" % (
                             index - ctfTomoSeries.getNumberOfEstimationsInRange(),
                             index,
                             tiltSeries[ctfTomo.getIndex()].getTiltAngle(),
-                            tiltSeries[ctfTomo.getIndex() + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
-                            -1,
-                            -1,
-                            1
+                            tiltSeries[
+                                ctfTomo.getIndex() + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
+                            -1.0,
+                            -1.0,
+                            1.0
                         ))
 
-        # No phase shift has been estimated
-        else:
-            # if phase shift
-            pass
-
-
-    # There is no information available as list
+    # There is no information available as list (not an IMOD CTF estimation)
     else:
         pass
 
