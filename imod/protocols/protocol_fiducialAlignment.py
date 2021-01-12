@@ -112,7 +112,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       label='Sobel sigma relative to bead size',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
-                           'bead diameter. The dealt sigma is 0.5 pixels regardless of bead size.'
+                           'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
                            'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
 
         groupInterpolation = form.addGroup('Interpolated tilt-series',
@@ -720,14 +720,11 @@ DeletionCriterionMinAndSD	0.04,2.0
 
         if self.refineSobelFilter.get() == 0:
             template += """SobelFilterCentering
-ScalableSigmaForSobel %(scalableSigmaForSobelFilter)f
-
+ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
 $if (-e ./savework) ./savework
 """
         elif self.refineSobelFilter.get() == 1:
-            template += """
-$if (-e ./savework) ./savework
-"""
+            template += """$if (-e ./savework) ./savework"""
 
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
