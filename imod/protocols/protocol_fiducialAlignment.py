@@ -159,7 +159,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': self.fiducialDiameter.get()
+            'fiducialDiameter': self.fiducialDiameter.get() * self.inputSetOfTiltSeries.get().getSamplingRate()
+            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate()
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -658,6 +659,7 @@ TiltFile	%(tiltFile)s
 TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
+PixelSize   %(samplingRate)f
 BeadDiameter	%(fiducialDiameter)f
 FillGaps
 MaxGapSize	5
@@ -721,8 +723,8 @@ $if (-e ./savework) ./savework
             outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            samplingRate *= self.binning.get()
             outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
