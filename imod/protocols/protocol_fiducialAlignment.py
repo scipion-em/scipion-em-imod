@@ -159,8 +159,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': self.fiducialDiameter.get() * 10 * self.inputSetOfTiltSeries.get().getSamplingRate(),
-            'samplingRate': 10 * self.inputSetOfTiltSeries.get().getSamplingRate()
+            'fiducialDiameter': self.fiducialDiameter.get() * self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10
         }
 
         self.translateTrackCom(ts, paramsDict)
