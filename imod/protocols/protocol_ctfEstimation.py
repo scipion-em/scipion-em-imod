@@ -393,21 +393,21 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
             if self.searchAstigmatism == 1:
-                #Parse information from file
+                # Parse information from file
                 defocusInfoList, mode = utils.formatDefocusFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-                #Translate information to dictionary for Scipion info parsing
+                # Translate information to dictionary for Scipion info parsing
                 defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
             else:
                 if self.findAstigPhaseCutonToggle == 1:
-                    #Parse information from file
+                    # Parse information from file
                     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
 
-                    #Translate information to dictionary for Scipion info parsing
-                    defocusUDict,defocusVDict, defocusAngleDict = \
+                    # Translate information to dictionary for Scipion info parsing
+                    defocusUDict, defocusVDict, defocusAngleDict = \
                         utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
 
                 else:
@@ -451,6 +451,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputSetOfCTFTomoSeries.write()
 
             self._store()
+
+            # FEDE TEST ***
+            utils.generateDefocusIMODFileFromObject(newCTFTomoSeries, self._getExtraPath())
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfCTFTomoSeries(self):
