@@ -235,7 +235,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'minTiltRangeToFindAxis': 10.0,
             'minTiltRangeToFindAngles': 20.0,
             'boxSizeXandY':
-                "(%d,%d)" %
+                "%d,%d" %
                 (int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
                  int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))),
             'roundsOfTracking': 2,
