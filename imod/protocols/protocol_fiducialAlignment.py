@@ -181,6 +181,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'fiducialDiameter': self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10),
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
+            'boxSizeXandY': int(
+                3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -697,7 +699,7 @@ MinOverlapBeads	5
 MinViewsForTiltalign	4
 MinTiltRangeToFindAxis	10.0
 MinTiltRangeToFindAngles	20.0
-BoxSizeXandY	32,32
+BoxSizeXandY	%(boxSizeXandY)d,%(boxSizeXandY)d
 MaxBeadsToAverage	4
 # points and minimum for extrapolation
 PointsToFitMaxAndMin	7,3
