@@ -358,7 +358,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-MagDefaultGrouping %(magDefaultGrouping)d " \
                         "-RotDefaultGrouping %(rotDefaultGrouping)d " \
                         "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
-                        "-BeadDiameter %(beadDiameter)f " \
+                        "-BeadDiameter %(beadDiameter).2f " \
                         "-FillGaps %(fillGaps)d " \
                         "-MaxGapSize %(maxGapSize)d " \
                         "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
@@ -826,7 +826,7 @@ TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
 PixelSize   %(samplingRate)f
-BeadDiameter	%(fiducialDiameter)f
+BeadDiameter	%(fiducialDiameter).2f
 FillGaps
 MaxGapSize	5
 RoundsOfTracking	2
