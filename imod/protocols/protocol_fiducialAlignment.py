@@ -115,6 +115,78 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                            'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
                            'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
 
+        form.addParam('rotationSolutionType',
+                      params.EnumParam,
+                      choices=['No rotation', 'One rotation', 'Group rotations', 'Solve for all rotations'],
+                      default=3,
+                      label='Rotation solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of rotation solution.')
+
+        form.addParam('groupRotationSize',
+                      params.IntParam,
+                      default=5,
+                      condition='rotationSolutionType==2',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the rotation group')
+
+        form.addParam('magnificationSolutionType',
+                      params.EnumParam,
+                      choices=['Fixed magnification at 1.0', 'Group magnifications', 'Solve for all magnifications'],
+                      default=1,
+                      label='Magnification solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of magnification solution.')
+
+        form.addParam('groupMagnificationSize',
+                      params.IntParam,
+                      default=4,
+                      condition='magnificationSolutionType==1',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the magnification group')
+
+        form.addParam('tiltAngleSolutionType',
+                      params.EnumParam,
+                      choices=['Fixed tilt angles', 'Group tilt angles', 'Solve for all except minimum tilt'],
+                      default=1,
+                      label='Tilt angle solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of tilt angle solution.')
+
+        form.addParam('groupTiltAngleSize',
+                      params.IntParam,
+                      default=5,
+                      condition='tiltAngleSolutionType==1',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the tilt angle group')
+
+        form.addParam('distortionSolutionType',
+                      params.EnumParam,
+                      choices=['Disabled', 'Full solution', 'Skew only'],
+                      default=0,
+                      label='Distortion solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of distortion solution.')
+
+        form.addParam('xStretchGroupSize',
+                      params.IntParam,
+                      default=7,
+                      condition='distortionSolutionType==1',
+                      label='X stretch group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Basic grouping size for X stretch')
+
+        form.addParam('skewGroupSize',
+                      params.IntParam,
+                      default=11,
+                      condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
+                      label='Skew group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the skew group')
+
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
 
