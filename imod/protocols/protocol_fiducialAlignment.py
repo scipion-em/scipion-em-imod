@@ -188,6 +188,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
             'postFitRescueResidual': 0.2 * fiducialDiameterPixels,
             'maxRescueDistance': 0.2 * fiducialDiameterPixels,
+            'minDiamForParamScaling': 12.5,
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -729,6 +730,7 @@ MaxRescueDistance	%(maxRescueDistance)f
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
 DeletionCriterionMinAndSD	0.04,2.0
+MinDiamForParamScaling %(minDiamForParamScaling)f
 """
 
         if self.refineSobelFilter.get() == 0:
