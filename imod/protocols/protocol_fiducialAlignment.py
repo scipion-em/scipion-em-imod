@@ -172,17 +172,20 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        fiducialDiameterPixels = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10),
+            'fiducialDiameter': fiducialDiameterPixels,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': int(
                 3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -219,6 +222,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
+        fiducialDiameterPixels = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
@@ -229,7 +235,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
             'minViewsForTiltalign': 4,
-            'beadDiameter': self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10),
+            'beadDiameter': fiducialDiameterPixels,
             'fillGaps': 1,
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
@@ -247,7 +253,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 10.0,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
             'postFitRescueResidual': 2.5,
             'densityRelaxationPostFit': 0.9,
@@ -709,7 +715,7 @@ PointsToFitMaxAndMin	7,3
 # fraction of mean, and # of SD below mean: density criterion for rescue
 DensityRescueFractionAndSD	0.6,1.0
 # distance criterion for rescue
-DistanceRescueCriterion	10.0
+DistanceRescueCriterion	%(distanceRescueCriterion)f
 # relaxation of criterion for density and distance rescues
 RescueRelaxationDensityAndDistance	0.7,0.9
 # distance for rescue after fit
