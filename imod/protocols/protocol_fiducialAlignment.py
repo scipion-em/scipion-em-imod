@@ -407,10 +407,10 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'magReferenceView': 1,
             'magOption': self.getMagnificationType(),
             'magDefaultGrouping': self.groupMagnificationSize.get(),
-            'xStretchOption': 0,
-            'skewOption': 0,
-            'xStretchDefaultGrouping': 7,
-            'skewDefaultGrouping': 11,
+            'xStretchOption': self.getStretchType(),
+            'skewOption': self.getSkewType(),
+            'xStretchDefaultGrouping': self.xStretchGroupSize.get(),
+            'skewDefaultGrouping': self.skewGroupSize.get(),
             'beamTiltOption': 0,
             'xTiltOption': 0,
             'xTiltDefaultGrouping': 2000,
@@ -750,21 +750,32 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             return 1
 
     def getMagnificationType(self):
-        if self.rotationSolutionType.get() == 0:
+        if self.magnificationSolutionType.get() == 0:
             return 0
-        elif self.rotationSolutionType.get() == 1:
+        elif self.magnificationSolutionType.get() == 1:
             return 3
-        elif self.rotationSolutionType.get() == 2:
+        elif self.magnificationSolutionType.get() == 2:
             return 1
 
     def getTiltAngleType(self):
-        if self.rotationSolutionType.get() == 0:
+        if self.tiltAngleSolutionType.get() == 0:
             return 0
-        elif self.rotationSolutionType.get() == 1:
+        elif self.tiltAngleSolutionType.get() == 1:
             return 5
-        elif self.rotationSolutionType.get() == 2:
+        elif self.tiltAngleSolutionType.get() == 2:
             return 2
 
+    def getSkewType(self):
+        if self.distortionSolutionType.get() == 0:
+            return 0
+        elif self.distortionSolutionType.get() == 1 or self.distortionSolutionType.get() == 2:
+            return 3
+
+    def getStretchType(self):
+        if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
+            return 0
+        elif self.distortionSolutionType.get() == 1:
+            return 4
 
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
