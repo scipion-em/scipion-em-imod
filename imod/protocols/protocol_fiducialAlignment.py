@@ -248,7 +248,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
-        # Make boxSizeXandY parameter even due to computational efficinecy
+        # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
             boxSizeXandY += 1
 
