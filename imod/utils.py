@@ -323,13 +323,41 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
         if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
             pass
 
-        # No phase shift estimation has been estimated
+        # No phase shift estimation has been performed
         else:
 
-            #
+            # Astigmatism estimation has been performed
             if ctfTomoSeries.getFirstItem().hasAstigmatismInfoAsList():
-                pass
+                defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
+                defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
+                defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
 
+                # Write IMOD defocus file
+                with open(defocusFilePath, 'w') as f:
+                    lines = []
+
+                    for index in defocusUDict.keys():
+
+                        if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                            break
+
+                        # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                        # the tilt-image with the highest negative angle)
+                        newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
+                            index,
+                            index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                            round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                            round(tiltSeries[index].getTiltAngle(), 2),
+                            float(defocusUDict[index][0]),
+                            float(defocusVDict[index][0]),
+                            float(defocusAngleDict[index][0]),
+                        ))
+
+                        lines = [newLine] + lines
+
+                    f.writelines(lines)
+
+            # No astigmatism estimation has been performed
             else:
                 defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
 
