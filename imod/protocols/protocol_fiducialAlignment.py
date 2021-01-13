@@ -187,6 +187,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                 3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
             'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
             'postFitRescueResidual': 0.2 * fiducialDiameterPixels,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixels,
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -723,7 +724,7 @@ RescueRelaxationDensityAndDistance	0.7,0.9
 PostFitRescueResidual	%(postFitRescueResidual)f
 # relaxation of density criterion, maximum radius to search
 DensityRelaxationPostFit	0.9
-MaxRescueDistance	2.5
+MaxRescueDistance	%(maxRescueDistance)f
 # Max and min residual changes to use to get mean and SD change
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
