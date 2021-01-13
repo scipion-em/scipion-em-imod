@@ -246,6 +246,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+
+        # Make boxSizeXandY parameter even due to computational efficinecy
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
+
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
