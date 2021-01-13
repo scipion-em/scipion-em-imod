@@ -419,7 +419,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'residualReportCriterion': 3.0,
             'surfacesToAnalyze': self.getSurfaceToAnalyze(),
             'metroFactor': 0.25,
-            'maximumCycles': 1000,
             'kFactorScaling': 1.0,
             'noSeparateTiltGroups': 1,
             'axisZShift': 0.0,
@@ -474,7 +473,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-ResidualReportCriterion %(residualReportCriterion)f " \
                         "-SurfacesToAnalyze %(surfacesToAnalyze)d " \
                         "-MetroFactor %(metroFactor)f " \
-                        "-MaximumCycles %(maximumCycles)d " \
                         "-KFactorScaling %(kFactorScaling)f " \
                         "-NoSeparateTiltGroups %(noSeparateTiltGroups)d " \
                         "-AxisZShift %(axisZShift)f " \
