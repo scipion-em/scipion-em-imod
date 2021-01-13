@@ -309,7 +309,7 @@ def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
-    """ The methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
+    """ This methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
     tiltSeries = ctfTomoSeries.getTiltSeries()
@@ -331,18 +331,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                 pass
 
             else:
-                defocusUDict = {}
-
-                # Create dictionary containing the defocus U estimation information
-                for ctfTomo in ctfTomoSeries:
-                    # Defocus U info
-                    defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
-                        else ctfTomo.getDefocusVList()
-                    defocusInfoList = defocusInfoList.split(",")
-
-                    index = ctfTomo.getIndex().get()
-
-                    defocusUDict[index] = defocusInfoList
+                defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
 
                 # Write IMOD defocus file
                 with open(defocusFilePath, 'w') as f:
@@ -370,4 +359,59 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
     # There is no information available as list (not an IMOD CTF estimation)
     else:
         pass
+
+
+def generateDefocusUDictionary(ctfTomoSeries):
+    """ This method generates a dictionary containing the defocus U estimation information from a ctfTomoSeries
+    object. """
+
+    defocusUDict = {}
+
+    for ctfTomo in ctfTomoSeries:
+        defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
+            else ctfTomo.getDefocusVList()
+        defocusInfoList = defocusInfoList.split(",")
+
+        index = ctfTomo.getIndex().get()
+
+        defocusUDict[index] = defocusInfoList
+
+        return defocusUDict
+
+
+def generateDefocusVDictionary(ctfTomoSeries):
+    """ This method generates a dictionary containing the defocus V estimation information from a ctfTomoSeries
+    object. """
+
+    defocusVDict = {}
+
+    for ctfTomo in ctfTomoSeries:
+        defocusInfoList = ctfTomo.getDefocusVList()
+        defocusInfoList = defocusInfoList.split(",")
+
+        index = ctfTomo.getIndex().get()
+
+        defocusVDict[index] = defocusInfoList
+
+        return defocusVDict
+
+
+def generateDefocusAngleDictionary(ctfTomoSeries):
+    """ This method generates a dictionary containing the defocus angle estimation information from a ctfTomoSeries
+    object. """
+
+    defocusAngleDict = {}
+
+    for ctfTomo in ctfTomoSeries:
+        defocusAngleList = ctfTomo.getDefocusAngleList()
+        defocusAngleList = defocusAngleList.split(",")
+
+        index = ctfTomo.getIndex().get()
+
+        defocusAngleDict[index] = defocusAngleList
+
+        return defocusAngleDict
+
+
+
 
