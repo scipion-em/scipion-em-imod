@@ -189,7 +189,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': '(0.3,2.0)'
+            'deletionCriterionMinAndSD': '0.3,2.0'
         }
 
         self.translateTrackCom(ts, paramsDict)
