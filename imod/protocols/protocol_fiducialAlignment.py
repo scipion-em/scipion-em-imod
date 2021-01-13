@@ -400,8 +400,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'rotationAngle': self.rotationAngle.get(),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'angleOffset': 0.0,
-            'rotOption': 1,
-            'rotDefaultGrouping': 5,
+            'rotOption': self.getRotationType(),
+            'rotDefaultGrouping': self.groupRotationSize.get(),
             'tiltOption': 5,
             'tiltDefaultGrouping': 5,
             'magReferenceView': 1,
@@ -493,7 +493,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-LocalXStretchOption %(localXStretchOption)d " \
                         "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
                         "-LocalSkewOption %(localSkewOption)d " \
-                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d"
+                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
 
@@ -739,6 +739,16 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    def getRotationType(self):
+        if self.rotationSolutionType.get() == 0:
+            return 0
+        elif self.rotationSolutionType.get() == 1:
+            return -1
+        elif self.rotationSolutionType.get() == 2:
+            return 3
+        elif self.rotationSolutionType.get() == 3:
+            return 1
+
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
