@@ -402,11 +402,11 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'angleOffset': 0.0,
             'rotOption': self.getRotationType(),
             'rotDefaultGrouping': self.groupRotationSize.get(),
-            'tiltOption': 5,
-            'tiltDefaultGrouping': 5,
+            'tiltOption': self.getTiltAngleType(),
+            'tiltDefaultGrouping': self.groupTiltAngleSize.get(),
             'magReferenceView': 1,
-            'magOption': 1,
-            'magDefaultGrouping': 4,
+            'magOption': self.getMagnificationType(),
+            'magDefaultGrouping': self.groupMagnificationSize.get(),
             'xStretchOption': 0,
             'skewOption': 0,
             'xStretchDefaultGrouping': 7,
@@ -748,6 +748,23 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             return 3
         elif self.rotationSolutionType.get() == 3:
             return 1
+
+    def getMagnificationType(self):
+        if self.rotationSolutionType.get() == 0:
+            return 0
+        elif self.rotationSolutionType.get() == 1:
+            return 3
+        elif self.rotationSolutionType.get() == 2:
+            return 1
+
+    def getTiltAngleType(self):
+        if self.rotationSolutionType.get() == 0:
+            return 0
+        elif self.rotationSolutionType.get() == 1:
+            return 5
+        elif self.rotationSolutionType.get() == 2:
+            return 2
+
 
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
