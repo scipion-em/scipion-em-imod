@@ -778,7 +778,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
             return 0
         elif self.distortionSolutionType.get() == 1:
-            return 4
+            return 3
 
     def getSurfaceToAnalyze(self):
         if self.twoSurfaces.get() == 0:
