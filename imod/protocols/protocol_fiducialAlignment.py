@@ -86,16 +86,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
-        form.addParam('computeAlignment',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Generate interpolated tilt-series',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
-
         form.addParam('refineSobelFilter',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -186,6 +176,16 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       label='Skew group size',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the skew group')
+
+        form.addParam('computeAlignment',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Generate interpolated tilt-series',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Generate and save the interpolated tilt-series applying the'
+                           'obtained transformation matrices.')
 
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
