@@ -261,8 +261,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
-            'boxSizeXandY': int(
-                3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
+            'boxSizeXandY': boxSizeXandY,
             'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
             'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
