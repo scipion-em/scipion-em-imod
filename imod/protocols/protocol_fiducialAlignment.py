@@ -279,10 +279,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'RotationAngle': self.rotationAngle.get(),
             'targetNumberOfBeads': self.numberFiducial.get()
         }
+
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
                           "-TargetNumberOfBeads %(targetNumberOfBeads)d "
+
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
@@ -415,7 +417,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'xTiltOption': 0,
             'xTiltDefaultGrouping': 2000,
             'residualReportCriterion': 3.0,
-            'surfacesToAnalyze': 2,
+            'surfacesToAnalyze': self.getSurfaceToAnalyze(),
             'metroFactor': 0.25,
             'maximumCycles': 1000,
             'kFactorScaling': 1.0,
@@ -776,6 +778,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             return 0
         elif self.distortionSolutionType.get() == 1:
             return 4
+
+    def getSurfaceToAnalyze(self):
+        if self.twoSurfaces.get() == 0:
+            return 2
+        elif self.twoSurfaces.get() == 1:
+            return 1
 
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
