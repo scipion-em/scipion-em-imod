@@ -189,6 +189,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'postFitRescueResidual': 0.2 * fiducialDiameterPixels,
             'maxRescueDistance': 0.2 * fiducialDiameterPixels,
             'minDiamForParamScaling': 12.5,
+            'deletionCriterionMinAndSD': '(0.3,2.0)'
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -729,7 +730,7 @@ MaxRescueDistance	%(maxRescueDistance)f
 # Max and min residual changes to use to get mean and SD change
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
-DeletionCriterionMinAndSD	0.04,2.0
+DeletionCriterionMinAndSD	%(deletionCriterionMinAndSD)s
 MinDiamForParamScaling %(minDiamForParamScaling)f
 """
 
