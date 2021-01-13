@@ -308,6 +308,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+
+        # Make boxSizeXandY parameter even due to computational efficiency
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
+
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
@@ -323,10 +329,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
             'minTiltRangeToFindAngles': 20.0,
-            'boxSizeXandY':
-                "%d,%d" %
-                (int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
-                 int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))),
+            'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
             'roundsOfTracking': 2,
             'localAreaTracking': 1,
             'localAreaTargetSize': 1000,
