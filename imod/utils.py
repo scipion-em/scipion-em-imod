@@ -333,16 +333,14 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
             else:
                 defocusUDict = {}
 
-                # Create dictionary containing the defocus estimation information
+                # Create dictionary containing the defocus U estimation information
                 for ctfTomo in ctfTomoSeries:
                     # Defocus U info
                     defocusInfoList = ctfTomo.getDefocusUList() if hasattr(ctfTomo, "_defocusUList") \
                         else ctfTomo.getDefocusVList()
                     defocusInfoList = defocusInfoList.split(",")
 
-                    # IMOD set indexes upside down Scipion
-                    # (highest index for the tilt-image with the highest negative angle)
-                    index = (setSize - ctfTomo.getIndex().get() + 1)
+                    index = ctfTomo.getIndex().get()
 
                     defocusUDict[index] = defocusInfoList
 
@@ -351,15 +349,21 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     lines = []
 
                     for index in defocusUDict.keys():
-                        lines.append("%d\t%d\t%f\t%f\t%f\t%f\t%f\n" % (
-                            index - ctfTomoSeries.getNumberOfEstimationsInRange(),
+
+                        if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                            break
+
+                        # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                        # the tilt-image with the highest negative angle)
+                        newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
                             index,
-                            tiltSeries[ctfTomo.getIndex().get()].getTiltAngle(),
-                            tiltSeries[ctfTomo.getIndex().get() - ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(),
-                            -1.0,
-                            -1.0,
-                            1.0
+                            index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                            round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                            round(tiltSeries[index].getTiltAngle(), 2),
+                            int(float(defocusUDict[index][0]))
                         ))
+
+                        lines = [newLine] + lines
 
                     f.writelines(lines)
 
