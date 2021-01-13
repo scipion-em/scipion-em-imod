@@ -172,7 +172,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        fiducialDiameterPixels = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
@@ -180,14 +180,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': fiducialDiameterPixels,
+            'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': int(
                 3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)),
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixels,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixels,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'minDiamForParamScaling': 12.5,
             'deletionCriterionMinAndSD': '(0.3,2.0)'
         }
@@ -227,7 +227,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        fiducialDiameterPixels = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
@@ -239,7 +239,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
             'minViewsForTiltalign': 4,
-            'beadDiameter': fiducialDiameterPixels,
+            'beadDiameter': fiducialDiameterPixel,
             'fillGaps': 1,
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
@@ -257,13 +257,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixels,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 2.5,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 2.5,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.04,2.0'
+            'deletionCriterionMinAndSD': '0.3,2.0',
+            'minDiamForParamScaling': 12.5
         }
 
         argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
@@ -296,7 +297,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
                         "-MaxRescueDistance %(maxRescueDistance)f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
-                        "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
+                        "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
+                        "-MinDiamForParamScaling %(minDiamForParamScaling)"
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
