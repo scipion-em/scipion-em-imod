@@ -466,6 +466,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-MagDefaultGrouping %(magDefaultGrouping)d " \
                         "-XStretchOption %(xStretchOption)d " \
                         "-SkewOption %(skewOption)d " \
+                        "-SkewDefaultGrouping %(skewDefaultGrouping)d " \
                         "-XStretchDefaultGrouping %(xStretchDefaultGrouping)d " \
                         "-BeamTiltOption %(beamTiltOption)d " \
                         "-XTiltOption %(xTiltOption)d " \
