@@ -327,6 +327,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
         else:
 
             # Astigmatism estimation has been performed
+
             if ctfTomoSeries.getFirstItem().hasAstigmatismInfoAsList():
                 defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
                 defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -404,7 +405,7 @@ def generateDefocusUDictionary(ctfTomoSeries):
 
         defocusUDict[index] = defocusInfoList
 
-        return defocusUDict
+    return defocusUDict
 
 
 def generateDefocusVDictionary(ctfTomoSeries):
@@ -421,7 +422,7 @@ def generateDefocusVDictionary(ctfTomoSeries):
 
         defocusVDict[index] = defocusInfoList
 
-        return defocusVDict
+    return defocusVDict
 
 
 def generateDefocusAngleDictionary(ctfTomoSeries):
@@ -438,7 +439,7 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
 
         defocusAngleDict[index] = defocusAngleList
 
-        return defocusAngleDict
+    return defocusAngleDict
 
 
 
