@@ -413,7 +413,27 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
     # There is no information available as list (not an IMOD CTF estimation)
     else:
-        pass
+        with open(defocusFilePath, 'w') as f:
+            lines = []
+
+            for ctfTomo in ctfTomoSeries:
+
+                if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    break
+
+                # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                # the tilt-image with the highest negative angle)
+                newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
+                    index,
+                    index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                    round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                    round(tiltSeries[index].getTiltAngle(), 2),
+                    int(float(defocusUDict[index][0]))
+                ))
+
+                lines = [newLine] + lines
+
+            f.writelines(lines)
 
 
 def generateDefocusUDictionary(ctfTomoSeries):
@@ -466,6 +486,7 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
         defocusAngleDict[index] = defocusAngleList
 
     return defocusAngleDict
+
 
 def generatePhaseShiftDictionary(ctfTomoSeries):
     """ This method generates a dictionary containing the phase shift estimation information from a ctfTomoSeries
