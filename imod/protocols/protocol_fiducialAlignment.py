@@ -726,10 +726,11 @@ $if (-e ./savework) ./savework
 
         outputLines = []
 
+        # Take only the lines that compose the table containing the ta solution info
         for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
             outputLines.append(lines[index])
 
-        # Then read file and calculate the minimum angle rotation from matrixTaSolution info
+        # Convert lines into numpy array for posterior operation
         outputLinesAsMatrix = []
         for line in outputLines:
             vector = line.split()
@@ -738,8 +739,7 @@ $if (-e ./savework) ./savework
 
         matrixTaSolution = np.array(outputLinesAsMatrix)
 
-        print(matrixTaSolution)
-
+        # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
 
         # Multiply last column by sampling rate in nanometer
@@ -748,7 +748,7 @@ $if (-e ./savework) ./savework
         # Get minimum rotation to write in file
         minimumRotation = matrixTaSolution[indexAng][1]
 
-        #Save new matrixTaSolution info
+        # Save new matrixTaSolution info into file
         np.savetxt(fname=taSolutionLog,
                    X=matrixTaSolution,
                    fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
