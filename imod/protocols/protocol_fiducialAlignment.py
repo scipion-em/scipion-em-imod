@@ -729,13 +729,16 @@ $if (-e ./savework) ./savework
         for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
             outputLines.append(lines[index])
 
-        # First write the matrixTaSolution info as file
-        with open(taSolutionLog, 'w') as fWrite:
-            fWrite.writelines(outputLines)
-
         # Then read file and calculate the minimum angle rotation from matrixTaSolution info
-        taInfoList = np.loadtxt(taSolutionLog)
-        matrixTaSolution = np.array(taInfoList)
+        outputLinesAsMatrix = []
+        for line in outputLines:
+            vector = line.split()
+            vector = [float(i) for i in vector]
+            outputLinesAsMatrix.append(vector)
+
+        matrixTaSolution = np.array(outputLinesAsMatrix)
+
+        print(matrixTaSolution)
 
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
 
