@@ -754,7 +754,6 @@ $if (-e ./savework) ./savework
                           % minimumRotation,
                    comments='')
 
-
     def getOutputSetOfTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):
             self.outputSetOfTiltSeries.enableAppend()
