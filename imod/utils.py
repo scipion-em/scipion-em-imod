@@ -319,13 +319,40 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
         # Phase shift estimation has been performed
         if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
-            pass
+            defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
+            defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
+            defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
+            phaseShiftDict =
+
+            # Write IMOD defocus file
+            with open(defocusFilePath, 'w') as f:
+                lines = []
+
+                for index in defocusUDict.keys():
+
+                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                        break
+
+                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # the tilt-image with the highest negative angle)
+                    newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
+                        index,
+                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle(), 2),
+                        float(defocusUDict[index][0]),
+                        float(defocusVDict[index][0]),
+                        float(defocusAngleDict[index][0]),
+                    ))
+
+                    lines = [newLine] + lines
+
+                f.writelines(lines)
 
         # No phase shift estimation has been performed
         else:
 
             # Astigmatism estimation has been performed
-
             if ctfTomoSeries.getFirstItem().hasAstigmatismInfoAsList():
                 defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
                 defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -438,6 +465,22 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
         defocusAngleDict[index] = defocusAngleList
 
     return defocusAngleDict
+
+def generatePhaseShiftDictionary(ctfTomoSeries):
+    """ This method generates a dictionary containing the phase shift estimation information from a ctfTomoSeries
+    object. """
+
+    phaseShiftDict = {}
+
+    for ctfTomo in ctfTomoSeries:
+        phaseShiftList = ctfTomo.getDefocusAngleList()
+        phaseShiftList = phaseShiftList.split(",")
+
+        index = ctfTomo.getIndex().get()
+
+        phaseShiftDict[index] = phaseShiftList
+
+    return phaseShiftDict
 
 
 
