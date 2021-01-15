@@ -269,6 +269,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         paramsTiltAlign = {
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
@@ -329,6 +330,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'localXStretchDefaultGrouping': 7,
             'localSkewOption': 0,
             'localSkewDefaultGrouping': 11,
+            'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
         }
 
         argsTiltAlign = "-ModelFile %(modelFile)s " \
@@ -381,9 +383,15 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-LocalXStretchOption %(localXStretchOption)d " \
                         "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
                         "-LocalSkewOption %(localSkewOption)d " \
-                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d"
+                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
+                        "> %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
+
+        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
+                                    os.path.join(extraPrefix, "taSolution.log"),
+                                    ts.getSize(),
+                                    ts.getSamplingRate())
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -699,6 +707,53 @@ $if (-e ./savework) ./savework
 """
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
+
+    def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
+        """ This method generates a text file containing the TA solution from the tiltalign output log. """
+
+        tableHeader = "deltilt"
+
+        with open(tiltAlignOutputLog, 'r') as fRead:
+            lines = fRead.readlines()
+
+            counts = []
+
+            for index, line in enumerate(lines):
+                if tableHeader in line:
+                    counts.append([index])
+
+        lastApparition = max(counts)[0]
+
+        outputLines = []
+
+        for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
+            outputLines.append(lines[index])
+
+        # First write the matrix info as file
+        with open(taSolutionLog, 'w') as fWrite:
+            fWrite.writelines(outputLines)
+
+        # Then read file and calculate the minimum angle rotation from matrix info
+        taInfoList = np.loadtxt(taSolutionLog)
+        matrix = np.array(taInfoList)
+
+        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrix[:, 2]))
+
+        # Multiply last column by sampling rate in nanometer
+        matrix[:, -1] = matrix[:, -1] * pixelSize / 10
+
+        # Get minimum rotation to write in file
+        minimumRotation = matrix[indexAng][1]
+
+        #Save new matrix info
+        np.savetxt(fname=taSolutionLog,
+                   X=matrix,
+                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
+                   header=" At minimum tilt, rotation angle is %.2f\n\n"
+                          " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
+                          % minimumRotation,
+                   comments='')
+
 
     def getOutputSetOfTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):
