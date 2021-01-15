@@ -711,7 +711,7 @@ $if (-e ./savework) ./savework
     def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
         """ This method generates a text file containing the TA solution from the tiltalign output log. """
 
-        tableHeader = "deltilt"
+        searchingPassword = "deltilt"
 
         with open(tiltAlignOutputLog, 'r') as fRead:
             lines = fRead.readlines()
@@ -719,7 +719,7 @@ $if (-e ./savework) ./savework
             counts = []
 
             for index, line in enumerate(lines):
-                if tableHeader in line:
+                if searchingPassword in line:
                     counts.append([index])
 
         lastApparition = max(counts)[0]
@@ -729,25 +729,25 @@ $if (-e ./savework) ./savework
         for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
             outputLines.append(lines[index])
 
-        # First write the matrix info as file
+        # First write the matrixTaSolution info as file
         with open(taSolutionLog, 'w') as fWrite:
             fWrite.writelines(outputLines)
 
-        # Then read file and calculate the minimum angle rotation from matrix info
+        # Then read file and calculate the minimum angle rotation from matrixTaSolution info
         taInfoList = np.loadtxt(taSolutionLog)
-        matrix = np.array(taInfoList)
+        matrixTaSolution = np.array(taInfoList)
 
-        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrix[:, 2]))
+        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
 
         # Multiply last column by sampling rate in nanometer
-        matrix[:, -1] = matrix[:, -1] * pixelSize / 10
+        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
 
         # Get minimum rotation to write in file
-        minimumRotation = matrix[indexAng][1]
+        minimumRotation = matrixTaSolution[indexAng][1]
 
-        #Save new matrix info
+        #Save new matrixTaSolution info
         np.savetxt(fname=taSolutionLog,
-                   X=matrix,
+                   X=matrixTaSolution,
                    fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
                    header=" At minimum tilt, rotation angle is %.2f\n\n"
                           " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
