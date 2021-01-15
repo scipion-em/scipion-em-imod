@@ -322,7 +322,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
             defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
-            phaseShiftDict =
+            phaseShiftDict = generatePhaseShiftDictionary(ctfTomoSeries)
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
@@ -335,7 +335,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
-                    newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
+                    newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
@@ -343,6 +343,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         float(defocusUDict[index][0]),
                         float(defocusVDict[index][0]),
                         float(defocusAngleDict[index][0]),
+                        float(phaseShiftDict[index][0])
                     ))
 
                     lines = [newLine] + lines
@@ -473,7 +474,7 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
     phaseShiftDict = {}
 
     for ctfTomo in ctfTomoSeries:
-        phaseShiftList = ctfTomo.getDefocusAngleList()
+        phaseShiftList = ctfTomo.getPhaseShiftList()
         phaseShiftList = phaseShiftList.split(",")
 
         index = ctfTomo.getIndex().get()
