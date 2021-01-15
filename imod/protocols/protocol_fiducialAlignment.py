@@ -742,7 +742,7 @@ $if (-e ./savework) ./savework
         # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
 
-        # Multiply last column by sampling rate in nanometer
+        # Multiply last column by the sampling rate in nanometer
         matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
 
         # Get minimum rotation to write in file
