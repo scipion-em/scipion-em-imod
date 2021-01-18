@@ -47,3 +47,21 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series',
                       help='Input set of tomograms from which gold beads will be picked.')
+
+        form.addParam('fiducialDiameter',
+                      params.IntParam,
+                      label='Fiducial diameter (pixels)',
+                      default='10',
+                      help="Diameter of beads in pixels.")
+
+        form.addParam('beadsColor',
+                      params.EnumParam,
+                      choices=['Dark', 'Light'],
+                      label='Bead contrast',
+                      default='0',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help="Contrast of the gold beads:\n"
+                           "-Dark: beads are dark on light background.\n"
+                           "-Light: beads are light on dark background.")
+        # options...
+
