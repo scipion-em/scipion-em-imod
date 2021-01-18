@@ -503,7 +503,3 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
         phaseShiftDict[index] = phaseShiftList
 
     return phaseShiftDict
-
-
-
-
