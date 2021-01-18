@@ -93,16 +93,16 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self.inputSetOfTiltSeries = self.protCtfEstimation.get().outputCtfEstimatedSetOfTiltSeries
-        for ts in self.inputSetOfTiltSeries:
+        for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('ctfCorrection', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries[tsObjId]
-        ctfTomoSeries = self.inputSetOfCtfTomoSeries[tsObjId]
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        print(self.inputSetOfCtfTomoSeries.get()[tsObjId].getTiltSeries())
+        ctfTomoSeries = self.inputSetOfCtfTomoSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -111,11 +111,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].applyTransform(outputTsFileName)
+        ts.applyTransform(outputTsFileName)
 
         """Generate angle file"""
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].generateTltFile(angleFilePath)
+        ts.generateTltFile(angleFilePath)
 
         """Generate defocus file"""
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
@@ -214,7 +214,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         summary = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
-                           % (self.protCtfEstimation.get().outputCtfEstimatedSetOfTiltSeries.getSize(),
+                           % (self.inputSetOfCtfTomoSeries.get().getSize(),
                               self.outputCtfCorrectedSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
