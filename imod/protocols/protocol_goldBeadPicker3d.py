@@ -24,7 +24,25 @@
 # *
 # **************************************************************************
 
+import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 
 class ProtGlodBeadPicker3d(EMProtocol, ProtTomoBase):
+    """
+    3-dimensional gold bead picker using the IMOD procedure.
+    More info:
+        https://bio3d.colorado.edu/imod/doc/man/findbeads3d.html
+    """
+
+    _label = 'Gold bead picker 3D'
+
+# -------------------------- DEFINE param functions -----------------------
+    def _defineParams(self, form):
+        form.addSection('Input')
+        form.addParam('inputSetOfTomograms',
+                      params.PointerParam,
+                      pointerClass='SetOfTomograms',
+                      important=True,
+                      label='Input set of tilt-series',
+                      help='Input set of tomograms from which gold beads will be picked.')
