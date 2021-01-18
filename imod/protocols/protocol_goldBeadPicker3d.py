@@ -28,7 +28,7 @@ import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 
-class ProtGlodBeadPicker3d(EMProtocol, ProtTomoBase):
+class ProtImodGlodBeadPicker3d(EMProtocol, ProtTomoBase):
     """
     3-dimensional gold bead picker using the IMOD procedure.
     More info:
