@@ -51,7 +51,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       label="Input tilt-series",
-                      pointerClass='SetOfCTFTomoSeries',
+                      pointerClass='SetOfTiltSeries',
                       help='Select the set of tilt-series to be CTF corrected.')
 
         form.addParam('inputSetOfCtfTomoSeries',
@@ -201,14 +201,6 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         return self.outputCtfCorrectedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
-    def _validate(self):
-        validateMsgs = []
-
-        if not hasattr(self.protCtfEstimation.get(), 'outputCtfEstimatedSetOfTiltSeries'):
-            validateMsgs = "You need to generate an estimation of the CTF to calculate its correction"
-
-        return validateMsgs
-
     def _summary(self):
         summary = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
