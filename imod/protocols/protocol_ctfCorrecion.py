@@ -201,6 +201,14 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         return self.outputCtfCorrectedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+
+        if self.inputSetOfTiltSeries.get().getSize() != self.inputSetOfCtfTomoSeries.get().getSize():
+            validateMsgs = "Input set of tilt-series and input set of CTF tomo estimations must contain the same " \
+                           "number of elements."
+
+        return validateMsgs
+
     def _summary(self):
         summary = []
         if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
