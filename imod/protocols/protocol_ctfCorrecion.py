@@ -202,10 +202,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
+        validateMsgs = []
 
         if self.inputSetOfTiltSeries.get().getSize() != self.inputSetOfCtfTomoSeries.get().getSize():
-            validateMsgs = "Input set of tilt-series and input set of CTF tomo estimations must contain the same " \
-                           "number of elements."
+            validateMsgs.append("Input set of tilt-series and input set of CTF tomo estimations must contain the "
+                                "same number of elements.")
 
         return validateMsgs
 
