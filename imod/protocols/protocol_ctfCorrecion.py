@@ -46,11 +46,18 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
-        form.addParam('protCtfEstimation',
+
+        form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
-                      label="IMOD CTF estimation run",
-                      pointerClass='ProtImodCtfEstimation',
-                      help='Select the previous IMOD CTF estimation run.')
+                      label="Input tilt-series",
+                      pointerClass='SetOfCTFTomoSeries',
+                      help='Select the set of tilt-series to be CTF corrected.')
+
+        form.addParam('inputSetOfCtfTomoSeries',
+                      params.PointerParam,
+                      label="input tilt-series CTF estimation",
+                      pointerClass='SetOfCTFTomoSeries',
+                      help='Select the CTF estimation from the set of tilt-series.')
 
         form.addParam('interpolationWidth',
                       params.IntParam,
@@ -107,6 +114,8 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         """Generate angle file"""
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].generateTltFile(angleFilePath)
+
+
 
     def ctfCorrection(self, tsObjId):
         """Run ctfphaseflip IMOD program"""
