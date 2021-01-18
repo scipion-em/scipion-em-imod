@@ -32,6 +32,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from imod import utils
 
 
 class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
@@ -101,6 +102,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries[tsObjId]
+        ctfTomoSeries = self.inputSetOfCtfTomoSeries[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -115,7 +117,9 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
         self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].generateTltFile(angleFilePath)
 
-
+        """Generate defocus file"""
+        defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
+        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
 
     def ctfCorrection(self, tsObjId):
         """Run ctfphaseflip IMOD program"""
