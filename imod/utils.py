@@ -158,10 +158,12 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
     relative to the lower-left corner of the first section in the file, in units scaled by the pixel size.
     From IMOD documentation:
         https://bio3d.colorado.edu/imod/doc/man/alterheader.html"""
+
     coorList = []
 
     with open(coordFilePath) as f:
         coorText = f.read().splitlines()
+
         for line in coorText:
             vector = line.split()
             coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
