@@ -77,6 +77,7 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('pickGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('convertModelToCoordinatesStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetStep')
 
     # --------------------------- STEPS functions ----------------------------
     def pickGoldBeadsStep(self, tsObjId):
@@ -145,6 +146,11 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
             outputSetOfCoordinates3D.update(newCoord3D)
 
         outputSetOfCoordinates3D.write()
+
+        self._store()
+
+    def closeOutputSetStep(self):
+        self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
