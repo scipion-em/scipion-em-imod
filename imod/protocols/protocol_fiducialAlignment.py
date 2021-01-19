@@ -604,7 +604,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         xDim = ts.getFirstItem().getXDim()
         yDim = ts.getFirstItem().getYDim()
-        coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
+        coordList = utils.format3DCoordinatesList(coordFilePath)
         for element in coordList:
             newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                               y=element[1],
