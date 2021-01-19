@@ -26,9 +26,12 @@
 
 import pyworkflow.protocol.params as params
 from pyworkflow.utils import path
+from pyworkflow.object import Set
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
+import tomo.objects as tomoObj
 from imod import Plugin
+from imod import utils
 
 import os
 
@@ -73,13 +76,13 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTomograms.get():
             self._insertFunctionStep('pickGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('convertModelToCoordinatesStep', ts.getObjId())
-            #self._insertFunctionStep('createOutputStep', ts.getObjId())
+            self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
     def pickGoldBeadsStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
         location = tomo.getLocation()[1]
-        fileName, fileExtension = os.path.splitext(location)
+        fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
         path.makePath(extraPrefix)
@@ -103,10 +106,9 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     def convertModelToCoordinatesStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
         location = tomo.getLocation()[1]
-        fileName, fileExtension = os.path.splitext(location)
+        fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
-        path.makePath(extraPrefix)
 
         """ Run model2point IMOD program """
         paramsModel2Point = {
@@ -118,4 +120,45 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                           "-OutputFile %(outputFile)s " \
 
         Plugin.runImod(self, 'model2point', argsModel2Point % paramsModel2Point)
+
+    def createOutputStep(self, tsObjId):
+        tomo = self.inputSetOfTomograms.get()[tsObjId]
+        location = tomo.getLocation()[1]
+        fileName, _ = os.path.splitext(location)
+
+        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+
+        """ Create the output set of coordinates 3D from gold beads detected """
+        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
+
+        coordFilePath = os.path.join(extraPrefix, "%s.xyz" % os.path.basename(fileName))
+
+        coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
+
+        for element in coordList:
+            newCoord3D = tomoObj.Coordinate3D(x=element[0],
+                                              y=element[1],
+                                              z=element[2])
+            newCoord3D.setVolume(tomo)
+            newCoord3D.setVolId(tsObjId)
+            outputSetOfCoordinates3D.append(newCoord3D)
+            outputSetOfCoordinates3D.update(newCoord3D)
+
+        outputSetOfCoordinates3D.write()
+
+        self._store()
+
+    # --------------------------- UTILS functions ----------------------------
+    def getOutputSetOfCoordinates3Ds(self):
+        if hasattr(self, "outputSetOfCoordinates3D"):
+            self.outputSetOfCoordinates3D.enableAppend()
+        else:
+            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.inputSetOfTomograms.get(),
+                                                                      suffix='LandmarkModel')
+            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTomograms)
+            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+            self._defineSourceRelation(self.inputSetOfTomograms, outputSetOfCoordinates3D)
+        return self.outputSetOfCoordinates3D
 
