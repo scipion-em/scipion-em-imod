@@ -150,12 +150,13 @@ def formatAngleList(tltFilePath):
     return angleList
 
 
-def format3DCoordinatesList(coordFilePath, xDim, yDim):
+def format3DCoordinatesList(coordFilePath):
     """This method takes the IMOD-based fiducial coordinates file path and returns a list containing each coordinate
-    for each fiducial belonging to the tilt-series.
+    for each fiducial belonging to the tilt-series. No coordinates conversion is needed, Scipion model matches with
+    the default IMOD configuration (origin at the bottom lower left corner.
 
-    In IMOD, the origin is defined as the coordinates of the origin
-    relative to the lower-left corner of the first section in the file, in units scaled by the pixel size.
+    In IMOD, the origin is defined as the coordinates of the origin relative to the lower-left corner of the first
+    section in the file, in units scaled by the pixel size.
     From IMOD documentation:
         https://bio3d.colorado.edu/imod/doc/man/alterheader.html"""
 
@@ -166,6 +167,6 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
 
         for line in coorText:
             vector = line.split()
-            coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
+            coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
     return coorList
