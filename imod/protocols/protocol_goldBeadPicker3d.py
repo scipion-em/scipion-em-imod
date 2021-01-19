@@ -95,6 +95,9 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                           "-OutputFile %(outputFile)s " \
                           "-BeadSize %(beadSize)d "
 
+        if self.beadsColor.get() == 1:
+            argsFindbeads3d += "-LightBeads "
+
         Plugin.runImod(self, 'findbeads3d', argsFindbeads3d % paramsFindbeads3d)
 
     def convertModelToCoordinatesStep(self, tsObjId):
