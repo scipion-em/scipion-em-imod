@@ -34,7 +34,9 @@ import numpy as np
 def formatTransformFile(ts, transformFilePath):
     """This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform file in the location indicated"""
+
     tsMatrixTransformList = []
+
     for ti in ts:
         transform = ti.getTransform().getMatrix().flatten()
         transformIMOD = [transform[0],
@@ -44,6 +46,7 @@ def formatTransformFile(ts, transformFilePath):
                          transform[2],
                          transform[5]]
         tsMatrixTransformList.append(transformIMOD)
+
     with open(transformFilePath, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')
         csvW.writerows(tsMatrixTransformList)
@@ -53,11 +56,13 @@ def formatTransformationMatrix(matrixFile):
     """This method takes the IMOD-based transformation matrix file path
     and returns a 3D matrix containing the transformation matrices for each tilt-image
     belonging to the tilt-series"""
+
     with open(matrixFile, "r") as matrix:
         lines = matrix.readlines()
     numberLines = len(lines)
     frameMatrix = np.empty([3, 3, numberLines])
     i = 0
+
     for line in lines:
         values = line.split()
         frameMatrix[0, 0, i] = float(values[0])
@@ -70,6 +75,7 @@ def formatTransformationMatrix(matrixFile):
         frameMatrix[2, 1, i] = 0.0
         frameMatrix[2, 2, i] = 1.0
         i += 1
+
     return frameMatrix
 
 
@@ -77,14 +83,18 @@ def formatFiducialList(fiducialFilePath):
     """This method takes the IMOD-based fiducial model file path and returns a list
     containing the coordinates of each fiducial for each tilt-image belonging to the
     tilt-series"""
+
     fiducialList = []
+
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
+
         for line in fiducialText:
             # Fix IMOD bug: columns merge in coordinates exceed 3 digits
             vector = line.replace('-', ' -').split()
             vector = [round(float(i)) for i in vector]
             fiducialList.append(vector)
+
     return fiducialList
 
 
@@ -93,9 +103,12 @@ def formatFiducialResidList(fiducialFilePath):
     list containing the coordinates and residual values of each fiducial for each
     tilt-image belonging to the tilt-series. Since IMOD establishes a float value for each
     coordinate the are parsed to int"""
+
     fiducialResidList = []
+
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
+
         for line in fiducialText[1:]:
             # Fix IMOD bug: columns merge in coordinates exceed 3 digits
             vector = line.replace('-', ' -').split()
@@ -104,16 +117,20 @@ def formatFiducialResidList(fiducialFilePath):
                                       int(vector[2]),
                                       float(vector[3]),
                                       float(vector[4])])
+
     return fiducialResidList
 
 
 def formatAngleFile(inputTs, angleFilePath):
     """This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
     IMOD-based angle file at the given location"""
+
     angleList = []
+
     for ti in inputTs:
         angleList.append(ti.getTiltAngle())
     angleList.reverse()
+
     with open(angleFilePath, 'w') as f:
         f.writelines("%s\n" % angle for angle in angleList)
 
@@ -121,12 +138,15 @@ def formatAngleFile(inputTs, angleFilePath):
 def formatAngleList(tltFilePath):
     """This method takes the IMOD-based angle file path and returns a list containing
     the angles for each tilt-image belonging to the tilt-series"""
+
     angleList = []
+
     with open(tltFilePath) as f:
         tltText = f.read().splitlines()
         for line in tltText:
             angleList.append(float(line))
     angleList.reverse()
+
     return angleList
 
 
