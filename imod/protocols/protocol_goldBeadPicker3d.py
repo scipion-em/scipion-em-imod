@@ -25,8 +25,12 @@
 # **************************************************************************
 
 import pyworkflow.protocol.params as params
+from pyworkflow.utils import path
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
+from imod import Plugin
+
+import os
 
 
 class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
@@ -48,7 +52,7 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                       label='Input set of tilt-series',
                       help='Input set of tomograms from which gold beads will be picked.')
 
-        form.addParam('fiducialDiameter',
+        form.addParam('beadDiameter',
                       params.IntParam,
                       label='Fiducial diameter (pixels)',
                       default='10',
@@ -63,5 +67,38 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                       help="Contrast of the gold beads:\n"
                            "-Dark: beads are dark on light background.\n"
                            "-Light: beads are light on dark background.")
-        # options...
 
+    # -------------------------- INSERT steps functions ---------------------
+    def _insertAllSteps(self):
+        for ts in self.inputSetOfTomograms.get():
+            self._insertFunctionStep('pickGoldBeadsStep', ts.getObjId())
+            #self._insertFunctionStep('createOutputStep', ts.getObjId())
+
+    # --------------------------- STEPS functions ----------------------------
+    def pickGoldBeadsStep(self, tsObjId):
+        tomo = self.inputSetOfTomograms.get()[tsObjId]
+        location = tomo.getLocation()[1]
+        fileName, fileExtension = os.path.splitext(location)
+
+
+        # FEDE DEBUG ***
+        path.copyFile(location, )
+
+        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        print(extraPrefix)
+        #tmpPrefix = self._getTmpPath(os.path.basename(fileName))
+        path.makePath(extraPrefix)
+        #path.makePath(tmpPrefix)
+
+        """ Run findbeads3d IMOD program """
+        paramsFindbeads3d = {
+            'inputFile': location,
+            'outputFile': os.path.join(extraPrefix, "%s.mod" % os.path.basename(fileName)),
+            'beadSize': self.beadDiameter.get(),
+        }
+
+        argsFindbeads3d = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s " \
+                          "-BeadSize %(beadSize)d "
+
+        Plugin.runImod(self, 'findbeads3d', argsFindbeads3d % paramsFindbeads3d)
