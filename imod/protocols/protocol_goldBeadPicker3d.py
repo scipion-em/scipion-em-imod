@@ -72,6 +72,7 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTomograms.get():
             self._insertFunctionStep('pickGoldBeadsStep', ts.getObjId())
+            self._insertFunctionStep('convertModelToCoordinatesStep', ts.getObjId())
             #self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
@@ -80,15 +81,8 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
         location = tomo.getLocation()[1]
         fileName, fileExtension = os.path.splitext(location)
 
-
-        # FEDE DEBUG ***
-        path.copyFile(location, )
-
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
-        print(extraPrefix)
-        #tmpPrefix = self._getTmpPath(os.path.basename(fileName))
         path.makePath(extraPrefix)
-        #path.makePath(tmpPrefix)
 
         """ Run findbeads3d IMOD program """
         paramsFindbeads3d = {
@@ -102,3 +96,23 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                           "-BeadSize %(beadSize)d "
 
         Plugin.runImod(self, 'findbeads3d', argsFindbeads3d % paramsFindbeads3d)
+
+    def convertModelToCoordinatesStep(self, tsObjId):
+        tomo = self.inputSetOfTomograms.get()[tsObjId]
+        location = tomo.getLocation()[1]
+        fileName, fileExtension = os.path.splitext(location)
+
+        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        path.makePath(extraPrefix)
+
+        """ Run model2point IMOD program """
+        paramsModel2Point = {
+            'inputFile': os.path.join(extraPrefix, "%s.mod" % os.path.basename(fileName)),
+            'outputFile': os.path.join(extraPrefix, "%s.xyz" % os.path.basename(fileName)),
+        }
+
+        argsModel2Point = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s " \
+
+        Plugin.runImod(self, 'model2point', argsModel2Point % paramsModel2Point)
+
