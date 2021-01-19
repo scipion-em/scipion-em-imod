@@ -263,6 +263,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('ctfEstimation', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -394,6 +395,11 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputCtfEstimatedSetOfTiltSeries.update(newTs)
             outputCtfEstimatedSetOfTiltSeries.write()
             self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputCtfEstimatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
+        self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputCtfEstimatedSetOfTiltSeries(self):
