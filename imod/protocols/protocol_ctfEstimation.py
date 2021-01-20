@@ -453,9 +453,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             self._store()
 
-            # FEDE TEST ***
-            utils.generateDefocusIMODFileFromObject(newCTFTomoSeries, self._getExtraPath("outputdefocus_test.txt"))
-
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfCTFTomoSeries(self):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
