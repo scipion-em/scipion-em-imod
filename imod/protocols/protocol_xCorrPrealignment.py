@@ -126,6 +126,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('computeXcorrStep', ts.getObjId())
             if self.computeAlignment.get() == 0:
                 self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -250,6 +251,12 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         outputInterpolatedSetOfTiltSeries.update(newTs)
         outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
