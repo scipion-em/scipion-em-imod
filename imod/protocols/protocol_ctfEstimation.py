@@ -60,7 +60,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         form.addParam('defocusTol',
                       params.FloatParam,
-                      label='Defocus tolerance',
+                      label='Defocus tolerance (nm)',
                       default=200,
                       important=True,
                       help='Defocus tolerance in nanometers defining the center strips. The center strips are taken '
