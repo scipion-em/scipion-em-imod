@@ -314,8 +314,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
     tiltSeries = ctfTomoSeries.getTiltSeries()
 
-    print(tiltSeries)
-
     # Check if there is CTF estimation information as list
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
