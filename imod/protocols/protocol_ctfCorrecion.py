@@ -124,7 +124,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     def ctfCorrection(self, tsObjId):
         """Run ctfphaseflip IMOD program"""
 
-        ts = self.inputSetOfTiltSeries[tsObjId]
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
