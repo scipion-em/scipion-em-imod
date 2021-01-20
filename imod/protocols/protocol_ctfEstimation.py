@@ -385,6 +385,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries = tomoObj.CTFTomoSeries()
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
+            newCTFTomoSeries.setTsId(tsId)
 
             # We need to create now all the attributes of this object in order to append it to the set and be able to
             # update it posteriorly.
@@ -462,7 +463,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = self._createSetOfCTFSeries()
             outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            # outputSetOfCTFTomoSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
