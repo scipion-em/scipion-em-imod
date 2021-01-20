@@ -60,6 +60,19 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
                       pointerClass='SetOfCTFTomoSeries',
                       help='Select the CTF estimation from the set of tilt-series.')
 
+        form.addParam('defocusTol',
+                      params.FloatParam,
+                      label='Defocus tolerance (nm)',
+                      default=200,
+                      important=True,
+                      help='The value introduced must be the same used for CTF estimation in case ti has been '
+                           'performed with IMOD. \n\n'
+                           'Defocus tolerance in nanometers defining the center strips. The center strips are taken '
+                           'from the central region of a view that has defocus difference less than this tolerance. '
+                           'These kind of center strips from all views within AngleRange are considered to have a '
+                           'constant defocus and are used to compute the initial CTF after being further tessellated '
+                           'into tiles.')
+
         form.addParam('interpolationWidth',
                       params.IntParam,
                       label='Interpolation Width',
@@ -122,25 +135,22 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
 
     def ctfCorrection(self, tsObjId):
-        """Run ctfphaseflip IMOD program"""
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        """Run ctfphaseflip IMOD program"""
         paramsCtfPhaseFlip = {
             'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'defocusFile': os.path.join(
-                self.protCtfEstimation.get()._getExtraPath(tsId),
-                self.protCtfEstimation.get().inputSetOfTiltSeries.get()[tsObjId].getFirstItem().parseFileName(extension=".defocus")),
-            'voltage': self.inputSetOfTiltSeries.getAcquisition().getVoltage(),
-            'sphericalAberration': self.inputSetOfTiltSeries.getAcquisition().getSphericalAberration(),
-            'defocusTol': self.protCtfEstimation.get().defocusTol.get(),
-            'pixelSize': self.inputSetOfTiltSeries.getSamplingRate()/10,
-            'amplitudeContrast': self.inputSetOfTiltSeries.getAcquisition().getAmplitudeContrast(),
+            'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
+            'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
+            'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
+            'defocusTol': self.defocusTol.get(),
+            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate()/10,
+            'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
             'interpolationWidth': self.interpolationWidth.get(),
         }
 
@@ -167,7 +177,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     def createOutputStep(self, tsObjId):
         outputCtfCorrectedSetOfTiltSeries = self.getOutputCtfCorrectedSetOfTiltSeries()
 
-        ts = self.inputSetOfTiltSeries[tsObjId]
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
@@ -193,11 +203,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
             self.outputCtfEstimatedSetOfTiltSeries.enableAppend()
         else:
             outputCtfCorrectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfCorrected')
-            outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries)
-            outputCtfCorrectedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.getDim())
+            outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputCtfCorrectedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputCtfCorrectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputCtfCorrectedSetOfTiltSeries=outputCtfCorrectedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputCtfCorrectedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries.get(), outputCtfCorrectedSetOfTiltSeries)
         return self.outputCtfCorrectedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
