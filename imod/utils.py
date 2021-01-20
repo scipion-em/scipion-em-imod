@@ -140,3 +140,15 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
             vector = line.split()
             coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
     return coorList
+
+
+def formatGoldBead3DCoordinatesList(coordFilePath):
+    """This method takes the IMOD-based gold bead 3D coordinates obtained with find3dbeads program file path and
+    returns a list containing each coordinate for each bead belonging to the tilt-series"""
+    coorList = []
+    with open(coordFilePath) as f:
+        coorText = f.read().splitlines()
+        for line in coorText:
+            vector = line.split()
+            coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
+    return coorList
