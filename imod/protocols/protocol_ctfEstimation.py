@@ -243,7 +243,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                  params.EnumParam,
                                  choices=['Yes', 'No'],
                                  default=1,
-                                 label='Search astigmatism',
+                                 label='Search phase shift',
                                  display=params.EnumParam.DISPLAY_HLIST,
                                  help='Search for phase shift when fitting.')
 
@@ -266,11 +266,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         groupCutOnFreq.addParam('maximumCutOnFreq',
                                 params.FloatParam,
+                                default=-1,
                                 label='Maximum astigmatism (um)',
                                 condition='searchCutOnFreq==0',
                                 help='Maximum frequency to test when searching for cut-on frequency, in reciprocal '
                                      'nanometers.  The default is the frequency of the first zero at the expected '
-                                     'defocus and phase shift. To use the default value leave the box empty.')
+                                     'defocus and phase shift. To use the default value set box to -1.')
 
         # groupAstigmatism.addParam('searchAstigmatism',
         #                           params.EnumParam,
@@ -439,7 +440,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         if self.searchCutOnFreq.get() == 0:
 
-            if self.maximumCutOnFreq.get() is None:
+            if self.maximumCutOnFreq.get() == -1:
                 argsCtfPlotter += "-SearchAstigmatism "
 
             else:
