@@ -208,56 +208,126 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                   default=1,
                                   label='Search astigmatism',
                                   display=params.EnumParam.DISPLAY_HLIST,
-                                  help='Search for astigmatism when fitting')
+                                  help='Search for astigmatism when fitting.')
 
-        groupAstigmatism.addParam('findAstigPhaseCutonToggle',
-                                  params.EnumParam,
-                                  choices=['Yes', 'No'],
-                                  default=1,
-                                  label='Find astigmatism, phase shift, and cut-on frequency?',
-                                  display=params.EnumParam.DISPLAY_HLIST,
+        groupAstigmatism.addParam('maximumAstigmatism',
+                                  params.FloatParam,
+                                  default=1.2,
+                                  label='Maximum astigmatism (um)',
                                   condition='searchAstigmatism==0',
-                                  help='Find astigmatism, phase shift, and cut-on frequency')
-
-        groupAstigmatism.addParam('phaseShiftAstigmatism',
-                                  params.IntParam,
-                                  label='Phase shift',
-                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-                                  help='Phase shift for astigmatism analysis.')
-
-        groupAstigmatism.addParam('cutOnFrequencyAstigmatism',
-                                  params.IntParam,
-                                  label='Cut-on frequency',
-                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-                                  help='Cut-on frequency for astigmatism analysis.')
-
-        groupAstigmatism.addParam('minimumViewsAstigmatism',
-                                  params.IntParam,
-                                  default=3,
-                                  label='Minimum views astigmatism',
-                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-                                  help='Minimum views for finding astigmatism.')
-
-        groupAstigmatism.addParam('minimumViewsPhaseShift',
-                                  params.IntParam,
-                                  default=1,
-                                  label='Minimum views phase shift',
-                                  condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-                                  help='Minimum views for finding phase shift.')
+                                  help='Maximum astigmatism, in microns.  During the fitting to wedge spectra, the '
+                                       'defocus is allowed to vary from the global value by more than half of this '
+                                       'amount.')
 
         groupAstigmatism.addParam('numberSectorsAstigmatism',
                                   params.IntParam,
                                   default=36,
                                   label='Number of sectors',
                                   condition='searchAstigmatism==0',
-                                  help='Number of sectors for astigmatism analysis.')
+                                  help='Number of sectors for astigmatism analysis.  A power spectrum is stored '
+                                       'separately for each sector; spectra can then be computed fairly quickly for '
+                                       'wedges of any size that is a multiple of the sector size.  The default is 36, '
+                                       'giving 5 degree sectors.')
 
-        groupAstigmatism.addParam('maximumAstigmatism',
-                                  params.FloatParam,
-                                  default=1.2,
-                                  label='Maximum astigmatism',
+        groupAstigmatism.addParam('minimumViewsAstigmatism',
+                                  params.IntParam,
+                                  default=3,
+                                  label='Minimum views astigmatism',
                                   condition='searchAstigmatism==0',
-                                  help='Maximum astigmatism in microns.')
+                                  help='Minimum number of views for finding astigmatism.')
+
+        groupPhaseShift = form.addGroup('Phase shift settings',
+                                        help='Parameters for phase shift analysis')
+
+        groupPhaseShift.addParam('searchPhaseShift',
+                                 params.EnumParam,
+                                 choices=['Yes', 'No'],
+                                 default=1,
+                                 label='Search astigmatism',
+                                 display=params.EnumParam.DISPLAY_HLIST,
+                                 help='Search for phase shift when fitting.')
+
+        groupPhaseShift.addParam('minimumViewsPhaseShift',
+                                  params.IntParam,
+                                  default=1,
+                                  label='Minimum views phase shift',
+                                  condition='searchPhaseShift==0',
+                                  help='Minimum number of views for finding phase shift.')
+
+        groupCutOnFreq = form.addGroup('Cut-on frequency settings')
+
+        groupCutOnFreq.addParam('searchCutOnFreq',
+                                 params.EnumParam,
+                                 choices=['Yes', 'No'],
+                                 default=1,
+                                 label='Search cut-on frequency',
+                                 display=params.EnumParam.DISPLAY_HLIST,
+                                 help='Search for cut-on frequency when finding phase shift.')
+
+        groupAstigmatism.addParam('maximumCutOnFreq',
+                                  params.FloatParam,
+                                  label='Maximum astigmatism (um)',
+                                  condition='searchAstigmatism==0',
+                                  help='Maximum frequency to test when searching for cut-on frequency, in reciprocal '
+                                       'nanometers.  The default is the frequency of the first zero at the expected '
+                                       'defocus and phase shift.')
+
+        # groupAstigmatism.addParam('searchAstigmatism',
+        #                           params.EnumParam,
+        #                           choices=['Yes', 'No'],
+        #                           default=1,
+        #                           label='Search astigmatism',
+        #                           display=params.EnumParam.DISPLAY_HLIST,
+        #                           help='Search for astigmatism when fitting')
+        #
+        # groupAstigmatism.addParam('findAstigPhaseCutonToggle',
+        #                           params.EnumParam,
+        #                           choices=['Yes', 'No'],
+        #                           default=1,
+        #                           label='Find astigmatism, phase shift, and cut-on frequency?',
+        #                           display=params.EnumParam.DISPLAY_HLIST,
+        #                           condition='searchAstigmatism==0',
+        #                           help='Find astigmatism, phase shift, and cut-on frequency')
+        #
+        # groupAstigmatism.addParam('phaseShiftAstigmatism',
+        #                           params.IntParam,
+        #                           label='Phase shift',
+        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+        #                           help='Phase shift for astigmatism analysis.')
+        #
+        # groupAstigmatism.addParam('cutOnFrequencyAstigmatism',
+        #                           params.IntParam,
+        #                           label='Cut-on frequency',
+        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+        #                           help='Cut-on frequency for astigmatism analysis.')
+        #
+        # groupAstigmatism.addParam('minimumViewsAstigmatism',
+        #                           params.IntParam,
+        #                           default=3,
+        #                           label='Minimum views astigmatism',
+        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+        #                           help='Minimum views for finding astigmatism.')
+        #
+        # groupAstigmatism.addParam('minimumViewsPhaseShift',
+        #                           params.IntParam,
+        #                           default=1,
+        #                           label='Minimum views phase shift',
+        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
+        #                           help='Minimum views for finding phase shift.')
+        #
+        # groupAstigmatism.addParam('numberSectorsAstigmatism',
+        #                           params.IntParam,
+        #                           default=36,
+        #                           label='Number of sectors',
+        #                           condition='searchAstigmatism==0',
+        #                           help='Number of sectors for astigmatism analysis.')
+        #
+        # groupAstigmatism.addParam('maximumAstigmatism',
+        #                           params.FloatParam,
+        #                           default=1.2,
+        #                           label='Maximum astigmatism',
+        #                           condition='searchAstigmatism==0',
+        #                           help='Maximum astigmatism in microns.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -323,7 +393,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
                          "-tileSize %(tileSize)d " \
-
+ \
         if self.startFreq.get() != 0 or self.endFreq.get() != 0:
             paramsCtfPlotter.update({
                 'startFreq': self.startFreq.get(),
@@ -357,7 +427,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             else:
                 argsCtfPlotter += "-SearchAstigmatism " \
-
+ \
             paramsCtfPlotter.update({
                 'numberSectorsAstigmatism': self.numberSectorsAstigmatism.get(),
                 'maximumAstigmatism': self.maximumAstigmatism.get(),
@@ -365,7 +435,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             argsCtfPlotter += "-NumberOfSectors %(numberSectorsAstigmatism)d " \
                               "-MaximumAstigmatism %(maximumAstigmatism)f " \
-
+ \
         if self.interactiveMode.get() == 1:
             argsCtfPlotter += "-SaveAndExit "
 
