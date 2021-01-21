@@ -392,8 +392,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                          "-PSResolution %(psResolution)d " \
                          "-LeftDefTol %(leftDefTol)f " \
                          "-RightDefTol %(rightDefTol)f " \
-                         "-tileSize %(tileSize)d " \
- \
+                         "-tileSize %(tileSize)d "
+
         if self.startFreq.get() != 0 or self.endFreq.get() != 0:
             paramsCtfPlotter.update({
                 'startFreq': self.startFreq.get(),
@@ -413,28 +413,61 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             argsCtfPlotter += "-SkipOnlyForAstigPhase "
 
         if self.searchAstigmatism.get() == 0:
-
-            if self.findAstigPhaseCutonToggle.get() == 0:
-                paramsCtfPlotter.update({
-                    'phaseShiftAstigmatism': self.phaseShiftAstigmatism.get(),
-                    'cutOnFrequencyAstigmatism': self.cutOnFrequencyAstigmatism.get(),
-                    'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get(),
-                    'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get(),
-                })
-
-                argsCtfPlotter += "-FindAstigPhaseCuton 1,%(phaseShiftAstigmatism)d,%(cutOnFrequencyAstigmatism)d " \
-                                  "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
-
-            else:
-                argsCtfPlotter += "-SearchAstigmatism "
-
             paramsCtfPlotter.update({
-                'numberSectorsAstigmatism': self.numberSectorsAstigmatism.get(),
                 'maximumAstigmatism': self.maximumAstigmatism.get(),
+                'numberOfSectors': self.numberSectorsAstigmatism.get(),
+                'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get()
             })
 
-            argsCtfPlotter += "-NumberOfSectors %(numberSectorsAstigmatism)d " \
-                              "-MaximumAstigmatism %(maximumAstigmatism)f "
+            argsCtfPlotter += "-SearchAstigmatism " \
+                              "-MaximumAstigmatism %(maximumAstigmatism)f " \
+                              "-NumberOfSectors %(numberOfSectors)d "
+
+        if self.searchPhaseShift.get() == 0:
+            paramsCtfPlotter.update({
+                'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get()
+            })
+
+            argsCtfPlotter += "-SearchPhaseShift "
+
+        if self.searchAstigmatism.get() == 0 and self.searchPhaseShift.get() == 0:
+            argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
+        elif self.searchAstigmatism.get() == 0:
+            argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,0 "
+        elif self.searchPhaseShift.get() == 0:
+            argsCtfPlotter += "-MinViewsAstigAndPhase 0,%(minimumViewsPhaseShift)d "
+
+        if self.searchCutOnFreq.get() == 0:
+            paramsCtfPlotter.update({
+                'maximumCutOnFreq': self.maximumCutOnFreq.get(),
+            })
+
+            argsCtfPlotter += "-SearchAstigmatism " \
+                              "-MaxCutOnToSearch %(maximumCutOnFreq)f "
+
+                # if self.searchAstigmatism.get() == 0:
+        #
+        #     if self.findAstigPhaseCutonToggle.get() == 0:
+        #         paramsCtfPlotter.update({
+        #             'phaseShiftAstigmatism': self.phaseShiftAstigmatism.get(),
+        #             'cutOnFrequencyAstigmatism': self.cutOnFrequencyAstigmatism.get(),
+        #             'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get(),
+        #             'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get(),
+        #         })
+        #
+        #         argsCtfPlotter += "-FindAstigPhaseCuton 1,%(phaseShiftAstigmatism)d,%(cutOnFrequencyAstigmatism)d " \
+        #                           "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
+        #
+        #     else:
+        #         argsCtfPlotter += "-SearchAstigmatism "
+        #
+        #     paramsCtfPlotter.update({
+        #         'numberSectorsAstigmatism': self.numberSectorsAstigmatism.get(),
+        #         'maximumAstigmatism': self.maximumAstigmatism.get(),
+        #     })
+        #
+        #     argsCtfPlotter += "-NumberOfSectors %(numberSectorsAstigmatism)d " \
+        #                       "-MaximumAstigmatism %(maximumAstigmatism)f "
 
         if self.interactiveMode.get() == 1:
             argsCtfPlotter += "-SaveAndExit "
