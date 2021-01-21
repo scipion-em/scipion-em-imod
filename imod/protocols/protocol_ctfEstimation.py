@@ -441,14 +441,14 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         if self.searchCutOnFreq.get() == 0:
 
             if self.maximumCutOnFreq.get() == -1:
-                argsCtfPlotter += "-SearchAstigmatism "
+                argsCtfPlotter += "-SearchCutonFrequency "
 
             else:
                 paramsCtfPlotter.update({
                     'maximumCutOnFreq': self.maximumCutOnFreq.get(),
                 })
 
-                argsCtfPlotter += "-SearchAstigmatism " \
+                argsCtfPlotter += "-SearchCutonFrequency " \
                                   "-MaxCutOnToSearch %(maximumCutOnFreq)f "
 
                 # if self.searchAstigmatism.get() == 0:
