@@ -382,6 +382,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                         lines = [newLine] + lines
 
+                    lines = ["1\t0\t0.0\t0.0\t0.0\t3"] + lines
+
                     f.writelines(lines)
 
             # No astigmatism estimation has been performed
