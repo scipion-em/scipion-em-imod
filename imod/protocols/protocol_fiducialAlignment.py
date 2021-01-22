@@ -597,13 +597,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         outputSetOfLandmarkModelsNoGaps.write()
 
         """Create the output set of coordinates 3D from the fiducials in the tilt series"""
-        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
+        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds(ts)
 
         coordFilePath = os.path.join(extraPrefix,
                                      ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))
 
-        zDim = ts.getFirstItem().getZDim()
-        coordList = utils.format3DCoordinatesList(coordFilePath, zDim)
+        coordList = utils.format3DCoordinatesList(coordFilePath)
 
         for element in coordList:
             newCoord3D = tomoObj.Coordinate3D(x=element[0],
@@ -615,6 +614,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             outputSetOfCoordinates3D.update(newCoord3D)
         outputSetOfCoordinates3D.write()
         self._store()
+
+        for element in outputSetOfCoordinates3D:
+            print(element.getCoordinateFromOrigin())
 
     def createOutputStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
@@ -750,7 +752,7 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
         return self.outputFiducialModelNoGaps
 
-    def getOutputSetOfCoordinates3Ds(self):
+    def getOutputSetOfCoordinates3Ds(self, ts=None):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.outputSetOfCoordinates3D.enableAppend()
         else:
@@ -758,6 +760,12 @@ $if (-e ./savework) ./savework
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
+
+            # Set 3D coordinates origin
+            xDim = ts.getFirstItem().getXDim()
+            yDim = ts.getFirstItem().getYDim()
+            outputSetOfCoordinates3D.setOriginPosition(-int(xDim/2), -int(yDim/2), 0)
+
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
