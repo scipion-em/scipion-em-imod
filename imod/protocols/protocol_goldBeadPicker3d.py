@@ -82,6 +82,14 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                            'showing up in the smoothed histogram of strengths.  If the program fails to find a '
                            'histogram dip, one strategy is to try raising this value.')
 
+        form.addParam('minSpacing',
+                      params.FloatParam,
+                      label='Minimum spacing',
+                      default=0.9,
+                      help='Minimum spacing between peaks as a fraction of the bead size. When two peaks are closer '
+                           'than this distance apart, the weaker one is eliminated unless the -both option is entered. '
+                           'The default is 0.9.  A value less than 1 is helpful for picking both beads in a pair.')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTomograms.get():
