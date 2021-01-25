@@ -67,9 +67,20 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                       label='Bead contrast',
                       default='0',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help="Contrast of the gold beads:\n"
-                           "-Dark: beads are dark on light background.\n"
-                           "-Light: beads are light on dark background.")
+                      help='Contrast of the gold beads:\n'
+                           '-Dark: beads are dark on light background.\n'
+                           '-Light: beads are light on dark background.')
+
+        form.addParam('minRelativeStrength',
+                      params.FloatParam,
+                      label='Minimum relative Strength',
+                      default=0.05,
+                      help='Minimum relative peak strength for keeping a peak in the analysis.  The square root of the '
+                           'specified value is used for comparing with the square root of peak strength, for '
+                           'compatibility with existing command files. The default is 0.05, which corresponds to a '
+                           'relative square root peak strength of 0.22.  Too many weak peaks can prevent a dip from '
+                           'showing up in the smoothed histogram of strengths.  If the program fails to find a '
+                           'histogram dip, one strategy is to try raising this value.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
