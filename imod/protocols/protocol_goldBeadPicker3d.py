@@ -113,12 +113,14 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
             'outputFile': os.path.join(extraPrefix, "%s.mod" % os.path.basename(fileName)),
             'beadSize': self.beadDiameter.get(),
             'minRelativeStrength': self.minRelativeStrength.get(),
+            'minSpacing': self.minSpacing.get(),
         }
 
         argsFindbeads3d = "-InputFile %(inputFile)s " \
                           "-OutputFile %(outputFile)s " \
                           "-BeadSize %(beadSize)d " \
-                          "-MinRelativeStrength %(minRelativeStrength)f "
+                          "-MinRelativeStrength %(minRelativeStrength)f " \
+                          "-MinSpacing %(minSpacing)d "
 
         if self.beadsColor.get() == 1:
             argsFindbeads3d += "-LightBeads "
