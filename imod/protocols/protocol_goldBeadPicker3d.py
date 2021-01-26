@@ -27,6 +27,7 @@
 import pyworkflow.protocol.params as params
 from pyworkflow.utils import path
 from pyworkflow.object import Set
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
@@ -99,17 +100,24 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
+        allOutputId = []
         for ts in self.inputSetOfTomograms.get():
             pickId = self._insertFunctionStep('pickGoldBeadsStep',
                                               ts.getObjId(),
                                               prerequisites=[])
+
             convertId = self._insertFunctionStep('convertModelToCoordinatesStep',
                                                  ts.getObjId(),
                                                  prerequisites=[pickId])
-            self._insertFunctionStep('createOutputStep',
+
+            outputID = self._insertFunctionStep('createOutputStep',
                                      ts.getObjId(),
                                      prerequisites=[convertId])
-        self._insertFunctionStep('closeOutputSetStep')
+
+            allOutputId.append(outputID)
+
+        self._insertFunctionStep('closeOutputSetStep',
+                                 prerequisites=allOutputId)
 
     # --------------------------- STEPS functions ----------------------------
     def pickGoldBeadsStep(self, tsObjId):
