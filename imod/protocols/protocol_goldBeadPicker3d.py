@@ -95,9 +95,15 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTomograms.get():
-            self._insertFunctionStep('pickGoldBeadsStep', ts.getObjId())
-            self._insertFunctionStep('convertModelToCoordinatesStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
+            pickId = self._insertFunctionStep('pickGoldBeadsStep',
+                                              ts.getObjId(),
+                                              prerequisites=[])
+            convertId = self._insertFunctionStep('convertModelToCoordinatesStep',
+                                                 ts.getObjId(),
+                                                 prerequisites=[pickId])
+            self._insertFunctionStep('createOutputStep',
+                                     ts.getObjId(),
+                                     prerequisites=[convertId])
         self._insertFunctionStep('closeOutputSetStep')
 
     # --------------------------- STEPS functions ----------------------------
