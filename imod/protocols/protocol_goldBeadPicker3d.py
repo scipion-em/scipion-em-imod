@@ -90,6 +90,8 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
                            'than this distance apart, the weaker one is eliminated unless the -both option is entered. '
                            'The default is 0.9.  A value less than 1 is helpful for picking both beads in a pair.')
 
+        form.addParallelSection(threads=4, mpi=1)
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTomograms.get():
