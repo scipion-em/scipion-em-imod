@@ -37,7 +37,7 @@ from imod import utils
 import os
 
 
-class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
+class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     """
     3-dimensional gold bead picker using the IMOD procedure.
     More info:
