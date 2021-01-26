@@ -45,6 +45,11 @@ class ImodProtGoldBeadPicker3d(EMProtocol, ProtTomoBase):
 
     _label = 'Gold bead picker 3D'
 
+    def __init__(self, **args):
+        EMProtocol.__init__(self, **args)
+        ProtTomoBase.__init__(self)
+        self.stepsExecutionMode = STEPS_PARALLEL
+
 # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
