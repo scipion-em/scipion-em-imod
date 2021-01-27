@@ -102,8 +102,8 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialModel', ts.getObjId())
-            self._insertFunctionStep('eraseXrays', ts.getObjId())
+            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
+            self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     def convertInputStep(self, tsObjId):
@@ -117,7 +117,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
-    def generateFiducialModel(self, tsObjId):
+    def generateFiducialModelStep(self, tsObjId):
         # TODO: check si es el landmark model correcto
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -144,7 +144,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
-    def eraseXrays(self, tsObjId):
+    def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
         tsId = ts.getTsId()
