@@ -154,14 +154,14 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'findPeaks': 1,
-            'peakCriterion': 8.0, -
-            'diffCriterion': 6.0, -
+            'peakCriterion': 8.0,
+            'diffCriterion': 6.0,
             'growCriterion': 4,
             'scanCriterion': 3,
-            'maximumRadius': 4.2, -
+            'maximumRadius': 4.2,
             'giantCriterion': 12,
             'extraLargeRadius': 8,
-            'bigDiffCriterion': 19, -
+            'bigDiffCriterion': 19,
             'annulusWidth': 2.0,
             'xyScanSize': 100,
             'edgeExclusionWidth': 4,
