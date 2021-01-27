@@ -222,6 +222,11 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         outputSetOfTiltSeries.write()
         self._store()
 
+    def closeOutputStep(self):
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
+        self._store()
+
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):
