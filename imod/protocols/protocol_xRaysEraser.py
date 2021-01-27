@@ -104,6 +104,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModel', ts.getObjId())
             self._insertFunctionStep('eraseXrays', ts.getObjId())
+            self._insertFunctionStep('createOutputStep', ts.getObjId())
 
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -189,3 +190,27 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                         "-PolynomialOrder %()d "
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+
+    def createOutputStep(self, tsObjId):
+        # ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        # tsId = ts.getTsId()
+        # extraPrefix = self._getExtraPath(tsId)
+        #
+        # outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        # newTs = tomoObj.TiltSeries(tsId=tsId)
+        # newTs.copyInfo(ts)
+        # outputSetOfTiltSeries.append(newTs)
+        #
+        # for index, ti in enumerate(ts):
+        #     newTi = tomoObj.TiltImage()
+        #     newTi.copyInfo(ti, copyId=True)
+        #     newTi.setLocation(ti.getLocation())
+        #
+        #     newTs.append(newTi)
+        #
+        # newTs.write(properties=False)
+        #
+        # outputSetOfTiltSeries.update(newTs)
+        # outputSetOfTiltSeries.write()
+        #
+        # self._store()
