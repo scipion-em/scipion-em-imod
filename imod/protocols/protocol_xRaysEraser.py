@@ -25,6 +25,7 @@
 # **************************************************************************
 
 from pwem.protocols import EMProtocol
+import pyworkflow.protocol.params as params
 from tomo.protocols import ProtTomoBase
 
 
@@ -39,3 +40,16 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
+
+        # -------------------------- DEFINE param functions -----------------------
+
+    def _defineParams(self, form):
+        form.addSection('Input')
+        form.addParam('inputSetOfLandmarkModels',
+                      params.PointerParam,
+                      pointerClass='SetOfLandmarkModels',
+                      important=True,
+                      label='Input set of tilt-series',
+                      help='Input set of landmark models containing the location of the gold beads through the series')
+
+    # -------------------------- INSERT steps functions ---------------------
