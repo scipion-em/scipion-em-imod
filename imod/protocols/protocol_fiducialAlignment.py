@@ -653,15 +653,19 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         """Create the output set of landmark models with gaps"""
         outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
 
+        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+                                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
+
         fiducialModelGapPath = os.path.join(extraPrefix,
                                             ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
 
         landmarkModelGapsResidPath = os.path.join(extraPrefix,
                                                   ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+
         fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
         landmarkModelGaps = LandmarkModel(tsId=tsId,
-                                          fileName=landmarkModelGapsResidPath,
+                                          fileName=landmarkModelNoGapsFilePath,
                                           modelName=fiducialModelGapPath)
 
         prevTiltIm = 0
@@ -902,17 +906,16 @@ $if (-e ./savework) ./savework
 
         lastApparition = max(counts)[0]
 
-        outputLines = []
-
-        # Take only the lines that compose the table containing the ta solution info
-        for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
-            outputLines.append(lines[index])
-
-        # Convert lines into numpy array for posterior operation
         outputLinesAsMatrix = []
-        for line in outputLines:
-            vector = line.split()
+
+        # Take only the lines that compose the table containing the ta solution info (until blank line)
+        # Convert lines into numpy array for posterior operation
+
+        for index in range(lastApparition + 1, lastApparition + numberOfTiltImages):
+            vector = lines[index].split()
             vector = [float(i) for i in vector]
+            if int(vector[0]) == numberOfTiltImages:
+                break
             outputLinesAsMatrix.append(vector)
 
         matrixTaSolution = np.array(outputLinesAsMatrix)
