@@ -63,6 +63,14 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       label='Input set of tilt-series',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
+        form.addParam('peakCriterion',
+                      params.FloatParam,
+                      default=8.0,
+                      label='Peak criterion',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 10 '
+                           'SDs)')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
