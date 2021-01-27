@@ -67,7 +67,8 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('generateFiducialModel', ts.getObjId())
+            self._insertFunctionStep('eraseXrays', ts.getObjId())
 
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -88,8 +89,10 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        landmarkTextFilePath = os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId())
-        landmarkModelPath = os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId())
+        landmarkTextFilePath = os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
+        landmarkModelPath = os.path.join(extraPrefix,
+                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod."))
 
         # Generate the IMOD file containing the information from the landmark model
         utils.generateIMODFiducialTextFile(landmarkModel=lm,
@@ -105,21 +108,49 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
-        """
-        ccderaser -input [serie tilt] 
-        -output [serie tilt sin X-rays] 
-        -FindPeaks 1 -PeakCriterion 8.0 
-        -DiffCriterion 6.0 
-        -GrowCriterion 4 
-        -ScanCriterion 3 
-        -MaximumRadius 4.2 
-        -GiantCriterion 12 
-        -ExtraLargeRadius 8 
-        -BigDiffCriterion 19 
-        -AnnulusWidth 2.0 
-        -XYScanSize 100 
-        -EdgeExclusionWidth 4 
-        -PointModel [fid model con los picos seleccionados, mod extensión] 
-        -BorderSize 2 
-        -PolynomialOrder 2 
-        """
+    def eraseXrays(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
+        paramsCcderaser = {
+            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'findPeaks': 1,
+            'peakCriterion': 8.0, -
+            'diffCriterion': 6.0, -
+            'growCriterion': 4,
+            'scanCriterion': 3,
+            'maximumRadius': 4.2, -
+            'giantCriterion': 12,
+            'extraLargeRadius': 8,
+            'bigDiffCriterion': 19, -
+            'annulusWidth': 2.0,
+            'xyScanSize': 100,
+            'edgeExclusionWidth': 4,
+            'pointModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod.")),
+            'borderSize': 2,
+            'polynomialOrder': 2,
+        }
+
+        argsCcderaser = "-InputFile %()s " \
+                        "-OutputFile %()s " \
+                        "-FindPeaks %()d " \
+                        "-PeakCriterion %()f " \
+                        "-DiffCriterion %()f " \
+                        "-GrowCriterion %()d " \
+                        "-ScanCriterion %()d " \
+                        "-MaximumRadius %()f " \
+                        "-GiantCriterion %()d " \
+                        "-ExtraLargeRadius %()d " \
+                        "-BigDiffCriterion %()d " \
+                        "-AnnulusWidth %()f " \
+                        "-XYScanSize %()d " \
+                        "-EdgeExclusionWidth %()d " \
+                        "-PointModel %()s " \
+                        "-BorderSize %()d " \
+                        "-PolynomialOrder %()d "
+
+        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
