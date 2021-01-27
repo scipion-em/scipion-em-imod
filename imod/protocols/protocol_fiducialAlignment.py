@@ -660,7 +660,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                                   ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-        landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsResidPath, fiducialModelGapPath)
+        landmarkModelGaps = LandmarkModel(tsId=tsId,
+                                          fileName=landmarkModelGapsResidPath,
+                                          modelName=fiducialModelGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -696,7 +698,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                                     ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
-        landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+        landmarkModelNoGaps = LandmarkModel(tsId=tsId,
+                                            fileName=landmarkModelNoGapsFilePath,
+                                            modelName=fiducialModelNoGapPath)
 
         prevTiltIm = 0
         chainId = 0
