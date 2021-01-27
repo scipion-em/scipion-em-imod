@@ -519,27 +519,27 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        paramsGapPoint2Model = {
+        paramsGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
         }
-        argsGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsGapModel2Point = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
-        paramsNoGapPoint2Model = {
+        paramsNoGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
         }
-        argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsNoGapModel2Point = "-InputFile %(inputFile)s " \
                                "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
