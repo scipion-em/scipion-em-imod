@@ -86,6 +86,18 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
 
+        form.addParam('bigDiffCriterion',
+                      params.Integer,
+                      default=19,
+                      label='Big difference criterion',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='An extra-large peak will be erased only if the value for the maximum difference between '
+                           'adjacent pixels, averaged over the most extreme one-fourth of the pixels in the patch, '
+                           'exceeds this criterion, evaluated as the number of SDs above the mean absolute difference '
+                           'between adjacent pixels in the scan area.  The default is 19.  This high a value is needed '
+                           'to prevent gold erasure on low-noise data sets with small gold particles, and a lower '
+                           'value may be needed to make extra-large peak removal useful.')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
