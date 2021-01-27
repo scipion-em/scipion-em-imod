@@ -30,6 +30,7 @@ import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from tomo.protocols import ProtTomoBase
 import imod.utils as utils
+from imod import Plugin
 
 
 class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
@@ -48,6 +49,13 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
     def _defineParams(self, form):
         form.addSection('Input')
+
+        form.addParam('inputSetOfTiltSeries',
+                      params.PointerParam,
+                      pointerClass='SetOfTiltSeries',
+                      important=True,
+                      label='Input set of tilt-series.')
+
         form.addParam('inputSetOfLandmarkModels',
                       params.PointerParam,
                       pointerClass='SetOfLandmarkModels',
@@ -57,14 +65,61 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        for lm in self.inputSetOfLandmarkModels.get():
-            self._insertFunctionStep('convertInputStep', lm.getObjId())
+        for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
 
     def convertInputStep(self, tsObjId):
-        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
-        tsId = lm.getTsId()
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
         tmpPrefix = self._getTmpPath(tsId)
-        utils.generateIMODFiducialTextFile(lm,
-                                           os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId()))
+        path.makePath(extraPrefix)
+
+        """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        ts.applyTransform(outputTsFileName)
+
+    def generateFiducialModel(self, tsObjId):
+        # TODO: check si es el landmark model correcto
+        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        landmarkTextFilePath = os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId())
+        landmarkModelPath = os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId())
+
+        # Generate the IMOD file containing the information from the landmark model
+        utils.generateIMODFiducialTextFile(landmarkModel=lm,
+                                           outputFilePath=landmarkTextFilePath)
+
+        # Convert IMOD file into IMOD model
+        paramsPoint2Model = {
+            'inputFile': landmarkTextFilePath,
+            'outputFile': landmarkModelPath,
+        }
+        argsPoint2Model = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s"
+
+        Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
+
+        """
+        ccderaser -input [serie tilt] 
+        -output [serie tilt sin X-rays] 
+        -FindPeaks 1 -PeakCriterion 8.0 
+        -DiffCriterion 6.0 
+        -GrowCriterion 4 
+        -ScanCriterion 3 
+        -MaximumRadius 4.2 
+        -GiantCriterion 12 
+        -ExtraLargeRadius 8 
+        -BigDiffCriterion 19 
+        -AnnulusWidth 2.0 
+        -XYScanSize 100 
+        -EdgeExclusionWidth 4 
+        -PointModel [fid model con los picos seleccionados, mod extensión] 
+        -BorderSize 2 
+        -PolynomialOrder 2 
+        """
