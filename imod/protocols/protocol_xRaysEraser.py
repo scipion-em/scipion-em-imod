@@ -53,3 +53,13 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
     # -------------------------- INSERT steps functions ---------------------
+    def _insertAllSteps(self):
+        for lm in self.inputSetOfLandmarkModels.get():
+            self._insertFunctionStep('convertInputStep', lm.getObjId())
+
+    def convertInputStep(self, tsObjId):
+        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
+        tsId = lm.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        print(lm.retrieveInfoTable())
