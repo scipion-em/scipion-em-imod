@@ -24,9 +24,12 @@
 # *
 # **************************************************************************
 
+import os
 from pwem.protocols import EMProtocol
+import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from tomo.protocols import ProtTomoBase
+import imod.utils as utils
 
 
 class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
@@ -61,5 +64,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
         tsId = lm.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
         tmpPrefix = self._getTmpPath(tsId)
-        print(lm.retrieveInfoTable())
+        utils.generateIMODFiducialTextFile(lm,
+                                           os.path.join(extraPrefix, "%s_fid.txt" % lm.getTsId()))
