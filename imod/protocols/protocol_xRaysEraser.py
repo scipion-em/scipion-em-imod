@@ -28,7 +28,9 @@ import os
 from pwem.protocols import EMProtocol
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
+from pyworkflow.object import Set
 from tomo.protocols import ProtTomoBase
+import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
 
@@ -139,6 +141,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             'inputFile': landmarkTextFilePath,
             'outputFile': landmarkModelPath,
         }
+
         argsPoint2Model = "-InputFile %(inputFile)s " \
                           "-OutputFile %(outputFile)s"
 
@@ -192,25 +195,42 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        # ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        # tsId = ts.getTsId()
-        # extraPrefix = self._getExtraPath(tsId)
-        #
-        # outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-        # newTs = tomoObj.TiltSeries(tsId=tsId)
-        # newTs.copyInfo(ts)
-        # outputSetOfTiltSeries.append(newTs)
-        #
-        # for index, ti in enumerate(ts):
-        #     newTi = tomoObj.TiltImage()
-        #     newTi.copyInfo(ti, copyId=True)
-        #     newTi.setLocation(ti.getLocation())
-        #
-        #     newTs.append(newTi)
-        #
-        # newTs.write(properties=False)
-        #
-        # outputSetOfTiltSeries.update(newTs)
-        # outputSetOfTiltSeries.write()
-        #
-        # self._store()
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+
+        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
+
+        outputSetOfTiltSeries.append(newTs)
+
+        for index, tiltImage in enumerate(ts):
+            newTi = tomoObj.TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setLocation(
+                index + 1,
+                os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+            )
+            newTs.append(newTi)
+
+        newTs.write(properties=False)
+
+        outputSetOfTiltSeries.update(newTs)
+        outputSetOfTiltSeries.write()
+        self._store()
+
+    # --------------------------- UTILS functions ----------------------------
+    def getOutputSetOfTiltSeries(self):
+        if hasattr(self, "outputSetOfTiltSeries"):
+            self.outputSetOfTiltSeries.enableAppend()
+        else:
+            outputSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+        return self.outputSetOfTiltSeries
