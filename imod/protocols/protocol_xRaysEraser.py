@@ -71,6 +71,16 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 10 '
                            'SDs)')
 
+        form.addParam('diffCriterion',
+                      params.FloatParam,
+                      default=6.0,
+                      label='Difference criterion',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Criterion # of SDs above mean pixel-to-pixel difference for erasing a peak based on '
+                           'differences (the default is 10 SDs).')
+
+
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
