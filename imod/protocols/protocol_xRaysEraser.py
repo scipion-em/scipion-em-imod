@@ -79,7 +79,12 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       help='Criterion # of SDs above mean pixel-to-pixel difference for erasing a peak based on '
                            'differences (the default is 10 SDs).')
 
-
+        form.addParam('maximumRadius',
+                      params.FloatParam,
+                      default=4.2,
+                      label='Maximum radius',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
