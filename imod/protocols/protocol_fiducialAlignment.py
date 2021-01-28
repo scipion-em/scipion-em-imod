@@ -911,14 +911,18 @@ $if (-e ./savework) ./savework
         # Take only the lines that compose the table containing the ta solution info (until blank line)
         # Convert lines into numpy array for posterior operation
 
-        for index in range(lastApparition + 1, lastApparition + numberOfTiltImages):
+        index = lastApparition + 1
+        while True:
             vector = lines[index].split()
             vector = [float(i) for i in vector]
+            outputLinesAsMatrix.append(vector)
             if int(vector[0]) == numberOfTiltImages:
                 break
-            outputLinesAsMatrix.append(vector)
+            index += 1
 
+        print(outputLinesAsMatrix)
         matrixTaSolution = np.array(outputLinesAsMatrix)
+        print(matrixTaSolution)
 
         # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
