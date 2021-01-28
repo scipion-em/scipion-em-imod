@@ -115,6 +115,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(extraPrefix)
+        path.makePath(tmpPrefix)
 
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
@@ -131,7 +132,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         landmarkTextFilePath = os.path.join(extraPrefix,
                                             ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
         landmarkModelPath = os.path.join(extraPrefix,
-                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod."))
+                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod"))
 
         # Generate the IMOD file containing the information from the landmark model
         utils.generateIMODFiducialTextFile(landmarkModel=lm,
@@ -170,28 +171,28 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             'annulusWidth': 2.0,
             'xyScanSize': 100,
             'edgeExclusionWidth': 4,
-            'pointModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod.")),
+            'pointModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
             'borderSize': 2,
             'polynomialOrder': 2,
         }
 
-        argsCcderaser = "-InputFile %()s " \
-                        "-OutputFile %()s " \
-                        "-FindPeaks %()d " \
-                        "-PeakCriterion %()f " \
-                        "-DiffCriterion %()f " \
-                        "-GrowCriterion %()d " \
-                        "-ScanCriterion %()d " \
-                        "-MaximumRadius %()f " \
-                        "-GiantCriterion %()d " \
-                        "-ExtraLargeRadius %()d " \
-                        "-BigDiffCriterion %()d " \
-                        "-AnnulusWidth %()f " \
-                        "-XYScanSize %()d " \
-                        "-EdgeExclusionWidth %()d " \
-                        "-PointModel %()s " \
-                        "-BorderSize %()d " \
-                        "-PolynomialOrder %()d "
+        argsCcderaser = "-InputFile %(input)s " \
+                        "-OutputFile %(output)s " \
+                        "-FindPeaks %(findPeaks)d " \
+                        "-PeakCriterion %(peakCriterion)f " \
+                        "-DiffCriterion %(diffCriterion)f " \
+                        "-GrowCriterion %(growCriterion)d " \
+                        "-ScanCriterion %(scanCriterion)d " \
+                        "-MaximumRadius %(maximumRadius)f " \
+                        "-GiantCriterion %(giantCriterion)d " \
+                        "-ExtraLargeRadius %(extraLargeRadius)d " \
+                        "-BigDiffCriterion %(bigDiffCriterion)d " \
+                        "-AnnulusWidth %(annulusWidth)f " \
+                        "-XYScanSize %(xyScanSize)d " \
+                        "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
+                        "-PointModel %(pointModel)s " \
+                        "-BorderSize %(borderSize)d " \
+                        "-PolynomialOrder %(polynomialOrder)d "
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
