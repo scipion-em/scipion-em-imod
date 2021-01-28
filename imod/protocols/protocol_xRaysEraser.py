@@ -107,7 +107,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputStep')
 
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -197,40 +197,35 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfXraysErasedTiltSeries()
 
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-
-        outputSetOfTiltSeries.append(newTs)
+        outputXraysErasedSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(
-                index + 1,
-                os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
-            )
+            newTi.setLocation(index + 1,
+                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
         newTs.write(properties=False)
-
-        outputSetOfTiltSeries.update(newTs)
-        outputSetOfTiltSeries.write()
+        outputXraysErasedSetOfTiltSeries.update(newTs)
+        outputXraysErasedSetOfTiltSeries.write()
         self._store()
 
     def closeOutputStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputSetOfXraysErasedTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfTiltSeries(self):
+    def getOutputSetOfXraysErasedTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):
             self.outputSetOfTiltSeries.enableAppend()
         else:
