@@ -62,7 +62,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfLandmarkModels',
                       important=True,
-                      label='Input set of tilt-series',
+                      label='Input set of landmark models',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
         form.addParam('peakCriterion',
@@ -89,7 +89,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
 
         form.addParam('bigDiffCriterion',
-                      params.Integer,
+                      params.IntParam,
                       default=19,
                       label='Big difference criterion',
                       expertLevel=params.LEVEL_ADVANCED,
@@ -107,6 +107,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputStep', ts.getObjId())
 
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
