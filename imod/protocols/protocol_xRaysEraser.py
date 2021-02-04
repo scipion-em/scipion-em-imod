@@ -143,15 +143,15 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         argsCcderaser = "-InputFile %(input)s " \
                         "-OutputFile %(output)s " \
                         "-FindPeaks %(findPeaks)d " \
-                        "-PeakCriterion %(peakCriterion)f " \
-                        "-DiffCriterion %(diffCriterion)f " \
+                        "-PeakCriterion %(peakCriterion).2f " \
+                        "-DiffCriterion %(diffCriterion).2f " \
                         "-GrowCriterion %(growCriterion)d " \
                         "-ScanCriterion %(scanCriterion)d " \
-                        "-MaximumRadius %(maximumRadius)f " \
+                        "-MaximumRadius %(maximumRadius).2f " \
                         "-GiantCriterion %(giantCriterion)d " \
                         "-ExtraLargeRadius %(extraLargeRadius)d " \
                         "-BigDiffCriterion %(bigDiffCriterion)d " \
-                        "-AnnulusWidth %(annulusWidth)f " \
+                        "-AnnulusWidth %(annulusWidth).2f " \
                         "-XYScanSize %(xyScanSize)d " \
                         "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
                         "-BorderSize %(borderSize)d " \
