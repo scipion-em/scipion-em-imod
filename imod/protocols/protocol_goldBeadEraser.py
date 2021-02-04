@@ -124,23 +124,12 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCcderaser = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'findPeaks': 1,
-            'peakCriterion': self.peakCriterion.get(),
-            'diffCriterion': self.diffCriterion.get(),
-            'growCriterion': 4,
-            'scanCriterion': 3,
-            'maximumRadius': self.maximumRadius.get(),
-            'giantCriterion': 12,
-            'extraLargeRadius': 8,
-            'bigDiffCriterion': self.bigDiffCriterion.get(),
-            'annulusWidth': 2.0,
-            'xyScanSize': 100,
-            'edgeExclusionWidth': 4,
-            'pointModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
-            'borderSize': 2,
-            'polynomialOrder': 2,
+            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
         }
 
         argsCcderaser = "-InputFile %(input)s " \
