@@ -67,9 +67,8 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
         form.addParam('betterRadius',
                       params.IntParam,
-                      default=50,
+                      default=10,
                       label='Bead diameter (pixels)',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help="For circle objects, this entry specifies a radius to use for points without an individual "
                            "point size instead of the object's default sphere radius.  This entry is floating point "
                            "and can be used to overcome the limitations of having an integer default sphere radius. If "
