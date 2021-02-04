@@ -79,31 +79,22 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
         self._insertFunctionStep('closeOutputStep')
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(extraPrefix)
-        path.makePath(tmpPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
 
     def generateFiducialModelStep(self, tsObjId):
         # TODO: check si es el landmark model correcto
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(extraPrefix)
+        path.makePath(tmpPrefix)
 
         landmarkTextFilePath = os.path.join(extraPrefix,
                                             ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
