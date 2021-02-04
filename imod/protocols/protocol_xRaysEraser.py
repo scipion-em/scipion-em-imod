@@ -58,13 +58,6 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series.')
 
-        form.addParam('inputSetOfLandmarkModels',
-                      params.PointerParam,
-                      pointerClass='SetOfLandmarkModels',
-                      important=True,
-                      label='Input set of landmark models',
-                      help='Input set of landmark models containing the location of the gold beads through the series')
-
         form.addParam('peakCriterion',
                       params.FloatParam,
                       default=8.0,
@@ -104,7 +97,6 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
         self._insertFunctionStep('closeOutputStep')
@@ -120,34 +112,6 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
-
-    def generateFiducialModelStep(self, tsObjId):
-        # TODO: check si es el landmark model correcto
-        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
-        landmarkTextFilePath = os.path.join(extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
-        landmarkModelPath = os.path.join(extraPrefix,
-                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod"))
-
-        # Generate the IMOD file containing the information from the landmark model
-        utils.generateIMODFiducialTextFile(landmarkModel=lm,
-                                           outputFilePath=landmarkTextFilePath)
-
-        # Convert IMOD file into IMOD model
-        paramsPoint2Model = {
-            'inputFile': landmarkTextFilePath,
-            'outputFile': landmarkModelPath,
-        }
-
-        argsPoint2Model = "-InputFile %(inputFile)s " \
-                          "-OutputFile %(outputFile)s"
-
-        Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -190,7 +154,6 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                         "-AnnulusWidth %(annulusWidth)f " \
                         "-XYScanSize %(xyScanSize)d " \
                         "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
-                        "-PointModel %(pointModel)s " \
                         "-BorderSize %(borderSize)d " \
                         "-PolynomialOrder %(polynomialOrder)d "
 
