@@ -37,7 +37,7 @@ from imod import Plugin
 
 class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     """
-    Erase X-rays, defects, and fiducial markers from aligned tilt-series based on the IMOD procedure.
+    Erase X-rays from aligned tilt-series based on the IMOD procedure.
     More info:
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
