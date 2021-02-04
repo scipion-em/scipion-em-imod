@@ -42,7 +42,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'x-rays eraser'
+    _label = 'gold bead eraser'
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -124,7 +124,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCcderaser = {
-            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'inputFile': ts.getFirstItem().getFileName(),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
@@ -132,8 +132,8 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             'circleObjects': "/"
         }
 
-        argsCcderaser = "-InputFile %(input)s " \
-                        "-OutputFile %(output)s " \
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
                         "-BetterRadius %(betterRadius)d " \
                         "-PolynomialOrder %(polynomialOrder)d " \
