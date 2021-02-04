@@ -65,40 +65,16 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       label='Input set of landmark models',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
-        form.addParam('peakCriterion',
-                      params.FloatParam,
-                      default=8.0,
-                      label='Peak criterion',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 10 '
-                           'SDs)')
-
-        form.addParam('diffCriterion',
-                      params.FloatParam,
-                      default=6.0,
-                      label='Difference criterion',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Criterion # of SDs above mean pixel-to-pixel difference for erasing a peak based on '
-                           'differences (the default is 10 SDs).')
-
-        form.addParam('maximumRadius',
-                      params.FloatParam,
-                      default=4.2,
-                      label='Maximum radius',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
-
-        form.addParam('bigDiffCriterion',
+        form.addParam('betterRadius',
                       params.IntParam,
-                      default=19,
-                      label='Big difference criterion',
+                      default=50,
+                      label='Bead diameter (pixels)',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help='An extra-large peak will be erased only if the value for the maximum difference between '
-                           'adjacent pixels, averaged over the most extreme one-fourth of the pixels in the patch, '
-                           'exceeds this criterion, evaluated as the number of SDs above the mean absolute difference '
-                           'between adjacent pixels in the scan area.  The default is 19.  This high a value is needed '
-                           'to prevent gold erasure on low-noise data sets with small gold particles, and a lower '
-                           'value may be needed to make extra-large peak removal useful.')
+                      help="For circle objects, this entry specifies a radius to use for points without an individual "
+                           "point size instead of the object's default sphere radius.  This entry is floating point "
+                           "and can be used to overcome the limitations of having an integer default sphere radius. If "
+                           "there are multiple circle objects, enter one value to apply to all objects or a value for "
+                           "each object.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
