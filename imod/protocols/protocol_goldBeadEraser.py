@@ -134,20 +134,12 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
         argsCcderaser = "-InputFile %(input)s " \
                         "-OutputFile %(output)s " \
-                        "-FindPeaks %(findPeaks)d " \
-                        "-PeakCriterion %(peakCriterion)f " \
-                        "-DiffCriterion %(diffCriterion)f " \
-                        "-GrowCriterion %(growCriterion)d " \
-                        "-ScanCriterion %(scanCriterion)d " \
-                        "-MaximumRadius %(maximumRadius)f " \
-                        "-GiantCriterion %(giantCriterion)d " \
-                        "-ExtraLargeRadius %(extraLargeRadius)d " \
-                        "-BigDiffCriterion %(bigDiffCriterion)d " \
-                        "-AnnulusWidth %(annulusWidth)f " \
-                        "-XYScanSize %(xyScanSize)d " \
-                        "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
-                        "-BorderSize %(borderSize)d " \
-                        "-PolynomialOrder %(polynomialOrder)d "
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
