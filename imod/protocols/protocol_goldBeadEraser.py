@@ -172,9 +172,6 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
-            if tiltImage.hasTransform():
-                newTi.setTransform(tiltImage.getTransform())
-
         newTs.write(properties=False)
         outputXraysErasedSetOfTiltSeries.update(newTs)
         outputXraysErasedSetOfTiltSeries.write()
