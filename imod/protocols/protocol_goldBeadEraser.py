@@ -78,17 +78,29 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
         self._insertFunctionStep('closeOutputStep')
+
+    def convertInputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+
+        """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        ts.applyTransform(outputTsFileName)
 
     def generateFiducialModelStep(self, tsObjId):
         # TODO: check si es el landmark model correcto
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -123,7 +135,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCcderaser = {
-            'inputFile': ts.getFirstItem().getFileName(),
+            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
