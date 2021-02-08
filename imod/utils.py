@@ -263,7 +263,7 @@ def readCTFEstimationInfoFile(defocusFilePath, flag):
         return refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable)
 
     elif flag == 37:
-        " Astigmatism, phase shift and cut-on frequency estimation"
+        " Astigmatism, phase shift and cut-on frequency estimation "
         return refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable)
 
 
