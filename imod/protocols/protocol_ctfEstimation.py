@@ -504,34 +504,61 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
-            # Plain estimation (no astigmatism, no phase shift, no cut-on frequency)
             if defocusFileFlag == 0:
-                # Parse information from file
-                defocusInfoList, mode = utils.formatDefocusFile(
-                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+                " Plain estimation "
+                defocusUDict = utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                               flag=defocusFileFlag)
 
-                # Translate information to dictionary for Scipion info parsing
-                defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
+            elif defocusFileFlag == 1:
+                " Astigmatism estimation "
+                defocusUDict, defocusVDict, defocusAngleDict = utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                                                               flag=defocusFileFlag)
 
-            # Only astigmatism estimated (no phase shift, no cut-on frequency)
-            if defocusFileFlag == 1:
-                # Parse information from file
-                defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
-                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+            elif defocusFileFlag == 4:
+                " Phase-shift information "
+                defocusUDict, phaseShiftDict = utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                                               flag=defocusFileFlag)
 
-                # Translate information to dictionary for Scipion info parsing
-                defocusUDict, defocusVDict, defocusAngleDict = \
-                    utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
-
-            # Only
-            else:
-                # Parse information from file
-                defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
-                    os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
-
-                # Translate information to dictionary for Scipion info parsing
+            elif defocusFileFlag == 5:
+                " Astigmatism and phase shift estimation "
                 defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
-                    utils.refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(defocusInfoList)
+                    utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                    flag=defocusFileFlag)
+
+            elif defocusFileFlag == 37:
+                " Astigmatism, phase shift and cut-on frequency estimation "
+                rdefocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+                    utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                    flag=defocusFileFlag)
+
+            # # Plain estimation (no astigmatism, no phase shift, no cut-on frequency)
+            # if defocusFileFlag == 0:
+            #     # Parse information from file
+            #     defocusInfoList, mode = utils.formatDefocusFile(
+            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+            #
+            #     # Translate information to dictionary for Scipion info parsing
+            #     defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
+            #
+            # # Only astigmatism estimated (no phase shift, no cut-on frequency)
+            # if defocusFileFlag == 1:
+            #     # Parse information from file
+            #     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
+            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+            #
+            #     # Translate information to dictionary for Scipion info parsing
+            #     defocusUDict, defocusVDict, defocusAngleDict = \
+            #         utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
+            #
+            # # Only
+            # else:
+            #     # Parse information from file
+            #     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
+            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
+            #
+            #     # Translate information to dictionary for Scipion info parsing
+            #     defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+            #         utils.refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(defocusInfoList)
 
             for index, _ in enumerate(ts):
                 newCTFTomo = tomoObj.CTFTomo()
@@ -539,8 +566,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
                 newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
                 newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                # TODO: Check that info is inside dictionary
 
                 if self.searchAstigmatism == 0:
                     newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
