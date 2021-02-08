@@ -505,7 +505,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
             # Plain estimation (no astigmatism, no phase shift, no cut-on frequency)
-            if defocusFileFlag == 2:
+            if defocusFileFlag == 0:
                 # Parse information from file
                 defocusInfoList, mode = utils.formatDefocusFile(
                     os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))

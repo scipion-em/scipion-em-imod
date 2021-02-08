@@ -182,7 +182,7 @@ def getDefocusFileFlag(defocusFilePath):
 
     # File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency)
     if len(lines[1].split()) == 5:
-        return lines[0].split()[-1]
+        return 0
 
     # File contains more information apart
     else:
