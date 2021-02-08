@@ -237,10 +237,36 @@ def readDefocusFileAsTable(defocusFilePath):
 #
 #         return defocusAstigmatismTable, mode
 
+def readCTFEstimationInfoFile(defocusFilePath, flag):
+    """ This method takes an IMOD-based file path containing the information associated to a CTF estimation and
+    produces a set of dictionaries containing the information of each parameter for each tilt-image belonging to the
+    tilt-series. These dictionaries are readable information for Scipion, useful to generate the corresponding output
+    CTFTomoSeries object. """
+
+    " Read info as table "
+    ctfInfoIMODTable = readDefocusFileAsTable(defocusFilePath)
+
+    if flag == 0:
+        " Plain estimation "
+        return refactorCTFDefocusEstimationInfo(ctfInfoIMODTable)
+
+    elif flag == 1:
+        " Astigmatism estimation "
+        return refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable)
+
+    elif flag == 4:
+        " Phase-shift information "
+        return refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable)
+
+    elif flag == 5:
+        " Astigmatism and phase shift estimation "
+        return refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable)
+
+
 def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based CTF estimation containing only defocus
     information (5 columns) and produces a new dictionary containing the same information in a format readable for
-    Scipion. """
+    Scipion. Flag 0. """
 
     if len(ctfInfoIMODTable[0]) == 5:
         defocusUDict = {}
@@ -263,7 +289,7 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
 def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus and
     astigmatism information (7 columns) and produces a set of dictionaries table containing the same information in a
-    format readable for Scipion. """
+    format readable for Scipion. Flag 1. """
 
     if len(ctfInfoIMODTable[0]) == 7:
             defocusUDict = {}
@@ -299,10 +325,43 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
     return defocusUDict, defocusVDict, defocusAngleDict
 
 
-def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
+def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
+    and phase shift information (6 columns) and produces a new set of dictionaries containing the same
+    information in a format readable for Scipion. Flag 4. """
+
+    if len(ctfInfoIMODTable[0]) == 8:
+        defocusUDict = {}
+        phaseShiftDict = {}
+
+        for element in ctfInfoIMODTable:
+
+            " Segregate information from range"
+            for index in range(int(element[0]), int(element[1]) + 1):
+
+                # Defocus U info
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
+                else:
+                    defocusUDict[index] = [pwobj.Float(element[4])]
+
+                # Phase shift info
+                if index in phaseShiftDict.keys():
+                    phaseShiftDict[index].append(pwobj.Float(element[7]))
+                else:
+                    phaseShiftDict[index] = [pwobj.Float(element[7])]
+
+    else:
+        raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
+                        "long")
+
+    return defocusUDict, phaseShiftDict
+
+
+def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
     astigmatism and phase shift information (8 columns) and produces a new set of dictionaries containing the same
-    information in a format readable for Scipion. """
+    information in a format readable for Scipion. Flag 5. """
 
     if len(ctfInfoIMODTable[0]) == 8:
         defocusUDict = {}
@@ -333,7 +392,7 @@ def refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                 else:
                     defocusAngleDict[index] = [pwobj.Float(element[6])]
 
-                # Defocus angle info
+                # Phase shift info
                 if index in phaseShiftDict.keys():
                     phaseShiftDict[index].append(pwobj.Float(element[7]))
                 else:
