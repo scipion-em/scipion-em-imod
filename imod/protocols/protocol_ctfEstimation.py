@@ -499,6 +499,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
+            # No astigmatism estimated
             if self.searchAstigmatism == 1:
                 # Parse information from file
                 defocusInfoList, mode = utils.formatDefocusFile(
@@ -507,7 +508,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 # Translate information to dictionary for Scipion info parsing
                 defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
+            # Astigmatism estimated
             else:
+                # No phase shift estimated
                 if self.searchPhaseShift == 1:
                     # Parse information from file
                     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
@@ -517,6 +520,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                     defocusUDict, defocusVDict, defocusAngleDict = \
                         utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
 
+                # Phase shift estimated
                 else:
                     # Parse information from file
                     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
