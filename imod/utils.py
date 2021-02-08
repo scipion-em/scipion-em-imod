@@ -262,6 +262,10 @@ def readCTFEstimationInfoFile(defocusFilePath, flag):
         " Astigmatism and phase shift estimation "
         return refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable)
 
+    elif flag == 37:
+        " Astigmatism, phase shift and cut-on frequency estimation"
+        return refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable)
+
 
 def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based CTF estimation containing only defocus
@@ -281,7 +285,7 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with no astigmatism should be 5 columns long")
+        raise Exception("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
 
     return defocusUDict
 
@@ -320,7 +324,7 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
                         defocusAngleDict[index] = [pwobj.Float(element[6])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with astigmatism should be 7 columns long")
+        raise Exception("Misleading file format, CTF estimation with astigmatism should be 7 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict
 
@@ -352,7 +356,7 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
+        raise Exception("Misleading file format, CTF estimation with astigmatism and phase shift should be 8 columns "
                         "long")
 
     return defocusUDict, phaseShiftDict
@@ -397,6 +401,60 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index].append(pwobj.Float(element[7]))
                 else:
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
+
+    else:
+        raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
+                        "long")
+
+    return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
+
+
+def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable):
+    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
+    astigmatism, phase shift information and cut-on frequency (8 columns) and produces a new set of dictionaries
+    containing the same information in a format readable for Scipion. Flag 37. """
+
+    if len(ctfInfoIMODTable[0]) == 9:
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
+        phaseShiftDict = {}
+        cutOnFreqDict = {}
+
+        for element in ctfInfoIMODTable:
+
+            " Segregate information from range"
+            for index in range(int(element[0]), int(element[1]) + 1):
+
+                # Defocus U info
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
+                else:
+                    defocusUDict[index] = [pwobj.Float(element[4])]
+
+                # Defocus V info
+                if index in defocusVDict.keys():
+                    defocusVDict[index].append(pwobj.Float(element[5]))
+                else:
+                    defocusVDict[index] = [pwobj.Float(element[5])]
+
+                # Defocus angle info
+                if index in defocusAngleDict.keys():
+                    defocusAngleDict[index].append(pwobj.Float(element[6]))
+                else:
+                    defocusAngleDict[index] = [pwobj.Float(element[6])]
+
+                # Phase shift info
+                if index in phaseShiftDict.keys():
+                    phaseShiftDict[index].append(pwobj.Float(element[7]))
+                else:
+                    phaseShiftDict[index] = [pwobj.Float(element[7])]
+
+                # Cut-on frequency info
+                if index in phaseShiftDict.keys():
+                    cutOnFreqDict[index].append(pwobj.Float(element[8]))
+                else:
+                    cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
         raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
