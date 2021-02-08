@@ -37,5 +37,5 @@ from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_ctfCorrecion import ProtImodCtfCorrection
 from .protocol_ctfEstimation import ProtImodCtfEstimation
 from .protocol_tomoProjection import ProtImodTomoProjection
-from .protocol_goldBeadPicker3d import ImodProtGoldBeadPicker3d
+from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_xRaysEraser import ProtImodXraysEraser
