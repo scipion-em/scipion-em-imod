@@ -296,32 +296,32 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
     format readable for Scipion. Flag 1. """
 
     if len(ctfInfoIMODTable[0]) == 7:
-            defocusUDict = {}
-            defocusVDict = {}
-            defocusAngleDict = {}
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
 
-            for element in ctfInfoIMODTable:
+        for element in ctfInfoIMODTable:
 
-                " Segregate information from range"
-                for index in range(int(element[0]), int(element[1]) + 1):
+            " Segregate information from range"
+            for index in range(int(element[0]), int(element[1]) + 1):
 
-                    # Defocus U info
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(pwobj.Float(element[4]))
-                    else:
-                        defocusUDict[index] = [pwobj.Float(element[4])]
+                # Defocus U info
+                if index in defocusUDict.keys():
+                    defocusUDict[index].append(pwobj.Float(element[4]))
+                else:
+                    defocusUDict[index] = [pwobj.Float(element[4])]
 
-                    # Defocus V info
-                    if index in defocusVDict.keys():
-                        defocusVDict[index].append(pwobj.Float(element[5]))
-                    else:
-                        defocusVDict[index] = [pwobj.Float(element[5])]
+                # Defocus V info
+                if index in defocusVDict.keys():
+                    defocusVDict[index].append(pwobj.Float(element[5]))
+                else:
+                    defocusVDict[index] = [pwobj.Float(element[5])]
 
-                    # Defocus angle info
-                    if index in defocusAngleDict.keys():
-                        defocusAngleDict[index].append(pwobj.Float(element[6]))
-                    else:
-                        defocusAngleDict[index] = [pwobj.Float(element[6])]
+                # Defocus angle info
+                if index in defocusAngleDict.keys():
+                    defocusAngleDict[index].append(pwobj.Float(element[6]))
+                else:
+                    defocusAngleDict[index] = [pwobj.Float(element[6])]
 
     else:
         raise Exception("Misleading file format, CTF estimation with astigmatism should be 7 columns long")
@@ -580,7 +580,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
             # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
             for ctfTomo in ctfTomoSeries:
-
                 index = ctfTomo.getIndex()
 
                 newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
@@ -591,7 +590,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     ctfTomo.getDefocusU(),
                     ctfTomo.getDefocusV(),
                     ctfTomo.getDefocusAngle())
-                )
+                           )
 
                 lines = [newLine] + lines
 
