@@ -162,6 +162,33 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
     return coorList
 
 
+def getDefocusFileFlag(defocusFilePath):
+    """ This method returns the flag that indicate the information contained in an IMOD defocus file. The flag value "is
+    the sum of:
+          1 if the file has astigmatism values
+          2 if the astigmatism axis angle is in radians, not degrees
+          4 if the file has phase shifts
+          8 if the phase shifts are in radians, not degrees
+         16 if tilt angles need to be inverted to match what the
+             program expects (what Ctfplotter would produce)
+             with the -invert option
+         32 if the file has cut-on frequencies attenuating the phase
+             at low frequencies"
+
+             from https://bio3d.colorado.edu/imod/doc/man/ctfphaseflip.html """
+
+    with open(defocusFilePath) as f:
+        lines = f.readlines()
+
+    # File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency)
+    if len(lines[1].split()) == 5:
+        return lines[0].split()[-1]
+
+    # File contains more information apart
+    else:
+        return lines[0].split()[0]
+
+
 def formatDefocusFile(defocusFilePath):
     """ This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus information
     from the estimation of the ctf of each tilt-image belonging to the tilt-series. """
