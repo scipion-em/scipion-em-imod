@@ -508,7 +508,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
 
             else:
-                if self.findAstigPhaseCutonToggle == 1:
+                if self.searchPhaseShift == 1:
                     # Parse information from file
                     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
                         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
