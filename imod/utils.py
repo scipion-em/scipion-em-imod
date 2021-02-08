@@ -464,7 +464,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
         raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
                         "long")
 
-    return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
+    return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
