@@ -486,13 +486,18 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))):
+        defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
+
+        if os.path.exists(defocusFilePath):
             outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
+
+            defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
             newCTFTomoSeries = tomoObj.CTFTomoSeries()
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
             newCTFTomoSeries.setTsId(tsId)
+            newCTFTomoSeries.setIMODDefocusFileFlag(defocusFilePath)
 
             # We need to create now all the attributes of this object in order to append it to the set and be able to
             # update it posteriorly.
