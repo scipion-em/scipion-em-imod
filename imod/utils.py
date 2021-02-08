@@ -189,7 +189,7 @@ def getDefocusFileFlag(defocusFilePath):
         return lines[0].split()[0]
 
 
-def formatDefocusFile(defocusFilePath):
+def readDefocusFileAsTable(defocusFilePath):
     """ This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus information
     from the estimation of the ctf of each tilt-image belonging to the tilt-series. """
     defocusTable = []
@@ -201,10 +201,10 @@ def formatDefocusFile(defocusFilePath):
             [float(i) for i in vector]
             if index == 0:
                 "Remove last element from the first line (it contains the mode of the estimation run)"
-                mode = vector.pop()
+                vector.pop()
             defocusTable.append(vector)
 
-        return defocusTable, mode
+        return defocusTable
 
 
 def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
