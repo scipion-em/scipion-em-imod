@@ -266,6 +266,10 @@ def readCTFEstimationInfoFile(defocusFilePath, flag):
         " Astigmatism, phase shift and cut-on frequency estimation "
         return refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable)
 
+    else:
+        raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
+                        "1, 4, 5, and 37.")
+
 
 def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
     """ This method takes a table containing the information of an IMOD-based CTF estimation containing only defocus

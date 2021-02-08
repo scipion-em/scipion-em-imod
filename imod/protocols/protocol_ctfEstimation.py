@@ -499,8 +499,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.setTsId(tsId)
             newCTFTomoSeries.setIMODDefocusFileFlag(defocusFilePath)
 
-            # We need to create now all the attributes of this object in order to append it to the set and be able to
-            # update it posteriorly.
+            " We need to create now all the attributes of this object in order to append it to the set and be able " \
+            " to update it posteriorly. "
+
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
             outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
@@ -527,9 +528,13 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             elif defocusFileFlag == 37:
                 " Astigmatism, phase shift and cut-on frequency estimation "
-                rdefocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+                defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
                     utils.readCTFEstimationInfoFile(defocusFilePath,
                                                     flag=defocusFileFlag)
+
+            else:
+                raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
+                                "1, 4, 5, and 37.")
 
             # # Plain estimation (no astigmatism, no phase shift, no cut-on frequency)
             # if defocusFileFlag == 0:
