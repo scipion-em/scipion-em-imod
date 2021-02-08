@@ -569,6 +569,51 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 newCTFTomo = tomoObj.CTFTomo()
                 newCTFTomo.setIndex(pwobj.Integer(index + 1))
 
+                if defocusFileFlag == 0:
+                    " Plain estimation "
+                    newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+
+                elif defocusFileFlag == 1:
+                    " Astigmatism estimation "
+                    newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+
+                    newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict[index + 1])
+
+                    newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+
+                elif defocusFileFlag == 4:
+                    " Phase-shift information "
+                    newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+
+                    newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
+
+                elif defocusFileFlag == 5:
+                    " Astigmatism and phase shift estimation "
+                    newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+
+                    newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict[index + 1])
+
+                    newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+
+                    newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
+                    newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
+
+                elif defocusFileFlag == 37:
+                    " Astigmatism, phase shift and cut-on frequency estimation "
+                    # TODO add cut on frequency
+                    defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+                        utils.readCTFEstimationInfoFile(defocusFilePath,
+                                                        flag=defocusFileFlag)
+
                 newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
                 newCTFTomo.setDefocusUList(defocusUDict[index + 1])
 
