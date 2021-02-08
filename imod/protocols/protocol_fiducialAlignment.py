@@ -519,27 +519,27 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        paramsGapPoint2Model = {
+        paramsGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
         }
-        argsGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsGapModel2Point = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
-        paramsNoGapPoint2Model = {
+        paramsNoGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
         }
-        argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsNoGapModel2Point = "-InputFile %(inputFile)s " \
                                "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -653,14 +653,20 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         """Create the output set of landmark models with gaps"""
         outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
 
+        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+                                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
+
         fiducialModelGapPath = os.path.join(extraPrefix,
                                             ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
 
         landmarkModelGapsResidPath = os.path.join(extraPrefix,
                                                   ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+
         fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-        landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsResidPath, fiducialModelGapPath)
+        landmarkModelGaps = LandmarkModel(tsId=tsId,
+                                          fileName=landmarkModelNoGapsFilePath,
+                                          modelName=fiducialModelGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -696,7 +702,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                                     ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
-        landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+        landmarkModelNoGaps = LandmarkModel(tsId=tsId,
+                                            fileName=landmarkModelNoGapsFilePath,
+                                            modelName=fiducialModelNoGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -898,20 +906,23 @@ $if (-e ./savework) ./savework
 
         lastApparition = max(counts)[0]
 
-        outputLines = []
-
-        # Take only the lines that compose the table containing the ta solution info
-        for index in range(lastApparition + 1, lastApparition + numberOfTiltImages + 1):
-            outputLines.append(lines[index])
-
-        # Convert lines into numpy array for posterior operation
         outputLinesAsMatrix = []
-        for line in outputLines:
-            vector = line.split()
+
+        # Take only the lines that compose the table containing the ta solution info (until blank line)
+        # Convert lines into numpy array for posterior operation
+
+        index = lastApparition + 1
+        while True:
+            vector = lines[index].split()
             vector = [float(i) for i in vector]
             outputLinesAsMatrix.append(vector)
+            if int(vector[0]) == numberOfTiltImages:
+                break
+            index += 1
 
+        print(outputLinesAsMatrix)
         matrixTaSolution = np.array(outputLinesAsMatrix)
+        print(matrixTaSolution)
 
         # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
