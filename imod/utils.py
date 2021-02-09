@@ -184,8 +184,8 @@ def getDefocusFileFlag(defocusFilePath):
     if len(lines[1].split()) == 5:
         return 0
 
-    " File contains more information apart "
     else:
+        " File contains more information apart "
         return int(lines[0].split()[0])
 
 
@@ -559,8 +559,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     f.writelines(lines)
 
-    " There is no information available as list (not an IMOD CTF estimation) "
     else:
+        " There is no information available as list (not an IMOD CTF estimation) "
+
         with open(defocusFilePath, 'w') as f:
             lines = []
 
