@@ -273,63 +273,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                      'nanometers.  The default is the frequency of the first zero at the expected '
                                      'defocus and phase shift. To use the default value set box to -1.')
 
-        # groupAstigmatism.addParam('searchAstigmatism',
-        #                           params.EnumParam,
-        #                           choices=['Yes', 'No'],
-        #                           default=1,
-        #                           label='Search astigmatism',
-        #                           display=params.EnumParam.DISPLAY_HLIST,
-        #                           help='Search for astigmatism when fitting')
-        #
-        # groupAstigmatism.addParam('findAstigPhaseCutonToggle',
-        #                           params.EnumParam,
-        #                           choices=['Yes', 'No'],
-        #                           default=1,
-        #                           label='Find astigmatism, phase shift, and cut-on frequency?',
-        #                           display=params.EnumParam.DISPLAY_HLIST,
-        #                           condition='searchAstigmatism==0',
-        #                           help='Find astigmatism, phase shift, and cut-on frequency')
-        #
-        # groupAstigmatism.addParam('phaseShiftAstigmatism',
-        #                           params.IntParam,
-        #                           label='Phase shift',
-        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-        #                           help='Phase shift for astigmatism analysis.')
-        #
-        # groupAstigmatism.addParam('cutOnFrequencyAstigmatism',
-        #                           params.IntParam,
-        #                           label='Cut-on frequency',
-        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-        #                           help='Cut-on frequency for astigmatism analysis.')
-        #
-        # groupAstigmatism.addParam('minimumViewsAstigmatism',
-        #                           params.IntParam,
-        #                           default=3,
-        #                           label='Minimum views astigmatism',
-        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-        #                           help='Minimum views for finding astigmatism.')
-        #
-        # groupAstigmatism.addParam('minimumViewsPhaseShift',
-        #                           params.IntParam,
-        #                           default=1,
-        #                           label='Minimum views phase shift',
-        #                           condition='searchAstigmatism==0 and findAstigPhaseCutonToggle==0',
-        #                           help='Minimum views for finding phase shift.')
-        #
-        # groupAstigmatism.addParam('numberSectorsAstigmatism',
-        #                           params.IntParam,
-        #                           default=36,
-        #                           label='Number of sectors',
-        #                           condition='searchAstigmatism==0',
-        #                           help='Number of sectors for astigmatism analysis.')
-        #
-        # groupAstigmatism.addParam('maximumAstigmatism',
-        #                           params.FloatParam,
-        #                           default=1.2,
-        #                           label='Maximum astigmatism',
-        #                           condition='searchAstigmatism==0',
-        #                           help='Maximum astigmatism in microns.')
-
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -451,30 +394,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 argsCtfPlotter += "-SearchCutonFrequency " \
                                   "-MaxCutOnToSearch %(maximumCutOnFreq)f "
 
-                # if self.searchAstigmatism.get() == 0:
-        #
-        #     if self.findAstigPhaseCutonToggle.get() == 0:
-        #         paramsCtfPlotter.update({
-        #             'phaseShiftAstigmatism': self.phaseShiftAstigmatism.get(),
-        #             'cutOnFrequencyAstigmatism': self.cutOnFrequencyAstigmatism.get(),
-        #             'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get(),
-        #             'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get(),
-        #         })
-        #
-        #         argsCtfPlotter += "-FindAstigPhaseCuton 1,%(phaseShiftAstigmatism)d,%(cutOnFrequencyAstigmatism)d " \
-        #                           "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
-        #
-        #     else:
-        #         argsCtfPlotter += "-SearchAstigmatism "
-        #
-        #     paramsCtfPlotter.update({
-        #         'numberSectorsAstigmatism': self.numberSectorsAstigmatism.get(),
-        #         'maximumAstigmatism': self.maximumAstigmatism.get(),
-        #     })
-        #
-        #     argsCtfPlotter += "-NumberOfSectors %(numberSectorsAstigmatism)d " \
-        #                       "-MaximumAstigmatism %(maximumAstigmatism)f "
-
         if self.interactiveMode.get() == 1:
             argsCtfPlotter += "-SaveAndExit "
 
@@ -535,35 +454,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             else:
                 raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
                                 "1, 4, 5, and 37.")
-
-            # # Plain estimation (no astigmatism, no phase shift, no cut-on frequency)
-            # if defocusFileFlag == 0:
-            #     # Parse information from file
-            #     defocusInfoList, mode = utils.formatDefocusFile(
-            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
-            #
-            #     # Translate information to dictionary for Scipion info parsing
-            #     defocusUDict = utils.refactorCTFDefocusEstimationInfo(defocusInfoList)
-            #
-            # # Only astigmatism estimated (no phase shift, no cut-on frequency)
-            # if defocusFileFlag == 1:
-            #     # Parse information from file
-            #     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
-            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
-            #
-            #     # Translate information to dictionary for Scipion info parsing
-            #     defocusUDict, defocusVDict, defocusAngleDict = \
-            #         utils.refactorCTFDesfocusAstigmatismEstimationInfo(defocusInfoList)
-            #
-            # # Only
-            # else:
-            #     # Parse information from file
-            #     defocusInfoList, mode = utils.formatDefocusAstigmatismFile(
-            #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")))
-            #
-            #     # Translate information to dictionary for Scipion info parsing
-            #     defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
-            #         utils.refactorCTFDesfocusAstigmatismPhaseShiftEstimationInfo(defocusInfoList)
 
             for index, _ in enumerate(ts):
                 newCTFTomo = tomoObj.CTFTomo()
@@ -628,20 +518,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                         utils.readCTFEstimationInfoFile(defocusFilePath,
                                                         flag=defocusFileFlag)
 
-                # newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                # newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-                #
-                # if self.searchAstigmatism == 0:
-                #     newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
-                #     newCTFTomo.setDefocusVList(defocusVDict[index + 1])
-                #
-                #     newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
-                #     newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
-                #
-                #     if self.findAstigPhaseCutonToggle == 0:
-                #         newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
-                #         newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
-
                 newCTFTomo.completeInfoFromList()
 
                 newCTFTomoSeries.append(newCTFTomo)
@@ -676,7 +552,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 lines = f.readlines()
                 for line in lines:
                     defocusTuple = line.split()
-                    if tsId in defocusTuple[0]:  # Look for the filename that contains the tsId
+                    if tsId in defocusTuple[0]:
+                        " Look for the filename that contains the tsId "
                         return float(defocusTuple[1])
                 raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
