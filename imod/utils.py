@@ -561,15 +561,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
         elif flag == 5:
             " Astigmatism and phase shift estimation "
 
-        elif flag == 37:
-            " Astigmatism, phase shift and cut-on frequency estimation "
-
-        else:
-            raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
-                            "1, 4, 5, and 37.")
-
-        " Phase shift estimation has been performed "
-        if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
             defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
@@ -600,9 +591,52 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     lines = [newLine] + lines
 
                 " This line is added at the beginning of the file in order to match the IMOD defocus file format "
-                lines = ["5  0 0. 0. 0  3"] + lines
+                lines = ["5  0 0. 0. 0  3\n"] + lines
 
                 f.writelines(lines)
+
+        elif flag == 37:
+            " Astigmatism, phase shift and cut-on frequency estimation "
+
+        else:
+            raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
+                            "1, 4, 5, and 37.")
+
+        # " Phase shift estimation has been performed "
+        # if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
+        #     defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
+        #     defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
+        #     defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
+        #     phaseShiftDict = generatePhaseShiftDictionary(ctfTomoSeries)
+        #
+        #     " Write IMOD defocus file "
+        #     with open(defocusFilePath, 'w') as f:
+        #         lines = []
+        #
+        #         for index in defocusUDict.keys():
+        #
+        #             if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+        #                 break
+        #
+        #             " Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for "
+        #             " the tilt-image with the highest negative angle) "
+        #             newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
+        #                 index,
+        #                 index + ctfTomoSeries.getNumberOfEstimationsInRange(),
+        #                 round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+        #                 round(tiltSeries[index].getTiltAngle(), 2),
+        #                 float(defocusUDict[index][0]),
+        #                 float(defocusVDict[index][0]),
+        #                 float(defocusAngleDict[index][0]),
+        #                 float(phaseShiftDict[index][0])
+        #             ))
+        #
+        #             lines = [newLine] + lines
+        #
+        #         " This line is added at the beginning of the file in order to match the IMOD defocus file format "
+        #         lines = ["5  0 0. 0. 0  3"] + lines
+        #
+        #         f.writelines(lines)
 
         # else:
         #     " No phase shift estimation has been performed "
