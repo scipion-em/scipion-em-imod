@@ -219,24 +219,6 @@ def readDefocusFileAsTable(defocusFilePath):
         return defocusTable
 
 
-# def formatDefocusAstigmatismFile(defocusAstigmatismFilePath):
-#     """ This method takes an IMOD-based ctf estimation file path and returns a list containing the defocus and
-#     astigmatism information from the estimation of the ctf of each tilt-image belonging to the tilt-series. """
-#     defocusAstigmatismTable = []
-#
-#     with open(defocusAstigmatismFilePath) as f:
-#         defocusText = f.readlines()
-#         for index, line in enumerate(defocusText):
-#             vector = line.split()
-#             [float(i) for i in vector]
-#             if index == 0:
-#                 "Get mode of estimation from the first line (remove rest of the information form this line)"
-#                 mode = vector.pop()
-#             else:
-#                 defocusAstigmatismTable.append(vector)
-#
-#         return defocusAstigmatismTable, mode
-
 def readCTFEstimationInfoFile(defocusFilePath, flag):
     """ This method takes an IMOD-based file path containing the information associated to a CTF estimation and
     produces a set of dictionaries containing the information of each parameter for each tilt-image belonging to the
