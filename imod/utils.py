@@ -89,7 +89,7 @@ def formatFiducialList(fiducialFilePath):
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
         for line in fiducialText:
-            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            " Fix IMOD bug: columns merge in coordinates exceed 3 digits "
             vector = line.replace('-', ' -').split()
             vector = [round(float(i)) for i in vector]
             fiducialList.append(vector)
@@ -107,7 +107,7 @@ def formatFiducialResidList(fiducialFilePath):
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
         for line in fiducialText[1:]:
-            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            " Fix IMOD bug: columns merge in coordinates exceed 3 digits "
             vector = line.replace('-', ' -').split()
             fiducialResidList.append([round(float(vector[0])),
                                       round(float(vector[1])),
@@ -180,11 +180,11 @@ def getDefocusFileFlag(defocusFilePath):
     with open(defocusFilePath) as f:
         lines = f.readlines()
 
-    # File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency)
+    " File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency) "
     if len(lines[1].split()) == 5:
         return 0
 
-    # File contains more information apart
+    " File contains more information apart "
     else:
         return int(lines[0].split()[0])
 
@@ -309,19 +309,19 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
 
-                # Defocus U info
+                " Defocus U info "
                 if index in defocusUDict.keys():
                     defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # Defocus V info
+                " Defocus V info "
                 if index in defocusVDict.keys():
                     defocusVDict[index].append(pwobj.Float(element[5]))
                 else:
                     defocusVDict[index] = [pwobj.Float(element[5])]
 
-                # Defocus angle info
+                " Defocus angle info "
                 if index in defocusAngleDict.keys():
                     defocusAngleDict[index].append(pwobj.Float(element[6]))
                 else:
@@ -347,13 +347,13 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
 
-                # Defocus U info
+                " Defocus U info "
                 if index in defocusUDict.keys():
                     defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # Phase shift info
+                " Phase shift info "
                 if index in phaseShiftDict.keys():
                     phaseShiftDict[index].append(pwobj.Float(element[5]))
                 else:
@@ -382,25 +382,25 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
 
-                # Defocus U info
+                " Defocus U info "
                 if index in defocusUDict.keys():
                     defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # Defocus V info
+                " Defocus V info "
                 if index in defocusVDict.keys():
                     defocusVDict[index].append(pwobj.Float(element[5]))
                 else:
                     defocusVDict[index] = [pwobj.Float(element[5])]
 
-                # Defocus angle info
+                " Defocus angle info "
                 if index in defocusAngleDict.keys():
                     defocusAngleDict[index].append(pwobj.Float(element[6]))
                 else:
                     defocusAngleDict[index] = [pwobj.Float(element[6])]
 
-                # Phase shift info
+                " Phase shift info "
                 if index in phaseShiftDict.keys():
                     phaseShiftDict[index].append(pwobj.Float(element[7]))
                 else:
@@ -430,31 +430,31 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
             " Segregate information from range"
             for index in range(int(element[0]), int(element[1]) + 1):
 
-                # Defocus U info
+                " Defocus U info "
                 if index in defocusUDict.keys():
                     defocusUDict[index].append(pwobj.Float(element[4]))
                 else:
                     defocusUDict[index] = [pwobj.Float(element[4])]
 
-                # Defocus V info
+                " Defocus V info "
                 if index in defocusVDict.keys():
                     defocusVDict[index].append(pwobj.Float(element[5]))
                 else:
                     defocusVDict[index] = [pwobj.Float(element[5])]
 
-                # Defocus angle info
+                " Defocus angle info "
                 if index in defocusAngleDict.keys():
                     defocusAngleDict[index].append(pwobj.Float(element[6]))
                 else:
                     defocusAngleDict[index] = [pwobj.Float(element[6])]
 
-                # Phase shift info
+                " Phase shift info "
                 if index in phaseShiftDict.keys():
                     phaseShiftDict[index].append(pwobj.Float(element[7]))
                 else:
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
-                # Cut-on frequency info
+                " Cut-on frequency info "
                 if index in cutOnFreqDict.keys():
                     cutOnFreqDict[index].append(pwobj.Float(element[8]))
                 else:
@@ -473,17 +473,17 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
     tiltSeries = ctfTomoSeries.getTiltSeries()
 
-    # Check if there is CTF estimation information as list
+    " Check if there is CTF estimation information as list "
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
-        # Phase shift estimation has been performed
+        " Phase shift estimation has been performed "
         if hasattr(ctfTomoSeries.getFirstItem(), "_phaseShiftList"):
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
             defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
             phaseShiftDict = generatePhaseShiftDictionary(ctfTomoSeries)
 
-            # Write IMOD defocus file
+            " Write IMOD defocus file "
             with open(defocusFilePath, 'w') as f:
                 lines = []
 
@@ -492,8 +492,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
-                    # the tilt-image with the highest negative angle)
+                    " Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for "
+                    " the tilt-image with the highest negative angle) "
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
@@ -507,21 +507,21 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     lines = [newLine] + lines
 
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                " This line is added at the beginning of the file in order to match the IMOD defocus file format "
                 lines = ["5  0 0. 0. 0  3"] + lines
 
                 f.writelines(lines)
 
-        # No phase shift estimation has been performed
         else:
+            " No phase shift estimation has been performed "
 
-            # Astigmatism estimation has been performed
+            " Astigmatism estimation has been performed "
             if ctfTomoSeries.getFirstItem().hasAstigmatismInfoAsList():
                 defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
                 defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
                 defocusAngleDict = generateDefocusAngleDictionary(ctfTomoSeries)
 
-                # Write IMOD defocus file
+                " Write IMOD defocus file "
                 with open(defocusFilePath, 'w') as f:
                     lines = []
 
@@ -530,8 +530,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                             break
 
-                        # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
-                        # the tilt-image with the highest negative angle)
+                        " Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for "
+                        " the tilt-image with the highest negative angle) "
                         newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                             index,
                             index + ctfTomoSeries.getNumberOfEstimationsInRange(),
@@ -544,16 +544,17 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                         lines = [newLine] + lines
 
-                    # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                    " This line is added at the beginning of the file in order to match the IMOD defocus file format. "
                     lines = ["1\t0\t0.0\t0.0\t0.0\t3"] + lines
 
                     f.writelines(lines)
 
-            # No astigmatism estimation has been performed
             else:
+                " No phase shift estimation has been performed "
+
                 defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
 
-                # Write IMOD defocus file
+                " Write IMOD defocus file "
                 with open(defocusFilePath, 'w') as f:
                     lines = []
 
@@ -562,8 +563,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                             break
 
-                        # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
-                        # the tilt-image with the highest negative angle)
+                        " Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for "
+                        " the tilt-image with the highest negative angle) "
                         newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
                             index,
                             index + ctfTomoSeries.getNumberOfEstimationsInRange(),
@@ -576,13 +577,13 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
                     f.writelines(lines)
 
-    # There is no information available as list (not an IMOD CTF estimation)
+    " There is no information available as list (not an IMOD CTF estimation) "
     else:
         with open(defocusFilePath, 'w') as f:
             lines = []
 
-            # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
-            # the tilt-image with the highest negative angle)
+            " CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for "
+            " the tilt-image with the highest negative angle) "
             for ctfTomo in ctfTomoSeries:
                 index = ctfTomo.getIndex()
 
