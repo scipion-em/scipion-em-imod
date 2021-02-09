@@ -541,8 +541,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
             self.outputSetOfCTFTomoSeries.enableAppend()
         else:
-            outputSetOfCTFTomoSeries = self._createSet(tomoObj.SetOfCTFTomoSeries,
-                                                       'CTFmodels%s.sqlite')
+            outputSetOfCTFTomoSeries = self._createSet(SetClass=tomoObj.SetOfCTFTomoSeries,
+                                                       template='CTFmodels%s.sqlite',
+                                                       suffix='')
             outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
