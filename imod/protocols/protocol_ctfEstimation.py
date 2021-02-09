@@ -568,19 +568,19 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
             summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputCtfEstimatedSetOfTiltSeries.getSize()))
+                              self.outputSetOfCTFTomoSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputCtfEstimatedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
             methods.append("%d Tilt-series CTF have been estimated using the IMOD ctfplotter software.\n"
-                           % (self.outputCtfEstimatedSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfCTFTomoSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
