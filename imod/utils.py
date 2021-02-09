@@ -338,7 +338,7 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
     and phase shift information (6 columns) and produces a new set of dictionaries containing the same
     information in a format readable for Scipion. Flag 4. """
 
-    if len(ctfInfoIMODTable[0]) == 8:
+    if len(ctfInfoIMODTable[0]) == 6:
         defocusUDict = {}
         phaseShiftDict = {}
 
@@ -355,12 +355,12 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
 
                 # Phase shift info
                 if index in phaseShiftDict.keys():
-                    phaseShiftDict[index].append(pwobj.Float(element[7]))
+                    phaseShiftDict[index].append(pwobj.Float(element[5]))
                 else:
-                    phaseShiftDict[index] = [pwobj.Float(element[7])]
+                    phaseShiftDict[index] = [pwobj.Float(element[5])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with astigmatism and phase shift should be 8 columns "
+        raise Exception("Misleading file format, CTF estimation with astigmatism and phase shift should be 6 columns "
                         "long")
 
     return defocusUDict, phaseShiftDict
@@ -461,8 +461,8 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
-                        "long")
+        raise Exception("Misleading file format, CTF estiation with astigmatism, phase shift and cut-on frequency "
+                        "should be 8 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
 
