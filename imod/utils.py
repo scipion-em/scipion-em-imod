@@ -458,7 +458,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
     " Check if there is CTF estimation information as list "
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
 
-        flag = ctfTomoSeries.getIMODFormatFile()
+        flag = ctfTomoSeries.getIMODDefocusFileFlag()
 
         if flag == 0:
             " Plain estimation "
