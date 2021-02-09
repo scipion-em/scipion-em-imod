@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import os
-import math
 from pyworkflow.object import Set
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
