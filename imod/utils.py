@@ -695,3 +695,20 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
         phaseShiftDict[index] = phaseShiftList
 
     return phaseShiftDict
+
+
+def generateCutOnFreqDictionary(ctfTomoSeries):
+    """ This method generates a dictionary containing the cut-on frequency estimation information from a ctfTomoSeries
+    object. """
+
+    cutOnFreqDict = {}
+
+    for ctfTomo in ctfTomoSeries:
+        cutOnFreqList = ctfTomo.getCutOnFreqList()
+        cutOnFreqList = cutOnFreqList.split(",")
+
+        index = ctfTomo.getIndex().get()
+
+        cutOnFreqDict[index] = cutOnFreqList
+
+    return cutOnFreqDict
