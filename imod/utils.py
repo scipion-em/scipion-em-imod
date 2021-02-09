@@ -591,7 +591,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     lines = [newLine] + lines
 
                 " This line is added at the beginning of the file in order to match the IMOD defocus file format "
-                lines = ["5  0 0. 0. 0  3\n"] + lines
+                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] + lines
 
                 f.writelines(lines)
 
@@ -630,7 +630,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     lines = [newLine] + lines
 
                 " This line is added at the beginning of the file in order to match the IMOD defocus file format "
-                lines = ["37  0 0. 0. 0  3\n"] + lines #TODO
+                lines = ["37\t0\t0.0\t0.0\t0.0\t3\n"] + lines
 
                 f.writelines(lines)
 
