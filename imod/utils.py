@@ -118,6 +118,23 @@ def formatFiducialResidList(fiducialFilePath):
     return fiducialResidList
 
 
+def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
+    """ This method takes a Scipion LandmarkModel object and generates a text file in the sepecified location in IMOD
+    convention that contains the information of the position of each fiducial through the tilt-series.
+    :param landmarkModel: landmarkModel Scipion object.
+    :param outputFilePath: location where the output file must be saved.
+    """
+
+    infoTable = landmarkModel.retrieveInfoTable()
+    outputLines = []
+
+    for vector in infoTable:
+        outputLines.append("\t%s\t%s\t%s\n" % (vector[0], vector[1], vector[2]))
+
+    with open(outputFilePath, 'w') as f:
+        f.writelines(outputLines)
+
+
 def formatAngleFile(inputTs, angleFilePath):
     """ This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
     IMOD-based angle file at the given location. """
@@ -748,3 +765,15 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
         cutOnFreqDict[index] = cutOnFreqList
 
     return cutOnFreqDict
+
+
+def formatGoldBead3DCoordinatesList(coordFilePath):
+    """This method takes the IMOD-based gold bead 3D coordinates obtained with find3dbeads program file path and
+    returns a list containing each coordinate for each bead belonging to the tilt-series"""
+    coorList = []
+    with open(coordFilePath) as f:
+        coorText = f.read().splitlines()
+        for line in coorText:
+            vector = line.split()
+            coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
+    return coorList

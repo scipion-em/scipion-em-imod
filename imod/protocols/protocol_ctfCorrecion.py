@@ -110,6 +110,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('ctfCorrection', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -195,6 +196,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         newTs.write(properties=False)
         outputCtfCorrectedSetOfTiltSeries.update(newTs)
         outputCtfCorrectedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputCtfCorrectedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

@@ -152,6 +152,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('computeReconstructionStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -248,6 +249,11 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
         outputSetOfTomograms.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

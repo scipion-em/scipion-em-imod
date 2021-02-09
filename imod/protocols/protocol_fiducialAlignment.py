@@ -86,6 +86,97 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
+        form.addParam('refineSobelFilter',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Refine center with Sobel filter',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Use edge-detecting Sobel filter to refine the bead positions.')
+
+        form.addParam('scalableSigmaForSobelFilter',
+                      params.FloatParam,
+                      default=0.5,
+                      condition='refineSobelFilter==0',
+                      label='Sobel sigma relative to bead size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
+                           'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
+                           'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
+
+        form.addParam('rotationSolutionType',
+                      params.EnumParam,
+                      choices=['No rotation', 'One rotation', 'Group rotations', 'Solve for all rotations'],
+                      default=3,
+                      label='Rotation solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of rotation solution.')
+
+        form.addParam('groupRotationSize',
+                      params.IntParam,
+                      default=5,
+                      condition='rotationSolutionType==2',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the rotation group')
+
+        form.addParam('magnificationSolutionType',
+                      params.EnumParam,
+                      choices=['Fixed magnification at 1.0', 'Group magnifications', 'Solve for all magnifications'],
+                      default=1,
+                      label='Magnification solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of magnification solution.')
+
+        form.addParam('groupMagnificationSize',
+                      params.IntParam,
+                      default=4,
+                      condition='magnificationSolutionType==1',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the magnification group')
+
+        form.addParam('tiltAngleSolutionType',
+                      params.EnumParam,
+                      choices=['Fixed tilt angles', 'Group tilt angles', 'Solve for all except minimum tilt'],
+                      default=1,
+                      label='Tilt angle solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of tilt angle solution.')
+
+        form.addParam('groupTiltAngleSize',
+                      params.IntParam,
+                      default=5,
+                      condition='tiltAngleSolutionType==1',
+                      label='Group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the tilt angle group')
+
+        form.addParam('distortionSolutionType',
+                      params.EnumParam,
+                      choices=['Disabled', 'Full solution', 'Skew only'],
+                      default=0,
+                      label='Distortion solution type',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of distortion solution.')
+
+        form.addParam('xStretchGroupSize',
+                      params.IntParam,
+                      default=7,
+                      condition='distortionSolutionType==1',
+                      label='X stretch group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Basic grouping size for X stretch')
+
+        form.addParam('skewGroupSize',
+                      params.IntParam,
+                      default=11,
+                      condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
+                      label='Skew group size',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Size of the skew group')
+
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -153,13 +244,29 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+
+        # Make boxSizeXandY parameter even due to computational efficiency
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
+
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': self.fiducialDiameter.get()
+            'fiducialDiameter': fiducialDiameterPixel,
+            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
+            'boxSizeXandY': boxSizeXandY,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'minDiamForParamScaling': 12.5,
+            'deletionCriterionMinAndSD': '0.3,2.0'
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -177,10 +284,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'RotationAngle': self.rotationAngle.get(),
             'targetNumberOfBeads': self.numberFiducial.get()
         }
+
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
                           "-TargetNumberOfBeads %(targetNumberOfBeads)d "
+
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
@@ -196,6 +305,15 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+
+        # Make boxSizeXandY parameter even due to computational efficiency
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
+
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
@@ -206,12 +324,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
             'minViewsForTiltalign': 4,
-            'beadDiameter': self.fiducialDiameter.get(),
+            'beadDiameter': fiducialDiameterPixel,
             'fillGaps': 1,
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
             'minTiltRangeToFindAngles': 20.0,
-            'boxSizeXandY': '32,32',
+            'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
             'roundsOfTracking': 2,
             'localAreaTracking': 1,
             'localAreaTargetSize': 1000,
@@ -221,13 +339,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 10.0,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 2.5,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 2.5,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.04,2.0'
+            'deletionCriterionMinAndSD': '0.3,2.0',
+            'minDiamForParamScaling': 12.5
         }
 
         argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
@@ -239,7 +358,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-MagDefaultGrouping %(magDefaultGrouping)d " \
                         "-RotDefaultGrouping %(rotDefaultGrouping)d " \
                         "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
-                        "-BeadDiameter %(beadDiameter)f " \
+                        "-BeadDiameter %(beadDiameter).2f " \
                         "-FillGaps %(fillGaps)d " \
                         "-MaxGapSize %(maxGapSize)d " \
                         "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
@@ -260,7 +379,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
                         "-MaxRescueDistance %(maxRescueDistance)f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
-                        "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s"
+                        "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
+                        "-MinDiamForParamScaling %(minDiamForParamScaling)f"
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
@@ -269,6 +389,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         paramsTiltAlign = {
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
@@ -288,22 +409,22 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'rotationAngle': self.rotationAngle.get(),
             'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'angleOffset': 0.0,
-            'rotOption': 1,
-            'rotDefaultGrouping': 5,
-            'tiltOption': 5,
-            'tiltDefaultGrouping': 5,
+            'rotOption': self.getRotationType(),
+            'rotDefaultGrouping': self.groupRotationSize.get(),
+            'tiltOption': self.getTiltAngleType(),
+            'tiltDefaultGrouping': self.groupTiltAngleSize.get(),
             'magReferenceView': 1,
-            'magOption': 1,
-            'magDefaultGrouping': 4,
-            'xStretchOption': 0,
-            'skewOption': 0,
-            'xStretchDefaultGrouping': 7,
-            'skewDefaultGrouping': 11,
+            'magOption': self.getMagnificationType(),
+            'magDefaultGrouping': self.groupMagnificationSize.get(),
+            'xStretchOption': self.getStretchType(),
+            'skewOption': self.getSkewType(),
+            'xStretchDefaultGrouping': self.xStretchGroupSize.get(),
+            'skewDefaultGrouping': self.skewGroupSize.get(),
             'beamTiltOption': 0,
             'xTiltOption': 0,
             'xTiltDefaultGrouping': 2000,
             'residualReportCriterion': 3.0,
-            'surfacesToAnalyze': 2,
+            'surfacesToAnalyze': self.getSurfaceToAnalyze(),
             'metroFactor': 0.25,
             'maximumCycles': 1000,
             'kFactorScaling': 1.0,
@@ -329,6 +450,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'localXStretchDefaultGrouping': 7,
             'localSkewOption': 0,
             'localSkewDefaultGrouping': 11,
+            'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
         }
 
         argsTiltAlign = "-ModelFile %(modelFile)s " \
@@ -352,6 +474,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-MagDefaultGrouping %(magDefaultGrouping)d " \
                         "-XStretchOption %(xStretchOption)d " \
                         "-SkewOption %(skewOption)d " \
+                        "-SkewDefaultGrouping %(skewDefaultGrouping)d " \
                         "-XStretchDefaultGrouping %(xStretchDefaultGrouping)d " \
                         "-BeamTiltOption %(beamTiltOption)d " \
                         "-XTiltOption %(xTiltOption)d " \
@@ -381,36 +504,42 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-LocalXStretchOption %(localXStretchOption)d " \
                         "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
                         "-LocalSkewOption %(localSkewOption)d " \
-                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d"
+                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
+                        "> %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
+
+        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
+                                    os.path.join(extraPrefix, "taSolution.log"),
+                                    ts.getSize(),
+                                    ts.getSamplingRate())
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        paramsGapPoint2Model = {
+        paramsGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
         }
-        argsGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsGapModel2Point = "-InputFile %(inputFile)s " \
                              "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
-        paramsNoGapPoint2Model = {
+        paramsNoGapModel2Point = {
             'inputFile': os.path.join(extraPrefix,
                                       ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
             'outputFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
         }
-        argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
+        argsNoGapModel2Point = "-InputFile %(inputFile)s " \
                                "-OutputFile %(outputFile)s"
 
-        Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+        Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -524,14 +653,20 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         """Create the output set of landmark models with gaps"""
         outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
 
+        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+                                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
+
         fiducialModelGapPath = os.path.join(extraPrefix,
                                             ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
 
         landmarkModelGapsResidPath = os.path.join(extraPrefix,
                                                   ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+
         fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
 
-        landmarkModelGaps = LandmarkModel(tsId, landmarkModelGapsResidPath, fiducialModelGapPath)
+        landmarkModelGaps = LandmarkModel(tsId=tsId,
+                                          fileName=landmarkModelNoGapsFilePath,
+                                          modelName=fiducialModelGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -567,7 +702,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                                     ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
         fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
-        landmarkModelNoGaps = LandmarkModel(tsId, landmarkModelNoGapsFilePath, fiducialModelNoGapPath)
+        landmarkModelNoGaps = LandmarkModel(tsId=tsId,
+                                            fileName=landmarkModelNoGapsFilePath,
+                                            modelName=fiducialModelNoGapPath)
 
         prevTiltIm = 0
         chainId = 0
@@ -627,6 +764,50 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    def getRotationType(self):
+        if self.rotationSolutionType.get() == 0:
+            return 0
+        elif self.rotationSolutionType.get() == 1:
+            return -1
+        elif self.rotationSolutionType.get() == 2:
+            return 3
+        elif self.rotationSolutionType.get() == 3:
+            return 1
+
+    def getMagnificationType(self):
+        if self.magnificationSolutionType.get() == 0:
+            return 0
+        elif self.magnificationSolutionType.get() == 1:
+            return 3
+        elif self.magnificationSolutionType.get() == 2:
+            return 1
+
+    def getTiltAngleType(self):
+        if self.tiltAngleSolutionType.get() == 0:
+            return 0
+        elif self.tiltAngleSolutionType.get() == 1:
+            return 5
+        elif self.tiltAngleSolutionType.get() == 2:
+            return 2
+
+    def getSkewType(self):
+        if self.distortionSolutionType.get() == 0:
+            return 0
+        elif self.distortionSolutionType.get() == 1 or self.distortionSolutionType.get() == 2:
+            return 3
+
+    def getStretchType(self):
+        if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
+            return 0
+        elif self.distortionSolutionType.get() == 1:
+            return 3
+
+    def getSurfaceToAnalyze(self):
+        if self.twoSurfaces.get() == 0:
+            return 2
+        elif self.twoSurfaces.get() == 1:
+            return 1
+
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -658,7 +839,8 @@ TiltFile	%(tiltFile)s
 TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
-BeadDiameter	%(fiducialDiameter)f
+PixelSize   %(samplingRate)f
+BeadDiameter	%(fiducialDiameter).2f
 FillGaps
 MaxGapSize	5
 RoundsOfTracking	2
@@ -675,30 +857,90 @@ MinOverlapBeads	5
 MinViewsForTiltalign	4
 MinTiltRangeToFindAxis	10.0
 MinTiltRangeToFindAngles	20.0
-BoxSizeXandY	32,32
+BoxSizeXandY	%(boxSizeXandY)d,%(boxSizeXandY)d
 MaxBeadsToAverage	4
 # points and minimum for extrapolation
 PointsToFitMaxAndMin	7,3
 # fraction of mean, and # of SD below mean: density criterion for rescue
 DensityRescueFractionAndSD	0.6,1.0
 # distance criterion for rescue
-DistanceRescueCriterion	10.0
+DistanceRescueCriterion	%(distanceRescueCriterion)f
 # relaxation of criterion for density and distance rescues
 RescueRelaxationDensityAndDistance	0.7,0.9
 # distance for rescue after fit
-PostFitRescueResidual	2.5
+PostFitRescueResidual	%(postFitRescueResidual)f
 # relaxation of density criterion, maximum radius to search
 DensityRelaxationPostFit	0.9
-MaxRescueDistance	2.5
+MaxRescueDistance	%(maxRescueDistance)f
 # Max and min residual changes to use to get mean and SD change
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
-DeletionCriterionMinAndSD	0.04,2.0
-SobelFilterCentering
+DeletionCriterionMinAndSD	%(deletionCriterionMinAndSD)s
+MinDiamForParamScaling %(minDiamForParamScaling)f
+"""
+
+        if self.refineSobelFilter.get() == 0:
+            template += """SobelFilterCentering
+ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
 $if (-e ./savework) ./savework
 """
+        elif self.refineSobelFilter.get() == 1:
+            template += """$if (-e ./savework) ./savework"""
+
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
+
+    def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
+        """ This method generates a text file containing the TA solution from the tiltalign output log. """
+
+        searchingPassword = "deltilt"
+
+        with open(tiltAlignOutputLog, 'r') as fRead:
+            lines = fRead.readlines()
+
+            counts = []
+
+            for index, line in enumerate(lines):
+                if searchingPassword in line:
+                    counts.append([index])
+
+        lastApparition = max(counts)[0]
+
+        outputLinesAsMatrix = []
+
+        # Take only the lines that compose the table containing the ta solution info (until blank line)
+        # Convert lines into numpy array for posterior operation
+
+        index = lastApparition + 1
+        while True:
+            vector = lines[index].split()
+            vector = [float(i) for i in vector]
+            outputLinesAsMatrix.append(vector)
+            if int(vector[0]) == numberOfTiltImages:
+                break
+            index += 1
+
+        print(outputLinesAsMatrix)
+        matrixTaSolution = np.array(outputLinesAsMatrix)
+        print(matrixTaSolution)
+
+        # Find the position in table of the minimum tilt angle image
+        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
+
+        # Multiply last column by the sampling rate in nanometer
+        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
+
+        # Get minimum rotation to write in file
+        minimumRotation = matrixTaSolution[indexAng][1]
+
+        # Save new matrixTaSolution info into file
+        np.savetxt(fname=taSolutionLog,
+                   X=matrixTaSolution,
+                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
+                   header=" At minimum tilt, rotation angle is %.2f\n\n"
+                          " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
+                          % minimumRotation,
+                   comments='')
 
     def getOutputSetOfTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):

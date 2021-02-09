@@ -25,10 +25,10 @@
 # **************************************************************************
 
 import os
-import numpy as np
 import imod.utils as utils
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pyworkflow.object import Set
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
@@ -65,6 +65,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def generateTransformFileStep(self, tsObjId):
@@ -122,6 +123,11 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
+    def closeOutputSetsStep(self):
+        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
+        self._store()
+
     # --------------------------- UTILS functions ----------------------------
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
@@ -132,6 +138,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
