@@ -624,7 +624,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                     newCTFTomo._cutOnFreqList = pwobj.CsvList(pType=float)
                     newCTFTomo.setCutOnFreqList(cutOnFreqDict[index + 1])
 
-                    defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
+                    defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict = \
                         utils.readCTFEstimationInfoFile(defocusFilePath,
                                                         flag=defocusFileFlag)
 

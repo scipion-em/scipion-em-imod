@@ -455,7 +455,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
                 # Cut-on frequency info
-                if index in phaseShiftDict.keys():
+                if index in cutOnFreqDict.keys():
                     cutOnFreqDict[index].append(pwobj.Float(element[8]))
                 else:
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
