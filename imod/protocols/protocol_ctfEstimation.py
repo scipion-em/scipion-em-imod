@@ -532,7 +532,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputCtfEstimatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputSetOfCTFTomoSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
