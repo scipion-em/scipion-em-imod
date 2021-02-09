@@ -186,7 +186,7 @@ def getDefocusFileFlag(defocusFilePath):
 
     # File contains more information apart
     else:
-        return lines[0].split()[0]
+        return int(lines[0].split()[0])
 
 
 def readDefocusFileAsTable(defocusFilePath):

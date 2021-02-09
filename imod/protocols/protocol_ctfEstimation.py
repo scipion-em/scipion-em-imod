@@ -497,7 +497,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
             newCTFTomoSeries.setTsId(tsId)
-            newCTFTomoSeries.setIMODDefocusFileFlag(defocusFilePath)
+            newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
 
             " We need to create now all the attributes of this object in order to append it to the set and be able " \
             " to update it posteriorly. "
