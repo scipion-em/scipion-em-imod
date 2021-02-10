@@ -568,7 +568,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         # Erase gold beads
         paramsCcderaser = {
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='AAAAAAAAAAAAAAAAAAAA')),
             'modelFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
@@ -993,9 +993,7 @@ $if (-e ./savework) ./savework
                 break
             index += 1
 
-        print(outputLinesAsMatrix)
         matrixTaSolution = np.array(outputLinesAsMatrix)
-        print(matrixTaSolution)
 
         # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
