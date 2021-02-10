@@ -532,7 +532,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfCTFTomoSeries().setStreamState(Set.STREAM_CLOSED)
+        # Getting mapper reopens the connection to the database. For strange reason before calling this method an
+        # instance of the output set is destroyed (_del_) which triggers closing the connection
+        self.outputSetOfCTFTomoSeries._getMapper()
+        self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -541,9 +544,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
             self.outputSetOfCTFTomoSeries.enableAppend()
         else:
-            outputSetOfCTFTomoSeries = self._createSet(SetClass=tomoObj.SetOfCTFTomoSeries,
-                                                       template='CTFmodels%s.sqlite',
-                                                       suffix='')
+            outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
+                                                                         template='CTFmodels%s.sqlite')
+
             outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
