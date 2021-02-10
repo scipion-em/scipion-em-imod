@@ -115,7 +115,6 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        print(self.inputSetOfCtfTomoSeries.get()[tsObjId].getTiltSeries())
         ctfTomoSeries = self.inputSetOfCtfTomoSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
