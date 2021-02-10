@@ -205,8 +205,8 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputCtfCorrectedSetOfTiltSeries(self):
-        if hasattr(self, "outputCtfEstimatedSetOfTiltSeries"):
-            self.outputCtfEstimatedSetOfTiltSeries.enableAppend()
+        if hasattr(self, "outputCtfCorrectedSetOfTiltSeries"):
+            self.outputCtfCorrectedSetOfTiltSeries.enableAppend()
         else:
             outputCtfCorrectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfCorrected')
             outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
