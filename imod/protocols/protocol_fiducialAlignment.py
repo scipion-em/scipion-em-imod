@@ -51,6 +51,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
+
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
@@ -62,7 +63,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       choices=['Yes', 'No'],
                       default=0,
                       label='Find on two surfaces',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.")
 
@@ -85,6 +85,28 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       default='0.0',
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
+
+        form.addParam('computeAlignment',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Generate interpolated tilt-series',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Generate and save the interpolated tilt-series applying the'
+                           'obtained transformation matrices.')
+
+        groupInterpolation = form.addGroup('Interpolated tilt-series',
+                                           condition='computeAlignment==0')
+
+        groupInterpolation.addParam('binning',
+                                    params.FloatParam,
+                                    default=1.0,
+                                    label='Binning',
+                                    help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
+                                         'Images will be binned by the given factor. Must be an integer bigger than 1')
+
+        form.addSection('Global variables')
 
         form.addParam('refineSobelFilter',
                       params.EnumParam,
@@ -177,25 +199,29 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the skew group')
 
-        form.addParam('computeAlignment',
+        form.addSection('Erase gold beads')
+
+        form.addParam('eraseGoldBeads',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series',
-                      important=True,
+                      label='Erase gold beads',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+                      help='Remove the gold beads detected during fiducial alignment with ccderaser program.')
 
-        groupInterpolation = form.addGroup('Interpolated tilt-series',
-                                           condition='computeAlignment==0')
+        groupEraseGoldBeads = form.addGroup('Interpolated tilt-series',
+                                            condition='eraseGoldBeads==0')
 
-        groupInterpolation.addParam('binning',
-                                    params.FloatParam,
-                                    default=1.0,
-                                    label='Binning',
-                                    help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
-                                         'Images will be binned by the given factor. Must be an integer bigger than 1')
+        groupEraseGoldBeads.addParam('betterRadius',
+                                     params.IntParam,
+                                     default=10,
+                                     label='Bead diameter (pixels)',
+                                     help="For circle objects, this entry specifies a radius to use for points without "
+                                          "an individual point size instead of the object's default sphere radius. "
+                                          "This entry is floating point and can be used to overcome the limitations of "
+                                          "having an integer default sphere radius. If there are multiple circle "
+                                          "objects, enter one value to apply to all objects or a value for each "
+                                          "object.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -551,8 +577,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tltList = utils.formatAngleList(tltFilePath)
 
         transformationMatricesFilePath = os.path.join(
-                                            extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+            extraPrefix,
+            ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
         newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
