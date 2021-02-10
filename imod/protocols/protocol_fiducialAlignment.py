@@ -549,13 +549,28 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
+            'outputFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
+            'transformFile': os.path.join(extraPrefix,
+                                          ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+        }
+
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
+
+        Plugin.runImod(self, 'inodtrans', argsImodtrans % paramsImodtrans)
 
         # Erase gold beads
-
         paramsCcderaser = {
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
+            'modelFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
             'polynomialOrder': 0,
             'circleObjects': "/"
