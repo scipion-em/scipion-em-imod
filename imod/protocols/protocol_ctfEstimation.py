@@ -408,7 +408,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
-            outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
+            if hasattr(self, "outputSetOfCTFTomoSeries"):
+                print("---------------------------------------------------------------------")
+                # self.outputSetOfCTFTomoSeries._getMapper()
+                # outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
+            else:
+                outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
 
             defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
@@ -422,7 +427,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             " to update it posteriorly. "
 
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-            outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
+            self.outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
 
             if defocusFileFlag == 0:
                 " Plain estimation "
@@ -526,8 +531,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
             newCTFTomoSeries.write(properties=False)
 
-            outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
-            outputSetOfCTFTomoSeries.write()
+            self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
+            self.outputSetOfCTFTomoSeries.write()
 
             self._store()
 
@@ -542,6 +547,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfCTFTomoSeries(self):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
+            self.outputSetOfCTFTomoSeries._getMapper()
             self.outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
