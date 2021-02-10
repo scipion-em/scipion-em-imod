@@ -180,7 +180,7 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runCTFCorrection(cls, inputSetOfTiltSeries, inputSetOfCtfTomoSeries, defocusTol, interpolationWidth):
         cls.protCTFCorrection = cls.newProtocol(ProtImodCtfCorrection,
-                                                inputSetOftiltSeries=inputSetOfTiltSeries,
+                                                inputSetOfTiltSeries=inputSetOfTiltSeries,
                                                 inputSetOfCtfTomoSeries=inputSetOfCtfTomoSeries,
                                                 defocusTol=defocusTol,
                                                 interpolationWidth=interpolationWidth)
@@ -511,9 +511,9 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       interpolationWidth=15)
 
     def test_ctfEstimationOutputSize(self):
-        self.assertIsNotNone(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries)
+        self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
 
-        self.assertTrue(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries.getSize() == 1)
+        self.assertTrue(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize() == 1)
 
     def test_ctfEstimationOutputDefocusFile(self):
         tsId = self.protCTFEstimation.inputSetOfTiltSeries.get().getFirstItem().getTsId()
