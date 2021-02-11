@@ -830,7 +830,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
         if self.computeAlignment.get() == 0:
             self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
-        self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
+        # self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
         self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
 
