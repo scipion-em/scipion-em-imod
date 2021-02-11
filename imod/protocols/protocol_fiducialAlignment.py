@@ -231,7 +231,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateFiducialSeedStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('computeFiducialAlignmentStep', ts.getObjId())
-            if self.eraseGoldBeads.get == 0:
+            if self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
             self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
@@ -544,8 +544,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
     def eraseGoldBeadsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
-
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
