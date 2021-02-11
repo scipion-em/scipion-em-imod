@@ -408,12 +408,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
-            if hasattr(self, "outputSetOfCTFTomoSeries"):
-                print("---------------------------------------------------------------------")
-                # self.outputSetOfCTFTomoSeries._getMapper()
-                # outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
-            else:
-                outputSetOfCTFTomoSeries = self.getOutputSetOfCTFTomoSeries()
+
+            self.getOutputSetOfCTFTomoSeries()
 
             defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
@@ -537,9 +533,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             self._store()
 
     def closeOutputSetsStep(self):
-        # Getting mapper reopens the connection to the database. For strange reason before calling this method an
-        # instance of the output set is destroyed (_del_) which triggers closing the connection
-        self.outputSetOfCTFTomoSeries._getMapper()
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
@@ -547,7 +540,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfCTFTomoSeries(self):
         if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.outputSetOfCTFTomoSeries._getMapper()
             self.outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
