@@ -568,7 +568,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         # Erase gold beads
         paramsCcderaser = {
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='AAAAAAAAAAAAAAAAAAAA')),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'modelFile': os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
