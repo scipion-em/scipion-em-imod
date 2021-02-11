@@ -563,7 +563,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "%(inputFile)s " \
                         "%(outputFile)s "
 
-        Plugin.runImod(self, 'inodtrans', argsImodtrans % paramsImodtrans)
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
         # Erase gold beads
         paramsCcderaser = {
