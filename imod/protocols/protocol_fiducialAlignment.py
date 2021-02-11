@@ -723,40 +723,40 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        """Create the output set of landmark models with gaps"""
-        outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
-
-        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
-                                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
-
-        fiducialModelGapPath = os.path.join(extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
-
-        landmarkModelGapsResidPath = os.path.join(extraPrefix,
-                                                  ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
-
-        fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
-
-        landmarkModelGaps = LandmarkModel(tsId=tsId,
-                                          fileName=landmarkModelNoGapsFilePath,
-                                          modelName=fiducialModelGapPath)
-
-        prevTiltIm = 0
-        chainId = 0
-        for index, fiducial in enumerate(fiducialGapResidList):
-            if int(fiducial[2]) <= prevTiltIm:
-                chainId += 1
-            prevTiltIm = int(fiducial[2])
-            landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-                                          yCoor=fiducial[1],
-                                          tiltIm=fiducial[2],
-                                          chainId=chainId,
-                                          xResid=fiducial[3],
-                                          yResid=fiducial[4])
-
-        outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-        outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-        outputSetOfLandmarkModelsGaps.write()
+        # """Create the output set of landmark models with gaps"""
+        # outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
+        #
+        # landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+        #                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
+        #
+        # fiducialModelGapPath = os.path.join(extraPrefix,
+        #                                     ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
+        #
+        # landmarkModelGapsResidPath = os.path.join(extraPrefix,
+        #                                           ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+        #
+        # fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+        #
+        # landmarkModelGaps = LandmarkModel(tsId=tsId,
+        #                                   fileName=landmarkModelNoGapsFilePath,
+        #                                   modelName=fiducialModelGapPath)
+        #
+        # prevTiltIm = 0
+        # chainId = 0
+        # for index, fiducial in enumerate(fiducialGapResidList):
+        #     if int(fiducial[2]) <= prevTiltIm:
+        #         chainId += 1
+        #     prevTiltIm = int(fiducial[2])
+        #     landmarkModelGaps.addLandmark(xCoor=fiducial[0],
+        #                                   yCoor=fiducial[1],
+        #                                   tiltIm=fiducial[2],
+        #                                   chainId=chainId,
+        #                                   xResid=fiducial[3],
+        #                                   yResid=fiducial[4])
+        #
+        # outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
+        # outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
+        # outputSetOfLandmarkModelsGaps.write()
 
         """Create the output set of landmark models with no gaps"""
         outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
@@ -1041,16 +1041,16 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
 
-    def getOutputFiducialModelGaps(self):
-        if hasattr(self, "outputFiducialModelGaps"):
-            self.outputFiducialModelGaps.enableAppend()
-        else:
-            outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-            outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-        return self.outputFiducialModelGaps
+    # def getOutputFiducialModelGaps(self):
+    #     if hasattr(self, "outputFiducialModelGaps"):
+    #         self.outputFiducialModelGaps.enableAppend()
+    #     else:
+    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+    #     return self.outputFiducialModelGaps
 
     def getOutputFiducialModelNoGaps(self):
         if hasattr(self, "outputFiducialModelNoGaps"):
