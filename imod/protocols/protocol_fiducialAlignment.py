@@ -233,12 +233,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('generateFiducialSeedStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('computeFiducialAlignmentStep', ts.getObjId())
-            if self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
             self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
             if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
+            if self.eraseGoldBeads.get() == 0:
+                self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
         self._insertFunctionStep('createOutputStep')
 
@@ -544,51 +544,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                     ts.getSize(),
                                     ts.getSamplingRate())
 
-    def eraseGoldBeadsStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        # Generate interpolated model
-        paramsImodtrans = {
-            'inputFile': os.path.join(extraPrefix,
-                                      ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
-            'outputFile': os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
-            'transformFile': os.path.join(extraPrefix,
-                                          ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
-        }
-
-        argsImodtrans = "-2 %(transformFile)s " \
-                        "%(inputFile)s " \
-                        "%(outputFile)s "
-
-        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
-
-        # Erase gold beads
-        paramsCcderaser = {
-            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'modelFile': os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
-            'betterRadius': self.betterRadius.get(),
-            'polynomialOrder': 0,
-            'circleObjects': "/"
-        }
-
-        argsCcderaser = "-InputFile %(inputFile)s " \
-                        "-OutputFile %(outputFile)s " \
-                        "-ModelFile %(modelFile)s " \
-                        "-BetterRadius %(betterRadius)d " \
-                        "-PolynomialOrder %(polynomialOrder)d " \
-                        "-CircleObjects %(circleObjects)s " \
-                        "-MergePatches " \
-                        "-ExcludeAdjacent"
-
-        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
-
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -719,6 +674,52 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
+
+    def eraseGoldBeadsStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
+            'outputFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
+            'transformFile': os.path.join(extraPrefix,
+                                          ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+        }
+
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
+
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
+
+        # Erase gold beads
+        paramsCcderaser = {
+            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'modelFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_fidxyz_ali", extension=".mod")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
+        }
+
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
+
+        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
