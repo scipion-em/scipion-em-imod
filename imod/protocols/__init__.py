@@ -39,3 +39,4 @@ from .protocol_ctfEstimation import ProtImodCtfEstimation
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_xRaysEraser import ProtImodXraysEraser
+# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
