@@ -35,14 +35,14 @@ import imod.utils as utils
 from imod import Plugin
 
 
-class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
+class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     """
-    Erase X-rays from aligned tilt-series based on the IMOD procedure.
+    Erase fiducial markers from aligned tilt-series based on the IMOD procedure.
     More info:
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'x-rays eraser'
+    _label = 'gold bead eraser'
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -58,45 +58,28 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series.')
 
-        form.addParam('peakCriterion',
-                      params.FloatParam,
-                      default=8.0,
-                      label='Peak criterion',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 10 '
-                           'SDs)')
+        form.addParam('inputSetOfLandmarkModels',
+                      params.PointerParam,
+                      pointerClass='SetOfLandmarkModels',
+                      important=True,
+                      label='Input set of landmark models',
+                      help='Input set of landmark models containing the location of the gold beads through the series')
 
-        form.addParam('diffCriterion',
-                      params.FloatParam,
-                      default=6.0,
-                      label='Difference criterion',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Criterion # of SDs above mean pixel-to-pixel difference for erasing a peak based on '
-                           'differences (the default is 10 SDs).')
-
-        form.addParam('maximumRadius',
-                      params.FloatParam,
-                      default=4.2,
-                      label='Maximum radius',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
-
-        form.addParam('bigDiffCriterion',
+        form.addParam('betterRadius',
                       params.IntParam,
-                      default=19,
-                      label='Big difference criterion',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='An extra-large peak will be erased only if the value for the maximum difference between '
-                           'adjacent pixels, averaged over the most extreme one-fourth of the pixels in the patch, '
-                           'exceeds this criterion, evaluated as the number of SDs above the mean absolute difference '
-                           'between adjacent pixels in the scan area.  The default is 19.  This high a value is needed '
-                           'to prevent gold erasure on low-noise data sets with small gold particles, and a lower '
-                           'value may be needed to make extra-large peak removal useful.')
+                      default=10,
+                      label='Bead diameter (pixels)',
+                      help="For circle objects, this entry specifies a radius to use for points without an individual "
+                           "point size instead of the object's default sphere radius.  This entry is floating point "
+                           "and can be used to overcome the limitations of having an integer default sphere radius. If "
+                           "there are multiple circle objects, enter one value to apply to all objects or a value for "
+                           "each object.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
+            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
         self._insertFunctionStep('closeOutputStep')
@@ -106,12 +89,43 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(extraPrefix)
         path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
 
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
+
+    def generateFiducialModelStep(self, tsObjId):
+        # TODO: check si es el landmark model correcto
+        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(extraPrefix)
+        path.makePath(tmpPrefix)
+
+        landmarkTextFilePath = os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
+        landmarkModelPath = os.path.join(extraPrefix,
+                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod"))
+
+        # Generate the IMOD file containing the information from the landmark model
+        utils.generateIMODFiducialTextFile(landmarkModel=lm,
+                                           outputFilePath=landmarkTextFilePath)
+
+        # Convert IMOD file into IMOD model
+        paramsPoint2Model = {
+            'inputFile': landmarkTextFilePath,
+            'outputFile': landmarkModelPath,
+        }
+
+        argsPoint2Model = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s"
+
+        Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -121,41 +135,22 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCcderaser = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'findPeaks': 1,
-            'peakCriterion': self.peakCriterion.get(),
-            'diffCriterion': self.diffCriterion.get(),
-            'growCriterion': 4,
-            'scanCriterion': 3,
-            'maximumRadius': self.maximumRadius.get(),
-            'giantCriterion': 12,
-            'extraLargeRadius': 8,
-            'bigDiffCriterion': self.bigDiffCriterion.get(),
-            'annulusWidth': 2.0,
-            'xyScanSize': 100,
-            'edgeExclusionWidth': 4,
-            'pointModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
-            'borderSize': 2,
-            'polynomialOrder': 2,
+            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
         }
 
-        argsCcderaser = "-InputFile %(input)s " \
-                        "-OutputFile %(output)s " \
-                        "-FindPeaks %(findPeaks)d " \
-                        "-PeakCriterion %(peakCriterion).2f " \
-                        "-DiffCriterion %(diffCriterion).2f " \
-                        "-GrowCriterion %(growCriterion)d " \
-                        "-ScanCriterion %(scanCriterion)d " \
-                        "-MaximumRadius %(maximumRadius).2f " \
-                        "-GiantCriterion %(giantCriterion)d " \
-                        "-ExtraLargeRadius %(extraLargeRadius)d " \
-                        "-BigDiffCriterion %(bigDiffCriterion)d " \
-                        "-AnnulusWidth %(annulusWidth).2f " \
-                        "-XYScanSize %(xyScanSize)d " \
-                        "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
-                        "-BorderSize %(borderSize)d " \
-                        "-PolynomialOrder %(polynomialOrder)d "
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 

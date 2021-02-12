@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -51,6 +51,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
+
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
@@ -62,7 +63,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       choices=['Yes', 'No'],
                       default=0,
                       label='Find on two surfaces',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.")
 
@@ -85,6 +85,28 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       default='0.0',
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Angle from the vertical to the tilt axis in raw images.")
+
+        form.addParam('computeAlignment',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Generate interpolated tilt-series',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Generate and save the interpolated tilt-series applying the'
+                           'obtained transformation matrices.')
+
+        groupInterpolation = form.addGroup('Interpolated tilt-series',
+                                           condition='computeAlignment==0')
+
+        groupInterpolation.addParam('binning',
+                                    params.FloatParam,
+                                    default=1.0,
+                                    label='Binning',
+                                    help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
+                                         'Images will be binned by the given factor. Must be an integer bigger than 1')
+
+        form.addSection('Global variables')
 
         form.addParam('refineSobelFilter',
                       params.EnumParam,
@@ -177,25 +199,31 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the skew group')
 
-        form.addParam('computeAlignment',
+        form.addSection('Erase gold beads')
+
+        form.addParam('eraseGoldBeads',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series',
-                      important=True,
+                      label='Erase gold beads',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+                      help='Remove the gold beads detected during fiducial alignment with ccderaser program. This '
+                           'option will generate an interpolated tilt series with the gold beads erased and '
+                           'interpolated with the calculated transformation matrices form the alignment. ')
 
-        groupInterpolation = form.addGroup('Interpolated tilt-series',
-                                           condition='computeAlignment==0')
+        groupEraseGoldBeads = form.addGroup('Gold bead eraser',
+                                            condition='eraseGoldBeads==0')
 
-        groupInterpolation.addParam('binning',
-                                    params.FloatParam,
-                                    default=1.0,
-                                    label='Binning',
-                                    help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
-                                         'Images will be binned by the given factor. Must be an integer bigger than 1')
+        groupEraseGoldBeads.addParam('betterRadius',
+                                     params.IntParam,
+                                     default=10,
+                                     label='Bead diameter (pixels)',
+                                     help="For circle objects, this entry specifies a radius to use for points without "
+                                          "an individual point size instead of the object's default sphere radius. "
+                                          "This entry is floating point and can be used to overcome the limitations of "
+                                          "having an integer default sphere radius. If there are multiple circle "
+                                          "objects, enter one value to apply to all objects or a value for each "
+                                          "object.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -207,8 +235,10 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('computeFiducialAlignmentStep', ts.getObjId())
             self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
             self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
-            if self.computeAlignment.get() == 0:
+            if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
+            if self.eraseGoldBeads.get() == 0:
+                self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
         self._insertFunctionStep('createOutputStep')
 
@@ -551,8 +581,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tltList = utils.formatAngleList(tltFilePath)
 
         transformationMatricesFilePath = os.path.join(
-                                            extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+            extraPrefix,
+            ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
         newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
@@ -602,7 +632,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         paramsAlignment = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_interpolated")),
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0}
@@ -629,7 +659,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         for index, ti in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(ti, copyId=True)
-            newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName()))
+            newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName(suffix="_interpolated")))
             newTi.setTiltAngle(float(tltList[index]))
             if self.binning > 1:
                 newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
@@ -645,45 +675,95 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
+    def eraseGoldBeadsStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
+        # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
+        # extra folder
+        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
+                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
+
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'transformFile': os.path.join(extraPrefix,
+                                          ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+        }
+
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
+
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
+
+        # Erase gold beads
+        paramsCcderaser = {
+            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
+            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
+            'modelFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
+        }
+
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
+
+        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        """Create the output set of landmark models with gaps"""
-        outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
-
-        landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
-                                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
-
-        fiducialModelGapPath = os.path.join(extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
-
-        landmarkModelGapsResidPath = os.path.join(extraPrefix,
-                                                  ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
-
-        fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
-
-        landmarkModelGaps = LandmarkModel(tsId=tsId,
-                                          fileName=landmarkModelNoGapsFilePath,
-                                          modelName=fiducialModelGapPath)
-
-        prevTiltIm = 0
-        chainId = 0
-        for index, fiducial in enumerate(fiducialGapResidList):
-            if int(fiducial[2]) <= prevTiltIm:
-                chainId += 1
-            prevTiltIm = int(fiducial[2])
-            landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-                                          yCoor=fiducial[1],
-                                          tiltIm=fiducial[2],
-                                          chainId=chainId,
-                                          xResid=fiducial[3],
-                                          yResid=fiducial[4])
-
-        outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-        outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-        outputSetOfLandmarkModelsGaps.write()
+        # """Create the output set of landmark models with gaps"""
+        # outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
+        #
+        # landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
+        #                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
+        #
+        # fiducialModelGapPath = os.path.join(extraPrefix,
+        #                                     ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
+        #
+        # landmarkModelGapsResidPath = os.path.join(extraPrefix,
+        #                                           ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+        #
+        # fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+        #
+        # landmarkModelGaps = LandmarkModel(tsId=tsId,
+        #                                   fileName=landmarkModelNoGapsFilePath,
+        #                                   modelName=fiducialModelGapPath)
+        #
+        # prevTiltIm = 0
+        # chainId = 0
+        # for index, fiducial in enumerate(fiducialGapResidList):
+        #     if int(fiducial[2]) <= prevTiltIm:
+        #         chainId += 1
+        #     prevTiltIm = int(fiducial[2])
+        #     landmarkModelGaps.addLandmark(xCoor=fiducial[0],
+        #                                   yCoor=fiducial[1],
+        #                                   tiltIm=fiducial[2],
+        #                                   chainId=chainId,
+        #                                   xResid=fiducial[3],
+        #                                   yResid=fiducial[4])
+        #
+        # outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
+        # outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
+        # outputSetOfLandmarkModelsGaps.write()
 
         """Create the output set of landmark models with no gaps"""
         outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
@@ -757,7 +837,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
         if self.computeAlignment.get() == 0:
             self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
-        self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
+        # self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
         self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
 
@@ -920,9 +1000,7 @@ $if (-e ./savework) ./savework
                 break
             index += 1
 
-        print(outputLinesAsMatrix)
         matrixTaSolution = np.array(outputLinesAsMatrix)
-        print(matrixTaSolution)
 
         # Find the position in table of the minimum tilt angle image
         _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
@@ -970,16 +1048,16 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
 
-    def getOutputFiducialModelGaps(self):
-        if hasattr(self, "outputFiducialModelGaps"):
-            self.outputFiducialModelGaps.enableAppend()
-        else:
-            outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-            outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-        return self.outputFiducialModelGaps
+    # def getOutputFiducialModelGaps(self):
+    #     if hasattr(self, "outputFiducialModelGaps"):
+    #         self.outputFiducialModelGaps.enableAppend()
+    #     else:
+    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+    #     return self.outputFiducialModelGaps
 
     def getOutputFiducialModelNoGaps(self):
         if hasattr(self, "outputFiducialModelNoGaps"):
