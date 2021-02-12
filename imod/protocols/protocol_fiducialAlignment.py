@@ -207,7 +207,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       default=1,
                       label='Erase gold beads',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Remove the gold beads detected during fiducial alignment with ccderaser program.')
+                      help='Remove the gold beads detected during fiducial alignment with ccderaser program. This '
+                           'option will generate an interpolated tilt series with the gold beads erased and '
+                           'interpolated with the calculated transformation matrices form the alignment. ')
 
         groupEraseGoldBeads = form.addGroup('Interpolated tilt-series',
                                             condition='eraseGoldBeads==0')
@@ -235,7 +237,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                 self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
             self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
             self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
-            if self.computeAlignment.get() == 0:
+            if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
             self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
         self._insertFunctionStep('createOutputStep')
