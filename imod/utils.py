@@ -198,7 +198,9 @@ def getDefocusFileFlag(defocusFilePath):
         lines = f.readlines()
 
     " File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency) "
-    if len(lines[1].split()) == 5:
+    if len(lines) == 1:
+        return 0
+    elif len(lines[1].split()) == 5:
         return 0
 
     else:
@@ -218,9 +220,16 @@ def readDefocusFileAsTable(defocusFilePath):
             vector = line.split()
             [float(i) for i in vector]
 
-            if index == 0 and len(lines[1].split()) == 5:
+            if index == 0 and len(lines) == 1:
                 "CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line."
-                "Remove last element from the first line (it contains the mode of the estimation run)."
+                "Remove last element from the first line (it contains the mode of the estimation run). This case "
+                "considers that the estimation file only has one line. "
+                vector.pop()
+                defocusTable.append(vector)
+
+            elif index == 0 and len(lines[1].split()) == 5:
+                "CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line."
+                "Remove last element from the first line (it contains the mode of the estimation run). "
                 vector.pop()
                 defocusTable.append(vector)
 
