@@ -78,6 +78,8 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
                 if tsFileName == defocusFileName:
 
+                    print("Parsing file: " + defocusFilePath)
+
                     defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
                     newCTFTomoSeries = tomoObj.CTFTomoSeries()
