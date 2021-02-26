@@ -72,15 +72,9 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
             tsFileName = ts.getFirstItem().parseFileName(extension='')
 
-            print("----------------------------------")
-            print(tsFileName)
-
             for ctfFile, _ in self.iterFiles():
                 defocusFilePath = ctfFile
                 defocusFileName = os.path.basename(os.path.splitext(ctfFile)[0])
-
-                print(defocusFileName)
-                print(defocusFilePath)
 
                 if tsFileName == defocusFileName:
 
