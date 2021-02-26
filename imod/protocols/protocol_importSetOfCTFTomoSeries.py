@@ -26,9 +26,28 @@
 
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
+from tomo.protocols.protocol_base import ProtTomoImportFiles
+
+import pyworkflow.protocol.params as params
 
 
-class ProtImodImportSetOfCtfTomoSeries(EMProtocol, ProtTomoBase):
+class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     """
     Protocol to import estimations of CTF series from tilt-series into Scipion.
     """
+
+    _label = 'import tomo CTFs'
+
+    def __init__(self, **args):
+        ProtTomoImportFiles.__init__(self, **args)
+
+    def _defineParams(self, form):
+        ProtTomoImportFiles._defineParams(self, form)
+
+        form.addParam('importTiltSeries',
+                      params.PointerParam,
+                      pointerClass='SetOfTiltSeries',
+                      label='Input tilt-series',
+                      help='Select the tilt-series to which the imported estimation of CTF will be paired. The file '
+                           'names of the file and the defocus file must be the same (except the extension).')
+
