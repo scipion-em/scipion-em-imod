@@ -46,7 +46,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
         ProtTomoImportFiles.__init__(self, **args)
 
     def _defineParams(self, form):
-        ProtTomoImportFiles._defineParams(self, form)
+        ProtTomoImportFiles._defineImportParams(self, form)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
