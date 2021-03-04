@@ -213,6 +213,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
             newTs.setDim((xPreali, yPreali, zPreali))
 
+            # Update origin after resizing
             resizeFactor = self.getResizeFactorFromDimensions(xPreali)
             newTs.updateOriginWithResize(resizeFactor)
 
@@ -255,6 +256,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
             newTs.setDim((xAli, yAli, zAli))
 
+            # Update origin after resizing
             resizeFactor = self.getResizeFactorFromDimensions(xPreali)
             newTs.updateOriginWithResize(resizeFactor)
 

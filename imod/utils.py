@@ -791,6 +791,5 @@ def formatGoldBead3DCoordinatesList(coordFilePath):
         for line in coorText:
             vector = line.split()
             coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
-            coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
     return coorList
