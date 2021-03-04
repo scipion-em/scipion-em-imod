@@ -814,7 +814,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         outputSetOfLandmarkModelsNoGaps.write()
 
         """Create the output set of coordinates 3D from the fiducials in the tilt series"""
-        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds(ts)
+        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
 
         coordFilePath = os.path.join(extraPrefix,
                                      ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))
@@ -832,9 +832,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             outputSetOfCoordinates3D.update(newCoord3D)
         outputSetOfCoordinates3D.write()
         self._store()
-
-        for element in outputSetOfCoordinates3D:
-            print(element.getCoordinateFromOrigin())
 
     def createOutputStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
@@ -1073,7 +1070,7 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
         return self.outputFiducialModelNoGaps
 
-    def getOutputSetOfCoordinates3Ds(self, ts=None):
+    def getOutputSetOfCoordinates3Ds(self):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.outputSetOfCoordinates3D.enableAppend()
         else:
@@ -1081,11 +1078,6 @@ $if (-e ./savework) ./savework
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
-
-            # Set 3D coordinates origin
-            xDim = ts.getFirstItem().getXDim()
-            yDim = ts.getFirstItem().getYDim()
-            # outputSetOfCoordinates3D.setOriginPosition(-int(xDim/2), -int(yDim/2), 0)
 
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)

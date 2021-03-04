@@ -270,7 +270,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 coordFilePath = os.path.join(extraPrefix,
                                              ts.getFirstItem().parseFileName(suffix='fid', extension=".xyz"))
-                coordList = utils.format3DCoordinatesList(coordFilePath)
+                coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
                 for element in coordList:
                     newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                       y=element[1],
