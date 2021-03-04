@@ -1078,7 +1078,6 @@ $if (-e ./savework) ./savework
                                                                       suffix='LandmarkModel')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
-
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
