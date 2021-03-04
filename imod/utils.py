@@ -166,7 +166,7 @@ def formatAngleList(tltFilePath):
     return angleList
 
 
-def format3DCoordinatesList(coordFilePath, xDim, yDim):
+def format3DCoordinatesList(coordFilePath):
     """ This method takes an IMOD-based fiducial coordinates file path and returns a list containing each coordinate
     for each fiducial belonging to the tilt-series. """
 
