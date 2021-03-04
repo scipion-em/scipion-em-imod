@@ -1084,7 +1084,7 @@ $if (-e ./savework) ./savework
             # Set 3D coordinates origin
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
-            outputSetOfCoordinates3D.setOriginPosition(-int(xDim/2), -int(yDim/2), 0)
+            # outputSetOfCoordinates3D.setOriginPosition(-int(xDim/2), -int(yDim/2), 0)
 
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
