@@ -35,6 +35,7 @@ from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
+import tomo.constants as constants
 from imod import Plugin
 from imod import utils
 from pwem.emlib.image import ImageHandler
@@ -212,6 +213,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
             newTs.setDim((xPreali, yPreali, zPreali))
 
+            resizeFactor = self.getResizeFactorFromDimensions(xPreali)
+            newTs.updateOriginWithResize(resizeFactor)
+
             newTs.write(properties=False)
 
             outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
@@ -251,6 +255,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
             newTs.setDim((xAli, yAli, zAli))
 
+            resizeFactor = self.getResizeFactorFromDimensions(xPreali)
+            newTs.updateOriginWithResize(resizeFactor)
+
             newTs.write(properties=False)
 
             outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
@@ -265,18 +272,23 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                                                           suffix='LandmarkModel')
                 outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.get().getSamplingRate())
                 outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
+
                 self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
                 self._defineSourceRelation(self.inputTiltSeries, outputSetOfCoordinates3D)
 
                 coordFilePath = os.path.join(extraPrefix,
                                              ts.getFirstItem().parseFileName(suffix='fid', extension=".xyz"))
-                coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
+
+                coordList = utils.format3DCoordinatesList(coordFilePath)
+
                 for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                                      y=element[1],
-                                                      z=element[2])
+                    newCoord3D = tomoObj.Coordinate3D()
                     newCoord3D.setVolume(ts)
-                    newCoord3D.setVolId(ts.getObjId())
+                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
+                    newCoord3D.setVolId(tsId)
                     outputSetOfCoordinates3D.append(newCoord3D)
                     outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
@@ -558,6 +570,11 @@ ProcessTrack.TomogramCombination=Not started
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
         return self.inputTiltSeries.get().getSamplingRate() * round(originalDim/outputDim)
+
+    def getResizeFactorFromDimensions(self, outputDim):
+        ih = ImageHandler()
+        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
+        return  round(outputDim / originalDim)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
