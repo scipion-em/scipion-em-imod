@@ -236,6 +236,9 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
 
+        # Update origin after resizing
+        newTs.updateOriginWithResize(1/self.binning.get())
+
         newTs.write(properties=False)
         outputNormalizedSetOfTiltSeries.update(newTs)
         outputNormalizedSetOfTiltSeries.updateDim()
