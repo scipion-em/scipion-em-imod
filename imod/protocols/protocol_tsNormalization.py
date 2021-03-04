@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -160,6 +160,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -239,6 +240,11 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTiltSeries.update(newTs)
         outputNormalizedSetOfTiltSeries.updateDim()
         outputNormalizedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputNormalizedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

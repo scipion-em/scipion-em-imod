@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -158,6 +158,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
             self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def generateOutputStackStep(self, tsObjId):
@@ -238,6 +239,11 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTomograms.append(newTomogram)
         outputNormalizedSetOfTomograms.update(newTomogram)
         outputNormalizedSetOfTomograms.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputNormalizedSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] SciLifeLab, Stockholm University
 # * [2] Centro Nacional de Biotecnologia, CSIC, Spain
@@ -37,3 +37,7 @@ from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_ctfCorrecion import ProtImodCtfCorrection
 from .protocol_ctfEstimation import ProtImodCtfEstimation
 from .protocol_tomoProjection import ProtImodTomoProjection
+from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
+from .protocol_xRaysEraser import ProtImodXraysEraser
+# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
+from .protocol_importSetOfCTFTomoSeries import ProtImodImportSetOfCtfTomoSeries

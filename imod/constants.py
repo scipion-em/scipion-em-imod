@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
 # * [2] Centro Nacional de Biotecnologia, CSIC, Spain
@@ -31,6 +31,6 @@
 
 IMOD_HOME = 'IMOD_HOME'
 ETOMO_CMD = 'etomo'
-VERSION_4_10_42 = '4.10.42'
-DEFAULT_VERSION = VERSION_4_10_42
+VERSION_4_11_0 = '4.11.0'
+DEFAULT_VERSION = VERSION_4_11_0
 

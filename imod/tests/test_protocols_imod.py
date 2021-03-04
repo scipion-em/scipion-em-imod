@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -178,9 +178,11 @@ class TestImodBase(BaseTest):
         return cls.protCTFEstimation
 
     @classmethod
-    def _runCTFCorrection(cls, protCtfEstimation, interpolationWidth):
+    def _runCTFCorrection(cls, inputSetOfTiltSeries, inputSetOfCtfTomoSeries, defocusTol, interpolationWidth):
         cls.protCTFCorrection = cls.newProtocol(ProtImodCtfCorrection,
-                                                protCtfEstimation=protCtfEstimation,
+                                                inputSetOfTiltSeries=inputSetOfTiltSeries,
+                                                inputSetOfCtfTomoSeries=inputSetOfCtfTomoSeries,
+                                                defocusTol=defocusTol,
                                                 interpolationWidth=interpolationWidth)
         cls.launchProtocol(cls.protCTFCorrection)
         return cls.protCTFCorrection
@@ -503,13 +505,15 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       numberSectorsAstigmatism=36,
                                                       maximumAstigmatism=1.2)
 
-        cls.protCTFCorrection = cls._runCTFCorrection(protCtfEstimation=cls.protCTFEstimation,
+        cls.protCTFCorrection = cls._runCTFCorrection(inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries,
+                                                      inputSetOfCtfTomoSeries=cls.protCTFEstimation.outputSetOfCTFTomoSeries,
+                                                      defocusTol=200,
                                                       interpolationWidth=15)
 
     def test_ctfEstimationOutputSize(self):
-        self.assertIsNotNone(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries)
+        self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
 
-        self.assertTrue(self.protCTFEstimation.outputCtfEstimatedSetOfTiltSeries.getSize() == 1)
+        self.assertTrue(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize() == 1)
 
     def test_ctfEstimationOutputDefocusFile(self):
         tsId = self.protCTFEstimation.inputSetOfTiltSeries.get().getFirstItem().getTsId()

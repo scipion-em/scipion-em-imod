@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -93,6 +93,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         for tomo in self.inputSetOfTomograms.get():
             self._insertFunctionStep('projectTomogram', tomo.getObjId())
             self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def projectTomogram(self, tomoObjId):
@@ -152,6 +153,11 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         outputProjectedSetOfTiltSeries.update(newTs)
         outputProjectedSetOfTiltSeries.updateDim()
         outputProjectedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputProjectedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
