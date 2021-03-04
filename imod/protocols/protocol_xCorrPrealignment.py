@@ -246,6 +246,10 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
+        # Update origin after resizing
+        newTs.updateOriginWithResize(1/self.binning.get())
+
         newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
