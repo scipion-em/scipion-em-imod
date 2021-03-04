@@ -31,6 +31,7 @@ from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
+import tomo.constants as constants
 from imod import Plugin
 from imod import utils
 
@@ -181,10 +182,12 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
         coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
 
         for element in coordList:
-            newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                              y=element[1],
-                                              z=element[2])
+            newCoord3D = tomoObj.Coordinate3D()
             newCoord3D.setVolume(tomo)
+            newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+            newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+            newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
             newCoord3D.setVolId(tsObjId)
             outputSetOfCoordinates3D.append(newCoord3D)
             outputSetOfCoordinates3D.update(newCoord3D)
