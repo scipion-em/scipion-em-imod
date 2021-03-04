@@ -25,6 +25,8 @@
 # **************************************************************************
 
 import os
+
+from pwem.objects import Transform
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -134,6 +136,11 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs = tomoObj.TiltSeries(tsId=tomoId)
         newTs.copyInfo(tomo)
         newTs.setTsId(tomoId)
+
+        # Add origin to output tilt-series
+        origin = Transform()
+        newTs.setOrigin(origin)
+
         outputProjectedSetOfTiltSeries.append(newTs)
 
         tiltAngleList = self.getTiltAngleList()
@@ -148,6 +155,11 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
+        # Set origin to output tilt-series
+        origin.setShifts(-newTs.getFirstItem().getXDim() / 2 * self.samplingRate.get(),
+                         -newTs.getFirstItem().getYDim() / 2 * self.samplingRate.get(),
+                         0)
 
         newTs.write(properties=False)
         outputProjectedSetOfTiltSeries.update(newTs)
