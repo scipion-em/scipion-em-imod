@@ -259,7 +259,8 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
     def closeOutputSetsStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
-        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        if self.computeAlignment.get() == 0:
+            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
