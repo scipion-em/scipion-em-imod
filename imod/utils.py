@@ -64,7 +64,6 @@ def formatTransformationMatrix(matrixFile):
     frameMatrix = np.empty([3, 3, numberLines])
 
     i = 0
-
     for line in lines:
         values = line.split()
         frameMatrix[0, 0, i] = float(values[0])
@@ -783,9 +782,12 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
 def formatGoldBead3DCoordinatesList(coordFilePath):
     """This method takes the IMOD-based gold bead 3D coordinates obtained with find3dbeads program file path and
     returns a list containing each coordinate for each bead belonging to the tilt-series"""
+
     coorList = []
+
     with open(coordFilePath) as f:
         coorText = f.read().splitlines()
+
         for line in coorText:
             vector = line.split()
             coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
