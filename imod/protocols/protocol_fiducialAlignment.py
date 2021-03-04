@@ -819,8 +819,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         coordFilePath = os.path.join(extraPrefix,
                                      ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))
 
-        coordList = utils.format3DCoordinatesList(coordFilePath)
-
+        xDim = ts.getFirstItem().getXDim()
+        yDim = ts.getFirstItem().getYDim()
+        coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
         for element in coordList:
             newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                               y=element[1],
