@@ -139,7 +139,6 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
         # Add origin to output tilt-series
         origin = Transform()
-        newTs.setOrigin(origin)
 
         outputProjectedSetOfTiltSeries.append(newTs)
 
@@ -157,9 +156,10 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         # Set origin to output tilt-series
-        origin.setShifts(-newTs.getFirstItem().getXDim() / 2 * self.samplingRate.get(),
-                         -newTs.getFirstItem().getYDim() / 2 * self.samplingRate.get(),
+        origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
+                         y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          0)
+        newTs.setOrigin(origin)
 
         newTs.write(properties=False)
         outputProjectedSetOfTiltSeries.update(newTs)
