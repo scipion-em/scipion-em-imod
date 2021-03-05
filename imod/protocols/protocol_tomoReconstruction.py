@@ -25,6 +25,8 @@
 # **************************************************************************
 
 import os
+
+from pwem.objects import Transform
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -246,6 +248,14 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+
+        # Set tomogram origin
+        origin = Transform()
+        sr = self.inputSetOfTiltSeries.get().getSamplingRate()
+        origin.setShifts(ts.getFirstItem().getXDim() / -2. * sr,
+                         ts.getFirstItem().getYDim() / -2. * sr,
+                         self.tomoThickness.get() / -2 * sr)
+
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
         outputSetOfTomograms.write()
