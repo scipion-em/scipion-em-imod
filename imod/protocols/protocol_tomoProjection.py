@@ -149,6 +149,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             newTi.setTiltAngle(tiltAngleList[index])
             newTi.setTsId(tomoId)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
+            newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
             newTs.append(newTi)
 
         ih = ImageHandler()
@@ -162,6 +163,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setOrigin(origin)
 
         newTs.write(properties=False)
+
         outputProjectedSetOfTiltSeries.update(newTs)
         outputProjectedSetOfTiltSeries.updateDim()
         outputProjectedSetOfTiltSeries.write()
