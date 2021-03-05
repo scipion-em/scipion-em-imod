@@ -33,6 +33,7 @@ import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.objects import Tomogram
+from tomo.objects import TomoAcquisition
 from imod import Plugin
 
 
@@ -255,6 +256,14 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         origin.setShifts(ts.getFirstItem().getXDim() / -2. * sr,
                          ts.getFirstItem().getYDim() / -2. * sr,
                          self.tomoThickness.get() / -2 * sr)
+        newTomogram.setOrigin(origin)
+
+        # Set tomogram acquisition
+        acquisition = TomoAcquisition()
+        acquisition.setAngleMin(ts.getFirstItem().getTiltAngle())
+        acquisition.setAngleMax(ts[ts.getSize()].getTiltAngle())
+        acquisition.setStep(self.getAngleStepFromSeries(ts))
+        newTomogram.setAcquisition(acquisition)
 
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
@@ -277,6 +286,21 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
+
+    def getAngleStepFromSeries(self, ts):
+        """ This method return the average angles step from a series. """
+
+        angleStepAverage = 0
+        for i in range(1, ts.getSize()):
+            print(i)
+            angleStepAverage += abs(ts[i].getTiltAngle()-ts[i+1].getTiltAngle())
+
+        print(angleStepAverage)
+
+        angleStepAverage /= ts.getSize()-1
+
+        print(angleStepAverage)
+        return angleStepAverage
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
