@@ -292,10 +292,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         angleStepAverage = 0
         for i in range(1, ts.getSize()):
-            print(i)
             angleStepAverage += abs(ts[i].getTiltAngle()-ts[i+1].getTiltAngle())
-
-        print(angleStepAverage)
 
         angleStepAverage /= ts.getSize()-1
 
