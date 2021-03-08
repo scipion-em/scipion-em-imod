@@ -296,7 +296,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         angleStepAverage /= ts.getSize()-1
 
-        print(angleStepAverage)
         return angleStepAverage
 
     # --------------------------- INFO functions ----------------------------
