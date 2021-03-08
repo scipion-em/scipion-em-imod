@@ -287,7 +287,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
 
-    def getAngleStepFromSeries(self, ts):
+    @staticmethod
+    def getAngleStepFromSeries(ts):
         """ This method return the average angles step from a series. """
 
         angleStepAverage = 0
