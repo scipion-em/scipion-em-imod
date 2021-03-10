@@ -27,6 +27,7 @@
 import os
 import imod.utils as utils
 import pwem.objects as data
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -45,6 +46,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     """
 
     _label = 'xcorr prealignment'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)

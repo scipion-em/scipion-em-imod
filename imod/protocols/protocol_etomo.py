@@ -29,6 +29,7 @@
 import os
 
 import pyworkflow as pw
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -50,6 +51,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     """
 
     _label = 'etomo interactive'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

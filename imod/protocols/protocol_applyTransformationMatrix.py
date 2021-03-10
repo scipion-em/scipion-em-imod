@@ -26,6 +26,7 @@
 
 import os
 import imod.utils as utils
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
@@ -44,6 +45,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
 
     _label = 'apply transformation'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

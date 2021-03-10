@@ -24,6 +24,7 @@
 # *
 # **************************************************************************
 
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.utils import path
 from pyworkflow.object import Set
@@ -46,6 +47,7 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     """
 
     _label = 'Gold bead picker 3D'
+    _devStatus = BETA
 
     def __init__(self, **args):
         EMProtocol.__init__(self, **args)

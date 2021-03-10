@@ -27,6 +27,7 @@
 import os
 import numpy as np
 import imod.utils as utils
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
@@ -48,6 +49,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     """
 
     _label = 'fiducial alignment'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

@@ -27,6 +27,7 @@
 import os
 
 from pwem.objects import Transform
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -45,6 +46,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tomo projection'
+    _devStatus = BETA
 
     AXIS_X = 0
     AXIS_Y = 1

@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
@@ -44,6 +45,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     """
 
     _label = 'CTF estimation'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
