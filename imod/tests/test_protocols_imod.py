@@ -358,16 +358,16 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(inSamplingRate * self.binningFiducialAlignment == outSamplingRate)
 
-    def test_fiducialAlignmentOutputFiducialModelGaps(self):
-        self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
-
-        tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa_resid.txt")
-
-        self.assertTrue(os.path.exists(outputLocation))
-
-    def test_fiducialAlignmentOutputFiducialModelGapsSize(self):
-        self.assertTrue(self.protFiducialAlignment.outputFiducialModelGaps.getSize() == 2)
+    # def test_fiducialAlignmentOutputFiducialModelGaps(self):
+    #     self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
+    #
+    #     tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
+    #     outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa_resid.txt")
+    #
+    #     self.assertTrue(os.path.exists(outputLocation))
+    #
+    # def test_fiducialAlignmentOutputFiducialModelGapsSize(self):
+    #     self.assertTrue(self.protFiducialAlignment.outputFiducialModelGaps.getSize() == 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
