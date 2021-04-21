@@ -1032,6 +1032,18 @@ $if (-e ./savework) ./savework
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
 
+    def getOutputFailedSetOfTiltSeries(self):
+        if hasattr(self, "outputFailedSetOfTiltSeries"):
+            self.outputFailedSetOfTiltSeries.enableAppend()
+        else:
+            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfTiltSeries=outputFailedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFailedSetOfTiltSeries)
+        return self.outputFailedSetOfTiltSeries
+
     def getOutputInterpolatedSetOfTiltSeries(self):
         if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             self.outputInterpolatedSetOfTiltSeries.enableAppend()
