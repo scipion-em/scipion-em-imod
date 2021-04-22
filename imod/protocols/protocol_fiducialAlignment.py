@@ -259,8 +259,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                 func(self, tsId)
             except:
                 self._failedTs.append(tsId)
-                print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
-                print(self._failedTs)
         return wrapper
 
     def convertInputStep(self, tsObjId):
@@ -288,7 +286,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         else:
             path.createLink(ts.getFirstItem().getLocation()[1], inputTS)
 
-    @tryExceptDecorator
     def generateTrackComStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -716,6 +713,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             outputInterpolatedSetOfTiltSeries.write()
             self._store()
 
+    @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
@@ -764,7 +762,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-MergePatches " \
                             "-ExcludeAdjacent"
 
-            Plugin.runImod(self, 'ccderaser oligiy', argsCcderaser % paramsCcderaser)
+            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
