@@ -251,6 +251,18 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions ----------------------------
+    def tryExceptDecorator(func):
+        """ This decorator wraps the step in a try/except module which adds the tilt series ID to the failed TS array
+        in case the step fails"""
+        def wrapper(self, tsId):
+            try:
+                func(self, tsId)
+            except:
+                self._failedTs.append(tsId)
+                print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
+                print(self._failedTs)
+        return wrapper
+
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -276,295 +288,285 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         else:
             path.createLink(ts.getFirstItem().getLocation()[1], inputTS)
 
+    @tryExceptDecorator
     def generateTrackComStep(self, tsObjId):
-        try:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-            boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
-            # Make boxSizeXandY parameter even due to computational efficiency
-            if boxSizeXandY % 2 == 1:
-                boxSizeXandY += 1
+        # Make boxSizeXandY parameter even due to computational efficiency
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
 
-            paramsDict = {
-                'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-                'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
-                'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
-                'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-                'rotationAngle': self.rotationAngle.get(),
-                'fiducialDiameter': fiducialDiameterPixel,
-                'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
-                'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
-                'boxSizeXandY': boxSizeXandY,
-                'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
-                'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
-                'maxRescueDistance': 0.2 * fiducialDiameterPixel,
-                'minDiamForParamScaling': 12.5,
-                'deletionCriterionMinAndSD': '0.3,2.0'
-            }
+        paramsDict = {
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'rotationAngle': self.rotationAngle.get(),
+            'fiducialDiameter': fiducialDiameterPixel,
+            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
+            'boxSizeXandY': boxSizeXandY,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'minDiamForParamScaling': 12.5,
+            'deletionCriterionMinAndSD': '0.3,2.0'
+        }
 
-            self.translateTrackCom(ts, paramsDict)
+        self.translateTrackCom(ts, paramsDict)
 
-        except:
-            self._failedTs.append(tsObjId)
-
+    @tryExceptDecorator
     def generateFiducialSeedStep(self, tsObjId):
-        try:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
 
-            paramsAutofidseed = {
-                'trackCommandFile': os.path.join(extraPrefix,
-                                                 ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
-                'minSpacing': 0.85,
-                'peakStorageFraction': 1.0,
-                'RotationAngle': self.rotationAngle.get(),
-                'targetNumberOfBeads': self.numberFiducial.get()
-            }
+        paramsAutofidseed = {
+            'trackCommandFile': os.path.join(extraPrefix,
+                                             ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
+            'minSpacing': 0.85,
+            'peakStorageFraction': 1.0,
+            'RotationAngle': self.rotationAngle.get(),
+            'targetNumberOfBeads': self.numberFiducial.get()
+        }
 
-            argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
-                              "-MinSpacing %(minSpacing)f " \
-                              "-PeakStorageFraction %(peakStorageFraction)f " \
-                              "-TargetNumberOfBeads %(targetNumberOfBeads)d "
+        argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
+                          "-MinSpacing %(minSpacing)f " \
+                          "-PeakStorageFraction %(peakStorageFraction)f " \
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
 
-            if self.twoSurfaces.get() == 0:
-                argsAutofidseed += " -TwoSurfaces"
+        if self.twoSurfaces.get() == 0:
+            argsAutofidseed += " -TwoSurfaces"
 
-            Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
+        Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
 
-            autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
-            path.makePath(autofidseedDirPath)
-            path.moveTree("autofidseed.dir", autofidseedDirPath)
-            path.moveFile("autofidseed.info", self._getExtraPath(tsId))
+        autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
+        path.makePath(autofidseedDirPath)
+        path.moveTree("autofidseed.dir", autofidseedDirPath)
+        path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
-        except:
-            self._failedTs.append(tsObjId)
-
+    @tryExceptDecorator
     def generateFiducialModelStep(self, tsObjId):
-        try:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-            boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
-            # Make boxSizeXandY parameter even due to computational efficiency
-            if boxSizeXandY % 2 == 1:
-                boxSizeXandY += 1
+        # Make boxSizeXandY parameter even due to computational efficiency
+        if boxSizeXandY % 2 == 1:
+            boxSizeXandY += 1
 
-            paramsBeadtrack = {
-                'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
-                'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
-                'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-                'imagesAreBinned': 1,
-                'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-                'tiltDefaultGrouping': 7,
-                'magDefaultGrouping': 5,
-                'rotDefaultGrouping': 1,
-                'minViewsForTiltalign': 4,
-                'beadDiameter': fiducialDiameterPixel,
-                'fillGaps': 1,
-                'maxGapSize': 5,
-                'minTiltRangeToFindAxis': 10.0,
-                'minTiltRangeToFindAngles': 20.0,
-                'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
-                'roundsOfTracking': 2,
-                'localAreaTracking': 1,
-                'localAreaTargetSize': 1000,
-                'minBeadsInArea': 8,
-                'minOverlapBeads': 5,
-                'maxBeadsToAverage': 4,
-                'sobelFilterCentering': 1,
-                'pointsToFitMaxAndMin': '7,3',
-                'densityRescueFractionAndSD': '0.6,1.0',
-                'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
-                'rescueRelaxationDensityAndDistance': '0.7,0.9',
-                'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
-                'densityRelaxationPostFit': 0.9,
-                'maxRescueDistance': 0.2 * fiducialDiameterPixel,
-                'residualsToAnalyzeMaxAndMin': '9,5',
-                'deletionCriterionMinAndSD': '0.3,2.0',
-                'minDiamForParamScaling': 12.5
-            }
+        paramsBeadtrack = {
+            'inputSeedModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'imagesAreBinned': 1,
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'tiltDefaultGrouping': 7,
+            'magDefaultGrouping': 5,
+            'rotDefaultGrouping': 1,
+            'minViewsForTiltalign': 4,
+            'beadDiameter': fiducialDiameterPixel,
+            'fillGaps': 1,
+            'maxGapSize': 5,
+            'minTiltRangeToFindAxis': 10.0,
+            'minTiltRangeToFindAngles': 20.0,
+            'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
+            'roundsOfTracking': 2,
+            'localAreaTracking': 1,
+            'localAreaTargetSize': 1000,
+            'minBeadsInArea': 8,
+            'minOverlapBeads': 5,
+            'maxBeadsToAverage': 4,
+            'sobelFilterCentering': 1,
+            'pointsToFitMaxAndMin': '7,3',
+            'densityRescueFractionAndSD': '0.6,1.0',
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'rescueRelaxationDensityAndDistance': '0.7,0.9',
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'densityRelaxationPostFit': 0.9,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'residualsToAnalyzeMaxAndMin': '9,5',
+            'deletionCriterionMinAndSD': '0.3,2.0',
+            'minDiamForParamScaling': 12.5
+        }
 
-            argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
-                            "-OutputModel %(outputModel)s " \
-                            "-ImageFile %(imageFile)s " \
-                            "-ImagesAreBinned %(imagesAreBinned)d " \
-                            "-TiltFile %(tiltFile)s " \
-                            "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
-                            "-MagDefaultGrouping %(magDefaultGrouping)d " \
-                            "-RotDefaultGrouping %(rotDefaultGrouping)d " \
-                            "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
-                            "-BeadDiameter %(beadDiameter).2f " \
-                            "-FillGaps %(fillGaps)d " \
-                            "-MaxGapSize %(maxGapSize)d " \
-                            "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
-                            "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles)f " \
-                            "-BoxSizeXandY %(boxSizeXandY)s " \
-                            "-RoundsOfTracking %(roundsOfTracking)d " \
-                            "-LocalAreaTracking %(localAreaTracking)d " \
-                            "-LocalAreaTargetSize %(localAreaTargetSize)d " \
-                            "-MinBeadsInArea %(minBeadsInArea)d " \
-                            "-MinOverlapBeads %(minOverlapBeads)d " \
-                            "-MaxBeadsToAverage %(maxBeadsToAverage)d " \
-                            "-SobelFilterCentering %(sobelFilterCentering)d " \
-                            "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
-                            "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
-                            "-DistanceRescueCriterion %(distanceRescueCriterion)f " \
-                            "-RescueRelaxationDensityAndDistance %(rescueRelaxationDensityAndDistance)s " \
-                            "-PostFitRescueResidual %(postFitRescueResidual)f " \
-                            "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
-                            "-MaxRescueDistance %(maxRescueDistance)f " \
-                            "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
-                            "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
-                            "-MinDiamForParamScaling %(minDiamForParamScaling)f"
+        argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
+                        "-OutputModel %(outputModel)s " \
+                        "-ImageFile %(imageFile)s " \
+                        "-ImagesAreBinned %(imagesAreBinned)d " \
+                        "-TiltFile %(tiltFile)s " \
+                        "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
+                        "-MagDefaultGrouping %(magDefaultGrouping)d " \
+                        "-RotDefaultGrouping %(rotDefaultGrouping)d " \
+                        "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
+                        "-BeadDiameter %(beadDiameter).2f " \
+                        "-FillGaps %(fillGaps)d " \
+                        "-MaxGapSize %(maxGapSize)d " \
+                        "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
+                        "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles)f " \
+                        "-BoxSizeXandY %(boxSizeXandY)s " \
+                        "-RoundsOfTracking %(roundsOfTracking)d " \
+                        "-LocalAreaTracking %(localAreaTracking)d " \
+                        "-LocalAreaTargetSize %(localAreaTargetSize)d " \
+                        "-MinBeadsInArea %(minBeadsInArea)d " \
+                        "-MinOverlapBeads %(minOverlapBeads)d " \
+                        "-MaxBeadsToAverage %(maxBeadsToAverage)d " \
+                        "-SobelFilterCentering %(sobelFilterCentering)d " \
+                        "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
+                        "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
+                        "-DistanceRescueCriterion %(distanceRescueCriterion)f " \
+                        "-RescueRelaxationDensityAndDistance %(rescueRelaxationDensityAndDistance)s " \
+                        "-PostFitRescueResidual %(postFitRescueResidual)f " \
+                        "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
+                        "-MaxRescueDistance %(maxRescueDistance)f " \
+                        "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
+                        "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
+                        "-MinDiamForParamScaling %(minDiamForParamScaling)f"
 
-            Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
-        except:
-            self._failedTs.append(tsObjId)
+        Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
+    @tryExceptDecorator
     def computeFiducialAlignmentStep(self, tsObjId):
-        try:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            paramsTiltAlign = {
-                'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
-                'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-                'imagesAreBinned': 1,
-                'outputModelFile': os.path.join(extraPrefix,
-                                                ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
-                'outputResidualFile': os.path.join(extraPrefix,
-                                                   ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt")),
-                'outputFidXYZFile': os.path.join(extraPrefix,
-                                                 ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz")),
-                'outputTiltFile': os.path.join(extraPrefix,
-                                               ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt")),
-                'outputTransformFile': os.path.join(extraPrefix,
-                                                    ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
-                'outputFilledInModel': os.path.join(extraPrefix,
-                                                    ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
-                'rotationAngle': self.rotationAngle.get(),
-                'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-                'angleOffset': 0.0,
-                'rotOption': self.getRotationType(),
-                'rotDefaultGrouping': self.groupRotationSize.get(),
-                'tiltOption': self.getTiltAngleType(),
-                'tiltDefaultGrouping': self.groupTiltAngleSize.get(),
-                'magReferenceView': 1,
-                'magOption': self.getMagnificationType(),
-                'magDefaultGrouping': self.groupMagnificationSize.get(),
-                'xStretchOption': self.getStretchType(),
-                'skewOption': self.getSkewType(),
-                'xStretchDefaultGrouping': self.xStretchGroupSize.get(),
-                'skewDefaultGrouping': self.skewGroupSize.get(),
-                'beamTiltOption': 0,
-                'xTiltOption': 0,
-                'xTiltDefaultGrouping': 2000,
-                'residualReportCriterion': 3.0,
-                'surfacesToAnalyze': self.getSurfaceToAnalyze(),
-                'metroFactor': 0.25,
-                'maximumCycles': 1000,
-                'kFactorScaling': 1.0,
-                'noSeparateTiltGroups': 1,
-                'axisZShift': 0.0,
-                'shiftZFromOriginal': 1,
-                'localAlignments': 0,
-                'outputLocalFile': os.path.join(extraPrefix,
-                                                ts.getFirstItem().parseFileName(suffix="_local", extension=".xf")),
-                'targetPatchSizeXandY': '700,700',
-                'minSizeOrOverlapXandY': '0.5,0.5',
-                'minFidsTotalAndEachSurface': '8,3',
-                'fixXYZCoordinates': 0,
-                'localOutputOptions': '1,0,1',
-                'localRotOption': 3,
-                'localRotDefaultGrouping': 6,
-                'localTiltOption': 5,
-                'localTiltDefaultGrouping': 6,
-                'localMagReferenceView': 1,
-                'localMagOption': 3,
-                'localMagDefaultGrouping': 7,
-                'localXStretchOption': 0,
-                'localXStretchDefaultGrouping': 7,
-                'localSkewOption': 0,
-                'localSkewDefaultGrouping': 11,
-                'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
-            }
+        paramsTiltAlign = {
+            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+            'imageFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'imagesAreBinned': 1,
+            'outputModelFile': os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_fidxyz", extension=".mod")),
+            'outputResidualFile': os.path.join(extraPrefix,
+                                               ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt")),
+            'outputFidXYZFile': os.path.join(extraPrefix,
+                                             ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz")),
+            'outputTiltFile': os.path.join(extraPrefix,
+                                           ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt")),
+            'outputTransformFile': os.path.join(extraPrefix,
+                                                ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
+            'outputFilledInModel': os.path.join(extraPrefix,
+                                                ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
+            'rotationAngle': self.rotationAngle.get(),
+            'tiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'angleOffset': 0.0,
+            'rotOption': self.getRotationType(),
+            'rotDefaultGrouping': self.groupRotationSize.get(),
+            'tiltOption': self.getTiltAngleType(),
+            'tiltDefaultGrouping': self.groupTiltAngleSize.get(),
+            'magReferenceView': 1,
+            'magOption': self.getMagnificationType(),
+            'magDefaultGrouping': self.groupMagnificationSize.get(),
+            'xStretchOption': self.getStretchType(),
+            'skewOption': self.getSkewType(),
+            'xStretchDefaultGrouping': self.xStretchGroupSize.get(),
+            'skewDefaultGrouping': self.skewGroupSize.get(),
+            'beamTiltOption': 0,
+            'xTiltOption': 0,
+            'xTiltDefaultGrouping': 2000,
+            'residualReportCriterion': 3.0,
+            'surfacesToAnalyze': self.getSurfaceToAnalyze(),
+            'metroFactor': 0.25,
+            'maximumCycles': 1000,
+            'kFactorScaling': 1.0,
+            'noSeparateTiltGroups': 1,
+            'axisZShift': 0.0,
+            'shiftZFromOriginal': 1,
+            'localAlignments': 0,
+            'outputLocalFile': os.path.join(extraPrefix,
+                                            ts.getFirstItem().parseFileName(suffix="_local", extension=".xf")),
+            'targetPatchSizeXandY': '700,700',
+            'minSizeOrOverlapXandY': '0.5,0.5',
+            'minFidsTotalAndEachSurface': '8,3',
+            'fixXYZCoordinates': 0,
+            'localOutputOptions': '1,0,1',
+            'localRotOption': 3,
+            'localRotDefaultGrouping': 6,
+            'localTiltOption': 5,
+            'localTiltDefaultGrouping': 6,
+            'localMagReferenceView': 1,
+            'localMagOption': 3,
+            'localMagDefaultGrouping': 7,
+            'localXStretchOption': 0,
+            'localXStretchDefaultGrouping': 7,
+            'localSkewOption': 0,
+            'localSkewDefaultGrouping': 11,
+            'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
+        }
 
-            argsTiltAlign = "-ModelFile %(modelFile)s " \
-                            "-ImageFile %(imageFile)s " \
-                            "-ImagesAreBinned %(imagesAreBinned)d " \
-                            "-OutputModelFile %(outputModelFile)s " \
-                            "-OutputResidualFile %(outputResidualFile)s " \
-                            "-OutputFidXYZFile %(outputFidXYZFile)s " \
-                            "-OutputTiltFile %(outputTiltFile)s " \
-                            "-OutputTransformFile %(outputTransformFile)s " \
-                            "-OutputFilledInModel %(outputFilledInModel)s " \
-                            "-RotationAngle %(rotationAngle)f " \
-                            "-TiltFile %(tiltFile)s " \
-                            "-AngleOffset %(angleOffset)f " \
-                            "-RotOption %(rotOption)d " \
-                            "-RotDefaultGrouping %(rotDefaultGrouping)d " \
-                            "-TiltOption %(tiltOption)d " \
-                            "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
-                            "-MagReferenceView %(magReferenceView)d " \
-                            "-MagOption %(magOption)d " \
-                            "-MagDefaultGrouping %(magDefaultGrouping)d " \
-                            "-XStretchOption %(xStretchOption)d " \
-                            "-SkewOption %(skewOption)d " \
-                            "-SkewDefaultGrouping %(skewDefaultGrouping)d " \
-                            "-XStretchDefaultGrouping %(xStretchDefaultGrouping)d " \
-                            "-BeamTiltOption %(beamTiltOption)d " \
-                            "-XTiltOption %(xTiltOption)d " \
-                            "-XTiltDefaultGrouping %(xTiltDefaultGrouping)d " \
-                            "-ResidualReportCriterion %(residualReportCriterion)f " \
-                            "-SurfacesToAnalyze %(surfacesToAnalyze)d " \
-                            "-MetroFactor %(metroFactor)f " \
-                            "-MaximumCycles %(maximumCycles)d " \
-                            "-KFactorScaling %(kFactorScaling)f " \
-                            "-NoSeparateTiltGroups %(noSeparateTiltGroups)d " \
-                            "-AxisZShift %(axisZShift)f " \
-                            "-ShiftZFromOriginal %(shiftZFromOriginal)d " \
-                            "-LocalAlignments %(localAlignments)d " \
-                            "-OutputLocalFile %(outputLocalFile)s " \
-                            "-TargetPatchSizeXandY %(targetPatchSizeXandY)s " \
-                            "-MinSizeOrOverlapXandY %(minSizeOrOverlapXandY)s " \
-                            "-MinFidsTotalAndEachSurface %(minFidsTotalAndEachSurface)s " \
-                            "-FixXYZCoordinates %(fixXYZCoordinates)d " \
-                            "-LocalOutputOptions %(localOutputOptions)s " \
-                            "-LocalRotOption %(localRotOption)d " \
-                            "-LocalRotDefaultGrouping %(localRotDefaultGrouping)d " \
-                            "-LocalTiltOption %(localTiltOption)d " \
-                            "-LocalTiltDefaultGrouping %(localTiltDefaultGrouping)d " \
-                            "-LocalMagReferenceView %(localMagReferenceView)d " \
-                            "-LocalMagOption %(localMagOption)d " \
-                            "-LocalMagDefaultGrouping %(localMagDefaultGrouping)d " \
-                            "-LocalXStretchOption %(localXStretchOption)d " \
-                            "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
-                            "-LocalSkewOption %(localSkewOption)d " \
-                            "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
-                            "> %(outputTiltAlignFileText)s "
+        argsTiltAlign = "-ModelFile %(modelFile)s " \
+                        "-ImageFile %(imageFile)s " \
+                        "-ImagesAreBinned %(imagesAreBinned)d " \
+                        "-OutputModelFile %(outputModelFile)s " \
+                        "-OutputResidualFile %(outputResidualFile)s " \
+                        "-OutputFidXYZFile %(outputFidXYZFile)s " \
+                        "-OutputTiltFile %(outputTiltFile)s " \
+                        "-OutputTransformFile %(outputTransformFile)s " \
+                        "-OutputFilledInModel %(outputFilledInModel)s " \
+                        "-RotationAngle %(rotationAngle)f " \
+                        "-TiltFile %(tiltFile)s " \
+                        "-AngleOffset %(angleOffset)f " \
+                        "-RotOption %(rotOption)d " \
+                        "-RotDefaultGrouping %(rotDefaultGrouping)d " \
+                        "-TiltOption %(tiltOption)d " \
+                        "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
+                        "-MagReferenceView %(magReferenceView)d " \
+                        "-MagOption %(magOption)d " \
+                        "-MagDefaultGrouping %(magDefaultGrouping)d " \
+                        "-XStretchOption %(xStretchOption)d " \
+                        "-SkewOption %(skewOption)d " \
+                        "-SkewDefaultGrouping %(skewDefaultGrouping)d " \
+                        "-XStretchDefaultGrouping %(xStretchDefaultGrouping)d " \
+                        "-BeamTiltOption %(beamTiltOption)d " \
+                        "-XTiltOption %(xTiltOption)d " \
+                        "-XTiltDefaultGrouping %(xTiltDefaultGrouping)d " \
+                        "-ResidualReportCriterion %(residualReportCriterion)f " \
+                        "-SurfacesToAnalyze %(surfacesToAnalyze)d " \
+                        "-MetroFactor %(metroFactor)f " \
+                        "-MaximumCycles %(maximumCycles)d " \
+                        "-KFactorScaling %(kFactorScaling)f " \
+                        "-NoSeparateTiltGroups %(noSeparateTiltGroups)d " \
+                        "-AxisZShift %(axisZShift)f " \
+                        "-ShiftZFromOriginal %(shiftZFromOriginal)d " \
+                        "-LocalAlignments %(localAlignments)d " \
+                        "-OutputLocalFile %(outputLocalFile)s " \
+                        "-TargetPatchSizeXandY %(targetPatchSizeXandY)s " \
+                        "-MinSizeOrOverlapXandY %(minSizeOrOverlapXandY)s " \
+                        "-MinFidsTotalAndEachSurface %(minFidsTotalAndEachSurface)s " \
+                        "-FixXYZCoordinates %(fixXYZCoordinates)d " \
+                        "-LocalOutputOptions %(localOutputOptions)s " \
+                        "-LocalRotOption %(localRotOption)d " \
+                        "-LocalRotDefaultGrouping %(localRotDefaultGrouping)d " \
+                        "-LocalTiltOption %(localTiltOption)d " \
+                        "-LocalTiltDefaultGrouping %(localTiltDefaultGrouping)d " \
+                        "-LocalMagReferenceView %(localMagReferenceView)d " \
+                        "-LocalMagOption %(localMagOption)d " \
+                        "-LocalMagDefaultGrouping %(localMagDefaultGrouping)d " \
+                        "-LocalXStretchOption %(localXStretchOption)d " \
+                        "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
+                        "-LocalSkewOption %(localSkewOption)d " \
+                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
+                        "> %(outputTiltAlignFileText)s "
 
-            Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
+        Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
 
-            self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
-                                        os.path.join(extraPrefix, "taSolution.log"),
-                                        ts.getSize(),
-                                        ts.getSamplingRate())
-        except:
-            self._failedTs.append(tsObjId)
+        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
+                                    os.path.join(extraPrefix, "taSolution.log"),
+                                    ts.getSize(),
+                                    ts.getSamplingRate())
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -572,18 +574,22 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tsId)
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_local", extension=".xf"))):
-            paramsGapModel2Point = {
-                'inputFile': os.path.join(extraPrefix,
-                                          ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
-            }
-            argsGapModel2Point = "-InputFile %(inputFile)s " \
-                                 "-OutputFile %(outputFile)s"
+        # if os.path.exists(os.path.join(extraPrefix,
+        #                                ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))):
+        #     paramsGapModel2Point = {
+        #         'inputFile': os.path.join(extraPrefix,
+        #                                   ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")),
+        #         'outputFile': os.path.join(extraPrefix,
+        #                                    ts.getFirstItem().parseFileName(suffix="_gaps_fid", extension=".txt"))
+        #     }
+        #     argsGapModel2Point = "-InputFile %(inputFile)s " \
+        #                          "-OutputFile %(outputFile)s"
+        #
+        #     Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
-            Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
-
+        # Check that previous steps have been completed satisfactorily
+        if os.path.exists(os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid"))):
             paramsNoGapModel2Point = {
                 'inputFile': os.path.join(extraPrefix,
                                           ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")),
@@ -595,21 +601,25 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
-
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_local", extension=".xf"))):
-            tltFilePath = os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt"))
+        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))):
+            tltFilePath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt")
+            )
+
             tltList = utils.formatAngleList(tltFilePath)
 
             transformationMatricesFilePath = os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))
+                ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")
+            )
+
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
             outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
@@ -656,7 +666,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_local", extension=".xf"))):
+        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf"))):
             outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
 
             paramsAlignment = {
@@ -677,8 +687,10 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.copyInfo(ts)
             outputInterpolatedSetOfTiltSeries.append(newTs)
 
-            tltFilePath = os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt"))
+            tltFilePath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_interpolated", extension=".tlt")
+            )
 
             tltList = utils.formatAngleList(tltFilePath)
 
@@ -705,7 +717,6 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             self._store()
 
     def eraseGoldBeadsStep(self, tsObjId):
-        try:
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
@@ -753,69 +764,86 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-MergePatches " \
                             "-ExcludeAdjacent"
 
-            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
-
-        except:
-            self._failedTs.append(tsObjId)
+            Plugin.runImod(self, 'ccderaser oligiy', argsCcderaser % paramsCcderaser)
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
+        # Create the output set of landmark models with gaps
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_local", extension=".xf"))):
+        # if os.path.exists(
+        #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))):
+        #
+        #     outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
+        #
+        #     landmarkModelNoGapsFilePath = os.path.join(
+        #         extraPrefix,
+        #         ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid")
+        #     )
+        #
+        #     fiducialModelGapPath = os.path.join(
+        #         extraPrefix,
+        #         ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid")
+        #     )
+        #
+        #     landmarkModelGapsResidPath = os.path.join(
+        #         extraPrefix,
+        #         ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt")
+        #     )
+        #
+        #     fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+        #
+        #     landmarkModelGaps = LandmarkModel(tsId=tsId,
+        #                                       fileName=landmarkModelNoGapsFilePath,
+        #                                       modelName=fiducialModelGapPath)
+        #
+        #     prevTiltIm = 0
+        #     chainId = 0
+        #     for index, fiducial in enumerate(fiducialGapResidList):
+        #         if int(fiducial[2]) <= prevTiltIm:
+        #             chainId += 1
+        #         prevTiltIm = int(fiducial[2])
+        #         landmarkModelGaps.addLandmark(xCoor=fiducial[0],
+        #                                       yCoor=fiducial[1],
+        #                                       tiltIm=fiducial[2],
+        #                                       chainId=chainId,
+        #                                       xResid=fiducial[3],
+        #                                       yResid=fiducial[4])
+        #
+        #     outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
+        #     outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
+        #     outputSetOfLandmarkModelsGaps.write()
 
-            # """Create the output set of landmark models with gaps"""
-            # outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
-            #
-            # landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
-            #                                            ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
-            #
-            # fiducialModelGapPath = os.path.join(extraPrefix,
-            #                                     ts.getFirstItem().parseFileName(suffix="_gaps", extension=".fid"))
-            #
-            # landmarkModelGapsResidPath = os.path.join(extraPrefix,
-            #                                           ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
-            #
-            # fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
-            #
-            # landmarkModelGaps = LandmarkModel(tsId=tsId,
-            #                                   fileName=landmarkModelNoGapsFilePath,
-            #                                   modelName=fiducialModelGapPath)
-            #
-            # prevTiltIm = 0
-            # chainId = 0
-            # for index, fiducial in enumerate(fiducialGapResidList):
-            #     if int(fiducial[2]) <= prevTiltIm:
-            #         chainId += 1
-            #     prevTiltIm = int(fiducial[2])
-            #     landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-            #                                   yCoor=fiducial[1],
-            #                                   tiltIm=fiducial[2],
-            #                                   chainId=chainId,
-            #                                   xResid=fiducial[3],
-            #                                   yResid=fiducial[4])
-            #
-            # outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-            # outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-            # outputSetOfLandmarkModelsGaps.write()
+        # Create the output set of landmark models with no gaps
+        if os.path.exists(
+                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
 
-            """Create the output set of landmark models with no gaps"""
             outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
 
-            fiducialNoGapFilePath = os.path.join(extraPrefix,
-                                                 ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))
+            fiducialNoGapFilePath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt")
+            )
+
             fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
-            fiducialModelNoGapPath = os.path.join(extraPrefix,
-                                                  ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid"))
+            fiducialModelNoGapPath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".fid")
+            )
 
-            landmarkModelNoGapsFilePath = os.path.join(extraPrefix,
-                                                       ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".sfid"))
+            landmarkModelNoGapsFilePath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_noGaps", extension=".sfid")
+            )
 
-            landmarkModelNoGapsResidPath = os.path.join(extraPrefix,
-                                                        ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt"))
+            landmarkModelNoGapsResidPath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_resid", extension=".txt")
+            )
+
             fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
             landmarkModelNoGaps = LandmarkModel(tsId=tsId,
@@ -825,10 +853,12 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             prevTiltIm = 0
             chainId = 0
             indexFake = 0
+
             for fiducial in fiducialNoGapList:
                 if int(float(fiducial[2])) <= prevTiltIm:
                     chainId += 1
                 prevTiltIm = int(float(fiducial[2]))
+
                 if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
@@ -837,6 +867,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                                                     xResid=fiducialNoGapsResidList[indexFake][3],
                                                     yResid=fiducialNoGapsResidList[indexFake][4])
                     indexFake += 1
+
                 else:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
@@ -849,15 +880,21 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
             outputSetOfLandmarkModelsNoGaps.write()
 
-            """Create the output set of coordinates 3D from the fiducials in the tilt series"""
+        # Create the output set of landmark models with no gaps
+        if os.path.exists(
+                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
+
             outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
 
-            coordFilePath = os.path.join(extraPrefix,
-                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))
+            coordFilePath = os.path.join(
+                extraPrefix,
+                ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz")
+            )
 
             xDim = ts.getFirstItem().getXDim()
             yDim = ts.getFirstItem().getYDim()
             coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
+
             for element in coordList:
                 newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                   y=element[1],
@@ -866,10 +903,13 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                 newCoord3D.setVolId(tsObjId)
                 outputSetOfCoordinates3D.append(newCoord3D)
                 outputSetOfCoordinates3D.update(newCoord3D)
+
             outputSetOfCoordinates3D.write()
+
             self._store()
 
     def createOutputFailedSet(self, tsObjId):
+        # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
             outputFailedSetOfTiltSeries = self.getOutputFailedSetOfTiltSeries()
 
@@ -1191,6 +1231,10 @@ $if (-e ./savework) ./savework
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.outputSetOfCoordinates3D.getSize()))
 
+        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+            methods.append("Failed tilt-series: %d."
+                           % (self.outputFailedSetOfTiltSeries.getSize()))
+
         if not summary:
             summary.append("Output classes not ready yet.")
         return summary
@@ -1220,6 +1264,10 @@ $if (-e ./savework) ./savework
             methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
                            % (self.outputSetOfCoordinates3D.getSize(),
                               self.inputSetOfTiltSeries.get().getSize()))
+
+        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+            methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
+                           % (self.outputFailedSetOfTiltSeries.getSize()))
 
         if not methods:
             methods.append("Output classes not ready yet.")
