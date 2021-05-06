@@ -1230,7 +1230,7 @@ $if (-e ./savework) ./savework
                               self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
-            methods.append("Failed tilt-series: %d."
+            summary.append("Failed tilt-series: %d."
                            % (self.outputFailedSetOfTiltSeries.getSize()))
 
         if not summary:
