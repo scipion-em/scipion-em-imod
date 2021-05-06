@@ -1145,7 +1145,7 @@ $if (-e ./savework) ./savework
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.enableAppend()
         else:
-            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
             outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
