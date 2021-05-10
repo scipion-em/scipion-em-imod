@@ -24,13 +24,16 @@
 # *
 # **************************************************************************
 
+import os
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
+import pwem.objects as data
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from pwem.emlib.image import ImageHandler
+from imod import utils
 
 
 class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -57,37 +60,49 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('assignTransformationMatricesStep', ts.getObjId())
+        self._insertFunctionStep('assignTransformationMatricesStep')
 
     # --------------------------- STEPS functions ----------------------------
-    def assignTransformationMatricesStep(self, tsObjId):
-        outputAssignedTransformSetOfTiltSeries = self.getOutputAssignedTransformSetOfTiltSeries()
+    def assignTransformationMatricesStep(self):
+        self.getOutputAssignedTransformSetOfTiltSeries()
 
-        ts = self.assignTransformSetOfTiltSeries.get()[tsObjId]
-        tsTM = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+        inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputAssignedTransformSetOfTiltSeries.append(newTs)
+        for ts in inputSetOfTiltSeries:
+            tsId = ts.getTsId()
 
-        for tiltImage, tiltImageTM in zip(ts, tsTM):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(tiltImage.getLocation())
-            newTi.setTransform(tiltImageTM.getTransform())
-            newTs.append(newTi)
+            tsFileName = ts.getFirstItem().parseFileName(extension='')
 
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-        newTs.write()
+            for tmFilePath, _ in self.iterFiles():
+                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
 
-        outputAssignedTransformSetOfTiltSeries.update(newTs)
-        outputAssignedTransformSetOfTiltSeries.updateDim()
-        outputAssignedTransformSetOfTiltSeries.write()
-        self._store()
+                if tsFileName == tmFileName:
+                    alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
+
+                    newTs = tomoObj.TiltSeries(tsId=tsId)
+                    newTs.copyInfo(ts)
+                    self.outputAssignedTransformSetOfTiltSeries.append(newTs)
+
+                    for index, tiltImage in enumerate(ts):
+                        newTi = tomoObj.TiltImage()
+                        newTi.copyInfo(tiltImage, copyId=True)
+                        newTi.setLocation(tiltImage.getLocation())
+                        transform = data.Transform()
+                        transform.setMatrix(alignmentMatrix[:, :, index])
+                        newTi.setTransform(transform)
+                        newTs.append(newTi)
+
+                ih = ImageHandler()
+                x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+                newTs.setDim((x, y, z))
+
+                newTs.write(properties=False)
+
+                self.outputAssignedTransformSetOfTiltSeries.update(newTs)
+                self.outputAssignedTransformSetOfTiltSeries.updateDim()
+                self.outputAssignedTransformSetOfTiltSeries.write()
+
+                self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputAssignedTransformSetOfTiltSeries(self):
@@ -101,24 +116,24 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
         return self.outputAssignedTransformSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
-    def _validate(self):
-        validateMsgs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            if not ts.getFirstItem().hasTransform():
-                validateMsgs.append("Some tilt-series from the input set of tilt-series does not have a "
-                                    "transformation matrix assigned.")
-
-            if ts.getSize() != self.assignTransformSetOfTiltSeries.get()[ts.getObjId()].getSize():
-                validateMsgs.append("Some tilt-series from the input set of tilt-series and its target in the assign "
-                                    "transfomration set of tilt-series size's do not match. Every input tilt-series "
-                                    "and its target must have the same number of elements")
-
-        if self.inputSetOfTiltSeries.get().getSize() != self.assignTransformSetOfTiltSeries.get().getSize():
-            validateMsgs.append("Both input sets of tilt-series size's do not match. Both sets must have the same "
-                                "number of elements.")
-
-        return validateMsgs
+    # def _validate(self):
+    #     validateMsgs = []
+    #
+    #     for ts in self.inputSetOfTiltSeries.get():
+    #         if not ts.getFirstItem().hasTransform():
+    #             validateMsgs.append("Some tilt-series from the input set of tilt-series does not have a "
+    #                                 "transformation matrix assigned.")
+    #
+    #         if ts.getSize() != self.assignTransformSetOfTiltSeries.get()[ts.getObjId()].getSize():
+    #             validateMsgs.append("Some tilt-series from the input set of tilt-series and its target in the assign "
+    #                                 "transfomration set of tilt-series size's do not match. Every input tilt-series "
+    #                                 "and its target must have the same number of elements")
+    #
+    #     if self.inputSetOfTiltSeries.get().getSize() != self.assignTransformSetOfTiltSeries.get().getSize():
+    #         validateMsgs.append("Both input sets of tilt-series size's do not match. Both sets must have the same "
+    #                             "number of elements.")
+    #
+    #     return validateMsgs
 
     def _summary(self):
         summary = []
