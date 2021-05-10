@@ -41,3 +41,4 @@ from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_xRaysEraser import ProtImodXraysEraser
 # from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
 from .protocol_importSetOfCTFTomoSeries import ProtImodImportSetOfCtfTomoSeries
+from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
