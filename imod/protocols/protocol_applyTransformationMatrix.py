@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+import math
 import imod.utils as utils
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -83,21 +84,32 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        paramsAlignment = {
-            'input': ts.getFirstItem().getFileName(),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
-            'bin': int(self.binning.get()),
-            'imagebinned': 1.0,
-            'size': "1024,1440"
+        firstItem = ts.getFirstItem()
 
+        paramsAlignment = {
+            'input': firstItem.getFileName(),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".prexg")),
+            'bin': int(self.binning.get()),
+            'imagebinned': 1.0
         }
+
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s " \
-                        "-size %(size)s "
+                        "-imagebinned %(imagebinned)s "
+
+        rotationAngleAvg = self.calculateRotationAngle(ts)
+
+        # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # the final sample disposition.
+        if rotationAngleAvg > 45:
+            paramsAlignment.update({
+                'size': "%d, %d" % (firstItem.getYDim(), firstItem.getXDim())
+            })
+
+            argsAlignment += "-size %(size)s "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
@@ -132,6 +144,21 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    @staticmethod
+    def calculateRotationAngle(ts):
+        """ This method calculates que average tilt image rotation angle from its associated transformation matrix."""
+        avgRotationAngle = 0
+
+        for ti in ts:
+            tm = ti.getTransform().getMatrix()
+            cosRotationAngle = tm[0][0]
+            sinRotationAngle = tm[1][0]
+            avgRotationAngle += math.degrees(math.atan(sinRotationAngle/cosRotationAngle))
+
+        avgRotationAngle = avgRotationAngle / ts.getSize()
+
+        return avgRotationAngle
+
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
