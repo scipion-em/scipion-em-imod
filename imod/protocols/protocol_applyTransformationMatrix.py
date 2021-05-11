@@ -107,9 +107,9 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
-        if rotationAngleAvg > 45:
+        if rotationAngleAvg > 45 or rotationAngleAvg < -45:
             paramsAlignment.update({
-                'size': "%d, %d" % (firstItem.getYDim(), firstItem.getXDim())
+                'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
             })
 
             argsAlignment += "-size %(size)s "
