@@ -700,7 +700,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.append(newTi)
 
         ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newfirstItem.getFileName())
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
         newTs.write(properties=False)
 
