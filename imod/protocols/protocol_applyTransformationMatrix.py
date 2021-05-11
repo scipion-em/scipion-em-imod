@@ -89,7 +89,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0,
-            'size': "1024, 1440"
+            'size': "1024,1440"
 
         }
         argsAlignment = "-input %(input)s " \
