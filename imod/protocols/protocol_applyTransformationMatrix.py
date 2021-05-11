@@ -102,6 +102,9 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         rotationAngleAvg = self.calculateRotationAngle(ts)
 
+        print("ROTATION ANGLE!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(rotationAngleAvg)
+
         # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
         if rotationAngleAvg > 45:
