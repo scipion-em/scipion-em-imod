@@ -88,13 +88,16 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
-            'imagebinned': 1.0
+            'imagebinned': 1.0,
+            'size': "1024, 1440"
+
         }
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
+                        "-imagebinned %(imagebinned)s " \
+                        "-size %(size)s "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
