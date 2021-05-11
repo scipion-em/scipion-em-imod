@@ -100,7 +100,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s "
 
-        rotationAngleAvg = self.calculateRotationAngle(ts)
+        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
 
         # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
@@ -144,21 +144,6 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    @staticmethod
-    def calculateRotationAngle(ts):
-        """ This method calculates que average tilt image rotation angle from its associated transformation matrix."""
-        avgRotationAngle = 0
-
-        for ti in ts:
-            tm = ti.getTransform().getMatrix()
-            cosRotationAngle = tm[0][0]
-            sinRotationAngle = tm[1][0]
-            avgRotationAngle += math.degrees(math.atan(sinRotationAngle/cosRotationAngle))
-
-        avgRotationAngle = avgRotationAngle / ts.getSize()
-
-        return avgRotationAngle
-
     def getOutputInterpolatedSetOfTiltSeries(self):
         if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
