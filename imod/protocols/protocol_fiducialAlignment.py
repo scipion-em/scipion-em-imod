@@ -636,11 +636,23 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0}
+
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s"
+
+        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+
+        # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # the final sample disposition.
+        if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+            paramsAlignment.update({
+                'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+            })
+
+            argsAlignment += "-size %(size)s "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
