@@ -219,8 +219,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.binningTomoNormalization = 2
 
-        cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    pattern="BB{TS}.st",
+        cls.protImportTS = cls._runImportTiltSeries(filesPath=cls.inputDataSet.getPath(),
+                                                    pattern="*.mdoc",
+                                                    #anglesFrom=2,,
                                                     voltage=300,
                                                     magnification=105000,
                                                     sphericalAberration=2.7,
