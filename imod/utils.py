@@ -28,6 +28,7 @@ This module contains utils functions for IMOD protocols
 """
 
 import csv
+import math
 import numpy as np
 import pyworkflow.object as pwobj
 
@@ -784,3 +785,18 @@ def formatGoldBead3DCoordinatesList(coordFilePath):
             vector = line.split()
             coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
     return coorList
+
+
+def calculateRotationAngleFromTM(ts):
+    """ This method calculates que average tilt image rotation angle from its associated transformation matrix."""
+    avgRotationAngle = 0
+
+    for ti in ts:
+        tm = ti.getTransform().getMatrix()
+        cosRotationAngle = tm[0][0]
+        sinRotationAngle = tm[1][0]
+        avgRotationAngle += math.degrees(math.atan(sinRotationAngle/cosRotationAngle))
+
+    avgRotationAngle = avgRotationAngle / ts.getSize()
+
+    return avgRotationAngle
