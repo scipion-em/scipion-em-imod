@@ -45,6 +45,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
     _label = 'CTF estimation'
 
+    defocusUTolerance = 20
+    defocusVTolerance = 20
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
@@ -419,8 +422,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.setTsId(tsId)
             newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
 
-            " We need to create now all the attributes of this object in order to append it to the set and be able " \
-            " to update it posteriorly. "
+            # We need to create now all the attributes of this object in order
+            # to append it to the set and be able to update it posteriorly. "
 
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
             self.outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
@@ -520,10 +523,16 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                                         flag=defocusFileFlag)
 
                 newCTFTomo.completeInfoFromList()
-
                 newCTFTomoSeries.append(newCTFTomo)
 
             newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
+
+            newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
+            newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
+
+            if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                    newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                newCTFTomoSeries.setEnabled(False)
 
             newCTFTomoSeries.write(properties=False)
 

@@ -26,9 +26,10 @@
 # *
 # **************************************************************************
 
-import os
+import tkinter
 from tkinter import *
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import pyworkflow.viewer as pwviewer
 from pyworkflow.gui import *
@@ -187,6 +188,10 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 class CTFSerieStates:
     UNCHECKED = 'unchecked'
     CHECKED = 'checked'
+    ODD = 'odd'
+    EVEN = 'even'
+    FAILED = 'Failed'
+    OK = 'Ok'
 
 
 class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
@@ -194,9 +199,8 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
     prepare the columns/rows models required by the TreeDialog GUI.
     """
     COL_CTF_SERIE = 'CTF Series'
-    COL_CTF_SERIE_ENABLE = 'enabled'
-    CRITERIA_1 = 'criteria1'
-    CRITERIA_2 = 'criteria2'
+    CRITERIA_1 = 'defocusUDeviation'
+    CRITERIA_2 = 'defocusVDeviation'
     COL_CTF_EST_IX = 'index'
     COL_CTF_EST_DEFOCUS_U = 'defocusU'
     COL_CTF_EST_DEFOCUS_V = 'defocusV'
@@ -211,19 +215,10 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
                   COL_CTF_EST_DEFOCUS_RATIO: '_defocusRatio',
                   COL_CTF_EST_DEFOCUS_ANGLE: '_defocusAngle',
                   COL_CTF_EST_RES: '_resolution',
-                  COL_CTF_EST_FIT: '_fitQuality',
-    }
+                  COL_CTF_EST_FIT: '_fitQuality'}
 
     def __init__(self, master, protocol, outputSetOfCTFTomoSeries, **kw):
-
         ttk.Treeview.__init__(self, master, **kw)
-
-        self.im_checked = gui.getImage(Icon.CHECKED)
-        self.im_unchecked = gui.getImage(Icon.UNCHECKED)
-
-        self.tag_configure(CTFSerieStates.UNCHECKED, image=self.im_unchecked)
-        self.tag_configure(CTFSerieStates.CHECKED, image=self.im_checked)
-
         self.protocol = protocol
         self.ctfSeries = outputSetOfCTFTomoSeries
         TreeProvider.__init__(self, sortingColumnName=self.COL_CTF_SERIE)
@@ -231,18 +226,8 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
         self.mapper = protocol.mapper
         self.maxNum = 200
 
-
-    def insert(self, parent, index, iid=None, **kw):
-        """ same method as for standard treeview but add the tag 'unchecked'
-            automatically if no tag among ('checked', 'unchecked')
-            is given """
-        if "tags" not in kw:
-            kw["tags"] = (CTFSerieStates.UNCHECKED,)
-        ttk.Treeview.insert(self, parent, index, iid, **kw)
-
     def getObjects(self):
         # Retrieve all objects of type className
-        project = self.protocol.getProject()
         objects = []
 
         orderBy = self.ORDER_DICT.get(self.getSortingColumnName(), 'id')
@@ -261,6 +246,9 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
 
         return objects
 
+    def getCTFSeries(self):
+        return self.ctfSeries
+
     def _sortObjects(self, objects):
         pass
 
@@ -269,15 +257,14 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
 
     def getColumns(self):
         cols = [
-            (self.COL_CTF_SERIE, 300),
-            (self.COL_CTF_SERIE_ENABLE, 70),
+            (self.COL_CTF_SERIE, 200),
             (self.CRITERIA_1, 150),
             (self.CRITERIA_2, 150),
-            (self.COL_CTF_EST_IX, 150),
-            (self.COL_CTF_EST_DEFOCUS_U, 150),
-            (self.COL_CTF_EST_DEFOCUS_V, 150),
-            (self.COL_CTF_EST_DEFOCUS_RATIO, 150),
-            (self.COL_CTF_EST_DEFOCUS_ANGLE, 150)
+            (self.COL_CTF_EST_IX, 100),
+            (self.COL_CTF_EST_DEFOCUS_U, 100),
+            (self.COL_CTF_EST_DEFOCUS_V, 100),
+            (self.COL_CTF_EST_DEFOCUS_RATIO, 100),
+            (self.COL_CTF_EST_DEFOCUS_ANGLE, 100)
         ]
         return cols
 
@@ -290,55 +277,221 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
         return getattr(pobj, '_parentObject', default)
 
     def getObjectInfo(self, obj):
-        objId = obj.getObjId()
-
         if isinstance(obj, tomo.objects.CTFTomoSeries):
-            key =  obj.getTsId()
+            key = obj.getTsId()
             text = obj.getTsId()
-            values = ['', '', '', '', '', '']
+            values = [CTFSerieStates.OK if obj.getIsDefocusUDeviationInRange()
+                      else CTFSerieStates.FAILED,
+                      CTFSerieStates.OK if obj.getIsDefocusVDeviationInRange()
+                      else CTFSerieStates.FAILED,
+                      '', '', '']
             opened = False
+            selected = obj.isEnabled()
         else:  # CTFTomo
-            key = str(obj.getObjId())
+            key = "%s.%s" % (obj._parentObject.getTsId(), str(obj.getObjId()))
             text = ''
-            values = ['', '', '', obj.getIndex(), str(obj.getDefocusU()),
+            values = [CTFSerieStates.OK if obj.getIsDefocusUDeviationInRange()
+                      else CTFSerieStates.FAILED,
+                      CTFSerieStates.OK if obj.getIsDefocusVDeviationInRange()
+                      else CTFSerieStates.FAILED,
+                      obj.getIndex(), str(obj.getDefocusU()),
                       str(obj.getDefocusV()), str(obj.getDefocusRatio()),
                       str(obj.getDefocusAngle())]
             opened = False
+            selected = False
 
         item = {
             'key': key, 'text': text,
             'values': tuple(values),
             'open': opened,
-            'selected': False,
+            'selected': selected,
             'parent': obj._parentObject
         }
         if isinstance(obj, tomo.objects.CTFTomoSeries):
-            item['tags'] = (CTFSerieStates.UNCHECKED,)
+            tags = CTFSerieStates.UNCHECKED
+            if not (obj.getIsDefocusUDeviationInRange() and obj.getIsDefocusVDeviationInRange()):
+                obj.setEnabled(True)
+                tags = CTFSerieStates.CHECKED
 
+            if obj.getObjId() % 2 == 0:
+                item['tags'] = (tags, CTFSerieStates.ODD,)
+            else:
+                item['tags'] = (tags,  CTFSerieStates.EVEN)
+        else:
+            if obj.getObjId() % 2 == 0:
+                item['tags'] = (CTFSerieStates.ODD,)
+            else:
+                item['tags'] = (CTFSerieStates.EVEN,)
         return item
 
-    def getObjectActions(self, obj):
-        actions = []
-        defocusUList = []
-        defocusVList = []
-        defocusRatioList = []
-        if isinstance(obj, tomo.objects.CTFTomoSeries):
-            for ctfSerie in self.ctfSeries:
-                if ctfSerie.getObjId() == obj.getObjId():
+
+class CTFEstimationTree(BoundTree):
+    def __init__(self, master, provider,  **opts):
+        BoundTree.__init__(self, master, provider, frame=True, **opts)
+        self.selectedItem = None
+
+    def check_item(self, item):
+        """ check the box of item and change the state of the boxes of item's
+            ancestors accordingly """
+        tags = CTFSerieStates.EVEN
+        if CTFSerieStates.ODD in self.item(item, 'tags'):
+            tags = CTFSerieStates.ODD
+
+        if CTFSerieStates.UNCHECKED in self.item(item, 'tags'):
+            self.item(item, tags=(CTFSerieStates.CHECKED, tags,))
+            self.getSelectedObj().setEnabled(False)
+            self.item(item)['selected'] = True
+        else:
+            self.item(item, tags=(CTFSerieStates.UNCHECKED, tags,))
+            self.getSelectedObj().setEnabled(True)
+            self.item(item)['selected'] = False
+
+    def _onClick(self, event=None):
+        self._unpostMenu()
+        x, y, widget = event.x, event.y, event.widget
+        elem = widget.identify("element", x, y)
+        self.selectedItem = self.identify_row(y)
+        self.focus(self.selectedItem)
+        if "image" in elem:
+            self.check_item(self.selectedItem)
+
+    def getSelectedItem(self):
+        return self.selectedItem
+
+    def getSelectedObj(self):
+        obj = None
+        if self.selectedItem:
+            selected = self.getFirst()
+            if selected is None:
+                obj = self._objDict[self.selectedItem]
+            else:
+                obj = self._objDict[selected]
+        return obj
+
+
+class CtfEstimationListDialog(ListDialog):
+    def __init__(self, parent, title, provider, **kwargs):
+        ListDialog.__init__(self, parent, title, provider, message=None,
+                            allowSelect=False, **kwargs)
+
+    def body(self, bodyFrame):
+        bodyFrame.config()
+        self._col = 1
+        self._fillCTFEstimationGUI(bodyFrame)
+
+    def _addButton(self, frame, text, image, command, sticky='news'):
+        btn = tk.Label(frame, text=text, image=self.getImage(image),
+                        compound=tk.LEFT, cursor='hand2')
+        btn.bind('<Button-1>', command)
+        btn.grid(row=0, column=self._col, sticky=sticky,
+                 padx=(0, 5), pady=5)
+        self._col += 1
+
+    def _fillCTFEstimationGUI(self, bodyFrame):
+        # Create a top panel to put the filter box and bottoms
+        topPanel = tk.Frame(bodyFrame)
+        topPanel.grid(row=0, column=0, padx=0, pady=0, sticky='news')
+        self._createTopPanel(topPanel)
+
+        # Create a bottom panel to put the tree and the plotter
+        bottomPanel = tk.Frame(bodyFrame)
+        bottomPanel.grid(row=1, column=0, padx=0, pady=0, sticky='news')
+        self._createBottomPanel(bottomPanel)
+
+    def _createTopPanel(self, topPanel):
+        self._createFilterBox(topPanel)
+
+        topRigthPanel = tk.Frame(topPanel)
+        topRigthPanel.grid(row=0, column=1, padx=0, pady=0, sticky='news')
+        self._createRecalculateBottom(topRigthPanel)
+        self._createViewerHelp(topRigthPanel)
+
+    def _createRecalculateBottom(self, topRigthPanel):
+        self._addButton(topRigthPanel, 'Generate subsets', pwutils.Icon.PROCESSING,
+                        self._actionCreateSets, sticky='ne')
+
+    def _createViewerHelp(self, topRigthPanel):
+        self._addButton(topRigthPanel, pwutils.Message.LABEL_HELP,
+                        pwutils.Icon.ACTION_HELP, self._showHelp, sticky='ne')
+
+    def _actionCreateSets(self, event=None):
+        pass
+
+    def _showHelp(self, event=None):
+        pass
+
+    def _createBottomPanel(self, bottomPanel):
+        self._createCTFEstimationGUI(bottomPanel)
+        self.initial_focus = self.tree
+
+    def _createCTFEstimationGUI(self, bottomPanel):
+        # Create a division Paned
+        pw = tk.PanedWindow(bottomPanel, orient=tk.HORIZONTAL)
+        # Create a left panel to put the tree
+        bottomleftPanel = tk.Frame(pw)
+        bottomleftPanel.grid(row=0, column=0, padx=0, pady=0, sticky='news')
+        self._createTree(bottomleftPanel)
+        pw.add(bottomleftPanel)
+        # Panel to put the plotter
+        self.bottomRightPanel = ttk.Frame(pw)
+        self.bottomRightPanel.grid(row=0, column=1, padx=0, pady=0, sticky='news')
+        self._createPloter(self.bottomRightPanel)
+        pw.add(self.bottomRightPanel)
+        pw.pack(fill=BOTH, expand=True)
+        # This method is used to show sash
+        pw.configure(sashrelief=RAISED)
+
+    def _createTree(self, parent):
+
+        gui.configureWeigths(parent)
+
+        self.tree = CTFEstimationTree(parent, self.provider,
+                                      selectmode=self._selectmode)
+        self.tree.selectChildByIndex(0)
+        self.tree.selectedItem = self.tree.getFirst()
+        self.im_checked = gui.getImage(Icon.CHECKED)
+        self.im_unchecked = gui.getImage(Icon.UNCHECKED)
+        self.tree.tag_configure(CTFSerieStates.UNCHECKED,
+                                image=self.im_unchecked)
+        self.tree.tag_configure(CTFSerieStates.CHECKED,
+                                image=self.im_checked)
+        self.tree.tag_configure(CTFSerieStates.EVEN, background='#F2F2F2',
+                                foreground='black')
+        self.tree.tag_configure(CTFSerieStates.ODD, background='#E6E6E6',
+                                foreground='black')
+        self.tree.bind("<Button-1>", self._createPloter, True)
+
+    def _createPloter(self, event):
+        obj = self.tree.getSelectedObj()
+        if obj is not None:
+            plotterPanel = tk.Frame(self.bottomRightPanel)
+            defocusUList = []
+            defocusVList = []
+            itemSelected = self.tree.selectedItem
+
+            if self.tree.parent(self.tree.selectedItem):
+                itemSelected = self.tree.parent(self.tree.selectedItem)
+
+            for ctfSerie in self.provider.getCTFSeries():
+                if ctfSerie.getTsId() == itemSelected:
                     for item in ctfSerie.iterItems(orderBy='id'):
                         defocusUList.append(item.getDefocusU())
                         defocusVList.append(item.getDefocusV())
 
-                    plt.figure('CTF Estimation Plotter')
-                    plt.plot(defocusUList, marker='o', label='DefocusU')
-                    plt.plot(defocusVList, marker='o', label='DefocusV')
-                    plt.legend()
-                    plt.title("CTF Estimation Plotter")
-                    plt.show()
+                    fig = Figure(figsize=(7, 7), dpi=100)
+                    defocusU = fig.add_subplot(111)
+                    defocusU.plot(defocusUList, marker='o', label='DefocusU')
+                    defocusV = fig.add_subplot(111)
+                    defocusV.plot(defocusVList, marker='o', label='DefocusV')
+                    fig.legend()
+                    canvas = FigureCanvasTkAgg(fig, master=plotterPanel)
+                    canvas.draw()
+                    canvas.get_tk_widget().pack(fill=tkinter.BOTH, expand=0)
+                    plotterPanel.grid(row=0, column=1, sticky='news')
                     break
-        return actions
 
-class CtfEstimationDialogView:
+
+class CtfEstimationDialogView(pwviewer.Viewer):
     """ This class implements a view using Tkinter ListDialog
     and the CtfEstimationTreeProvider.
     """
@@ -351,40 +504,21 @@ class CtfEstimationDialogView:
         self._provider = CtfEstimationTreeProvider(self._tkParent, self._protocol, self._outputSetOfCTFTomoSeries)
 
     def show(self):
-        dlg = ListDialog(self._tkParent, self._title, self._provider)
+        CtfEstimationListDialog(self._tkParent, self._title, self._provider)
 
 
-class CtfEstimationViewer(pwviewer.ProtocolViewer):
+class CtfEstimationViewer(pwviewer.Viewer):
     """ Wrapper to visualize outputs of tilt series motion correction protocols
     """
-
     _label = 'ctf estimation viewer'
     _environments = [pwviewer.DESKTOP_TKINTER]
     _targets = [imod.protocols.ProtImodCtfEstimation]
 
-    def _defineParams(self, form):
-            form.addSection(label='Visualization of ctf estimation series')
-            form.addParam('displayFullCTFEstSeries', params.LabelParam,
-                          label='Display full ctf estimation series',
-                          help='Shows full ctf estimation series'
-                          )
+    def getOutputSetOfCTFTomoSeries(self, protocol):
+        return getattr(protocol, 'outputSetOfCTFTomoSeries')
 
-    def getOutputSetOfCTFTomoSeries(self):
-        return getattr(self.protocol, 'outputSetOfCTFTomoSeries')
-
-    def _displayFullTiltSeries(self, param=None):
-        return self._visualize(self.getOutputSetOfCTFTomoSeries())
-
-    def _getVisualizeDict(self):
-        return {
-            'displayFullCTFEstSeries': self._displayFullTiltSeries
-        }
-
-    def _visualize(self, outputSetOfCTFTomoSeries):
-
+    def _visualize(self, protocol):
         setCTFEstView = CtfEstimationDialogView(self.getTkRoot(), self.protocol,
-                                                 outputSetOfCTFTomoSeries)
-
-
+                                                self.getOutputSetOfCTFTomoSeries(protocol))
         return [setCTFEstView]
 
