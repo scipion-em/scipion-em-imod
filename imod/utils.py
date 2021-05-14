@@ -499,13 +499,11 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    itemId = index-1
-
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[itemId + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
-                        round(tiltSeries[itemId].getTiltAngle(), 2),
+                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle(), 2),
                         int(float(defocusUDict[index][0]))
                     ))
 
