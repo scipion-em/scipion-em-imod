@@ -174,11 +174,8 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
         coorText = f.read().splitlines()
         for line in coorText:
             if line != '':
-                print(line)
                 vector = line.split()
-                print(vector)
                 coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
-                print(coorList)
 
     return coorList
 
