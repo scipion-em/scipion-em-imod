@@ -1023,7 +1023,7 @@ ImageFile	%(imageFile)s
 ImagesAreBinned	1
 InputSeedModel	%(inputSeedModel)s
 OutputModel	%(outputModel)s
-RotationAngle	%(rotationAngle)f
+RotationAngle	%(rotationAngle).1f 
 TiltFile	%(tiltFile)s
 TiltDefaultGrouping	7
 MagDefaultGrouping	5
@@ -1053,19 +1053,19 @@ PointsToFitMaxAndMin	7,3
 # fraction of mean, and # of SD below mean: density criterion for rescue
 DensityRescueFractionAndSD	0.6,1.0
 # distance criterion for rescue
-DistanceRescueCriterion	%(distanceRescueCriterion)f
+DistanceRescueCriterion	%(distanceRescueCriterion).2f
 # relaxation of criterion for density and distance rescues
 RescueRelaxationDensityAndDistance	0.7,0.9
 # distance for rescue after fit
-PostFitRescueResidual	%(postFitRescueResidual)f
+PostFitRescueResidual	%(postFitRescueResidual).2f
 # relaxation of density criterion, maximum radius to search
 DensityRelaxationPostFit	0.9
-MaxRescueDistance	%(maxRescueDistance)f
+MaxRescueDistance	%(maxRescueDistance).2f
 # Max and min residual changes to use to get mean and SD change
 ResidualsToAnalyzeMaxAndMin	9,5
 # minimum residual difference, criterion # of sd's
 DeletionCriterionMinAndSD	%(deletionCriterionMinAndSD)s
-MinDiamForParamScaling %(minDiamForParamScaling)f
+MinDiamForParamScaling %(minDiamForParamScaling).1f
 """
 
         if self.refineSobelFilter.get() == 0:
