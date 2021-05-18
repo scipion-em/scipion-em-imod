@@ -28,6 +28,7 @@ import os
 from pwem.protocols import EMProtocol
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
+from pyworkflow import BETA
 from pyworkflow.object import Set
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
@@ -41,6 +42,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
     """
 
     _label = 'import tomo CTFs'
+    _devStatus = BETA
 
     def __init__(self, **args):
         ProtTomoImportFiles.__init__(self, **args)
