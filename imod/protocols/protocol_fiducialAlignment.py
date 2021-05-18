@@ -983,7 +983,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         #     self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputSetOfCoordinates3Ds"):
+        if hasattr(self, "outputSetOfCoordinates3D"):
             self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.getOutputFailedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
@@ -1234,7 +1234,7 @@ $if (-e ./savework) ./savework
             self.outputSetOfCoordinates3D.enableAppend()
         else:
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
-                                                                      suffix='LandmarkModel')
+                                                                      suffix='Fiducials3D')
             outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
