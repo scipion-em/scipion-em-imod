@@ -25,7 +25,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
 import tkinter
 from tkinter import *
 from matplotlib.figure import Figure
@@ -40,6 +39,7 @@ import pyworkflow.protocol.params as params
 import tomo.objects
 import imod.protocols
 from imod import Plugin
+from pyworkflow.object import  Integer
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -225,6 +225,7 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
         self.selectedDict = {}
         self.mapper = protocol.mapper
         self.maxNum = 200
+        self._checkedItems = 0
 
     def getObjects(self):
         # Retrieve all objects of type className
@@ -312,6 +313,7 @@ class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
             if not (obj.getIsDefocusUDeviationInRange() and obj.getIsDefocusVDeviationInRange()):
                 obj.setEnabled(True)
                 tags = CTFSerieStates.CHECKED
+                self._checkedItems += 1
 
             if obj.getObjId() % 2 == 0:
                 item['tags'] = (tags, CTFSerieStates.ODD,)
@@ -329,6 +331,7 @@ class CTFEstimationTree(BoundTree):
     def __init__(self, master, provider,  **opts):
         BoundTree.__init__(self, master, provider, frame=True, **opts)
         self.selectedItem = None
+        self._checkedItems = provider._checkedItems
 
     def check_item(self, item):
         """ check the box of item and change the state of the boxes of item's
@@ -339,11 +342,13 @@ class CTFEstimationTree(BoundTree):
 
         if CTFSerieStates.UNCHECKED in self.item(item, 'tags'):
             self.item(item, tags=(CTFSerieStates.CHECKED, tags,))
+            self._checkedItems += 1
             self.getSelectedObj().setEnabled(False)
             self.item(item)['selected'] = True
         else:
             self.item(item, tags=(CTFSerieStates.UNCHECKED, tags,))
             self.getSelectedObj().setEnabled(True)
+            self._checkedItems -= 1
             self.item(item)['selected'] = False
 
     def _onClick(self, event=None):
@@ -370,7 +375,10 @@ class CTFEstimationTree(BoundTree):
 
 
 class CtfEstimationListDialog(ListDialog):
-    def __init__(self, parent, title, provider, **kwargs):
+    def __init__(self, parent, title, provider, protocol, **kwargs):
+        self._project = protocol.getProject()
+        self._protocol = protocol
+        self._checkedItems = provider._checkedItems
         ListDialog.__init__(self, parent, title, provider, message=None,
                             allowSelect=False, **kwargs)
 
@@ -379,13 +387,14 @@ class CtfEstimationListDialog(ListDialog):
         self._col = 1
         self._fillCTFEstimationGUI(bodyFrame)
 
-    def _addButton(self, frame, text, image, command, sticky='news'):
+    def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
         btn = tk.Label(frame, text=text, image=self.getImage(image),
-                        compound=tk.LEFT, cursor='hand2')
+                        compound=tk.LEFT, cursor='hand2', state=state)
         btn.bind('<Button-1>', command)
         btn.grid(row=0, column=self._col, sticky=sticky,
                  padx=(0, 5), pady=5)
         self._col += 1
+        return btn
 
     def _fillCTFEstimationGUI(self, bodyFrame):
         # Create a top panel to put the filter box and bottoms
@@ -407,15 +416,84 @@ class CtfEstimationListDialog(ListDialog):
         self._createViewerHelp(topRigthPanel)
 
     def _createRecalculateBottom(self, topRigthPanel):
-        self._addButton(topRigthPanel, 'Generate subsets', pwutils.Icon.PROCESSING,
-                        self._actionCreateSets, sticky='ne')
+
+        state = tk.NORMAL
+        if self._checkedItems:
+            state = tk.DISABLED
+        self.generateSubsetButton = self._addButton(topRigthPanel,
+                                                    'Generate subsets',
+                                                    pwutils.Icon.PROCESSING,
+                                                    self._actionCreateSets,
+                                                    sticky='ne',
+                                                    state=state)
 
     def _createViewerHelp(self, topRigthPanel):
         self._addButton(topRigthPanel, pwutils.Message.LABEL_HELP,
                         pwutils.Icon.ACTION_HELP, self._showHelp, sticky='ne')
 
     def _actionCreateSets(self, event=None):
-        pass
+
+        if self.generateSubsetButton['state'] == tk.NORMAL:
+            protocol = self.provider.protocol
+            ctfSeries = self.provider.getCTFSeries()
+            tsSet = protocol.inputSetOfTiltSeries.get()
+            suffix = protocol.getOutputSetSuffix().get()
+            goodCTFName = 'goodCtf%s' % suffix
+            badTSName = 'badTS%s' % suffix
+
+            outputSetOfCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
+                                                            prefix=goodCTFName,
+                                                            copyInfo=True)
+            outputSetOfTiltSeries = tsSet.createCopy(protocol._getPath(),
+                                                     prefix=badTSName,
+                                                     copyInfo=True)
+            for ctfSerie in ctfSeries:
+                if CTFSerieStates.UNCHECKED in self.tree.item(ctfSerie.getTsId(),
+                                                            'tags'):
+                    ctfSerieClon = ctfSerie.clone()
+                    outputSetOfCTFTomoSeries.append(ctfSerieClon)
+                    for item in ctfSerie.iterItems():
+                        ctfEstItem = item.clone()
+                        ctfSerieClon.append(ctfEstItem)
+
+                    tsAssociateName = 'tsAssociate%s' % (suffix)
+                    associateSetOfTiltSeries = tsSet.createCopy(protocol._getPath(),
+                                                             prefix=tsAssociateName,
+                                                             copyInfo=True)
+                    associateSetOfTiltSeries.copyInfo(tsSet)
+                    outputSetOfCTFTomoSeries.setSetOfTiltSeries(associateSetOfTiltSeries)
+                    for ts in tsSet:
+                        if ts.getTsId() == ctfSerie.getTsId():
+                            tsClone = ts.clone()
+                            associateSetOfTiltSeries.append(tsClone)
+                            for item in ts.iterItems():
+                                tsItem = item.clone()
+                                tsClone.append(tsItem)
+                else:
+                    for ts in tsSet:
+                        if ts.getTsId() == ctfSerie.getTsId():
+                            tsClone = ts.clone()
+                            outputSetOfTiltSeries.append(tsClone)
+                            outputSetOfCTFTomoSeries.copyInfo(tsClone)
+                            outputSetOfCTFTomoSeries.copyObjId(tsClone)
+                            for item in ts.iterItems():
+                                tsItem = item.clone()
+                                tsClone.append(tsItem)
+                            break
+
+            outputCTFSetName = 'goodSetOfCTFTomoSeries%s' % suffix
+            outputTSSetName = 'badSetOfTiltSeries%s' % suffix
+            if len(outputSetOfCTFTomoSeries) > 0:
+                protocol._defineOutputs(**{outputCTFSetName: outputSetOfCTFTomoSeries})
+                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
+
+            if len(outputSetOfTiltSeries) > 0:
+                protocol._defineOutputs(**{outputTSSetName: outputSetOfTiltSeries})
+                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries, outputSetOfTiltSeries)
+
+            protocol.setOutputSetSuffix(Integer(suffix+1))
+            protocol._store()
+            self.cancel()
 
     def _showHelp(self, event=None):
         pass
@@ -447,8 +525,10 @@ class CtfEstimationListDialog(ListDialog):
 
         self.tree = CTFEstimationTree(parent, self.provider,
                                       selectmode=self._selectmode)
-        self.tree.selectChildByIndex(0)
-        self.tree.selectedItem = self.tree.getFirst()
+        item = self.tree.identify_row(0)
+        self.tree.selection_set(item)
+        self.tree.focus(item)
+        self.tree.selectedItem = item
         self.im_checked = gui.getImage(Icon.CHECKED)
         self.im_unchecked = gui.getImage(Icon.UNCHECKED)
         self.tree.tag_configure(CTFSerieStates.UNCHECKED,
@@ -463,6 +543,11 @@ class CtfEstimationListDialog(ListDialog):
 
     def _createPloter(self, event):
         obj = self.tree.getSelectedObj()
+        self._checkedItems = self.tree._checkedItems
+        if self._checkedItems:
+            self.generateSubsetButton['state'] = tk.NORMAL
+        else:
+            self.generateSubsetButton['state'] = tk.DISABLED
         if obj is not None:
             plotterPanel = tk.Frame(self.bottomRightPanel)
             defocusUList = []
@@ -491,34 +576,24 @@ class CtfEstimationListDialog(ListDialog):
                     break
 
 
-class CtfEstimationDialogView(pwviewer.Viewer):
+class CtfEstimationTomoViewer(pwviewer.Viewer):
     """ This class implements a view using Tkinter ListDialog
     and the CtfEstimationTreeProvider.
     """
-
-    def __init__(self, parent, protocol, outputSetOfCTFTomoSeries, **kwargs):
-        self._tkParent = parent
-        self._protocol = protocol
-        self._title = 'ctf estimation viewer'
-        self._outputSetOfCTFTomoSeries = outputSetOfCTFTomoSeries
-        self._provider = CtfEstimationTreeProvider(self._tkParent, self._protocol, self._outputSetOfCTFTomoSeries)
-
-    def show(self):
-        CtfEstimationListDialog(self._tkParent, self._title, self._provider)
-
-
-class CtfEstimationViewer(pwviewer.Viewer):
-    """ Wrapper to visualize outputs of tilt series motion correction protocols
-    """
     _label = 'ctf estimation viewer'
     _environments = [pwviewer.DESKTOP_TKINTER]
-    _targets = [imod.protocols.ProtImodCtfEstimation]
+    _targets = [tomo.objects.SetOfCTFTomoSeries]
 
-    def getOutputSetOfCTFTomoSeries(self, protocol):
-        return getattr(protocol, 'outputSetOfCTFTomoSeries')
+    def __init__(self, parent, protocol, **kwargs):
+        self._tkParent = parent.root
+        self._protocol = protocol
+        self._title = 'ctf estimation viewer'
+        self._outputSetOfCTFTomoSeries = protocol.outputSetOfCTFTomoSeries
+        self._inputSetOfTiltSeries = protocol.inputSetOfTiltSeries.get()
+        self._provider = CtfEstimationTreeProvider(self._tkParent,
+                                                   self._protocol,
+                                                   self._outputSetOfCTFTomoSeries)
 
-    def _visualize(self, protocol):
-        setCTFEstView = CtfEstimationDialogView(self.getTkRoot(), self.protocol,
-                                                self.getOutputSetOfCTFTomoSeries(protocol))
-        return [setCTFEstView]
-
+    def visualize(self, obj, windows=None, protocol=None):
+        CtfEstimationListDialog(self._tkParent, self._title, self._provider,
+                                self._protocol)

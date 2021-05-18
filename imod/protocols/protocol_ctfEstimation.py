@@ -48,6 +48,10 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     defocusUTolerance = 20
     defocusVTolerance = 20
 
+    def __init__(self, **args):
+        EMProtocol.__init__(self, **args)
+        self.outputSetSuffix = pwobj.Integer(2)
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
@@ -574,6 +578,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                         return float(defocusTuple[1])
                 raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
+
+    def getOutputSetSuffix(self):
+        return self.outputSetSuffix
+
+    def setOutputSetSuffix(self, value):
+        return self.outputSetSuffix.set(value)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
