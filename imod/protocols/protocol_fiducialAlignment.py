@@ -350,7 +350,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
-        Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
+        Plugin.runImod(self, 'autofidseed aszfggasdgas', argsAutofidseed % paramsAutofidseed)
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
