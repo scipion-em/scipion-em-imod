@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+import math
 import imod.utils as utils
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -83,18 +84,32 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
+        firstItem = ts.getFirstItem()
+
         paramsAlignment = {
-            'input': ts.getFirstItem().getFileName(),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
+            'input': firstItem.getFileName(),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
+
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
+                        "-imagebinned %(imagebinned)s "
+
+        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+
+        # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # the final sample disposition.
+        if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+            paramsAlignment.update({
+                'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+            })
+
+            argsAlignment += "-size %(size)s "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
