@@ -66,9 +66,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.")
 
-        form.addParam('fiducialDiameter',
+        form.addParam('fiducialRadius',
                       params.FloatParam,
-                      label='Fiducial diameter (nm)',
+                      label='Fiducial radius (nm)',
                       default='4.95',
                       help="Fiducials diameter to be tracked for alignment.")
 
@@ -299,9 +299,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         firstItem = ts.getFirstItem()
 
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -313,13 +313,13 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'rotationAngle': self.rotationAngle.get(),
-            'fiducialDiameter': fiducialDiameterPixel,
+            'fiducialRadius': fiducialRadiusPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
+            'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
+            'maxRescueDistance': 0.2 * fiducialRadiusPixel,
             'minDiamForParamScaling': 12.5,
             'deletionCriterionMinAndSD': '0.3,2.0'
         }
@@ -367,9 +367,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
         firstItem = ts.getFirstItem()
 
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -385,7 +385,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
             'minViewsForTiltalign': 4,
-            'beadDiameter': fiducialDiameterPixel,
+            'beadDiameter': fiducialRadiusPixel,
             'fillGaps': 1,
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
@@ -400,11 +400,11 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 0.2 * fiducialRadiusPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
             'deletionCriterionMinAndSD': '0.3,2.0',
             'minDiamForParamScaling': 12.5
@@ -1067,7 +1067,7 @@ TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
 PixelSize   %(samplingRate)f
-BeadDiameter	%(fiducialDiameter).2f
+BeadDiameter	%(fiducialRadius).2f
 FillGaps
 MaxGapSize	5
 RoundsOfTracking	2
