@@ -221,7 +221,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
-                                                    anglesFrom=1,
+                                                    anglesFrom=0,
                                                     voltage=300,
                                                     magnification=105000,
                                                     sphericalAberration=2.7,
@@ -472,14 +472,17 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="WTI042413_1series4.st",
-                                                    anglesFrom=1,
+                                                    anglesFrom=0,
                                                     voltage=300,
                                                     magnification=50000,
                                                     sphericalAberration=0.0,
                                                     amplitudeContrast=0.07,
                                                     samplingRate=6.73981,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3)
+                                                    dosePerFrame=0.3,
+                                                    minAngle=-60,
+                                                    maxAngle=60.0,
+                                                    stepAngle=2.0)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
