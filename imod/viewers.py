@@ -436,62 +436,47 @@ class CtfEstimationListDialog(ListDialog):
         if self.generateSubsetButton['state'] == tk.NORMAL:
             protocol = self.provider.protocol
             ctfSeries = self.provider.getCTFSeries()
-            tsSet = protocol.inputSetOfTiltSeries.get()
             suffix = protocol.getOutputSetSuffix().get()
             goodCTFName = 'goodCtf%s' % suffix
-            badTSName = 'badTS%s' % suffix
+            badCTFName = 'badCtf%s' % suffix
 
-            outputSetOfCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
-                                                            prefix=goodCTFName,
-                                                            copyInfo=True)
-            outputSetOfTiltSeries = tsSet.createCopy(protocol._getPath(),
-                                                     prefix=badTSName,
-                                                     copyInfo=True)
+            outputSetOfgoodCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
+                                                                prefix=goodCTFName,
+                                                                copyInfo=True)
+            outputSetOfbadCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
+                                                               prefix=badCTFName,
+                                                               copyInfo=True)
             for ctfSerie in ctfSeries:
+                ctfSerieClon = ctfSerie.clone()
                 if CTFSerieStates.UNCHECKED in self.tree.item(ctfSerie.getTsId(),
-                                                            'tags'):
-                    ctfSerieClon = ctfSerie.clone()
-                    outputSetOfCTFTomoSeries.append(ctfSerieClon)
-                    for item in ctfSerie.iterItems():
-                        ctfEstItem = item.clone()
-                        ctfSerieClon.append(ctfEstItem)
+                                                              'tags'):
+                    # Adding the ctfSerie to the good set of ctfTomoSeries
+                    outputSetOfgoodCTFTomoSeries.append(ctfSerieClon)
+                    outputSetOfgoodCTFTomoSeries.setSetOfTiltSeries(ctfSeries)
 
-                    tsAssociateName = 'tsAssociate%s' % (suffix)
-                    associateSetOfTiltSeries = tsSet.createCopy(protocol._getPath(),
-                                                             prefix=tsAssociateName,
-                                                             copyInfo=True)
-                    associateSetOfTiltSeries.copyInfo(tsSet)
-                    outputSetOfCTFTomoSeries.setSetOfTiltSeries(associateSetOfTiltSeries)
-                    for ts in tsSet:
-                        if ts.getTsId() == ctfSerie.getTsId():
-                            tsClone = ts.clone()
-                            associateSetOfTiltSeries.append(tsClone)
-                            for item in ts.iterItems():
-                                tsItem = item.clone()
-                                tsClone.append(tsItem)
                 else:
-                    for ts in tsSet:
-                        if ts.getTsId() == ctfSerie.getTsId():
-                            tsClone = ts.clone()
-                            outputSetOfTiltSeries.append(tsClone)
-                            outputSetOfCTFTomoSeries.copyInfo(tsClone)
-                            outputSetOfCTFTomoSeries.copyObjId(tsClone)
-                            for item in ts.iterItems():
-                                tsItem = item.clone()
-                                tsClone.append(tsItem)
-                            break
+                    # Adding the ctfSerie to the bad set of ctfTomoSeries
+                    outputSetOfbadCTFTomoSeries.append(ctfSerieClon)
+                    outputSetOfbadCTFTomoSeries.setSetOfTiltSeries(ctfSeries)
 
-            outputCTFSetName = 'goodSetOfCTFTomoSeries%s' % suffix
-            outputTSSetName = 'badSetOfTiltSeries%s' % suffix
-            if len(outputSetOfCTFTomoSeries) > 0:
-                protocol._defineOutputs(**{outputCTFSetName: outputSetOfCTFTomoSeries})
-                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
+                for item in ctfSerie.iterItems():
+                    ctfEstItem = item.clone()
+                    ctfSerieClon.append(ctfEstItem)
 
-            if len(outputSetOfTiltSeries) > 0:
-                protocol._defineOutputs(**{outputTSSetName: outputSetOfTiltSeries})
-                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries, outputSetOfTiltSeries)
+            outputgoodCTFSetName = 'goodSetOfCTFTomoSeries%s' % suffix
+            outputbadCTFSetName = 'badSetOfCTFTomoSeries%s' % suffix
 
-            protocol.setOutputSetSuffix(Integer(suffix+1))
+            if len(outputSetOfgoodCTFTomoSeries) > 0:
+                protocol._defineOutputs(**{outputgoodCTFSetName: outputSetOfgoodCTFTomoSeries})
+                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries,
+                                               outputSetOfgoodCTFTomoSeries)
+
+            if len(outputSetOfbadCTFTomoSeries) > 0:
+                protocol._defineOutputs(**{outputbadCTFSetName: outputSetOfbadCTFTomoSeries})
+                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries,
+                                               outputSetOfbadCTFTomoSeries)
+
+            protocol.setOutputSetSuffix(Integer(suffix + 1))
             protocol._store()
             self.cancel()
 
@@ -588,12 +573,16 @@ class CtfEstimationTomoViewer(pwviewer.Viewer):
         self._tkParent = parent.root
         self._protocol = protocol
         self._title = 'ctf estimation viewer'
-        self._outputSetOfCTFTomoSeries = protocol.outputSetOfCTFTomoSeries
-        self._inputSetOfTiltSeries = protocol.inputSetOfTiltSeries.get()
+
+    def visualize(self, obj, windows=None, protocol=None):
+        objName = obj.getObjName().split('.')[1]
+        for output in self._protocol._iterOutputsNew():
+            if output[0] == objName:
+                self._outputSetOfCTFTomoSeries = output[1]
+                break
+        self._inputSetOfTiltSeries = self._outputSetOfCTFTomoSeries.getSetOfTiltSeries()
         self._provider = CtfEstimationTreeProvider(self._tkParent,
                                                    self._protocol,
                                                    self._outputSetOfCTFTomoSeries)
-
-    def visualize(self, obj, windows=None, protocol=None):
         CtfEstimationListDialog(self._tkParent, self._title, self._provider,
                                 self._protocol)

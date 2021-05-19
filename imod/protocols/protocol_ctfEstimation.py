@@ -558,7 +558,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
 
-            outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
