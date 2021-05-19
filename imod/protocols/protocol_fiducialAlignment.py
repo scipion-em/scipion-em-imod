@@ -422,8 +422,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-BeadDiameter %(beadDiameter).2f " \
                         "-FillGaps %(fillGaps)d " \
                         "-MaxGapSize %(maxGapSize)d " \
-                        "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis)f " \
-                        "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles)f " \
+                        "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis).2f " \
+                        "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles).2f " \
                         "-BoxSizeXandY %(boxSizeXandY)s " \
                         "-RoundsOfTracking %(roundsOfTracking)d " \
                         "-LocalAreaTracking %(localAreaTracking)d " \
@@ -434,11 +434,11 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-SobelFilterCentering %(sobelFilterCentering)d " \
                         "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
                         "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
-                        "-DistanceRescueCriterion %(distanceRescueCriterion)f " \
+                        "-DistanceRescueCriterion %(distanceRescueCriterion).2f " \
                         "-RescueRelaxationDensityAndDistance %(rescueRelaxationDensityAndDistance)s " \
-                        "-PostFitRescueResidual %(postFitRescueResidual)f " \
-                        "-DensityRelaxationPostFit %(densityRelaxationPostFit)f " \
-                        "-MaxRescueDistance %(maxRescueDistance)f " \
+                        "-PostFitRescueResidual %(postFitRescueResidual).2f " \
+                        "-DensityRelaxationPostFit %(densityRelaxationPostFit).2f " \
+                        "-MaxRescueDistance %(maxRescueDistance).2f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
                         "-MinDiamForParamScaling %(minDiamForParamScaling)f"
