@@ -390,7 +390,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(outputLocation))
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
-        tolerance = 1
+        tolerance = 2
         expectedSize = 50
 
         self.assertTrue(
