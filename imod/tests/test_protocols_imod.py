@@ -434,7 +434,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         fileName, _ = os.path.splitext(location)
         tomoId = os.path.basename(fileName)
 
-        self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), "BB" + tomoId + ".mrc")))
+        self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), tomoId + ".mrc")))
 
     def test_tomoNormalizationOutputSize(self):
         self.assertTrue(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
