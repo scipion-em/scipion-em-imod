@@ -441,7 +441,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                         "-MaxRescueDistance %(maxRescueDistance).2f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
-                        "-MinDiamForParamScaling %(minDiamForParamScaling)f"
+                        "-MinDiamForParamScaling %(minDiamForParamScaling).1f"
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
