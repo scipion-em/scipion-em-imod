@@ -591,7 +591,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         summary = []
         if hasattr(self, 'outputSetOfCTFTomoSeries'):
             summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
-                           % (self.inputSet.getSize(),
+                           % (self._getSetOfTiltSeries().getSize(),
                               self.outputSetOfCTFTomoSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
