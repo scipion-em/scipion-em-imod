@@ -375,10 +375,12 @@ class CTFEstimationTree(BoundTree):
 
 
 class CtfEstimationListDialog(ListDialog):
-    def __init__(self, parent, title, provider, protocol, **kwargs):
+    def __init__(self, parent, title, provider, protocol, inputTS, **kwargs):
         self._project = protocol.getProject()
         self._protocol = protocol
+        self._inputSetOfTiltSeries = inputTS
         self._checkedItems = provider._checkedItems
+        self.suffix = 0
         ListDialog.__init__(self, parent, title, provider, message=None,
                             allowSelect=False, **kwargs)
 
@@ -436,7 +438,7 @@ class CtfEstimationListDialog(ListDialog):
         if self.generateSubsetButton['state'] == tk.NORMAL:
             protocol = self.provider.protocol
             ctfSeries = self.provider.getCTFSeries()
-            suffix = protocol.getOutputSetSuffix().get()
+            suffix = self._getSuffix(protocol)
             goodCTFName = 'goodCtf%s' % suffix
             badCTFName = 'badCtf%s' % suffix
 
@@ -452,12 +454,12 @@ class CtfEstimationListDialog(ListDialog):
                                                               'tags'):
                     # Adding the ctfSerie to the good set of ctfTomoSeries
                     outputSetOfgoodCTFTomoSeries.append(ctfSerieClon)
-                    outputSetOfgoodCTFTomoSeries.setSetOfTiltSeries(ctfSeries)
+                    outputSetOfgoodCTFTomoSeries.setSetOfTiltSeries(self._inputSetOfTiltSeries)
 
                 else:
                     # Adding the ctfSerie to the bad set of ctfTomoSeries
                     outputSetOfbadCTFTomoSeries.append(ctfSerieClon)
-                    outputSetOfbadCTFTomoSeries.setSetOfTiltSeries(ctfSeries)
+                    outputSetOfbadCTFTomoSeries.setSetOfTiltSeries(self._inputSetOfTiltSeries)
 
                 for item in ctfSerie.iterItems():
                     ctfEstItem = item.clone()
@@ -468,20 +470,26 @@ class CtfEstimationListDialog(ListDialog):
 
             if len(outputSetOfgoodCTFTomoSeries) > 0:
                 protocol._defineOutputs(**{outputgoodCTFSetName: outputSetOfgoodCTFTomoSeries})
-                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries,
-                                               outputSetOfgoodCTFTomoSeries)
 
             if len(outputSetOfbadCTFTomoSeries) > 0:
                 protocol._defineOutputs(**{outputbadCTFSetName: outputSetOfbadCTFTomoSeries})
-                protocol._defineSourceRelation(protocol.inputSetOfTiltSeries,
-                                               outputSetOfbadCTFTomoSeries)
 
-            protocol.setOutputSetSuffix(Integer(suffix + 1))
             protocol._store()
             self.cancel()
 
     def _showHelp(self, event=None):
         pass
+
+    def _getSuffix(self, protocol):
+        """
+        Return the number of the last output in order to complete the new
+        output with a suffix
+        """
+        if self.suffix is 0:
+            self.suffix = sum(1 for _ in protocol.iterOutputAttributes()) + 1
+        else:
+            self.suffix = 1
+        return self.suffix
 
     def _createBottomPanel(self, bottomPanel):
         self._createCTFEstimationGUI(bottomPanel)
@@ -585,4 +593,4 @@ class CtfEstimationTomoViewer(pwviewer.Viewer):
                                                    self._protocol,
                                                    self._outputSetOfCTFTomoSeries)
         CtfEstimationListDialog(self._tkParent, self._title, self._provider,
-                                self._protocol)
+                                self._protocol, self._inputSetOfTiltSeries)

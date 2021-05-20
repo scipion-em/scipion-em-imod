@@ -50,15 +50,13 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
     def __init__(self, **args):
         EMProtocol.__init__(self, **args)
-        self.outputSetSuffix = pwobj.Integer(2)
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam('inputSet',
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
+                      pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
                       label='Input set of tilt-series',
                       help='This should be a raw stack, not an aligned stack, because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and the noise power spectra would no longer '
@@ -280,16 +278,27 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                                      'defocus and phase shift. To use the default value set box to -1.')
 
     # -------------------------- INSERT steps functions ---------------------
+    def _getSetOfTiltSeries(self):
+        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
+            return self.inputSet.get().getSetOfTiltSeries()
+        return self.inputSet.get()
+
+    def _getTiltSeries(self, itemId):
+        ts = self.inputSet.get()[itemId]
+        if isinstance(ts, tomoObj.CTFTomoSeries):
+            ts = ts.getTiltSeries()
+        return ts
+
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('ctfEstimation', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
+        for item in self.inputSet.get():
+            self._insertFunctionStep('convertInputStep', item.getObjId())
+            self._insertFunctionStep('ctfEstimation', item.getObjId())
+            self._insertFunctionStep('createOutputStep', item.getObjId())
         self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -306,7 +315,8 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
+        tsSet = self._getSetOfTiltSeries()
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -316,12 +326,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
             'axisAngle': self.axisAngle.get(),
-            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'pixelSize': tsSet.getSamplingRate() / 10,
             'expectedDefocus': self.getExpectedDefocus(tsId),
             'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
-            'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
-            'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
-            'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
+            'voltage': tsSet.getAcquisition().getVoltage(),
+            'sphericalAberration': tsSet.getAcquisition().getSphericalAberration(),
+            'amplitudeContrast': tsSet.getAcquisition().getAmplitudeContrast(),
             'defocusTol': self.defocusTol.get(),
             'psResolution': 101,
             'leftDefTol': self.leftDefTol.get(),
@@ -407,7 +417,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
     def createOutputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -557,11 +567,9 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
-
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
         return self.outputSetOfCTFTomoSeries
 
     def getExpectedDefocus(self, tsId):
@@ -578,18 +586,12 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
 
-    def getOutputSetSuffix(self):
-        return self.outputSetSuffix
-
-    def setOutputSetSuffix(self, value):
-        return self.outputSetSuffix.set(value)
-
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
         if hasattr(self, 'outputSetOfCTFTomoSeries'):
             summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self.inputSet.getSize(),
                               self.outputSetOfCTFTomoSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
