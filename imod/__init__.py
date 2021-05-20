@@ -112,7 +112,7 @@ class Plugin(pwem.Plugin):
                 default=False)
 
             # Download .sh
-            installationCmd = 'wget --continue https://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
+            installationCmd = 'wget --continue http://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
                               'imod_4.11.0_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
