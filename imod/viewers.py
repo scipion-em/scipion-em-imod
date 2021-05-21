@@ -420,7 +420,7 @@ class CtfEstimationListDialog(ListDialog):
     def _createRecalculateBottom(self, topRigthPanel):
 
         state = tk.NORMAL
-        if self._checkedItems:
+        if self._checkedItems or self._checkedItems == len(self.provider.getCTFSeries()):
             state = tk.DISABLED
         self.generateSubsetButton = self._addButton(topRigthPanel,
                                                     'Generate subsets',
@@ -537,7 +537,7 @@ class CtfEstimationListDialog(ListDialog):
     def _createPloter(self, event):
         obj = self.tree.getSelectedObj()
         self._checkedItems = self.tree._checkedItems
-        if self._checkedItems:
+        if self._checkedItems and self._checkedItems != len(self.provider.getCTFSeries()):
             self.generateSubsetButton['state'] = tk.NORMAL
         else:
             self.generateSubsetButton['state'] = tk.DISABLED
@@ -557,10 +557,9 @@ class CtfEstimationListDialog(ListDialog):
                         defocusVList.append(item.getDefocusV())
 
                     fig = Figure(figsize=(7, 7), dpi=100)
-                    defocusU = fig.add_subplot(111)
-                    defocusU.plot(defocusUList, marker='o', label='DefocusU')
-                    defocusV = fig.add_subplot(111)
-                    defocusV.plot(defocusVList, marker='o', label='DefocusV')
+                    defocusPlot = fig.add_subplot(111)
+                    defocusPlot.plot(defocusUList, marker='o', label='DefocusU')
+                    defocusPlot.plot(defocusVList, marker='o', label='DefocusV')
                     fig.legend()
                     canvas = FigureCanvasTkAgg(fig, master=plotterPanel)
                     canvas.draw()
