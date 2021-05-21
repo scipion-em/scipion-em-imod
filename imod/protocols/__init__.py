@@ -34,10 +34,11 @@ from .protocol_tomoReconstruction import ProtImodTomoReconstruction
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_tsNormalization import ProtImodTSNormalization
 from .protocol_tomoNormalization import ProtImodTomoNormalization
-from .protocol_ctfCorrecion import ProtImodCtfCorrection
+from .protocol_ctfCorrection import ProtImodCtfCorrection
 from .protocol_ctfEstimation import ProtImodCtfEstimation
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_xRaysEraser import ProtImodXraysEraser
 # from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
 from .protocol_importSetOfCTFTomoSeries import ProtImodImportSetOfCtfTomoSeries
+from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
