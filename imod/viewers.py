@@ -493,7 +493,7 @@ class CtfEstimationListDialog(ListDialog):
         Return the number of the last output in order to complete the new
         output with a suffix
         """
-        if self.suffix is 0:
+        if self.suffix == 0:
             self.suffix = sum(1 for _ in protocol.iterOutputAttributes()) + 1
         else:
             self.suffix = 1
