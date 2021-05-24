@@ -33,14 +33,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pyworkflow.viewer as pwviewer
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
-from pyworkflow.gui.dialog import ListDialog
+from pyworkflow.gui.dialog import ListDialog, showInfo
 import pyworkflow.protocol.params as params
 
 import tomo.objects
 import imod.protocols
 from imod import Plugin
-from pyworkflow.object import  Integer
-
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
@@ -478,7 +476,17 @@ class CtfEstimationListDialog(ListDialog):
             self.cancel()
 
     def _showHelp(self, event=None):
-        pass
+        showInfo('CTFTomoSeries viewer Help',
+                 'This viewer calculates the standard deviation with respect '
+                 'to the mean of the defocusU and defocusV values. If the '
+                 'values of the images are not in the range they are marked '
+                 'as Failed and therefore the CTFTomoSerie is marked as '
+                 'Failed as well. '
+                 'On the other hand, the viewer allows you to create two '
+                 'subsets of CTFTomoSeries which are classified as good '
+                 'and bad respectively. '
+                 'Note: The ctfseries that are checked are the ones that '
+                 'represent the bad ctfseries', self.parent)
 
     def _getSuffix(self, protocol):
         """
