@@ -33,14 +33,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pyworkflow.viewer as pwviewer
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
-from pyworkflow.gui.dialog import ListDialog
+from pyworkflow.gui.dialog import ListDialog, showInfo
 import pyworkflow.protocol.params as params
 
 import tomo.objects
 import imod.protocols
 from imod import Plugin
-from pyworkflow.object import  Integer
-
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
@@ -420,7 +418,7 @@ class CtfEstimationListDialog(ListDialog):
     def _createRecalculateBottom(self, topRigthPanel):
 
         state = tk.NORMAL
-        if self._checkedItems:
+        if self._checkedItems or self._checkedItems == len(self.provider.getCTFSeries()):
             state = tk.DISABLED
         self.generateSubsetButton = self._addButton(topRigthPanel,
                                                     'Generate subsets',
@@ -478,7 +476,17 @@ class CtfEstimationListDialog(ListDialog):
             self.cancel()
 
     def _showHelp(self, event=None):
-        pass
+        showInfo('CTFTomoSeries viewer Help',
+                 'This viewer calculates the standard deviation with respect '
+                 'to the mean of the defocusU and defocusV values. If the '
+                 'values of the images are not in the range they are marked '
+                 'as Failed and therefore the CTFTomoSerie is marked as '
+                 'Failed as well. '
+                 'On the other hand, the viewer allows you to create two '
+                 'subsets of CTFTomoSeries which are classified as good '
+                 'and bad respectively. '
+                 'Note: The ctfseries that are checked are the ones that '
+                 'represent the bad ctfseries', self.parent)
 
     def _getSuffix(self, protocol):
         """
@@ -537,7 +545,7 @@ class CtfEstimationListDialog(ListDialog):
     def _createPloter(self, event):
         obj = self.tree.getSelectedObj()
         self._checkedItems = self.tree._checkedItems
-        if self._checkedItems:
+        if self._checkedItems and self._checkedItems != len(self.provider.getCTFSeries()):
             self.generateSubsetButton['state'] = tk.NORMAL
         else:
             self.generateSubsetButton['state'] = tk.DISABLED
@@ -557,10 +565,9 @@ class CtfEstimationListDialog(ListDialog):
                         defocusVList.append(item.getDefocusV())
 
                     fig = Figure(figsize=(7, 7), dpi=100)
-                    defocusU = fig.add_subplot(111)
-                    defocusU.plot(defocusUList, marker='o', label='DefocusU')
-                    defocusV = fig.add_subplot(111)
-                    defocusV.plot(defocusVList, marker='o', label='DefocusV')
+                    defocusPlot = fig.add_subplot(111)
+                    defocusPlot.plot(defocusUList, marker='o', label='DefocusU')
+                    defocusPlot.plot(defocusVList, marker='o', label='DefocusV')
                     fig.legend()
                     canvas = FigureCanvasTkAgg(fig, master=plotterPanel)
                     canvas.draw()
