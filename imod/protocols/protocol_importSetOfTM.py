@@ -98,11 +98,11 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
                     newTs.write(properties=False)
 
-                self.outputAssignedTransformSetOfTiltSeries.update(newTs)
-                self.outputAssignedTransformSetOfTiltSeries.updateDim()
-                self.outputAssignedTransformSetOfTiltSeries.write()
+                    self.outputAssignedTransformSetOfTiltSeries.update(newTs)
+                    self.outputAssignedTransformSetOfTiltSeries.updateDim()
+                    self.outputAssignedTransformSetOfTiltSeries.write()
 
-                self._store()
+                    self._store()
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputAssignedTransformSetOfTiltSeries(self):
