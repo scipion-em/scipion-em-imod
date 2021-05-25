@@ -92,11 +92,11 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
                         newTi.setTransform(transform)
                         newTs.append(newTi)
 
-                ih = ImageHandler()
-                x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-                newTs.setDim((x, y, z))
+                    ih = ImageHandler()
+                    x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+                    newTs.setDim((x, y, z))
 
-                newTs.write(properties=False)
+                    newTs.write(properties=False)
 
                 self.outputAssignedTransformSetOfTiltSeries.update(newTs)
                 self.outputAssignedTransformSetOfTiltSeries.updateDim()
