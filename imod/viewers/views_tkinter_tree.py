@@ -1,10 +1,9 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
+# * Authors: Yunior C. Fonseca Reyna    (cfonseca@cnb.csic.es)
 # *
-# * [1] SciLifeLab, Stockholm University
-# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
+# *
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -25,162 +24,20 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
 import tkinter
 from tkinter import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-import pyworkflow.viewer as pwviewer
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog, showInfo
-import pyworkflow.protocol.params as params
+import pyworkflow.viewer as pwviewer
+from pyworkflow.plugin import Domain
 
 import tomo.objects
-import imod.protocols
 from imod import Plugin
-
-class ImodViewer(pwviewer.Viewer):
-    """ Wrapper to visualize different type of objects
-    with the Imod program 3dmod
-    """
-    _environments = [pwviewer.DESKTOP_TKINTER, Plugin.getEnviron()]
-    _targets = [
-        tomo.objects.TiltSeries,
-        tomo.objects.Tomogram,
-        tomo.objects.SetOfTomograms,
-        tomo.objects.SetOfTiltSeries,
-        tomo.objects.SetOfLandmarkModels,
-    ]
-
-    def _visualize(self, obj, **kwargs):
-        env = Plugin.getEnviron()
-        view = []
-        cls = type(obj)
-
-        if issubclass(cls, tomo.objects.TiltSeries):
-            view = ImodObjectView(obj.getFirstItem())
-        elif issubclass(cls, tomo.objects.Tomogram):
-            view = ImodObjectView(obj)
-        elif issubclass(cls, tomo.objects.SetOfTomograms):
-            view = ImodSetOfTomogramsView(obj)
-        elif issubclass(cls, tomo.objects.SetOfTiltSeries):
-            view = ImodSetView(obj)
-        elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
-            view = ImodSetOfLandmarkModelsView(obj)
-
-        view._env = env
-        return [view]
-
-
-class ImodObjectView(pwviewer.CommandView):
-    """ Wrapper to visualize different type of objects with the 3dmod """
-
-    def __init__(self, obj, **kwargs):
-        # Remove :mrc if present
-        fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + ' ' + fn)
-
-
-class ImodSetView(pwviewer.CommandView):
-    """ Wrapper to visualize different type of objects with the 3dmod """
-
-    def __init__(self, set, **kwargs):
-        fn = ""
-        for item in set:
-            # Remove :mrc if present
-            fn += " " + item.getFirstItem().getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
-
-class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
-    """ Wrapper to visualize landmark models with 3dmod """
-
-    def __init__(self, set, **kwargs):
-        fn = ""
-        for item in set:
-            tsId = os.path.basename(item.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
-            else:
-                prealiTSPath = ""
-            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
-        pwviewer.CommandView.__init__(self, fn)
-
-
-class ImodSetOfTomogramsView(pwviewer.CommandView):
-    """ Wrapper to visualize set of tomograms with 3dmod """
-
-    def __init__(self, set, **kwargs):
-        fn = " -s 0,0 "
-        for item in set:
-            fn += " " + item.getLocation()[1]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-
-class ImodEtomoViewer(pwviewer.ProtocolViewer):
-    """ Viewer form for Etomo interactive results. """
-
-    _environments = [pwviewer.DESKTOP_TKINTER]
-    _targets = [imod.protocols.ProtImodEtomo]
-    _label = 'viewer etomo'
-
-    def _defineParams(self, form):
-        form.addSection(label='Visualization')
-
-        group = form.addGroup('Tilt Series Alignment')
-        group.addParam('saveTsPreAli', params.LabelParam,
-                       label="Register pre-aligned tilt-series (.preali)",
-                       help="Through this option the intermediate pre-aligned "
-                            "tilt-series can be registered as an output of "
-                            "this protocol.")
-        group.addParam('saveTsAli', params.LabelParam,
-                       label="Register aligned tilt-series (.ali)",
-                       help="Through this option the intermediate aligned "
-                            "tilt-series can be registered as an output of "
-                            "this protocol.")
-        group.addParam('saveTsOriginal', params.LabelParam,
-                       label="Register original tilt-series (+ alignment info)",
-                       help="Through this option the original tilt-series can "
-                            "be registered as an output of this protocol. The "
-                            "obtained alignment parameters will be stored as "
-                            "metadata. ")
-        group.addParam('saveFiducials', params.LabelParam,
-                       label="Register fiducials model",
-                       help="Through this option the obtained fiducial model "
-                            "can be registered as an output of this protocol. "
-                            "The obtained alignment parameters will be stored "
-                            "as metadata. ")
-
-        group = form.addGroup('Tomogram')
-        group.addParam('saveReconsTomo', params.LabelParam,
-                       label="Register reconstructed tomogram (_full.rec)",
-                       help="Through this option the final reconstructed "
-                            "tomogram can be registered as an output of "
-                            "this protocol.")
-
-        form.addParam('doShowResHistogram', params.LabelParam,
-                      label="Show resolution histogram")
-
-    def _getVisualizeDict(self):
-        return {'saveTsPreAli': self._registerOutput,
-                'saveTsAli': self._registerOutput,
-                'saveTsOriginal': self._notImplemented,
-                'saveFiducials': self._notImplemented,
-                'saveReconsTomo': self._registerOutput,
-                }
-
-    def _registerOutput(self, param=None):
-        try:
-            self.protocol.registerOutput(param)
-            return [self.infoMessage('Output registered successfully. ')]
-        except Exception as e:
-            return [self.errorMessage(str(e))]
-
-    def _notImplemented(self, param=None):
-        return [self.errorMessage('Output not implemented yet. ')]
 
 
 class CTFSerieStates:
@@ -576,28 +433,211 @@ class CtfEstimationListDialog(ListDialog):
                     break
 
 
-class CtfEstimationTomoViewer(pwviewer.Viewer):
-    """ This class implements a view using Tkinter ListDialog
-    and the CtfEstimationTreeProvider.
+class ImodGenericTreeProvider(TreeProvider):
+    """ Model class that will retrieve the information from TiltSeries,
+        Tomogram, SetOfTomograms, SetOfTiltSeries and  prepare the
+        columns/rows models required by the TreeDialog GUI.
     """
-    _label = 'ctf estimation viewer'
-    _environments = [pwviewer.DESKTOP_TKINTER]
-    _targets = [tomo.objects.SetOfCTFTomoSeries]
+    COL_TS = 'Tilt Series'
+    COL_INFO = 'Info'
+    ORDER_DICT = {COL_TS: 'id'}
 
-    def __init__(self, parent, protocol, **kwargs):
-        self._tkParent = parent.root
+    def __init__(self, protocol, objs):
+        self.title = 'TiltSeries display'
+        if isinstance(objs, tomo.objects.SetOfTomograms):
+            self.COL_TS = 'Tomograms'
+            self.title = 'Tomograms display'
+        elif isinstance(objs, tomo.objects.SetOfLandmarkModels):
+            self.COL_TS = 'LandmarkModels'
+            self.title = 'LandmarkModels display'
+        self.protocol = protocol
+        self.objs = objs
+        TreeProvider.__init__(self, sortingColumnName=self.COL_TS)
+        self.selectedDict = {}
+        self.mapper = protocol.mapper
+        self.maxNum = 200
+
+    def getObjects(self):
+        # Retrieve all objects of type className
+        objects = []
+
+        orderBy = self.ORDER_DICT.get(self.getSortingColumnName(), 'id')
+        direction = 'ASC' if self.isSortingAscending() else 'DESC'
+
+        for obj in self.objs.iterItems(orderBy=orderBy, direction=direction):
+            if isinstance(obj, tomo.objects.TiltSeries):
+                item = obj.clone(ignoreAttrs=('_mapperPath',))
+            else:
+                item = obj.clone()
+            item._allowsSelection = True
+            item._parentObject = None
+            objects.append(item)
+
+        return objects
+
+    def _sortObjects(self, objects):
+        pass
+
+    def objectKey(self, pobj):
+        pass
+
+    def getColumns(self):
+        cols = [
+            (self.COL_TS, 200),
+            (self.COL_INFO, 500)]
+
+        return cols
+
+    def isSelected(self, obj):
+        """ Check if an object is selected or not. """
+        return False
+
+    @staticmethod
+    def _getParentObject(pobj, default=None):
+        return getattr(pobj, '_parentObject', default)
+
+    def getObjectInfo(self, obj):
+        itemId = obj.getTsId()
+        if itemId is None:
+            itemId = str(obj.getObjId())
+
+        key = obj.getObjId()
+        text = itemId
+        values = [str(obj)]
+        opened = True
+
+        return {
+            'key': key, 'text': text,
+            'values': tuple(values),
+            'open': opened,
+            'selected': False,
+            'parent': obj._parentObject
+        }
+
+    def getObjectActions(self, obj):
+        actions = []
+
+        viewers = Domain.findViewers(obj.getClassName(),
+                                     pwviewer.DESKTOP_TKINTER)
+        for viewerClass in viewers:
+            def createViewer(viewerClass, obj):
+                proj = self.protocol.getProject()
+                item = self.objs[obj.getObjId()]  # to load mapper
+                return lambda : viewerClass(project=proj).visualize(item)
+            actions.append(('Open with %s' % viewerClass.__name__,
+                            createViewer(viewerClass, obj)))
+
+        return actions
+
+
+class ImodListDialog(ListDialog):
+    def __init__(self, parent, title, provider, **kwargs):
+        ListDialog.__init__(self, parent, title, provider, message=None,
+                            allowSelect=False, **kwargs)
+
+    def body(self, bodyFrame):
+        bodyFrame.config()
+        gui.configureWeigths(bodyFrame)
+        dialogFrame = tk.Frame(bodyFrame)
+        dialogFrame.grid(row=0, column=0, sticky='news', padx=5, pady=5)
+        dialogFrame.config()
+        gui.configureWeigths(dialogFrame, row=1)
+        self._createFilterBox(dialogFrame)
+        self._col = 0
+        self.displayAll = self._addButton(dialogFrame,
+                                                    'Display all at once',
+                                                    pwutils.Icon.ACTION_VISUALIZE,
+                                                    self._displayAll,
+                                                    sticky='ne',
+                                                    state=tk.NORMAL)
+        self._createTree(dialogFrame)
+        self.initial_focus = self.tree
+
+    def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
+        btn = tk.Button(frame, text=text, image=self.getImage(image),
+                        compound=tk.LEFT, cursor='hand2', state=state)
+        btn.bind('<Button-1>', command)
+        btn.grid(row=0, column=self._col, sticky=sticky,
+                 padx=(0, 5), pady=5)
+        self._col += 1
+        return btn
+
+    def _displayAll(self, e=None):
+        set = self.provider.objs
+        if isinstance(set, tomo.objects.SetOfTiltSeries):
+            ImodSetView(set)
+        elif isinstance(set, tomo.objects.SetOfLandmarkModels):
+            ImodSetOfLandmarkModelsView(set)
+        elif isinstance(set, tomo.objects.SetOfTomograms):
+            ImodSetOfTomogramsView(set)
+
+
+class ImodSetView(pwviewer.CommandView):
+    """ Wrapper to visualize different type of objects with the 3dmod """
+
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            # Remove :mrc if present
+            fn += " " + item.getFirstItem().getFileName().split(':')[0]
+        pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
+        self.show()
+
+
+class ImodSetOfTomogramsView(pwviewer.CommandView):
+    """ Wrapper to visualize set of tomograms with 3dmod """
+
+    def __init__(self, set, **kwargs):
+        fn = " -s 0,0 "
+        for item in set:
+            fn += " " + item.getLocation()[1]
+        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
+        self.show()
+
+
+class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
+    """ Wrapper to visualize landmark models with 3dmod """
+
+    def __init__(self, set, **kwargs):
+        fn = ""
+        for item in set:
+            tsId = os.path.basename(item.getFileName()).split('_')[0]
+            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
+            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+            else:
+                prealiTSPath = ""
+            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
+        pwviewer.CommandView.__init__(self, fn)
+        self.show()
+
+
+class ImodGenericViewer(pwviewer.View):
+    """ This class implements a view using Tkinter ListDialog
+    and the ImodTreeProvider.
+    """
+    def __init__(self, parent, protocol, objs, **kwargs):
+        """
+         Params:
+            parent: Tkinter parent widget
+
+
+        From kwargs:
+                message: message tooltip to show when browsing.
+                selected: the item that should be selected.
+                validateSelectionCallback:
+                    a callback function to validate selected items.
+                allowSelect: if set to False, the 'Select' button will not
+                    be shown.
+                allowsEmptySelection: if set to True, it will not validate
+                    that at least one element was selected.
+        """
+        self._tkParent = parent
         self._protocol = protocol
-        self._title = 'ctf estimation viewer'
+        self._provider = ImodGenericTreeProvider(protocol, objs)
+        self.title = self._provider.title
 
-    def visualize(self, obj, windows=None, protocol=None):
-        objName = obj.getObjName().split('.')[1]
-        for output in self._protocol._iterOutputsNew():
-            if output[0] == objName:
-                self._outputSetOfCTFTomoSeries = output[1]
-                break
-        self._inputSetOfTiltSeries = self._outputSetOfCTFTomoSeries.getSetOfTiltSeries()
-        self._provider = CtfEstimationTreeProvider(self._tkParent,
-                                                   self._protocol,
-                                                   self._outputSetOfCTFTomoSeries)
-        CtfEstimationListDialog(self._tkParent, self._title, self._provider,
-                                self._protocol, self._inputSetOfTiltSeries)
+    def show(self):
+        ImodListDialog(self._tkParent, self.title, self._provider)
+
