@@ -419,6 +419,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
     def createOutputStep(self, tsObjId):
         ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
+        objId = ts.getObjId()
 
         extraPrefix = self._getExtraPath(tsId)
 
@@ -434,6 +435,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
             newCTFTomoSeries.setTsId(tsId)
+            newCTFTomoSeries.setObjId(objId)
             newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
 
             # We need to create now all the attributes of this object in order
