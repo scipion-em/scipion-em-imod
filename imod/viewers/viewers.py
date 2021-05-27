@@ -25,6 +25,8 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+import os
+
 import pyworkflow.viewer as pwviewer
 from imod.viewers.views_tkinter_tree import (CtfEstimationTreeProvider,
                                              CtfEstimationListDialog,
@@ -47,6 +49,7 @@ class ImodViewer(pwviewer.Viewer):
         tomo.objects.SetOfTomograms,
         tomo.objects.SetOfTiltSeries,
         tomo.objects.SetOfLandmarkModels,
+        tomo.objects.LandmarkModel
     ]
 
     def _visualize(self, obj, **kwargs):
@@ -56,6 +59,8 @@ class ImodViewer(pwviewer.Viewer):
         if issubclass(cls, tomo.objects.TiltSeries):
             view = ImodObjectView(obj.getFirstItem())
         elif issubclass(cls, tomo.objects.Tomogram):
+            view = ImodObjectView(obj)
+        elif issubclass(cls, tomo.objects.LandmarkModel):
             view = ImodObjectView(obj)
         else:
             view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
@@ -69,8 +74,25 @@ class ImodObjectView(pwviewer.CommandView):
 
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
-        fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + ' ' + fn)
+        if isinstance(obj, tomo.objects.LandmarkModel):
+            tsId = os.path.basename(obj.getFileName()).split('_')[0]
+            if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
+                                           "%s_preali.st" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
+                                            "%s_preali.st" % tsId)
+            elif os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
+                                "%s.preali" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
+                                            "%s.preali" % tsId)
+            else:
+                prealiTSPath = ""
+
+            fn = Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + obj.getModelName() + " ; "
+
+        else:
+            fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
+
+        pwviewer.CommandView.__init__(self,  fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
