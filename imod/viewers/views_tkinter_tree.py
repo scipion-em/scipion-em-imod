@@ -440,9 +440,10 @@ class ImodGenericTreeProvider(TreeProvider):
     """
     COL_TS = 'Tilt Series'
     COL_INFO = 'Info'
+    COL_STATUS = 'Status'
     ORDER_DICT = {COL_TS: 'id'}
 
-    def __init__(self, protocol, objs):
+    def __init__(self, protocol, objs, columnStatus=False):
         self.title = 'TiltSeries display'
         if isinstance(objs, tomo.objects.SetOfTomograms):
             self.COL_TS = 'Tomograms'
@@ -452,6 +453,7 @@ class ImodGenericTreeProvider(TreeProvider):
             self.title = 'LandmarkModels display'
         self.protocol = protocol
         self.objs = objs
+        self.columnStatus = columnStatus
         TreeProvider.__init__(self, sortingColumnName=self.COL_TS)
         self.selectedDict = {}
         self.mapper = protocol.mapper
@@ -485,6 +487,8 @@ class ImodGenericTreeProvider(TreeProvider):
         cols = [
             (self.COL_TS, 200),
             (self.COL_INFO, 500)]
+        if self.columnStatus:
+            cols.append((self.COL_STATUS, 100))
 
         return cols
 
@@ -531,9 +535,10 @@ class ImodGenericTreeProvider(TreeProvider):
 
 
 class ImodListDialog(ListDialog):
-    def __init__(self, parent, title, provider, **kwargs):
+    def __init__(self, parent, title, provider, displayAllButton=True, **kwargs):
+        self.displayAllButton = displayAllButton
         ListDialog.__init__(self, parent, title, provider, message=None,
-                            allowSelect=False, **kwargs)
+                            allowSelect=False,  **kwargs)
 
     def body(self, bodyFrame):
         bodyFrame.config()
@@ -544,12 +549,13 @@ class ImodListDialog(ListDialog):
         gui.configureWeigths(dialogFrame, row=1)
         self._createFilterBox(dialogFrame)
         self._col = 0
-        self.displayAll = self._addButton(dialogFrame,
-                                                    'Display all at once',
-                                                    pwutils.Icon.ACTION_VISUALIZE,
-                                                    self._displayAll,
-                                                    sticky='ne',
-                                                    state=tk.NORMAL)
+        if self.displayAllButton:
+            self.displayAll = self._addButton(dialogFrame,
+                                                        'Display all at once',
+                                                        pwutils.Icon.ACTION_VISUALIZE,
+                                                        self._displayAll,
+                                                        sticky='ne',
+                                                        state=tk.NORMAL)
         self._createTree(dialogFrame)
         self.initial_focus = self.tree
 
@@ -617,7 +623,8 @@ class ImodGenericViewer(pwviewer.View):
     """ This class implements a view using Tkinter ListDialog
     and the ImodTreeProvider.
     """
-    def __init__(self, parent, protocol, objs, **kwargs):
+    def __init__(self, parent, protocol, objs, displayAllButton=True,
+                 columnStatus=False, **kwargs):
         """
          Params:
             parent: Tkinter parent widget
@@ -635,9 +642,12 @@ class ImodGenericViewer(pwviewer.View):
         """
         self._tkParent = parent
         self._protocol = protocol
-        self._provider = ImodGenericTreeProvider(protocol, objs)
+        self._provider = ImodGenericTreeProvider(protocol, objs, columnStatus)
         self.title = self._provider.title
+        self.displayAllButton = displayAllButton
+        self.columnStatus = columnStatus
 
     def show(self):
-        ImodListDialog(self._tkParent, self.title, self._provider)
+        ImodListDialog(self._tkParent, self.title, self._provider,
+                       displayAllButton=self.displayAllButton)
 

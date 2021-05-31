@@ -54,12 +54,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('inputTiltSeries',
+        form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
-                      pointerClass='TiltSeries',
+                      pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input Tilt-Series',
-                      help='Input tilt-series to be processed with etomo.')
+                      label='Input set of Tilt-Series',
+                      help='Input set of tilt-series to be processed with etomo.')
 
         form.addParam('excludeList',
                       params.StringParam,
@@ -86,10 +86,18 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         pass
 
     def _insertAllSteps(self):
+        self._insertFunctionStep('listTiltSeries')
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runEtomoStep', interactive=True)
 
     # --------------------------- STEPS functions ----------------------------
+    def listTiltSeries(self):
+        from imod.viewers import ImodGenericViewer
+        ts = self.inputSetOfTiltSeries.get()
+        view = ImodGenericViewer(None, self, ts, displayAllButton=False,
+                                 columnStatus=True)
+        view.show()
+
     def convertInputStep(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
