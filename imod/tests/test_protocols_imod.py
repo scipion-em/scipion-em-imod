@@ -221,6 +221,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="BB{TS}.st",
+                                                    anglesFrom=0,
                                                     voltage=300,
                                                     magnification=105000,
                                                     sphericalAberration=2.7,
@@ -299,7 +300,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getFirstItem().getTsId()
 
-        self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BBa.st")))
+        self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
 
     def test_normalizationOutputTSSamplingRate(self):
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
@@ -311,7 +312,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
 
         tsId = self.protXcorr.outputSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId), "BBa.st")
+        outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId), "BB" + tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -322,7 +323,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protXcorr.outputInterpolatedSetOfTiltSeries)
 
         tsId = self.protXcorr.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId), "BBa.st")
+        outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId), "BB" + tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -336,7 +337,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfTiltSeries)
 
         tsId = self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa.st")
+        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -348,7 +349,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries)
 
         tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa.st")
+        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -362,7 +363,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
     #     self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
     #
     #     tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-    #     outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa_resid.txt")
+    #     outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + "_resid.txt")
     #
     #     self.assertTrue(os.path.exists(outputLocation))
     #
@@ -373,7 +374,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
 
         tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa_noGaps.sfid")
+        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + "_noGaps.sfid")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -384,12 +385,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfCoordinates3D)
 
         tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BBa_fid.xyz")
+        outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + "_fid.xyz")
 
         self.assertTrue(os.path.exists(outputLocation))
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
-        tolerance = 1
+        tolerance = 2
         expectedSize = 50
 
         self.assertTrue(
@@ -399,7 +400,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries)
 
         tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId), "BBa.st")
+        outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId), "BB" + tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -413,12 +414,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protTomoReconstruction.outputSetOfTomograms)
 
         tomoId = self.protTomoReconstruction.inputSetOfTiltSeries.get().getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protTomoReconstruction._getExtraPath(tomoId), "BBa.mrc")
+        outputLocation = os.path.join(self.protTomoReconstruction._getExtraPath(tomoId), "BB" + tomoId + ".mrc")
 
         self.assertTrue(os.path.exists(outputLocation))
 
     def test_tomoReconstructionOutputTomogramSize(self):
-        self.assertTrue(self.protTomoReconstruction.outputSetOfTomograms.getSize() == 2)
+        self.assertEqual(self.protTomoReconstruction.outputSetOfTomograms.getSize(), 2)
 
     def test_tomoReconstructionOutputTomogramDimensions(self):
         ih = ImageHandler()
@@ -433,7 +434,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         fileName, _ = os.path.splitext(location)
         tomoId = os.path.basename(fileName)
 
-        self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), "BBa.mrc")))
+        self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), tomoId + ".mrc")))
 
     def test_tomoNormalizationOutputSize(self):
         self.assertTrue(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
@@ -481,7 +482,10 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     maxAngle=60,
                                                     stepAngle=2,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3)
+                                                    dosePerFrame=0.3,
+                                                    minAngle=-60,
+                                                    maxAngle=60.0,
+                                                    stepAngle=2.0)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
