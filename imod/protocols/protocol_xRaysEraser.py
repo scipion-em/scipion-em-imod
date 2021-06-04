@@ -77,7 +77,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         form.addParam('maximumRadius',
                       params.FloatParam,
                       default=4.2,
-                      label='Maximum radius',
+                      label='Maximum radius (pixels)',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
 
