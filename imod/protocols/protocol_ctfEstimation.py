@@ -123,23 +123,23 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                            'removing existing entries in the defocus table. If run in interactive mode defocus values'
                            'MUST BE SAVED manually by the user.')
 
-        form.addParam('leftDefTol (nm)',
+        form.addParam('leftDefTol',
                       params.FloatParam,
-                      label='Left defocus tolerance',
+                      label='Left defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the left of the center strip.")
 
-        form.addParam('rightDefTol (nm)',
+        form.addParam('rightDefTol',
                       params.FloatParam,
-                      label='Right defocus tolerance',
+                      label='Right defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the right of the center strip.")
 
-        form.addParam('tileSize (pixels)',
+        form.addParam('tileSize',
                       params.IntParam,
-                      label='Tile size',
+                      label='Tile size (pixels)',
                       default=256,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="The tile size each strip will be tessellated into. The size is in pixels and the tiles are "
