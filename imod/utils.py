@@ -89,8 +89,9 @@ def formatFiducialList(fiducialFilePath):
 
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
+
         for line in fiducialText:
-            " Fix IMOD bug: columns merge in coordinates exceed 3 digits "
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
             vector = line.replace('-', ' -').split()
             vector = [round(float(i)) for i in vector]
             fiducialList.append(vector)
@@ -107,8 +108,9 @@ def formatFiducialResidList(fiducialFilePath):
 
     with open(fiducialFilePath) as f:
         fiducialText = f.read().splitlines()
+
         for line in fiducialText[1:]:
-            " Fix IMOD bug: columns merge in coordinates exceed 3 digits "
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
             vector = line.replace('-', ' -').split()
             fiducialResidList.append([round(float(vector[0])),
                                       round(float(vector[1])),
@@ -165,7 +167,7 @@ def formatAngleList(tltFilePath):
     return angleList
 
 
-def format3DCoordinatesList(coordFilePath, xDim, yDim):
+def format3DCoordinatesList(coordFilePath):
     """ This method takes an IMOD-based fiducial coordinates file path and returns a list containing each coordinate
     for each fiducial belonging to the tilt-series. """
 
@@ -173,10 +175,11 @@ def format3DCoordinatesList(coordFilePath, xDim, yDim):
 
     with open(coordFilePath) as f:
         coorText = f.read().splitlines()
+
         for line in coorText:
             if line != '':
                 vector = line.split()
-                coorList.append([float(vector[1]) - xDim / 2, float(vector[2]) - yDim / 2, float(vector[3])])
+                coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
     return coorList
 
@@ -501,6 +504,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
+                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
@@ -779,12 +784,16 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
 def formatGoldBead3DCoordinatesList(coordFilePath):
     """This method takes the IMOD-based gold bead 3D coordinates obtained with find3dbeads program file path and
     returns a list containing each coordinate for each bead belonging to the tilt-series"""
+
     coorList = []
+
     with open(coordFilePath) as f:
         coorText = f.read().splitlines()
+
         for line in coorText:
             vector = line.split()
             coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
+
     return coorList
 
 
