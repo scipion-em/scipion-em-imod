@@ -25,10 +25,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
 import os
 
 import pyworkflow.viewer as pwviewer
+from imod.viewers.views_tkinter_tree import (CtfEstimationTreeProvider,
+                                             CtfEstimationListDialog,
+                                             ImodGenericViewer)
 import pyworkflow.protocol.params as params
 
 import tomo.objects
@@ -47,23 +49,21 @@ class ImodViewer(pwviewer.Viewer):
         tomo.objects.SetOfTomograms,
         tomo.objects.SetOfTiltSeries,
         tomo.objects.SetOfLandmarkModels,
+        tomo.objects.LandmarkModel
     ]
 
     def _visualize(self, obj, **kwargs):
         env = Plugin.getEnviron()
-        view = []
         cls = type(obj)
 
         if issubclass(cls, tomo.objects.TiltSeries):
             view = ImodObjectView(obj.getFirstItem())
         elif issubclass(cls, tomo.objects.Tomogram):
             view = ImodObjectView(obj)
-        elif issubclass(cls, tomo.objects.SetOfTomograms):
-            view = ImodSetOfTomogramsView(obj)
-        elif issubclass(cls, tomo.objects.SetOfTiltSeries):
-            view = ImodSetView(obj)
-        elif issubclass(cls, tomo.objects.SetOfLandmarkModels):
-            view = ImodSetOfLandmarkModelsView(obj)
+        elif issubclass(cls, tomo.objects.LandmarkModel):
+            view = ImodObjectView(obj)
+        else:
+            view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
 
         view._env = env
         return [view]
@@ -74,46 +74,25 @@ class ImodObjectView(pwviewer.CommandView):
 
     def __init__(self, obj, **kwargs):
         # Remove :mrc if present
-        fn = obj.getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + ' ' + fn)
-
-
-class ImodSetView(pwviewer.CommandView):
-    """ Wrapper to visualize different type of objects with the 3dmod """
-
-    def __init__(self, set, **kwargs):
-        fn = ""
-        for item in set:
-            # Remove :mrc if present
-            fn += " " + item.getFirstItem().getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
-
-class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
-    """ Wrapper to visualize landmark models with 3dmod """
-
-    def __init__(self, set, **kwargs):
-        fn = ""
-        for item in set:
-            tsId = os.path.basename(item.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+        if isinstance(obj, tomo.objects.LandmarkModel):
+            tsId = os.path.basename(obj.getFileName()).split('_')[0]
+            if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
+                                           "%s_preali.st" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
+                                            "%s_preali.st" % tsId)
+            elif os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
+                                "%s.preali" % tsId)):
+                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
+                                            "%s.preali" % tsId)
             else:
                 prealiTSPath = ""
-            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
-        pwviewer.CommandView.__init__(self, fn)
 
+            fn = Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + obj.getModelName() + " ; "
 
-class ImodSetOfTomogramsView(pwviewer.CommandView):
-    """ Wrapper to visualize set of tomograms with 3dmod """
+        else:
+            fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
 
-    def __init__(self, set, **kwargs):
-        fn = " -s 0,0 "
-        for item in set:
-            fn += " " + item.getLocation()[1]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
+        pwviewer.CommandView.__init__(self,  fn)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
@@ -177,3 +156,30 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 
     def _notImplemented(self, param=None):
         return [self.errorMessage('Output not implemented yet. ')]
+
+
+class CtfEstimationTomoViewer(pwviewer.Viewer):
+    """ This class implements a view using Tkinter ListDialog
+    and the CtfEstimationTreeProvider.
+    """
+    _label = 'ctf estimation viewer'
+    _environments = [pwviewer.DESKTOP_TKINTER]
+    _targets = [tomo.objects.SetOfCTFTomoSeries]
+
+    def __init__(self, parent, protocol, **kwargs):
+        self._tkParent = parent.root
+        self._protocol = protocol
+        self._title = 'ctf estimation viewer'
+
+    def visualize(self, obj, windows=None, protocol=None):
+        objName = obj.getObjName().split('.')[1]
+        for output in self._protocol._iterOutputsNew():
+            if output[0] == objName:
+                self._outputSetOfCTFTomoSeries = output[1]
+                break
+        self._inputSetOfTiltSeries = self._outputSetOfCTFTomoSeries.getSetOfTiltSeries()
+        self._provider = CtfEstimationTreeProvider(self._tkParent,
+                                                   self._protocol,
+                                                   self._outputSetOfCTFTomoSeries)
+        CtfEstimationListDialog(self._tkParent, self._title, self._provider,
+                                self._protocol, self._inputSetOfTiltSeries)

@@ -29,6 +29,7 @@ from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
+from pyworkflow import BETA
 from pyworkflow.object import Set
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
