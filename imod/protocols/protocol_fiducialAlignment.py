@@ -932,19 +932,19 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
             xDim = firstItem.getXDim()
             yDim = firstItem.getYDim()
-            coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
+            coordList = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
-                newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                                  y=element[1],
-                                                  z=element[2])
+                newCoord3D = tomoObj.Coordinate3D()
                 newCoord3D.setVolume(ts)
+                newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
                 newCoord3D.setVolId(tsObjId)
                 outputSetOfCoordinates3D.append(newCoord3D)
                 outputSetOfCoordinates3D.update(newCoord3D)
-
             outputSetOfCoordinates3D.write()
-
             self._store()
 
     def createOutputFailedSet(self, tsObjId):
