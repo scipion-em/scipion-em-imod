@@ -88,7 +88,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
                       default=6000,
-                      label='Expected defocus value',
+                      label='Expected defocus value (nm)',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
                       help='This value will be applied as the expected defocus in nanometers for every tilt-series '
@@ -123,21 +123,21 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                            'removing existing entries in the defocus table. If run in interactive mode defocus values'
                            'MUST BE SAVED manually by the user.')
 
-        form.addParam('leftDefTol',
+        form.addParam('leftDefTol (nm)',
                       params.FloatParam,
                       label='Left defocus tolerance',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the left of the center strip.")
 
-        form.addParam('rightDefTol',
+        form.addParam('rightDefTol (nm)',
                       params.FloatParam,
                       label='Right defocus tolerance',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the right of the center strip.")
 
-        form.addParam('tileSize',
+        form.addParam('tileSize (pixels)',
                       params.IntParam,
                       label='Tile size',
                       default=256,
