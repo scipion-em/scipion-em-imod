@@ -150,7 +150,7 @@ class TestImodBase(BaseTest):
                           minimumViewsAstigmatism, minimumViewsPhaseShift, numberSectorsAstigmatism,
                           maximumAstigmatism):
         cls.protCTFEstimation = cls.newProtocol(ProtImodCtfEstimation,
-                                                inputSetOfTiltSeries=inputSoTS,
+                                                inputSet=inputSoTS,
                                                 defocusTol=defocusTol,
                                                 expectedDefocusOrigin=expectedDefocusOrigin,
                                                 expectedDefocusValue=expectedDefocusValue,
@@ -520,7 +520,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertTrue(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize() == 1)
 
     def test_ctfEstimationOutputDefocusFile(self):
-        tsId = self.protCTFEstimation.inputSetOfTiltSeries.get().getFirstItem().getTsId()
+        tsId = self.protCTFEstimation.inputSet.get().getFirstItem().getTsId()
         defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
 
         self.assertTrue(os.path.exists(defocusFile))
