@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow as pw
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 
 from tomo.protocols import ProtTomoReconstruct
@@ -38,7 +39,10 @@ class ProtImodAuto3D(ProtTomoReconstruct):
     Simple protocol to do a quick Tomogram reconstruction with IMOD.
     (Sample scripts provided by Javi Chichon)
     """
+
     _label = 'imod auto3d'
+    _devStatus = BETA
+
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

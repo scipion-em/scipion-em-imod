@@ -26,6 +26,7 @@
 
 import os
 from pwem.protocols import EMProtocol
+from pyworkflow import BETA
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
@@ -43,6 +44,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     """
 
     _label = 'gold bead eraser'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
