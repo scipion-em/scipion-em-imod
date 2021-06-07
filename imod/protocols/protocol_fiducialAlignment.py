@@ -704,7 +704,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s"
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.getOutputSetOfTiltSeries()[tsObjId])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
