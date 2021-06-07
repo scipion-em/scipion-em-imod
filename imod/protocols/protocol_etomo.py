@@ -96,12 +96,16 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     def convertInputStep(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".st"))
+        firstItem = ts.getFirstItem()
+
+        outputTsFileName = os.path.join(extraPrefix, firstItem.parseFileName(extension=".st"))
 
         """Apply transformation matrices and remove excluded views"""
         if self.excludeList.get() == '':
@@ -110,12 +114,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             ts.applyTransform(outputTsFileName)
 
             """Generate angle file"""
-            angleFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".rawtlt"))
+            angleFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".rawtlt"))
             ts.generateTltFile(angleFilePath)
 
         else:
-            interpolatedTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-            angleFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".rawtlt"))
+            interpolatedTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
+            angleFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".rawtlt"))
 
             """Apply the transformation form the input tilt-series and generate a new ts object"""
             ts.applyTransform(interpolatedTsFileName)
@@ -147,7 +151,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                          excludeList=excludeList)
 
         """Generate etomo config file"""
-        args = '-name %s ' % ts.getFirstItem().parseFileName(extension="")
+        args = '-name %s ' % firstItem.parseFileName(extension="")
         args += '-gold %0.3f ' % self.markersDiameter
 
         # Imod use the pixel size in NM
@@ -155,17 +159,32 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         args += '-pixel %0.3f ' % pixelSizeNm
         args += '-rotation %0.3f ' % self.rotationAngle
-        args += '-userawtlt'
+        args += '-userawtlt '
+
+        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
+        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
+        # files will contain an environment variable setting to make programs generate files of the corresponding type.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-NamingStyle 0 '
+
+
+        # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
+        # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
+        # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
+        # this entry, which could in principle be arbitrary, it will not care if files with other extensions are
+        # present.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-StackExtension ""'
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
-        edfFn = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".edf"))
+        edfFn = os.path.join(extraPrefix, firstItem.parseFileName(extension=".edf"))
         minTilt = min(utils.formatAngleList(os.path.join(extraPrefix,
-                                                         ts.getFirstItem().parseFileName(extension=".rawtlt"))))
+                                                         firstItem.parseFileName(extension=".rawtlt"))))
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
-                                'name': ts.getFirstItem().parseFileName(extension=''),
+                                'name': firstItem.parseFileName(extension=''),
                                 'pixelSize': pixelSizeNm,
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
@@ -185,10 +204,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     def createOutputStep(self):
         ts = self.inputTiltSeries.get()
         tsId = ts.getTsId()
+        tsObjId = ts.getObjId()
+
         extraPrefix = self._getExtraPath(tsId)
 
+        firstItem = ts.getFirstItem()
+
         """Prealigned tilt-series"""
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".preali"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".preali"))):
             outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
             outputPrealiSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
             outputPrealiSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
@@ -206,13 +229,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(
                     index + 1,
-                    (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".preali")))
+                    (os.path.join(extraPrefix, firstItem.parseFileName(extension=".preali")))
                 )
                 xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                 newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
                 newTs.append(newTi)
 
-            xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+            xPreali, yPreali, zPreali, _ = ih.getDimensions(newTi.getFileName()+":mrc")
             newTs.setDim((xPreali, yPreali, zPreali))
 
             newTs.write(properties=False)
@@ -223,7 +246,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Aligned tilt-series"""
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".ali"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".ali"))):
             outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
             outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
             outputAliSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
@@ -236,7 +259,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
             ih = ImageHandler()
 
-            tltFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_fid', extension=".tlt"))
+            tltFilePath = os.path.join(extraPrefix, firstItem.parseFileName(suffix='_fid', extension=".tlt"))
             tltList = utils.formatAngleList(tltFilePath)
 
             for index, tiltImage in enumerate(ts):
@@ -244,14 +267,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(
                     index + 1,
-                    (os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".ali")))
+                    (os.path.join(extraPrefix, firstItem.parseFileName(extension=".ali")))
                 )
                 newTi.setTiltAngle(float(tltList[index]))
                 xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                 newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                 newTs.append(newTi)
 
-            xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
+            xAli, yAli, zAli, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
             newTs.setDim((xAli, yAli, zAli))
 
             newTs.write(properties=False)
@@ -263,7 +286,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
             if os.path.exists(os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(suffix='fid', extension=".xyz"))):
+                                           firstItem.parseFileName(suffix='fid', extension=".xyz"))):
                 outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
                                                                           suffix='LandmarkModel')
                 outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.get().getSamplingRate())
@@ -273,7 +296,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._defineSourceRelation(self.inputTiltSeries, outputSetOfCoordinates3D)
 
                 coordFilePath = os.path.join(extraPrefix,
-                                             ts.getFirstItem().parseFileName(suffix='fid', extension=".xyz"))
+                                             firstItem.parseFileName(suffix='fid', extension=".xyz"))
 
                 coordList = utils.format3DCoordinatesList(coordFilePath)
 
@@ -284,70 +307,70 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
                     newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
 
-                    newCoord3D.setVolId(tsId)
+                    newCoord3D.setVolId(tsObjId)
                     outputSetOfCoordinates3D.append(newCoord3D)
                     outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
                 self._store()
 
-        """Landmark models with gaps"""
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".fid"))) and \
-                os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".resid"))):
-            paramsGapPoint2Model = {
-                'inputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
-            }
-            argsGapPoint2Model = "-InputFile %(inputFile)s " \
-                                 "-OutputFile %(outputFile)s"
-            Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
-
-            outputSetOfLandmarkModelsGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-            outputSetOfLandmarkModelsGaps.copyInfo(self.inputTiltSeries.get())
-            self._defineOutputs(outputSetOfLandmarkModelsGaps=outputSetOfLandmarkModelsGaps)
-            self._defineSourceRelation(self.inputTiltSeries, outputSetOfLandmarkModelsGaps)
-
-            fiducialModelGapPath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".fid"))
-
-            landmarkModelGapsFilePath = os.path.join(extraPrefix,
-                                                     ts.getFirstItem().parseFileName(suffix="_gaps", extension=".sfid"))
-
-            landmarkModelGapsResidPath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".resid"))
-            fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
-
-            landmarkModelGaps = tomoObj.LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
-
-            prevTiltIm = 0
-            chainId = 0
-            for index, fiducial in enumerate(fiducialGapResidList):
-                if int(fiducial[2]) <= prevTiltIm:
-                    chainId += 1
-                prevTiltIm = int(fiducial[2])
-                landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-                                              yCoor=fiducial[1],
-                                              tiltIm=fiducial[2],
-                                              chainId=chainId,
-                                              xResid=fiducial[3],
-                                              yResid=fiducial[4])
-
-            outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-            outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-            outputSetOfLandmarkModelsGaps.write()
-            self._store()
+        # """Landmark models with gaps"""
+        # if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".fid"))) and \
+        #         os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".resid"))):
+        #     paramsGapPoint2Model = {
+        #         'inputFile': os.path.join(extraPrefix, firstItem.parseFileName(extension=".fid")),
+        #         'outputFile': os.path.join(extraPrefix,
+        #                                    firstItem.parseFileName(suffix="_fid", extension=".txt"))
+        #     }
+        #     argsGapPoint2Model = "-InputFile %(inputFile)s " \
+        #                          "-OutputFile %(outputFile)s"
+        #     Plugin.runImod(self, 'model2point', argsGapPoint2Model % paramsGapPoint2Model)
+        #
+        #     outputSetOfLandmarkModelsGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+        #     outputSetOfLandmarkModelsGaps.copyInfo(self.inputTiltSeries.get())
+        #     self._defineOutputs(outputSetOfLandmarkModelsGaps=outputSetOfLandmarkModelsGaps)
+        #     self._defineSourceRelation(self.inputTiltSeries, outputSetOfLandmarkModelsGaps)
+        #
+        #     fiducialModelGapPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".fid"))
+        #
+        #     landmarkModelGapsFilePath = os.path.join(extraPrefix,
+        #                                              firstItem.parseFileName(suffix="_gaps", extension=".sfid"))
+        #
+        #     landmarkModelGapsResidPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".resid"))
+        #     fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
+        #
+        #     landmarkModelGaps = tomoObj.LandmarkModel(tsId, landmarkModelGapsFilePath, fiducialModelGapPath)
+        #
+        #     prevTiltIm = 0
+        #     chainId = 0
+        #     for index, fiducial in enumerate(fiducialGapResidList):
+        #         if int(fiducial[2]) <= prevTiltIm:
+        #             chainId += 1
+        #         prevTiltIm = int(fiducial[2])
+        #         landmarkModelGaps.addLandmark(xCoor=fiducial[0],
+        #                                       yCoor=fiducial[1],
+        #                                       tiltIm=fiducial[2],
+        #                                       chainId=chainId,
+        #                                       xResid=fiducial[3],
+        #                                       yResid=fiducial[4])
+        #
+        #     outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
+        #     outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
+        #     outputSetOfLandmarkModelsGaps.write()
+        #     self._store()
 
         """Landmark models with no gaps"""
         if os.path.exists(os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_nogaps", extension=".fid"))) and \
-                os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".resid"))):
+                                       firstItem.parseFileName(suffix="_nogaps", extension=".fid"))) and \
+                os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".resid"))):
 
             paramsNoGapPoint2Model = {
                 'inputFile': os.path.join(
                     extraPrefix,
-                    ts.getFirstItem().parseFileName(suffix="_nogaps", extension=".fid")
+                    firstItem.parseFileName(suffix="_nogaps", extension=".fid")
                 ),
                 'outputFile': os.path.join(
                     extraPrefix,
-                    ts.getFirstItem().parseFileName(suffix="_nogaps_fid", extension=".txt")
+                    firstItem.parseFileName(suffix="_nogaps_fid", extension=".txt")
                 )
             }
 
@@ -363,24 +386,24 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
             fiducialNoGapFilePath = os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(suffix="_nogaps_fid", extension=".txt")
+                firstItem.parseFileName(suffix="_nogaps_fid", extension=".txt")
             )
 
             fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
             fiducialModelNoGapPath = os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(suffix="_nogaps", extension=".fid")
+                firstItem.parseFileName(suffix="_nogaps", extension=".fid")
             )
 
             landmarkModelNoGapsFilePath = os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(suffix="_nogaps", extension=".sfid")
+                firstItem.parseFileName(suffix="_nogaps", extension=".sfid")
             )
 
             landmarkModelNoGapsResidPath = os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(extension=".resid")
+                firstItem.parseFileName(extension=".resid")
 
             )
 
@@ -418,7 +441,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Full reconstructed tomogram"""
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_full", extension=".rec"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_full", extension=".rec"))):
             outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
             outputSetOfFullTomograms.copyInfo(self.inputTiltSeries.get())
             self._defineOutputs(outputSetOfFullTomograms=outputSetOfFullTomograms)
@@ -427,7 +450,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             newTomogram = tomoObj.Tomogram()
             newTomogram.setLocation(os.path.join(
                 extraPrefix,
-                ts.getFirstItem().parseFileName(suffix="_full", extension=".rec"))
+                firstItem.parseFileName(suffix="_full", extension=".rec"))
             )
             outputSetOfFullTomograms.append(newTomogram)
             outputSetOfFullTomograms.update(newTomogram)
@@ -435,14 +458,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Post-processed reconstructed tomogram"""
-        if os.path.exists(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".rec"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".rec"))):
             outputSetOfPostProcessTomograms = self._createSetOfTomograms()
             outputSetOfPostProcessTomograms.copyInfo(self.inputTiltSeries.get())
             self._defineOutputs(outputSetOfPostProcessTomograms=outputSetOfPostProcessTomograms)
             self._defineSourceRelation(self.inputTiltSeries, outputSetOfPostProcessTomograms)
 
             newTomogram = tomoObj.Tomogram()
-            newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".rec")))
+            newTomogram.setLocation(os.path.join(extraPrefix, firstItem.parseFileName(extension=".rec")))
             outputSetOfPostProcessTomograms.append(newTomogram)
             outputSetOfPostProcessTomograms.update(newTomogram)
             outputSetOfPostProcessTomograms.write()
