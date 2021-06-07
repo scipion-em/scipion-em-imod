@@ -702,7 +702,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-output %(output)s " \
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s"
+                            "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(self.getOutputSetOfTiltSeries()[tsObjId])
 
@@ -713,7 +713,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                     'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
                 })
 
-                argsAlignment += "-size %(size)s "
+                argsAlignment += " -size %(size)s "
 
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
