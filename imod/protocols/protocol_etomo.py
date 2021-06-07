@@ -159,7 +159,21 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         args += '-pixel %0.3f ' % pixelSizeNm
         args += '-rotation %0.3f ' % self.rotationAngle
-        args += '-userawtlt -style 0 -stackext "" -x 512 -y 512'
+        args += '-userawtlt '
+
+        # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
+        # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
+        # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
+        # this entry, which could in principle be arbitrary, it will not care if files with other extensions are
+        # present.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-StackExtension ""'
+
+        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
+        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
+        # files will contain an environment variable setting to make programs generate files of the corresponding type.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-NamingStyle 0 '
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
@@ -196,7 +210,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         firstItem = ts.getFirstItem()
 
         """Prealigned tilt-series"""
-        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_preali", extension=".mrc"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".preali"))):
             outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
             outputPrealiSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
             outputPrealiSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
@@ -214,7 +228,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(
                     index + 1,
-                    (os.path.join(extraPrefix, firstItem.parseFileName(suffix="_preali", extension=".mrc")))
+                    (os.path.join(extraPrefix, firstItem.parseFileName(extension=".preali")))
                 )
                 xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                 newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
@@ -231,7 +245,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self._store()
 
         """Aligned tilt-series"""
-        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_ali", extension=".mrc"))):
+        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(extension=".ali"))):
             outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
             outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries.get())
             outputAliSetOfTiltSeries.setDim(self.inputTiltSeries.get().getDim())
@@ -252,7 +266,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(
                     index + 1,
-                    (os.path.join(extraPrefix, firstItem.parseFileName(suffix="_ali", extension=".mrc")))
+                    (os.path.join(extraPrefix, firstItem.parseFileName(extension=".ali")))
                 )
                 newTi.setTiltAngle(float(tltList[index]))
                 xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
