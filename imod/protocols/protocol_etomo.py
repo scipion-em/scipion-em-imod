@@ -161,6 +161,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         args += '-rotation %0.3f ' % self.rotationAngle
         args += '-userawtlt '
 
+        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
+        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
+        # files will contain an environment variable setting to make programs generate files of the corresponding type.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-NamingStyle 0 '
+
+
         # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
         # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
         # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
@@ -168,12 +175,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         # present.
         # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
         args += '-StackExtension ""'
-
-        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
-        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
-        # files will contain an environment variable setting to make programs generate files of the corresponding type.
-        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
-        args += '-NamingStyle 0 '
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
