@@ -77,7 +77,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
         form.addParam('interpolationWidth',
                       params.IntParam,
-                      label='Interpolation Width',
+                      label='Interpolation Width (pixels)',
                       default='15',
                       important=True,
                       help="The distance in pixels between the center lines of two consecutive strips. A pixel inside "
