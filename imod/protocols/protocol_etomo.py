@@ -159,7 +159,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         args += '-pixel %0.3f ' % pixelSizeNm
         args += '-rotation %0.3f ' % self.rotationAngle
-        args += '-userawtlt'
+        args += '-userawtlt -style 0 -stackext "" -x 512 -y 512'
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
