@@ -482,10 +482,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     maxAngle=60,
                                                     stepAngle=2,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3,
-                                                    minAngle=-60,
-                                                    maxAngle=60.0,
-                                                    stepAngle=2.0)
+                                                    dosePerFrame=0.3)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,

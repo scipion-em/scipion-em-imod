@@ -24,12 +24,13 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
+import threading
 import tkinter
 from tkinter import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from imod.protocols import ProtImodEtomo
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog, showInfo
@@ -441,9 +442,16 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_TS = 'Tilt Series'
     COL_INFO = 'Info'
     COL_STATUS = 'Status'
+    COL_PREALIGNED = 'Prealigned'
+    COL_ALIGNED = 'Aligned'
+    COL_COOR3D = 'Coordinates 3D'
+    COL_LANDMODEL_NO_GAPS = 'LandmarkModelsNoGaps'
+    COL_RECONST_TOMOGRAM = 'FullTomograms'
+    COL_PREPROCESS_RECONST_TOMOGRAM = 'PostProcessTomograms'
+
     ORDER_DICT = {COL_TS: 'id'}
 
-    def __init__(self, protocol, objs, columnStatus=False):
+    def __init__(self, protocol, objs, isInteractive=False):
         self.title = 'TiltSeries display'
         if isinstance(objs, tomo.objects.SetOfTomograms):
             self.COL_TS = 'Tomograms'
@@ -453,7 +461,7 @@ class ImodGenericTreeProvider(TreeProvider):
             self.title = 'LandmarkModels display'
         self.protocol = protocol
         self.objs = objs
-        self.columnStatus = columnStatus
+        self.isInteractive = isInteractive
         TreeProvider.__init__(self, sortingColumnName=self.COL_TS)
         self.selectedDict = {}
         self.mapper = protocol.mapper
@@ -485,10 +493,16 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getColumns(self):
         cols = [
-            (self.COL_TS, 200),
-            (self.COL_INFO, 500)]
-        if self.columnStatus:
-            cols.append((self.COL_STATUS, 100))
+            (self.COL_TS, 100),
+            (self.COL_INFO, 350)]
+        if self.isInteractive:
+            cols.append((self.COL_PREALIGNED, 80))
+            cols.append((self.COL_ALIGNED, 70))
+            cols.append((self.COL_COOR3D, 110))
+            cols.append((self.COL_LANDMODEL_NO_GAPS, 180))
+            cols.append((self.COL_RECONST_TOMOGRAM, 120))
+            cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 170))
+            #cols.append((self.COL_STATUS, 70))
 
         return cols
 
@@ -508,35 +522,106 @@ class ImodGenericTreeProvider(TreeProvider):
         key = obj.getObjId()
         text = itemId
         values = [str(obj)]
+        tags = ''
+        if self.isInteractive:
+            status = self.getObjStatus(obj, values)
+            # if status == 'pending':
+            #     values.append("TODO")
+            # else:
+            #     values.append("DONE")
+            tags = (status,)
+
         opened = True
 
-        return {
+        item = {
             'key': key, 'text': text,
             'values': tuple(values),
             'open': opened,
             'selected': False,
-            'parent': obj._parentObject
+            'parent': obj._parentObject,
+            'tags': tags
         }
+        return item
+
+    def getObjStatus(self, obj, values):
+        status = 'pending'
+        for item in self.protocol.inputSetOfTiltSeries.get():
+            if item.getTsId() == obj.getTsId():
+                """Prealigned tilt-series"""
+                prealiFilePath = self.protocol.getFilePath(item, extension=".preali")
+                if os.path.exists(prealiFilePath):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+
+                """Aligned tilt-series"""
+                aligFilePath = self.protocol.getFilePath(item, extension=".ali")
+                if os.path.exists(aligFilePath):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+
+                coordFilePath = self.protocol.getFilePath(item, suffix='fid',
+                                                          extension=".xyz")
+                if os.path.exists(coordFilePath):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+
+                """Landmark models with no gaps"""
+                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps", extension=".fid")) and
+                        os.path.exists(self.protocol.getFilePath(item, extension=".resid"))):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+
+                """Full reconstructed tomogram"""
+                reconstructTomoFilePath = self.protocol.getFilePath(item, suffix="_full", extension=".rec")
+                if os.path.exists(reconstructTomoFilePath):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+
+                """Post-processed reconstructed tomogram"""
+                posprocessedRecTomoFilePath = self.protocol.getFilePath(item, extension=".rec")
+                if os.path.exists(posprocessedRecTomoFilePath):
+                    values.append('Yes')
+                    status = 'done'
+                else:
+                    values.append('No')
+                break
+        return status
 
     def getObjectActions(self, obj):
         actions = []
-
-        viewers = Domain.findViewers(obj.getClassName(),
-                                     pwviewer.DESKTOP_TKINTER)
-        for viewerClass in viewers:
-            def createViewer(viewerClass, obj):
-                proj = self.protocol.getProject()
-                item = self.objs[obj.getObjId()]  # to load mapper
-                return lambda : viewerClass(project=proj).visualize(item)
-            actions.append(('Open with %s' % viewerClass.__name__,
-                            createViewer(viewerClass, obj)))
-
+        if not self.isInteractive:
+            viewers = Domain.findViewers(obj.getClassName(),
+                                         pwviewer.DESKTOP_TKINTER)
+            for viewerClass in viewers:
+                def createViewer(viewerClass, obj):
+                    proj = self.protocol.getProject()
+                    item = self.objs[obj.getObjId()]  # to load mapper
+                    return lambda : viewerClass(project=proj).visualize(item)
+                actions.append(('Open with %s' % viewerClass.__name__,
+                                createViewer(viewerClass, obj)))
         return actions
+
+    def configureTags(self, tree):
+        tree.tag_configure("pending", foreground="red")
+        tree.tag_configure("done", foreground="green")
 
 
 class ImodListDialog(ListDialog):
-    def __init__(self, parent, title, provider, displayAllButton=True, **kwargs):
+    def __init__(self, parent, title, provider, displayAllButton=True,
+                 itemDoubleClick=False, **kwargs):
         self.displayAllButton = displayAllButton
+        self._itemDoubleClick = itemDoubleClick
+        self.provider = provider
         ListDialog.__init__(self, parent, title, provider, message=None,
                             allowSelect=False,  **kwargs)
 
@@ -558,6 +643,8 @@ class ImodListDialog(ListDialog):
                                                         state=tk.NORMAL)
         self._createTree(dialogFrame)
         self.initial_focus = self.tree
+        if self._itemDoubleClick:
+            self.tree.itemDoubleClick = self.doubleClickOnItem
 
     def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
         btn = tk.Button(frame, text=text, image=self.getImage(image),
@@ -576,6 +663,20 @@ class ImodListDialog(ListDialog):
             ImodSetOfLandmarkModelsView(set)
         elif isinstance(set, tomo.objects.SetOfTomograms):
             ImodSetOfTomogramsView(set)
+
+    def doubleClickOnItem(self, e=None):
+        ts = e
+        protocol = self.provider.protocol
+        if issubclass(protocol.__class__, ProtImodEtomo):
+            self.proc = threading.Thread(target=protocol.runAllSteps,
+                                         args=(ts,))
+            self.proc.start()
+            self.after(1000, self.refresh_gui)
+
+    def refresh_gui(self):
+        self.tree.update()
+        if self.proc.isAlive():
+            self.after(1000, self.refresh_gui)
 
 
 class ImodSetView(pwviewer.CommandView):
@@ -624,7 +725,7 @@ class ImodGenericViewer(pwviewer.View):
     and the ImodTreeProvider.
     """
     def __init__(self, parent, protocol, objs, displayAllButton=True,
-                 columnStatus=False, **kwargs):
+                 isInteractive=False, itemDoubleClick=False, **kwargs):
         """
          Params:
             parent: Tkinter parent widget
@@ -642,12 +743,14 @@ class ImodGenericViewer(pwviewer.View):
         """
         self._tkParent = parent
         self._protocol = protocol
-        self._provider = ImodGenericTreeProvider(protocol, objs, columnStatus)
+        self._provider = ImodGenericTreeProvider(protocol, objs, isInteractive)
         self.title = self._provider.title
         self.displayAllButton = displayAllButton
-        self.columnStatus = columnStatus
+        self.itemDoubleClick = itemDoubleClick
 
     def show(self):
         ImodListDialog(self._tkParent, self.title, self._provider,
-                       displayAllButton=self.displayAllButton)
+                       displayAllButton=self.displayAllButton,
+                       itemDoubleClick=self.itemDoubleClick)
+
 
