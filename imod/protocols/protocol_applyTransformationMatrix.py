@@ -27,6 +27,7 @@
 import os
 import math
 import imod.utils as utils
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
@@ -45,6 +46,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
 
     _label = 'apply transformation'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -131,6 +133,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
         newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)

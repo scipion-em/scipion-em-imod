@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -42,6 +43,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tomo normalization'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -230,6 +232,9 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 
         newTomogram = Tomogram()
+        newTomogram.copyInfo(tomo)
+        newTomogram.copyAttributes(tomo, '_origin')
+
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
         else:

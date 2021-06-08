@@ -26,6 +26,7 @@
 
 import os
 from pwem.protocols import EMProtocol
+from pyworkflow import BETA
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
 from pyworkflow import BETA

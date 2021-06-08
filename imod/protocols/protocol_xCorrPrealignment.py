@@ -27,6 +27,7 @@
 import os
 import imod.utils as utils
 import pwem.objects as data
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -45,6 +46,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     """
 
     _label = 'xcorr prealignment'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -183,7 +185,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         alignmentMatrix = utils.formatTransformationMatrix(
-            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")))
+            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputSetOfTiltSeries.append(newTs)
@@ -246,6 +248,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
         newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)

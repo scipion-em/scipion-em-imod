@@ -26,6 +26,7 @@
 
 import os
 from pwem.protocols import EMProtocol
+from pyworkflow import BETA
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
@@ -43,6 +44,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     """
 
     _label = 'x-rays eraser'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -77,7 +79,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         form.addParam('maximumRadius',
                       params.FloatParam,
                       default=4.2,
-                      label='Maximum radius',
+                      label='Maximum radius (pixels)',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
 

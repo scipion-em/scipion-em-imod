@@ -29,12 +29,14 @@
 import os
 
 import pyworkflow as pw
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
 from tomo.convert import writeTiStack
+import tomo.constants as constants
 from imod import Plugin
 from imod import utils
 from pwem.emlib.image import ImageHandler
@@ -49,6 +51,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
     """
 
     _label = 'etomo interactive'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -117,6 +120,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
+        firstItem = ts.getFirstItem()
 
         outputTsFileName = self.getFilePath(ts, extension=".st")
 
@@ -131,7 +135,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             ts.generateTltFile(angleFilePath)
 
         else:
-            interpolatedTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+            interpolatedTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
             angleFilePath = self.getFilePath(ts, extension=".rawtlt")
 
             """Apply the transformation form the input tilt-series and generate a new ts object"""
@@ -164,7 +168,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                          excludeList=excludeList)
 
         """Generate etomo config file"""
-        args = '-name %s ' % ts.getFirstItem().parseFileName(extension="")
+        args = '-name %s ' % firstItem.parseFileName(extension="")
         args += '-gold %0.3f ' % self.markersDiameter
 
         # Imod use the pixel size in NM
@@ -172,7 +176,22 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         args += '-pixel %0.3f ' % pixelSizeNm
         args += '-rotation %0.3f ' % self.rotationAngle
-        args += '-userawtlt'
+        args += '-userawtlt '
+
+        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
+        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
+        # files will contain an environment variable setting to make programs generate files of the corresponding type.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-NamingStyle 0 '
+
+
+        # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
+        # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
+        # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
+        # this entry, which could in principle be arbitrary, it will not care if files with other extensions are
+        # present.
+        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
+        args += '-StackExtension ""'
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
@@ -181,7 +200,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
-                                'name': ts.getFirstItem().parseFileName(extension=''),
+                                'name': firstItem.parseFileName(extension=''),
                                 'pixelSize': pixelSizeNm,
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
@@ -220,16 +239,17 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputTiltSeries,
                                                outputPrealiSetOfTiltSeries)
 
-                newTs = tomoObj.TiltSeries(tsId=tsId)
+                newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputPrealiSetOfTiltSeries.append(newTs)
 
                 ih = ImageHandler()
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = tomoObj.TiltImage()
+                index = 0
+                for tiltImage in ts.iterItems(iterate=False):
+                    newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, prealiFilePath)
+                    index += 1
                     xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                     newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
                     newTs.append(newTi)
@@ -254,7 +274,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputAliSetOfTiltSeries)
 
-                newTs = tomoObj.TiltSeries(tsId=tsId)
+                newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputAliSetOfTiltSeries.append(newTs)
 
@@ -262,15 +282,17 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 tltFilePath = self.getFilePath(ts, suffix='_fid',
                                                extension=".tlt")
-                tltList = utils.formatAngleList(tltFilePath)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = tomoObj.TiltImage()
+                if os.path.exists(tltFilePath):
+                    tltList = utils.formatAngleList(tltFilePath)
+                else:
+                    tltList = None
+                index = 0
+                for tiltImage in ts.iterItems(iterate=False):
+                    newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
-                    newTi.setLocation(
-                        index + 1,   self.getFilePath(ts, extension=".ali")
-                    )
-                    newTi.setTiltAngle(float(tltList[index]))
+                    newTi.setLocation(index + 1,   self.getFilePath(ts, extension=".ali"))
+                    if tltList is not None:
+                        newTi.setTiltAngle(float(tltList[index]))
                     xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
                     newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                     newTs.append(newTi)
@@ -527,6 +549,11 @@ ProcessTrack.TomogramCombination=Not started
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
         return self.inputTiltSeries.getSamplingRate() * round(originalDim/outputDim)
 
+
+    def getResizeFactorFromDimensions(self, outputDim):
+        ih = ImageHandler()
+        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
+        return  round(outputDim / originalDim)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

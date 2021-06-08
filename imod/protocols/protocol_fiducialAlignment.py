@@ -27,6 +27,7 @@
 import os
 import numpy as np
 import imod.utils as utils
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
@@ -35,6 +36,7 @@ import tomo.objects as tomoObj
 from pyworkflow.object import Set
 from tomo.objects import LandmarkModel
 from tomo.protocols import ProtTomoBase
+import tomo.constants as constants
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
@@ -47,6 +49,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     """
 
     _label = 'fiducial alignment'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -699,9 +702,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-output %(output)s " \
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s"
+                            "-imagebinned %(imagebinned)s "
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.getOutputSetOfTiltSeries()[tsObjId])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -710,7 +713,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                     'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
                 })
 
-                argsAlignment += "-size %(size)s "
+                argsAlignment += " -size %(size)s "
 
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
@@ -929,19 +932,19 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
             xDim = firstItem.getXDim()
             yDim = firstItem.getYDim()
-            coordList = utils.format3DCoordinatesList(coordFilePath, xDim, yDim)
+            coordList = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
-                newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                                  y=element[1],
-                                                  z=element[2])
+                newCoord3D = tomoObj.Coordinate3D()
                 newCoord3D.setVolume(ts)
+                newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
                 newCoord3D.setVolId(tsObjId)
                 outputSetOfCoordinates3D.append(newCoord3D)
                 outputSetOfCoordinates3D.update(newCoord3D)
-
             outputSetOfCoordinates3D.write()
-
             self._store()
 
     def createOutputFailedSet(self, tsObjId):

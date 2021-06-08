@@ -25,12 +25,16 @@
 # **************************************************************************
 
 import os
+
+from pwem.objects import Transform
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.objects import Tomogram
+from tomo.objects import TomoAcquisition
 from imod import Plugin
 
 
@@ -43,6 +47,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tomo reconstruction'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -57,10 +62,10 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         form.addParam('tomoThickness',
                       params.FloatParam,
                       default=100,
-                      label='Tomogram thickness',
+                      label='Tomogram thickness (voxels)',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in voxels of the tomogram in the z axis (beam direction).')
 
         form.addParam('tomoShiftX',
                       params.FloatParam,
@@ -246,6 +251,22 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+
+        # Set tomogram origin
+        origin = Transform()
+        sr = self.inputSetOfTiltSeries.get().getSamplingRate()
+        origin.setShifts(ts.getFirstItem().getXDim() / -2. * sr,
+                         ts.getFirstItem().getYDim() / -2. * sr,
+                         self.tomoThickness.get() / -2 * sr)
+        newTomogram.setOrigin(origin)
+
+        # Set tomogram acquisition
+        acquisition = TomoAcquisition()
+        acquisition.setAngleMin(ts.getFirstItem().getTiltAngle())
+        acquisition.setAngleMax(ts[ts.getSize()].getTiltAngle())
+        acquisition.setStep(self.getAngleStepFromSeries(ts))
+        newTomogram.setAcquisition(acquisition)
+
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
         outputSetOfTomograms.write()
@@ -267,6 +288,18 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
+
+    @staticmethod
+    def getAngleStepFromSeries(ts):
+        """ This method return the average angles step from a series. """
+
+        angleStepAverage = 0
+        for i in range(1, ts.getSize()):
+            angleStepAverage += abs(ts[i].getTiltAngle()-ts[i+1].getTiltAngle())
+
+        angleStepAverage /= ts.getSize()-1
+
+        return angleStepAverage
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
