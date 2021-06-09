@@ -439,15 +439,15 @@ class ImodGenericTreeProvider(TreeProvider):
         Tomogram, SetOfTomograms, SetOfTiltSeries and  prepare the
         columns/rows models required by the TreeDialog GUI.
     """
-    COL_TS = 'Tilt Series'
+    COL_TS = 'Tilt series'
     COL_INFO = 'Info'
     COL_STATUS = 'Status'
     COL_PREALIGNED = 'Prealigned'
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
-    COL_LANDMODEL_NO_GAPS = 'LandmarkModelsNoGaps'
-    COL_RECONST_TOMOGRAM = 'FullTomograms'
-    COL_PREPROCESS_RECONST_TOMOGRAM = 'PostProcessTomograms'
+    COL_LANDMODEL_NO_GAPS = 'Landmark models no gaps'
+    COL_RECONST_TOMOGRAM = 'Full tomograms'
+    COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
 
     ORDER_DICT = {COL_TS: 'id'}
 
@@ -499,10 +499,9 @@ class ImodGenericTreeProvider(TreeProvider):
             cols.append((self.COL_PREALIGNED, 80))
             cols.append((self.COL_ALIGNED, 70))
             cols.append((self.COL_COOR3D, 110))
-            cols.append((self.COL_LANDMODEL_NO_GAPS, 180))
+            cols.append((self.COL_LANDMODEL_NO_GAPS, 190))
             cols.append((self.COL_RECONST_TOMOGRAM, 120))
-            cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 170))
-            #cols.append((self.COL_STATUS, 70))
+            cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 180))
 
         return cols
 
@@ -525,10 +524,6 @@ class ImodGenericTreeProvider(TreeProvider):
         tags = ''
         if self.isInteractive:
             status = self.getObjStatus(obj, values)
-            # if status == 'pending':
-            #     values.append("TODO")
-            # else:
-            #     values.append("DONE")
             tags = (status,)
 
         opened = True
@@ -623,7 +618,7 @@ class ImodListDialog(ListDialog):
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
         ListDialog.__init__(self, parent, title, provider, message=None,
-                            allowSelect=False,  **kwargs)
+                            allowSelect=False,  cancelButton=True, **kwargs)
 
     def body(self, bodyFrame):
         bodyFrame.config()
