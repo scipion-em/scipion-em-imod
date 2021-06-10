@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -42,6 +43,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tomo normalization'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -158,6 +160,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
             self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def generateOutputStackStep(self, tsObjId):
@@ -229,6 +232,9 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
 
         newTomogram = Tomogram()
+        newTomogram.copyInfo(tomo)
+        newTomogram.copyAttributes(tomo, '_origin')
+
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
         else:
@@ -238,6 +244,11 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTomograms.append(newTomogram)
         outputNormalizedSetOfTomograms.update(newTomogram)
         outputNormalizedSetOfTomograms.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputNormalizedSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

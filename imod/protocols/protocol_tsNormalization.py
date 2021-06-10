@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -43,6 +44,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tilt-series normalization'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -160,6 +162,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -185,7 +188,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
         paramsNewstack = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_norm")),
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0,
         }
@@ -226,7 +229,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_norm"))))
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
@@ -239,6 +242,11 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         outputNormalizedSetOfTiltSeries.update(newTs)
         outputNormalizedSetOfTiltSeries.updateDim()
         outputNormalizedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputNormalizedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

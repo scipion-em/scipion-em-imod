@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [2]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
 # * [2] Centro Nacional de Biotecnologia, CSIC, Spain
@@ -33,7 +33,7 @@ from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
 from distutils.spawn import find_executable
 from pyworkflow.gui.project.utils import OS
 
-__version__ = '3.0.5'
+__version__ = '3.0.6'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -112,11 +112,12 @@ class Plugin(pwem.Plugin):
                 default=False)
 
             # Download .sh
-            installationCmd = 'wget --continue https://bio3d.colorado.edu/ftp/latestIMOD/RHEL6-64_CUDA8.0/' \
-                              'imod_4.10.42_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
+            installationCmd = 'wget --continue http://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
+                              'imod_4.11.0_RHEL6-64_CUDA8.0.sh --no-check-certificate && '
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
-            installationCmd += 'sh imod_4.10.42_RHEL6-64_CUDA8.0.sh -dir . -yes -skip && '
+            installationCmd += 'sh imod_4.11.0_RHEL6-64_CUDA8.0.sh -dir . -yes -skip && '
+
 
             # Create installation finished flag file
             installationCmd += 'touch %s' % IMOD_INSTALLED

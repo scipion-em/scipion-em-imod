@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -25,12 +25,16 @@
 # **************************************************************************
 
 import os
+
+from pwem.objects import Transform
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.objects import Tomogram
+from tomo.objects import TomoAcquisition
 from imod import Plugin
 
 
@@ -43,6 +47,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     """
 
     _label = 'tomo reconstruction'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -57,10 +62,10 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         form.addParam('tomoThickness',
                       params.FloatParam,
                       default=100,
-                      label='Tomogram thickness',
+                      label='Tomogram thickness (voxels)',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in voxels of the tomogram in the z axis (beam direction).')
 
         form.addParam('tomoShiftX',
                       params.FloatParam,
@@ -132,12 +137,27 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                                         label='Second parameter',
                                         help='Gaussian fall-off parameter')
 
+        form.addHidden(params.USE_GPU,
+                       params.BooleanParam,
+                       default=True,
+                       label="Use GPU for execution",
+                       help="This protocol has both CPU and GPU implementation.\
+                               Select the one you want to use.")
+
+        form.addHidden(params.GPU_LIST,
+                       params.StringParam,
+                       default='0',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="GPU ID. To pick the best available one set 0. For a specific GPU set its number ID.")
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('computeReconstructionStep', ts.getObjId())
             self._insertFunctionStep('createOutputStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -184,7 +204,19 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                    "-OFFSET %(Offset)s "
 
         if self.fakeInteractionsSIRT.get() != 0:
-            argsTilt += "-FakeSIRTiterations %d " % self.fakeInteractionsSIRT.get()
+            paramsTilt.update({
+                'FakeSIRTInteractions': self.fakeInteractionsSIRT.get()
+            })
+            argsTilt += "-FakeSIRTiterations %(FakeSIRTInteractions)d "
+
+        if self.usesGpu():
+            paramsTilt.update({
+                "useGPU": self.getGpuList()[0],
+                "actionIfGPUFails": "2,2",
+            })
+
+            argsTilt += "-UseGPU %(useGPU)d " \
+                        "-ActionIfGPUFails %(actionIfGPUFails)s "
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
@@ -208,10 +240,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
                       "%(output)s " \
                       "%(rotation)s "
 
-        # argsTrimvol = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")) + " "
-        # argsTrimvol += os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")) + " "
-        # argsTrimvol += "-yz "
-
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsObjId):
@@ -223,9 +251,30 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+
+        # Set tomogram origin
+        origin = Transform()
+        sr = self.inputSetOfTiltSeries.get().getSamplingRate()
+        origin.setShifts(ts.getFirstItem().getXDim() / -2. * sr,
+                         ts.getFirstItem().getYDim() / -2. * sr,
+                         self.tomoThickness.get() / -2 * sr)
+        newTomogram.setOrigin(origin)
+
+        # Set tomogram acquisition
+        acquisition = TomoAcquisition()
+        acquisition.setAngleMin(ts.getFirstItem().getTiltAngle())
+        acquisition.setAngleMax(ts[ts.getSize()].getTiltAngle())
+        acquisition.setStep(self.getAngleStepFromSeries(ts))
+        newTomogram.setAcquisition(acquisition)
+
         outputSetOfTomograms.append(newTomogram)
         outputSetOfTomograms.update(newTomogram)
         outputSetOfTomograms.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -239,6 +288,18 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
         return self.outputSetOfTomograms
+
+    @staticmethod
+    def getAngleStepFromSeries(ts):
+        """ This method return the average angles step from a series. """
+
+        angleStepAverage = 0
+        for i in range(1, ts.getSize()):
+            angleStepAverage += abs(ts[i].getTiltAngle()-ts[i+1].getTiltAngle())
+
+        angleStepAverage /= ts.getSize()-1
+
+        return angleStepAverage
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

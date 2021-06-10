@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -27,6 +27,7 @@
 import os
 import imod.utils as utils
 import pwem.objects as data
+from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -45,6 +46,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     """
 
     _label = 'xcorr prealignment'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -126,6 +128,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
             self._insertFunctionStep('computeXcorrStep', ts.getObjId())
             if self.computeAlignment.get() == 0:
                 self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -182,7 +185,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
         alignmentMatrix = utils.formatTransformationMatrix(
-            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")))
+            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputSetOfTiltSeries.append(newTs)
@@ -245,11 +248,19 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
         newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
         outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        if self.computeAlignment.get() == 0:
+            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

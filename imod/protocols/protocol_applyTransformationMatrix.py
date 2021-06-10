@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csi.es) [1]
+# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -25,10 +25,12 @@
 # **************************************************************************
 
 import os
-import numpy as np
+import math
 import imod.utils as utils
+from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pyworkflow.object import Set
 from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
@@ -44,6 +46,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     """
 
     _label = 'apply transformation'
+    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -65,6 +68,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
+        self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
     def generateTransformFileStep(self, tsObjId):
@@ -82,18 +86,32 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
+        firstItem = ts.getFirstItem()
+
         paramsAlignment = {
-            'input': ts.getFirstItem().getFileName(),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
+            'input': firstItem.getFileName(),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
+
         argsAlignment = "-input %(input)s " \
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
+                        "-imagebinned %(imagebinned)s "
+
+        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+
+        # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # the final sample disposition.
+        if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+            paramsAlignment.update({
+                'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+            })
+
+            argsAlignment += "-size %(size)s "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
@@ -115,11 +133,17 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
+
         newTs.write(properties=False)
 
         outputInterpolatedSetOfTiltSeries.update(newTs)
         outputInterpolatedSetOfTiltSeries.updateDim()
         outputInterpolatedSetOfTiltSeries.write()
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -132,6 +156,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
         return self.outputInterpolatedSetOfTiltSeries
