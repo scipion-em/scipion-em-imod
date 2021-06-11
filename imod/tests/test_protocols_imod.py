@@ -479,10 +479,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     amplitudeContrast=0.07,
                                                     samplingRate=6.73981,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3,
-                                                    minAngle=-60,
-                                                    maxAngle=60.0,
-                                                    stepAngle=2.0)
+                                                    dosePerFrame=0.3)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
