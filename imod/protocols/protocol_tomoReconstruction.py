@@ -62,10 +62,10 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         form.addParam('tomoThickness',
                       params.FloatParam,
                       default=100,
-                      label='Tomogram thickness',
+                      label='Tomogram thickness (voxels)',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Size in pixels of the tomogram in the z axis (beam direction).')
+                      help='Size in voxels of the tomogram in the z axis (beam direction).')
 
         form.addParam('tomoShiftX',
                       params.FloatParam,

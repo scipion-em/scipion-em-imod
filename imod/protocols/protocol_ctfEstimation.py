@@ -90,7 +90,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
                       default=6000,
-                      label='Expected defocus value',
+                      label='Expected defocus value (nm)',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
                       help='This value will be applied as the expected defocus in nanometers for every tilt-series '
@@ -127,21 +127,21 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
 
         form.addParam('leftDefTol',
                       params.FloatParam,
-                      label='Left defocus tolerance',
+                      label='Left defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the left of the center strip.")
 
         form.addParam('rightDefTol',
                       params.FloatParam,
-                      label='Right defocus tolerance',
+                      label='Right defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips to the right of the center strip.")
 
         form.addParam('tileSize',
                       params.IntParam,
-                      label='Tile size',
+                      label='Tile size (pixels)',
                       default=256,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="The tile size each strip will be tessellated into. The size is in pixels and the tiles are "
@@ -162,7 +162,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         groupAngleRange.addParam('angleRange',
                                  params.FloatParam,
                                  condition="angleStep != 0",
-                                 default=120,
+                                 default=16,
                                  label='Angle range',
                                  help='Size of the angle range in which the CTF is estimated.')
 
