@@ -817,9 +817,7 @@ def generateDoseFileFromTS(ts, doseFileOutputPath):
     doseInfoList = []
 
     acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
-    print(acqOrderList)
     accDoseList = [ti.getAcquisition().getDosePerFrame() for ti in ts]
-    print(accDoseList)
 
     for index, ti in enumerate(ts):
         accDose = ti.getAcquisition().getDosePerFrame()
