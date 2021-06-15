@@ -97,6 +97,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     def computeXcorrStep(self, tsObjId):
         """Apply the dose fitler to every tilt series"""
 
+        tsSet = self._getSetOfTiltSeries()
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -107,12 +108,16 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         paramsMtffilter = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
+            'input':ts.getFirstItem().getFileName(),
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'voltage': tsSet.getAcquisition().getVoltage(),
+
         }
 
         argsMtffilter = "-input %(input)s " \
                         "-output %(output)s " \
+                        "-VerboseOutput 1 " \
+                        "-Voltage %(voltage)d "
 
         if self.useFixedDose.get() == 1:
             paramsMtffilter.update({
@@ -121,11 +126,17 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
             argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
 
-        Plugin.runImod(self, 'tiltxcorr', argsMtffilter % paramsMtffilter)
+        Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
 
     def createOutputStep(self, tsObjId):
         """Generate output filtered tilt series"""
+
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
 
