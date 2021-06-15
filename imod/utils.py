@@ -810,3 +810,14 @@ def calculateRotationAngleFromTM(ts):
     avgRotationAngle = avgRotationAngle / ts.getSize()
 
     return avgRotationAngle
+
+
+def generateDoseFileFromTS(ts, doseFileOutputPath):
+    """ """
+    doseInfoVector = []
+
+    for index, ti in enumerate(ts):
+        doseInfoVector.append(ti.getAcquisition().getDosePerFrame())
+
+    with open(doseFileOutputPath, 'w') as f:
+        f.writelines(doseInfoVector)
