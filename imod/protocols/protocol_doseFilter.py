@@ -37,6 +37,8 @@ from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
+SCIPION_IMPORT = 0
+FIXED_DOSE = 1
 
 class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     """
@@ -47,9 +49,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
     _label = 'dose filter'
     _devStatus = BETA
-
-    SCIPION_IMPORT = 0
-    FIXED_DOSE = 1
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
