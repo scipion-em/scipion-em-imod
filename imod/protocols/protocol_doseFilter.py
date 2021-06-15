@@ -68,20 +68,24 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       help='Dose applied before any of the images in the input file were taken; this value will be '
                            'added to all the prior dose values, however they were obtained.')
 
-        form.addParam('useFixedDose',
+        # TODO: add more options for inputting the dose information.
+        form.addParam('inputDoseType',
                       params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Use fixed dose',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Use a fixed dose fo every image in the tilt series instead the obtained form the '
-                           'acquisition')
+                      choices=['Scipion import', 'Fixed dose'],
+                      default=0,
+                      label='Input doce source',
+                      display=params.EnumParam.DISPLAY_COMBO,
+                      help='This option indicates what kind of source is being provided with the dose information:\n'
+                           '- Scipion import: Use the dose obtained ehn importing the tilt-series into Scipion. To use '
+                           'this option you must have imported the tilt-series into scipion using an .mdoc file.\n'
+                           '- Fixed dose: use the same dose value for every tilt-series when performing the '
+                           'correction.\n')
 
         form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=1.0,
                       label='Fixes dose (e/sq A)',
-                      condition='useFixedDose==0',
+                      condition='useFixedDose==1',
                       help='Fixed dose for each image of the input file, in electrons/square Angstrom.')
 
 
@@ -119,7 +123,14 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                         "-VerboseOutput 1 " \
                         "-Voltage %(voltage)d "
 
-        if self.useFixedDose.get() == 1:
+        if self.inputDoseType.get() == 0:
+            paramsMtffilter.update({
+                'fixedImageDose': self.minimumViewsPhaseShift.get()
+            })
+
+            argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
+
+        if self.inputDoseType.get() == 1:
             paramsMtffilter.update({
                 'fixedImageDose': self.minimumViewsPhaseShift.get()
             })
