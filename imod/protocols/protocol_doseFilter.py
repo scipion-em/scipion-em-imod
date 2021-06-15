@@ -64,6 +64,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         form.addParam('initialDose',
                       params.FloatParam,
                       default=0.0,
+                      expertLevel=params.LEVEL_ADVANCED,
                       label='Initial dose (e/sq A)',
                       help='Dose applied before any of the images in the input file were taken; this value will be '
                            'added to all the prior dose values, however they were obtained.')
