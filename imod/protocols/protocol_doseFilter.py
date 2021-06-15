@@ -101,7 +101,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     def computeXcorrStep(self, tsObjId):
         """Apply the dose fitler to every tilt series"""
 
-        tsSet = self._getSetOfTiltSeries()
+        tsSet = self.inputSetOfTiltSeries.get()
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -122,13 +122,12 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
         argsMtffilter = "-input %(input)s " \
                         "-output %(output)s " \
-                        "-VerboseOutput 1 " \
                         "-Voltage %(voltage)d "
 
         if self.inputDoseType.get() == 0:
-            outputDefocusFilePath = firstItem.parseFileName(extension=".dose")
+            outputDefocusFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
 
-            utils.generateDoseFileFromTS(ts, os.path.join(extraPrefix, outputDefocusFilePath))
+            utils.generateDoseFileFromTS(ts, outputDefocusFilePath)
 
             paramsMtffilter.update({
                 'typeOfDoseFile': 1,
@@ -136,7 +135,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             })
 
             argsMtffilter += "-TypeOfDoseFile %(typeOfDoseFile)d " \
-                             "-DoseWeightingFile %(doseWeightingFile) "
+                             "-DoseWeightingFile %(doseWeightingFile)s "
 
         if self.inputDoseType.get() == 1:
             paramsMtffilter.update({
