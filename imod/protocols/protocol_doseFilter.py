@@ -85,17 +85,18 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       help='Fixed dose for each image of the input file, in electrons/square Angstrom.')
 
 
-
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('computeXcorrStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
+
 
     # --------------------------- STEPS functions ----------------------------
     def computeXcorrStep(self, tsObjId):
         """Apply the dose fitler to every tilt series"""
+
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -123,21 +124,21 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'tiltxcorr', argsMtffilter % paramsMtffilter)
 
 
-        """Generate output tilt series"""
+    def createOutputStep(self, tsObjId):
+        """Generate output filtered tilt series"""
+
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
-        alignmentMatrix = utils.formatTransformationMatrix(
-            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+
         outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(tiltImage.getLocation())
-            transform = data.Transform()
-            transform.setMatrix(alignmentMatrix[:, :, index])
-            newTi.setTransform(transform)
+            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+
             newTs.append(newTi)
 
         newTs.write(properties=False)
@@ -147,60 +148,8 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
         self._store()
 
-    def computeInterpolatedStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
-
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        paramsAlignment = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
-            'bin': int(self.binning.get()),
-            'imagebinned': 1.0
-        }
-        argsAlignment = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-xform %(xform)s " \
-                        "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
-
-        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
-
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
-
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-            if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-            newTs.append(newTi)
-
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-
-        newTs.write(properties=False)
-
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.updateDim()
-        outputInterpolatedSetOfTiltSeries.write()
-        self._store()
-
     def closeOutputSetsStep(self):
         self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
-        if self.computeAlignment.get() == 0:
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -209,29 +158,13 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         if hasattr(self, "outputSetOfTiltSeries"):
             self.outputSetOfTiltSeries.enableAppend()
         else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputSetOfTiltSeries = self._createSetOfTiltSeries(suffix="Filtered")
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
-
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.outputInterpolatedSetOfTiltSeries.enableAppend()
-        else:
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
