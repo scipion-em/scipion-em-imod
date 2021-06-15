@@ -814,11 +814,22 @@ def calculateRotationAngleFromTM(ts):
 
 def generateDoseFileFromTS(ts, doseFileOutputPath):
     """ """
-    doseInfoVector = []
+    doseInfoList = []
+
+    acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
+    accDoseList = [ti.getAcquisition().getDosePerFrame() for ti in ts]
 
     for index, ti in enumerate(ts):
-        doseInfoVector.append(ti.getAcquisition().getDosePerFrame())
+        accDose = ti.getAcquisition().getDosePerFrame()
+        acqOrder = ti.getAcquisitionOrder()
+
+        if index == 0:
+            doseInfoList.append(accDose)
+
+        dosePerTilt = accDose - accDoseList[acqOrderList.index(acqOrder - 1)]
+
+        doseInfoList.append(dosePerTilt)
 
     with open(doseFileOutputPath, 'w') as f:
-        for dose in doseInfoVector:
+        for dose in doseInfoList:
             f.writelines("%f\n" % dose)
