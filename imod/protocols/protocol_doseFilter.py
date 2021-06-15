@@ -48,6 +48,9 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     _label = 'dose filter'
     _devStatus = BETA
 
+    SCIPION_IMPORT = 0
+    FIXED_DOSE = 1
+
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
 
@@ -73,7 +76,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         form.addParam('inputDoseType',
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
-                      default=0,
+                      default=SCIPION_IMPORT,
                       label='Input doce source',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='This option indicates what kind of source is being provided with the dose information:\n'
@@ -125,7 +128,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                         "-output %(output)s " \
                         "-Voltage %(voltage)d "
 
-        if self.inputDoseType.get() == 0:
+        if self.inputDoseType.get() == SCIPION_IMPORT:
             outputDefocusFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
 
             utils.generateDoseFileFromTS(ts, outputDefocusFilePath)
@@ -138,7 +141,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             argsMtffilter += "-TypeOfDoseFile %(typeOfDoseFile)d " \
                              "-DoseWeightingFile %(doseWeightingFile)s "
 
-        if self.inputDoseType.get() == 1:
+        if self.inputDoseType.get() == FIXED_DOSE:
             paramsMtffilter.update({
                 'fixedImageDose': self.minimumViewsPhaseShift.get()
             })
