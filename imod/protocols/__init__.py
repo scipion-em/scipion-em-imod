@@ -30,6 +30,7 @@
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection
 from .protocol_ctfEstimation import ProtImodCtfEstimation
+from .protocol_doseFilter import ProtImodDoseFilter
 from .protocol_etomo import ProtImodEtomo
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
