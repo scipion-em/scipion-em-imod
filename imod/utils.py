@@ -820,4 +820,5 @@ def generateDoseFileFromTS(ts, doseFileOutputPath):
         doseInfoVector.append(ti.getAcquisition().getDosePerFrame())
 
     with open(doseFileOutputPath, 'w') as f:
-        f.writelines(doseInfoVector)
+        for dose in doseInfoVector:
+            f.writelines("%f\n" % dose)
