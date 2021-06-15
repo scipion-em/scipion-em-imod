@@ -77,7 +77,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       help='Use a fixed dose fo every image in the tilt series instead the obtained form the '
                            'acquisition')
 
-        form.addParam('fixedDose',
+        form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=1.0,
                       label='Fixes dose (e/sq A)',
@@ -90,6 +90,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('computeXcorrStep', ts.getObjId())
+            self._insertFunctionStep('createOutputStep', ts.getObjId())
         self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
@@ -112,6 +113,12 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         argsMtffilter = "-input %(input)s " \
                         "-output %(output)s " \
 
+        if self.useFixedDose.get() == 1:
+            paramsMtffilter.update({
+                'fixedImageDose': self.minimumViewsPhaseShift.get()
+            })
+
+            argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
 
         Plugin.runImod(self, 'tiltxcorr', argsMtffilter % paramsMtffilter)
 
