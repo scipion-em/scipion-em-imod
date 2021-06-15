@@ -55,132 +55,66 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('inputSetOfTiltSeries', params.PointerParam,
+        form.addParam('inputSetOfTiltSeries',
+                      params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series to be filtered.')
 
-        form.addParam('computeAlignment', params.EnumParam,
+        form.addParam('initialDose',
+                      params.FloatParam,
+                      default=0.0,
+                      label='Initial dose (e/sq A)',
+                      help='Dose applied before any of the images in the input file were taken; this value will be '
+                           'added to all the prior dose values, however they were obtained.')
+
+        form.addParam('useFixedDose',
+                      params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series', important=True,
+                      label='Use fixed dose',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+                      help='Use a fixed dose fo every image in the tilt series instead the obtained form the '
+                           'acquisition')
 
-        group = form.addGroup('Interpolated tilt-series',
-                              condition='computeAlignment==0')
-
-        group.addParam('binning', params.FloatParam,
-                       default=1.0,
-                       label='Binning',
-                       help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
-                            'binned by the given factor. Must be an integer bigger than 1')
-
-        form.addParam('rotationAngle',
+        form.addParam('fixedDose',
                       params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Angle from the vertical to the tilt axis in raw images.")
+                      default=1.0,
+                      label='Fixes dose (e/sq A)',
+                      condition='useFixedDose==0',
+                      help='Fixed dose for each image of the input file, in electrons/square Angstrom.')
 
-        form.addParam('filterRadius1',
-                      params.FloatParam,
-                      label='Filter radius 1',
-                      default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Low spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
-                           "that is 1 at this cutoff radius and falls off below this radius with a standard deviation "
-                           "specified by FilterSigma2. Spatial frequency units range from 0 to 0.5. Use FilterSigma1 "
-                           "instead of this entry for more predictable attenuation of low frequencies.")
 
-        form.addParam('filterRadius2',
-                      params.FloatParam,
-                      label='Filter radius 2',
-                      default='0.25',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="High spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
-                           "that is 1 at this cutoff radius and falls off above this radius with a standard deviation "
-                           "specified by FilterSigma2.")
-
-        form.addParam('filterSigma1',
-                      params.FloatParam,
-                      label='Filter sigma 1',
-                      default='0.03',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Sigma value to filter low frequencies in the correlations with a curve that is an inverted "
-                           "Gaussian.  This filter is 0 at 0 frequency and decays up to 1 with the given sigma value. "
-                           "However, if a negative value of radius1 is entered, this filter will be zero from 0 to "
-                           "|radius1| then decay up to 1.")
-
-        form.addParam('filterSigma2',
-                      params.FloatParam,
-                      label='Filter sigma 2',
-                      default='0.05',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Sigma value for the Gaussian rolloff below and above the cutoff frequencies specified by "
-                           "FilterRadius1 and FilterRadius2")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('computeXcorrStep', ts.getObjId())
-            if self.computeAlignment.get() == 0:
-                self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
         self._insertFunctionStep('closeOutputSetsStep')
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
+    def computeXcorrStep(self, tsObjId):
+        """Apply the dose fitler to every tilt series"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
-    def computeXcorrStep(self, tsObjId):
-        """Compute transformation matrix for each tilt series"""
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        paramsXcorr = {
+        paramsMtffilter = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
-            'tiltfile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'rotationAngle': self.rotationAngle.get(),
-            'filterSigma1': self.filterSigma1.get(),
-            'filterSigma2': self.filterSigma2.get(),
-            'filterRadius1': self.filterRadius1.get(),
-            'filterRadius2': self.filterRadius2.get()
+            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
         }
-        argsXcorr = "-input %(input)s " \
-                    "-output %(output)s " \
-                    "-tiltfile %(tiltfile)s " \
-                    "-RotationAngle %(rotationAngle)f " \
-                    "-FilterSigma1 %(filterSigma1)f " \
-                    "-FilterSigma2 %(filterSigma2)f " \
-                    "-FilterRadius1 %(filterRadius1)f " \
-                    "-FilterRadius2 %(filterRadius2)f "
-        Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
-        paramsXftoxg = {
-            'input': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
-            'goutput': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
-        }
-        argsXftoxg = "-input %(input)s " \
-                     "-goutput %(goutput)s"
-        Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
+        argsMtffilter = "-input %(input)s " \
+                        "-output %(output)s " \
+
+
+        Plugin.runImod(self, 'tiltxcorr', argsMtffilter % paramsMtffilter)
+
 
         """Generate output tilt series"""
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
