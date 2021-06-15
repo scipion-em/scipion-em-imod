@@ -85,7 +85,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       default=1.0,
                       label='Fixes dose (e/sq A)',
-                      condition='useFixedDose==1',
+                      condition='inputDoseType==1',
                       help='Fixed dose for each image of the input file, in electrons/square Angstrom.')
 
 
@@ -111,9 +111,11 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
+        firstItem = ts.getFirstItem()
+
         paramsMtffilter = {
-            'input':ts.getFirstItem().getFileName(),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'input':firstItem.getFileName(),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'voltage': tsSet.getAcquisition().getVoltage(),
 
         }
@@ -124,11 +126,17 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                         "-Voltage %(voltage)d "
 
         if self.inputDoseType.get() == 0:
+            outputDefocusFilePath = firstItem.parseFileName(extension=".dose")
+
+            utils.generateDoseFileFromTS(ts, os.path.join(extraPrefix, outputDefocusFilePath))
+
             paramsMtffilter.update({
-                'fixedImageDose': self.minimumViewsPhaseShift.get()
+                'typeOfDoseFile': 1,
+                'doseWeightingFile': outputDefocusFilePath,
             })
 
-            argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
+            argsMtffilter += "-TypeOfDoseFile %(typeOfDoseFile)d " \
+                             "-DoseWeightingFile %(doseWeightingFile) "
 
         if self.inputDoseType.get() == 1:
             paramsMtffilter.update({
