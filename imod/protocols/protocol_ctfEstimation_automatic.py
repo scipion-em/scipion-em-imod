@@ -37,18 +37,19 @@ from imod import Plugin
 from imod import utils
 
 
-class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
+class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
     """
 
-    _label = 'CTF estimation'
+    _label = 'automatic CTF estimation (step 1)'
     _devStatus = BETA
 
     defocusUTolerance = 20
     defocusVTolerance = 20
+    _interactiveMode = False
 
     def __init__(self, **args):
         EMProtocol.__init__(self, **args)
@@ -112,18 +113,6 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                       important=True,
                       help='Specifies how much the tilt axis deviates from vertical (Y axis). This angle is in degrees.'
                            ' It follows the right hand  rule and counter-clockwise is positive.')
-
-        form.addParam('interactiveMode',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Run interactive GUI',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
-                           'to file and exit after autofitting. The program will not ask for confirmation before '
-                           'removing existing entries in the defocus table. If run in interactive mode defocus values'
-                           'MUST BE SAVED manually by the user.')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -286,17 +275,26 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
         return self.inputSet.get()
 
     def _getTiltSeries(self, itemId):
-        ts = self.inputSet.get()[itemId]
-        if isinstance(ts, tomoObj.CTFTomoSeries):
-            ts = ts.getTiltSeries()
-        return ts
+        obj = None
+        inputSetOfTiltseries = self._getSetOfTiltSeries()
+        for item in inputSetOfTiltseries.iterItems(iterate=False):
+            if item.getObjId() == itemId:
+                obj = item
+                if isinstance(obj, tomoObj.CTFTomoSeries):
+                    obj = item.getTiltSeries()
+                break
+
+        if obj is None:
+            raise ("Could not find tilt-series with tsId = %s" % itemId)
+
+        return obj
 
     def _insertAllSteps(self):
         for item in self.inputSet.get():
-            self._insertFunctionStep('convertInputStep', item.getObjId())
-            self._insertFunctionStep('ctfEstimation', item.getObjId())
-            self._insertFunctionStep('createOutputStep', item.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.convertInputStep, item.getObjId())
+            self._insertFunctionStep(self.ctfEstimation, item.getObjId())
+            self._insertFunctionStep(self.createOutputStep, item.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -413,7 +411,7 @@ class ProtImodCtfEstimation(EMProtocol, ProtTomoBase):
                 argsCtfPlotter += "-SearchCutonFrequency " \
                                   "-MaxCutOnToSearch %(maximumCutOnFreq)f "
 
-        if self.interactiveMode.get() == 1:
+        if not self._interactiveMode:
             argsCtfPlotter += "-SaveAndExit "
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)

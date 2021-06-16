@@ -434,6 +434,10 @@ class CtfEstimationListDialog(ListDialog):
                     break
 
 
+class protClass:
+    protImodEtomoClass = 1
+    protImodCTFEstimation = 2
+
 class ImodGenericTreeProvider(TreeProvider):
     """ Model class that will retrieve the information from TiltSeries,
         Tomogram, SetOfTomograms, SetOfTiltSeries and  prepare the
@@ -496,12 +500,16 @@ class ImodGenericTreeProvider(TreeProvider):
             (self.COL_TS, 100),
             (self.COL_INFO, 350)]
         if self.isInteractive:
-            cols.append((self.COL_PREALIGNED, 80))
-            cols.append((self.COL_ALIGNED, 70))
-            cols.append((self.COL_COOR3D, 110))
-            cols.append((self.COL_LANDMODEL_NO_GAPS, 190))
-            cols.append((self.COL_RECONST_TOMOGRAM, 120))
-            cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 180))
+            protocolClass = self.getProtocolClass()
+            if protocolClass == protClass.protImodEtomoClass:
+                cols.append((self.COL_PREALIGNED, 80))
+                cols.append((self.COL_ALIGNED, 70))
+                cols.append((self.COL_COOR3D, 110))
+                cols.append((self.COL_LANDMODEL_NO_GAPS, 190))
+                cols.append((self.COL_RECONST_TOMOGRAM, 120))
+                cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 180))
+            else:
+                cols.append((self.COL_STATUS, 80))
 
         return cols
 
@@ -538,12 +546,20 @@ class ImodGenericTreeProvider(TreeProvider):
         }
         return item
 
-    def getObjStatus(self, obj, values):
+    def getProtocolClass(self):
+        if issubclass(self.protocol.__class__, ProtImodEtomo):
+            protocolClass = protClass.protImodEtomoClass
+        else:
+            protocolClass = protClass.protImodCTFEstimation
+        return protocolClass
+
+    def getImodEtomoColumnValues(self, obj, values):
         status = 'pending'
-        for item in self.protocol.inputSetOfTiltSeries.get():
+        for item in  self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
                 """Prealigned tilt-series"""
-                prealiFilePath = self.protocol.getFilePath(item, extension=".preali")
+                prealiFilePath = self.protocol.getFilePath(item,
+                                                           extension=".preali")
                 if os.path.exists(prealiFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -567,15 +583,19 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Landmark models with no gaps"""
-                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps", extension=".fid")) and
-                        os.path.exists(self.protocol.getFilePath(item, extension=".resid"))):
+                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps",
+                                                             extension=".fid")) and
+                        os.path.exists(
+                            self.protocol.getFilePath(item, extension=".resid"))):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
 
                 """Full reconstructed tomogram"""
-                reconstructTomoFilePath = self.protocol.getFilePath(item, suffix="_full", extension=".rec")
+                reconstructTomoFilePath = self.protocol.getFilePath(item,
+                                                                    suffix="_full",
+                                                                    extension=".rec")
                 if os.path.exists(reconstructTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -583,13 +603,38 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Post-processed reconstructed tomogram"""
-                posprocessedRecTomoFilePath = self.protocol.getFilePath(item, extension=".rec")
+                posprocessedRecTomoFilePath = self.protocol.getFilePath(item,
+                                                                        extension=".rec")
                 if os.path.exists(posprocessedRecTomoFilePath):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
                 break
+        return status
+
+    def getImodCTFEstimationColumnValues(self, obj, values):
+        status = 'pending'
+        for item in self.protocol.inputSetOfTiltSeries:
+            if item.getTsId() == obj.getTsId():
+                extraPrefix = self.protocol._getExtraPath(item.getTsId())
+                defocusFilePath = os.path.join(extraPrefix, item.getFirstItem().parseFileName(extension=".defocus"))
+                if os.path.exists(defocusFilePath):
+                    values.append('DONE')
+                    status = 'done'
+                else:
+                    values.append('TODO')
+                break
+        return status
+
+    def getObjStatus(self, obj, values):
+        protocolClass = self.getProtocolClass()
+
+        if protocolClass == protClass.protImodEtomoClass:
+            status = self.getImodEtomoColumnValues(obj, values)
+        else:
+            status = self.getImodCTFEstimationColumnValues(obj, values)
+
         return status
 
     def getObjectActions(self, obj):
@@ -662,11 +707,10 @@ class ImodListDialog(ListDialog):
     def doubleClickOnItem(self, e=None):
         ts = e
         protocol = self.provider.protocol
-        if issubclass(protocol.__class__, ProtImodEtomo):
-            self.proc = threading.Thread(target=protocol.runAllSteps,
-                                         args=(ts,))
-            self.proc.start()
-            self.after(1000, self.refresh_gui)
+        self.proc = threading.Thread(target=protocol.runAllSteps,
+                                     args=(ts,))
+        self.proc.start()
+        self.after(1000, self.refresh_gui)
 
     def refresh_gui(self):
         self.tree.update()

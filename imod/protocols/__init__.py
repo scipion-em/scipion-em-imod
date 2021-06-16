@@ -35,7 +35,8 @@ from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatri
 from .protocol_tsNormalization import ProtImodTSNormalization
 from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_ctfCorrection import ProtImodCtfCorrection
-from .protocol_ctfEstimation import ProtImodCtfEstimation
+from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from .protocol_ctfEstimation_manual import ProtImodManualCtfEstimation
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_xRaysEraser import ProtImodXraysEraser

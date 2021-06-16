@@ -149,7 +149,7 @@ class TestImodBase(BaseTest):
                           findAstigPhaseCutonToggle, phaseShiftAstigmatism, cutOnFrequencyAstigmatism,
                           minimumViewsAstigmatism, minimumViewsPhaseShift, numberSectorsAstigmatism,
                           maximumAstigmatism):
-        cls.protCTFEstimation = cls.newProtocol(ProtImodCtfEstimation,
+        cls.protCTFEstimation = cls.newProtocol(ProtImodAutomaticCtfEstimation,
                                                 inputSet=inputSoTS,
                                                 defocusTol=defocusTol,
                                                 expectedDefocusOrigin=expectedDefocusOrigin,
