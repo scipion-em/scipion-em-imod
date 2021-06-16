@@ -142,7 +142,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
         if self.inputDoseType.get() == FIXED_DOSE:
             paramsMtffilter.update({
-                'fixedImageDose': self.minimumViewsPhaseShift.get()
+                'fixedImageDose': self.fixedImageDose.get()
             })
 
             argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
