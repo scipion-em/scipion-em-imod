@@ -120,7 +120,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             'input':firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'voltage': tsSet.getAcquisition().getVoltage(),
-
         }
 
         argsMtffilter = "-input %(input)s " \
@@ -185,6 +184,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
         self._store()
 
+
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfTiltSeries(self):
         if hasattr(self, "outputSetOfTiltSeries"):
@@ -198,7 +198,19 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
         return self.outputSetOfTiltSeries
 
+
     # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+        validateMsgs = []
+
+        if self.inputDoseType.get() == SCIPION_IMPORT:
+            for ts in self.inputSetOfTiltSeries.get():
+                if ts.getFirstItem().getAcquisition().getDosePerFrame() == None:
+                    validateMsgs.append("%s has no dose information stored in Scipion Metadata. To solve this import "
+                                        "the tilt-series with the mdoc option." % ts.getTsId())
+
+        return validateMsgs
+
     def _summary(self):
         summary = []
         if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
