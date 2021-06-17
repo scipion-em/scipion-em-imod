@@ -813,7 +813,8 @@ def calculateRotationAngleFromTM(ts):
 
 
 def generateDoseFileFromTS(ts, doseFileOutputPath):
-    """ """
+    """ This method generates a file containing the dose information of a tilt series in the specified location. The
+    format file consist in a """
     doseInfoList = []
 
     acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
