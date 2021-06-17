@@ -236,7 +236,6 @@ class CtfEstimationListDialog(ListDialog):
         self._protocol = protocol
         self._inputSetOfTiltSeries = inputTS
         self._checkedItems = provider._checkedItems
-        self.suffix = 0
         ListDialog.__init__(self, parent, title, provider, message=None,
                             allowSelect=False, **kwargs)
 
@@ -351,11 +350,17 @@ class CtfEstimationListDialog(ListDialog):
         Return the number of the last output in order to complete the new
         output with a suffix
         """
-        if self.suffix == 0:
-            self.suffix = sum(1 for _ in protocol.iterOutputAttributes()) + 1
-        else:
-            self.suffix = 1
-        return self.suffix
+        maxCounter = -1
+        pattern = 'goodSetOfCTFTomoSeries'
+        for attrName, _ in protocol.iterOutputAttributes():
+            suffix = attrName.replace(pattern, '')
+            try:
+                counter = int(suffix)
+            except:
+                counter = 1  # when there is not number assume 1
+            maxCounter = max(counter, maxCounter)
+
+        return str(maxCounter + 1) if maxCounter > 0 else ''
 
     def _createBottomPanel(self, bottomPanel):
         self._createCTFEstimationGUI(bottomPanel)
@@ -658,8 +663,10 @@ class ImodGenericTreeProvider(TreeProvider):
 
 class ImodListDialog(ListDialog):
     def __init__(self, parent, title, provider, displayAllButton=True,
+                 createSetButton=False,
                  itemDoubleClick=False, **kwargs):
         self.displayAllButton = displayAllButton
+        self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
         ListDialog.__init__(self, parent, title, provider, message=None,
@@ -676,19 +683,35 @@ class ImodListDialog(ListDialog):
         self._col = 0
         if self.displayAllButton:
             self.displayAll = self._addButton(dialogFrame,
-                                                        'Display all at once',
-                                                        pwutils.Icon.ACTION_VISUALIZE,
-                                                        self._displayAll,
-                                                        sticky='ne',
-                                                        state=tk.NORMAL)
+                                              'Display all at once',
+                                              pwutils.Icon.ACTION_VISUALIZE,
+                                              self._displayAll,
+                                              sticky='ne',
+                                              state=tk.NORMAL)
+        if self.createSetButton:
+            self.createSet = self._addButton(dialogFrame,
+                                             'CTFTomo',
+                                             pwutils.Icon.PLUS_CIRCLE,
+                                             self._createOutput,
+                                             sticky='ne',
+                                             state=tk.NORMAL)
         self._createTree(dialogFrame)
         self.initial_focus = self.tree
         if self._itemDoubleClick:
             self.tree.itemDoubleClick = self.doubleClickOnItem
 
-    def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
+    def _addButton(self, frame, text, image, command, sticky='news',
+                   state=tk.NORMAL):
+
+        defaults = {'activebackground': gui.cfgButtonActiveBgColor,
+                    'bg': gui.cfgButtonBgColor,
+                    'fg': gui.cfgButtonFgColor,
+                    'activeforeground': gui.cfgButtonActiveFgColor,
+                    'compound': tk.LEFT}
+
         btn = tk.Button(frame, text=text, image=self.getImage(image),
-                        compound=tk.LEFT, cursor='hand2', state=state)
+                        cursor='hand2', state=state,
+                        **defaults)
         btn.bind('<Button-1>', command)
         btn.grid(row=0, column=self._col, sticky=sticky,
                  padx=(0, 5), pady=5)
@@ -703,6 +726,9 @@ class ImodListDialog(ListDialog):
             ImodSetOfLandmarkModelsView(set)
         elif isinstance(set, tomo.objects.SetOfTomograms):
             ImodSetOfTomogramsView(set)
+
+    def _createOutput(self, e=None):
+        self.provider.protocol.createOutput()
 
     def doubleClickOnItem(self, e=None):
         ts = e
@@ -764,7 +790,8 @@ class ImodGenericViewer(pwviewer.View):
     and the ImodTreeProvider.
     """
     def __init__(self, parent, protocol, objs, displayAllButton=True,
-                 isInteractive=False, itemDoubleClick=False, **kwargs):
+                 createSetButton=False, isInteractive=False,
+                 itemDoubleClick=False, **kwargs):
         """
          Params:
             parent: Tkinter parent widget
@@ -785,11 +812,13 @@ class ImodGenericViewer(pwviewer.View):
         self._provider = ImodGenericTreeProvider(protocol, objs, isInteractive)
         self.title = self._provider.title
         self.displayAllButton = displayAllButton
+        self.createSetButton = createSetButton
         self.itemDoubleClick = itemDoubleClick
 
     def show(self):
         ImodListDialog(self._tkParent, self.title, self._provider,
                        displayAllButton=self.displayAllButton,
+                       createSetButton=self.createSetButton,
                        itemDoubleClick=self.itemDoubleClick)
 
 
