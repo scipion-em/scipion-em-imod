@@ -50,6 +50,7 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
     defocusUTolerance = 20
     defocusVTolerance = 20
     _interactiveMode = False
+    OUTPUT_PREFIX = 'outputSetOfCTFTomoSeries'
 
     def __init__(self, **args):
         EMProtocol.__init__(self, **args)
@@ -293,7 +294,8 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
         for item in self.inputSet.get():
             self._insertFunctionStep(self.convertInputStep, item.getObjId())
             self._insertFunctionStep(self.ctfEstimation, item.getObjId())
-            self._insertFunctionStep(self.createOutputStep, item.getObjId())
+            self._insertFunctionStep(self.createOutputStep, item.getObjId(),
+                                     self.OUTPUT_PREFIX)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
@@ -416,10 +418,11 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
-    def createOutputStep(self, tsObjId):
+    def createOutputStep(self, tsObjId, outputSetName):
         ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
         objId = ts.getObjId()
+        self.outputSetName = outputSetName
 
         extraPrefix = self._getExtraPath(tsId)
 
@@ -427,7 +430,7 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
 
         if os.path.exists(defocusFilePath):
 
-            self.getOutputSetOfCTFTomoSeries()
+            self.getOutputSetOfCTFTomoSeries(self.outputSetName)
 
             defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
@@ -442,7 +445,8 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
             # to append it to the set and be able to update it posteriorly. "
 
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-            self.outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
+            output = getattr(self, self.outputSetName)
+            output.append(newCTFTomoSeries)
 
             if defocusFileFlag == 0:
                 " Plain estimation "
@@ -552,27 +556,33 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
 
             newCTFTomoSeries.write(properties=False)
 
-            self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
-            self.outputSetOfCTFTomoSeries.write()
+            output.update(newCTFTomoSeries)
+            output.write()
 
             self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
-
+        output = getattr(self, self.outputSetName)
+        if output is not None:
+            output.setStreamState(Set.STREAM_CLOSED)
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfCTFTomoSeries(self):
-        if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.outputSetOfCTFTomoSeries.enableAppend()
+
+    def allowsDelete(self, obj):
+        return True
+
+    def getOutputSetOfCTFTomoSeries(self, outputSetName):
+        if hasattr(self, outputSetName):
+            outputSetOfCTFTomoSeries = getattr(self, outputSetName)
+            if outputSetOfCTFTomoSeries is not None:
+                outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-        return self.outputSetOfCTFTomoSeries
+            self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
 
     def getExpectedDefocus(self, tsId):
         if self.expectedDefocusOrigin.get() == 0:

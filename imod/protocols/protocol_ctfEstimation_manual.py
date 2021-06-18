@@ -28,6 +28,7 @@
 import os
 
 from pyworkflow import BETA
+from tomo.objects import SetOfCTFTomoSeries
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
 
 
@@ -60,20 +61,27 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         from imod.viewers import ImodGenericViewer
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
         view = ImodGenericViewer(None, self, self.inputSetOfTiltSeries,
-                                 displayAllButton=False, isInteractive=True,
+                                 displayAllButton=False, createSetButton=True,
+                                 isInteractive=True,
                                  itemDoubleClick=True)
         view.show()
-        if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.deleteOutput(self.outputSetOfCTFTomoSeries)
-        setOfTiltseries = self._getSetOfTiltSeries()
-        for item in setOfTiltseries.iterItems(iterate=False):
-            self.createOutputStep(item.getObjId())
-        self.closeOutputSetsStep()
 
     def runAllSteps(self, obj):
         objId = obj.getObjId()
         self.convertInputStep(objId)
         self.ctfEstimation(objId)
+
+    def createOutput(self):
+        suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
+        outputSetName = self.OUTPUT_PREFIX + str(suffix)
+        setOfTiltseries = self._getSetOfTiltSeries()
+        for item in setOfTiltseries.iterItems(iterate=False):
+            self.createOutputStep(item.getObjId(), outputSetName)
+        self.closeOutputSetsStep()
+
+    def _summary(self):
+        summary = []
+        return summary
 
     # ------------------ UTILS METHODS ------------------------------------
 
