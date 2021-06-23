@@ -265,13 +265,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
-            etomoAligFilePath = self.getFilePath(ts, extension=".ali")
+            aligFilePath = self.getFilePath(ts, extension=".ali")
 
-            if os.path.exists(etomoAligFilePath):
-                aligFilePath = self.getFilePath(ts, extension=".st")
-
-                Plugin.runImod(self, 'newstack', etomoAligFilePath + " " + aligFilePath)
-
+            if os.path.exists(aligFilePath):
                 if outputAliSetOfTiltSeries is None:
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
                     outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries)
