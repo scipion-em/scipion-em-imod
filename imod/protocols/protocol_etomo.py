@@ -297,7 +297,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 print(tltList)
 
                 index = 0
-                for index, tiltImage in ennumerate(ts.iterItems(iterate=False)):
+                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     print(index)
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
