@@ -327,7 +327,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
                     newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
 
-                    newCoord3D.setVolId(tsObjId)
+                    newCoord3D.setVolId(ts.getObjId())
                     outputSetOfCoordinates3D.append(newCoord3D)
                     outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
