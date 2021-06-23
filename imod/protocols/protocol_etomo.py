@@ -293,12 +293,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     tltList = None
 
-                print("fededebug")
-                print(tltList)
-
                 index = 0
                 for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
-                    print(index)
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, aligFilePath)
