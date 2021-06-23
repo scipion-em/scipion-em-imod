@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+import numpy as np
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
@@ -87,9 +88,22 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
                         newTi = tomoObj.TiltImage()
                         newTi.copyInfo(tiltImage, copyId=True)
                         newTi.setLocation(tiltImage.getLocation())
+
                         transform = data.Transform()
-                        transform.setMatrix(alignmentMatrix[:, :, index])
-                        newTi.setTransform(transform)
+
+                        if tiltImage.hasTransform():
+                            previousTransform = tiltImage.getTransform().getMatrix()
+                            newTransform = alignmentMatrix[:, :, index]
+                            previousTransformArray = np.array(previousTransform)
+                            newTransformArray = np.array(newTransform)
+                            outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                            transform.setMatrix(outputTransformMatrix)
+                            newTi.setTransform(transform)
+
+                        else:
+                            transform.setMatrix(alignmentMatrix[:, :, index])
+                            newTi.setTransform(transform)
+
                         newTs.append(newTi)
 
                     ih = ImageHandler()
