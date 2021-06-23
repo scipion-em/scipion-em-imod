@@ -265,11 +265,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
             """Aligned tilt-series"""
             etomoAligFilePath = self.getFilePath(ts, extension=".ali")
-            aligFilePath = self.getFilePath(ts, extension=".st")
 
-            Plugin.runImod(self, 'newstack', etomoAligFilePath + " " + aligFilePath)
+            if os.path.exists(etomoAligFilePath):
+                aligFilePath = self.getFilePath(ts, extension=".st")
 
-            if os.path.exists(aligFilePath):
+                Plugin.runImod(self, 'newstack', etomoAligFilePath + " " + aligFilePath)
+
                 if outputAliSetOfTiltSeries is None:
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
                     outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries)
@@ -294,7 +295,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
-                    newTi.setLocation(index + 1,   self.getFilePath(ts, extension=".ali"))
+                    newTi.setLocation(index + 1, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[index]))
                     xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
