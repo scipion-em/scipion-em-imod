@@ -245,7 +245,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 ih = ImageHandler()
                 index = 0
-                for tiltImage in ts.iterItems(iterate=False):
+                for index, tiltImage in ennumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, prealiFilePath)
@@ -291,8 +291,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     tltList = utils.formatAngleList(tltFilePath)
                 else:
                     tltList = None
+
                 index = 0
-                for tiltImage in ts.iterItems(iterate=False):
+                for index, tiltImage in ennumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, aligFilePath)
