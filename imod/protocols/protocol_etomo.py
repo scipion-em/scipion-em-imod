@@ -246,7 +246,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 ih = ImageHandler()
                 index = 0
-                for index, tiltImage in ennumerate(ts.iterItems(iterate=False)):
+                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, prealiFilePath)
