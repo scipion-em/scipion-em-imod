@@ -321,13 +321,15 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 coordList = utils.format3DCoordinatesList(coordFilePath)
                 for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                                      y=element[1],
-                                                      z=element[2])
+                    newCoord3D = tomoObj.Coordinate3D()
                     newCoord3D.setVolume(ts)
-                    newCoord3D.setVolId(ts.getObjId())
-                    newCoord3D.write(properties=False)
+                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
+                    newCoord3D.setVolId(tsObjId)
                     outputSetOfCoordinates3D.append(newCoord3D)
+                    outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
                 self._store(outputSetOfCoordinates3D)
 
