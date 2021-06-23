@@ -228,6 +228,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self.inputTiltSeries = ts
             tsId = ts.getTsId()
+
             """Prealigned tilt-series"""
             prealiFilePath = self.getFilePath(ts, extension=".preali")
             if os.path.exists(prealiFilePath):
@@ -292,8 +293,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     tltList = None
 
+                print("fededebug")
+                print(tltList)
+
                 index = 0
                 for index, tiltImage in ennumerate(ts.iterItems(iterate=False)):
+                    print(index)
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, aligFilePath)
