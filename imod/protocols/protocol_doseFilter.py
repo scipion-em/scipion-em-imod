@@ -95,13 +95,13 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
+            self._insertFunctionStep(self.doseFilterStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
 
     # --------------------------- STEPS functions ----------------------------
-    def computeXcorrStep(self, tsObjId):
+    def doseFilterStep(self, tsObjId):
         """Apply the dose fitler to every tilt series"""
 
         tsSet = self.inputSetOfTiltSeries.get()
