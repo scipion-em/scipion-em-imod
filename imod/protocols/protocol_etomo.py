@@ -319,7 +319,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfCoordinates3D)
 
-                coordList = utils.format3DCoordinatesList(coordFilePath, xAli, yAli)
+                coordList = utils.format3DCoordinatesList(coordFilePath)
                 for element in coordList:
                     newCoord3D = tomoObj.Coordinate3D(x=element[0],
                                                       y=element[1],
