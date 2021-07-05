@@ -270,10 +270,11 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
                                      'defocus and phase shift. To use the default value set box to -1.')
 
     # -------------------------- INSERT steps functions ---------------------
-    def _getSetOfTiltSeries(self):
+    def _getSetOfTiltSeries(self, pointer=False):
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
-            return self.inputSet.get().getSetOfTiltSeries()
-        return self.inputSet.get()
+            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
+
+        return self.inputSet.get() if not pointer else self.inputSet
 
     def _getTiltSeries(self, itemId):
         obj = None
@@ -580,7 +581,7 @@ class ProtImodAutomaticCtfEstimation(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries())
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
 
