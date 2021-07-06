@@ -117,12 +117,15 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        ctfTomoSeries = self.inputSetOfCtfTomoSeries.get()[tsObjId]
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
+
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
 
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
@@ -205,6 +208,11 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    def getCtfTomoSeriesFromTsId(self, setOfCtfTomoSeries, tsId):
+        for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
+            if tsId == ctfTomoSeries.getTsId():
+                return ctfTomoSeries
+            
     def getOutputCtfCorrectedSetOfTiltSeries(self):
         if hasattr(self, "outputCtfCorrectedSetOfTiltSeries"):
             self.outputCtfCorrectedSetOfTiltSeries.enableAppend()
