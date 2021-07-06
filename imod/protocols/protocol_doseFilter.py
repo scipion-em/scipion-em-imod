@@ -146,9 +146,9 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
             argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
 
-            print(paramsMtffilter)
-            print(argsMtffilter)
-            print("-----------------------------------------")
+        print(paramsMtffilter)
+        print(argsMtffilter)
+        print("-----------------------------------------")
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
