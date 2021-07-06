@@ -148,6 +148,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
             print(paramsMtffilter)
             print(argsMtffilter)
+            print("-----------------------------------------")
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
