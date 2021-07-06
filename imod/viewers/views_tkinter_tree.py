@@ -41,398 +41,9 @@ import tomo.objects
 from imod import Plugin
 
 
-class CTFSerieStates:
-    UNCHECKED = 'unchecked'
-    CHECKED = 'checked'
-    ODD = 'odd'
-    EVEN = 'even'
-    FAILED = 'Failed'
-    OK = 'Ok'
-
-
-class CtfEstimationTreeProvider(TreeProvider, ttk.Treeview):
-    """ Model class that will retrieve the information from TiltSeries and
-    prepare the columns/rows models required by the TreeDialog GUI.
-    """
-    COL_CTF_SERIE = 'CTF Series'
-    CRITERIA_1 = 'defocusUDeviation'
-    CRITERIA_2 = 'defocusVDeviation'
-    COL_CTF_EST_IX = 'index'
-    COL_CTF_EST_DEFOCUS_U = 'defocusU'
-    COL_CTF_EST_DEFOCUS_V = 'defocusV'
-    COL_CTF_EST_DEFOCUS_RATIO = 'defocusRatio'
-    COL_CTF_EST_DEFOCUS_ANGLE = 'defocusAngle'
-    COL_CTF_EST_AST = 'ast'
-    COL_CTF_EST_RES = 'resolution'
-    COL_CTF_EST_FIT = 'fitQuality'
-
-    ORDER_DICT = {COL_CTF_EST_DEFOCUS_U: '_defocusU',
-                  COL_CTF_EST_DEFOCUS_V: '_defocusV',
-                  COL_CTF_EST_DEFOCUS_RATIO: '_defocusRatio',
-                  COL_CTF_EST_DEFOCUS_ANGLE: '_defocusAngle',
-                  COL_CTF_EST_RES: '_resolution',
-                  COL_CTF_EST_FIT: '_fitQuality'}
-
-    def __init__(self, master, protocol, outputSetOfCTFTomoSeries, **kw):
-        ttk.Treeview.__init__(self, master, **kw)
-        self.protocol = protocol
-        self.ctfSeries = outputSetOfCTFTomoSeries
-        TreeProvider.__init__(self, sortingColumnName=self.COL_CTF_SERIE)
-        self.selectedDict = {}
-        self.mapper = protocol.mapper
-        self.maxNum = 200
-        self._checkedItems = 0
-
-    def getObjects(self):
-        # Retrieve all objects of type className
-        objects = []
-
-        orderBy = self.ORDER_DICT.get(self.getSortingColumnName(), 'id')
-        direction = 'ASC' if self.isSortingAscending() else 'DESC'
-
-        for ctfSerie in self.ctfSeries:
-            ctfEstObj = ctfSerie.clone()
-            ctfEstObj._allowsSelection = True
-            ctfEstObj._parentObject = None
-            objects.append(ctfEstObj)
-            for item in ctfSerie.iterItems(orderBy=orderBy, direction=direction):
-                ctfEstItem = item.clone()
-                ctfEstItem._allowsSelection = False
-                ctfEstItem._parentObject = ctfEstObj
-                objects.append(ctfEstItem)
-
-        return objects
-
-    def getCTFSeries(self):
-        return self.ctfSeries
-
-    def _sortObjects(self, objects):
-        pass
-
-    def objectKey(self, pobj):
-        pass
-
-    def getColumns(self):
-        cols = [
-            (self.COL_CTF_SERIE, 200),
-            (self.CRITERIA_1, 150),
-            (self.CRITERIA_2, 150),
-            (self.COL_CTF_EST_IX, 100),
-            (self.COL_CTF_EST_DEFOCUS_U, 100),
-            (self.COL_CTF_EST_DEFOCUS_V, 100),
-            (self.COL_CTF_EST_DEFOCUS_RATIO, 100),
-            (self.COL_CTF_EST_DEFOCUS_ANGLE, 100)
-        ]
-        return cols
-
-    def isSelected(self, obj):
-        """ Check if an object is selected or not. """
-        return False
-
-    @staticmethod
-    def _getParentObject(pobj, default=None):
-        return getattr(pobj, '_parentObject', default)
-
-    def getObjectInfo(self, obj):
-        if isinstance(obj, tomo.objects.CTFTomoSeries):
-            key = obj.getTsId()
-            text = obj.getTsId()
-            values = [CTFSerieStates.OK if obj.getIsDefocusUDeviationInRange()
-                      else CTFSerieStates.FAILED,
-                      CTFSerieStates.OK if obj.getIsDefocusVDeviationInRange()
-                      else CTFSerieStates.FAILED,
-                      '', '', '']
-            opened = False
-            selected = obj.isEnabled()
-        else:  # CTFTomo
-            key = "%s.%s" % (obj._parentObject.getTsId(), str(obj.getObjId()))
-            text = ''
-            values = [CTFSerieStates.OK if obj.getIsDefocusUDeviationInRange()
-                      else CTFSerieStates.FAILED,
-                      CTFSerieStates.OK if obj.getIsDefocusVDeviationInRange()
-                      else CTFSerieStates.FAILED,
-                      obj.getIndex(), str(obj.getDefocusU()),
-                      str(obj.getDefocusV()), str(obj.getDefocusRatio()),
-                      str(obj.getDefocusAngle())]
-            opened = False
-            selected = False
-
-        item = {
-            'key': key, 'text': text,
-            'values': tuple(values),
-            'open': opened,
-            'selected': selected,
-            'parent': obj._parentObject
-        }
-        if isinstance(obj, tomo.objects.CTFTomoSeries):
-            tags = CTFSerieStates.UNCHECKED
-            if not (obj.getIsDefocusUDeviationInRange() and obj.getIsDefocusVDeviationInRange()):
-                obj.setEnabled(True)
-                tags = CTFSerieStates.CHECKED
-                self._checkedItems += 1
-
-            if obj.getObjId() % 2 == 0:
-                item['tags'] = (tags, CTFSerieStates.ODD,)
-            else:
-                item['tags'] = (tags,  CTFSerieStates.EVEN)
-        else:
-            if obj.getObjId() % 2 == 0:
-                item['tags'] = (CTFSerieStates.ODD,)
-            else:
-                item['tags'] = (CTFSerieStates.EVEN,)
-        return item
-
-
-class CTFEstimationTree(BoundTree):
-    def __init__(self, master, provider,  **opts):
-        BoundTree.__init__(self, master, provider, frame=True, **opts)
-        self.selectedItem = None
-        self._checkedItems = provider._checkedItems
-
-    def check_item(self, item):
-        """ check the box of item and change the state of the boxes of item's
-            ancestors accordingly """
-        tags = CTFSerieStates.EVEN
-        if CTFSerieStates.ODD in self.item(item, 'tags'):
-            tags = CTFSerieStates.ODD
-
-        if CTFSerieStates.UNCHECKED in self.item(item, 'tags'):
-            self.item(item, tags=(CTFSerieStates.CHECKED, tags,))
-            self._checkedItems += 1
-            self.getSelectedObj().setEnabled(False)
-            self.item(item)['selected'] = True
-        else:
-            self.item(item, tags=(CTFSerieStates.UNCHECKED, tags,))
-            self.getSelectedObj().setEnabled(True)
-            self._checkedItems -= 1
-            self.item(item)['selected'] = False
-
-    def _onClick(self, event=None):
-        self._unpostMenu()
-        x, y, widget = event.x, event.y, event.widget
-        elem = widget.identify("element", x, y)
-        self.selectedItem = self.identify_row(y)
-        self.focus(self.selectedItem)
-        if "image" in elem:
-            self.check_item(self.selectedItem)
-
-    def getSelectedItem(self):
-        return self.selectedItem
-
-    def getSelectedObj(self):
-        obj = None
-        if self.selectedItem:
-            selected = self.getFirst()
-            if selected is None:
-                obj = self._objDict[self.selectedItem]
-            else:
-                obj = self._objDict[selected]
-        return obj
-
-
-class CtfEstimationListDialog(ListDialog):
-    def __init__(self, parent, title, provider, protocol, inputTS, **kwargs):
-        self._project = protocol.getProject()
-        self._protocol = protocol
-        self._inputSetOfTiltSeries = inputTS
-        self._checkedItems = provider._checkedItems
-        self.suffix = 0
-        ListDialog.__init__(self, parent, title, provider, message=None,
-                            allowSelect=False, **kwargs)
-
-    def body(self, bodyFrame):
-        bodyFrame.config()
-        self._col = 1
-        self._fillCTFEstimationGUI(bodyFrame)
-
-    def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
-        btn = tk.Label(frame, text=text, image=self.getImage(image),
-                        compound=tk.LEFT, cursor='hand2', state=state)
-        btn.bind('<Button-1>', command)
-        btn.grid(row=0, column=self._col, sticky=sticky,
-                 padx=(0, 5), pady=5)
-        self._col += 1
-        return btn
-
-    def _fillCTFEstimationGUI(self, bodyFrame):
-        # Create a top panel to put the filter box and bottoms
-        topPanel = tk.Frame(bodyFrame)
-        topPanel.grid(row=0, column=0, padx=0, pady=0, sticky='news')
-        self._createTopPanel(topPanel)
-
-        # Create a bottom panel to put the tree and the plotter
-        bottomPanel = tk.Frame(bodyFrame)
-        bottomPanel.grid(row=1, column=0, padx=0, pady=0, sticky='news')
-        self._createBottomPanel(bottomPanel)
-
-    def _createTopPanel(self, topPanel):
-        self._createFilterBox(topPanel)
-
-        topRigthPanel = tk.Frame(topPanel)
-        topRigthPanel.grid(row=0, column=1, padx=0, pady=0, sticky='news')
-        self._createRecalculateBottom(topRigthPanel)
-        self._createViewerHelp(topRigthPanel)
-
-    def _createRecalculateBottom(self, topRigthPanel):
-
-        state = tk.NORMAL
-        if self._checkedItems or self._checkedItems == len(self.provider.getCTFSeries()):
-            state = tk.DISABLED
-        self.generateSubsetButton = self._addButton(topRigthPanel,
-                                                    'Generate subsets',
-                                                    pwutils.Icon.PROCESSING,
-                                                    self._actionCreateSets,
-                                                    sticky='ne',
-                                                    state=state)
-
-    def _createViewerHelp(self, topRigthPanel):
-        self._addButton(topRigthPanel, pwutils.Message.LABEL_HELP,
-                        pwutils.Icon.ACTION_HELP, self._showHelp, sticky='ne')
-
-    def _actionCreateSets(self, event=None):
-
-        if self.generateSubsetButton['state'] == tk.NORMAL:
-            protocol = self.provider.protocol
-            ctfSeries = self.provider.getCTFSeries()
-            suffix = self._getSuffix(protocol)
-            goodCTFName = 'goodCtf%s' % suffix
-            badCTFName = 'badCtf%s' % suffix
-
-            outputSetOfgoodCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
-                                                                prefix=goodCTFName,
-                                                                copyInfo=True)
-            outputSetOfbadCTFTomoSeries = ctfSeries.createCopy(protocol._getPath(),
-                                                               prefix=badCTFName,
-                                                               copyInfo=True)
-            for ctfSerie in ctfSeries:
-                ctfSerieClon = ctfSerie.clone()
-                if CTFSerieStates.UNCHECKED in self.tree.item(ctfSerie.getTsId(),
-                                                              'tags'):
-                    # Adding the ctfSerie to the good set of ctfTomoSeries
-                    outputSetOfgoodCTFTomoSeries.append(ctfSerieClon)
-                    outputSetOfgoodCTFTomoSeries.setSetOfTiltSeries(self._inputSetOfTiltSeries)
-
-                else:
-                    # Adding the ctfSerie to the bad set of ctfTomoSeries
-                    outputSetOfbadCTFTomoSeries.append(ctfSerieClon)
-                    outputSetOfbadCTFTomoSeries.setSetOfTiltSeries(self._inputSetOfTiltSeries)
-
-                for item in ctfSerie.iterItems():
-                    ctfEstItem = item.clone()
-                    ctfSerieClon.append(ctfEstItem)
-
-            outputgoodCTFSetName = 'goodSetOfCTFTomoSeries%s' % suffix
-            outputbadCTFSetName = 'badSetOfCTFTomoSeries%s' % suffix
-
-            if len(outputSetOfgoodCTFTomoSeries) > 0:
-                protocol._defineOutputs(**{outputgoodCTFSetName: outputSetOfgoodCTFTomoSeries})
-
-            if len(outputSetOfbadCTFTomoSeries) > 0:
-                protocol._defineOutputs(**{outputbadCTFSetName: outputSetOfbadCTFTomoSeries})
-
-            protocol._store()
-            self.cancel()
-
-    def _showHelp(self, event=None):
-        showInfo('CTFTomoSeries viewer Help',
-                 'This viewer calculates the standard deviation with respect '
-                 'to the mean of the defocusU and defocusV values. If the '
-                 'values of the images are not in the range they are marked '
-                 'as Failed and therefore the CTFTomoSerie is marked as '
-                 'Failed as well. '
-                 'On the other hand, the viewer allows you to create two '
-                 'subsets of CTFTomoSeries which are classified as good '
-                 'and bad respectively. '
-                 'Note: The ctfseries that are checked are the ones that '
-                 'represent the bad ctfseries', self.parent)
-
-    def _getSuffix(self, protocol):
-        """
-        Return the number of the last output in order to complete the new
-        output with a suffix
-        """
-        if self.suffix == 0:
-            self.suffix = sum(1 for _ in protocol.iterOutputAttributes()) + 1
-        else:
-            self.suffix = 1
-        return self.suffix
-
-    def _createBottomPanel(self, bottomPanel):
-        self._createCTFEstimationGUI(bottomPanel)
-        self.initial_focus = self.tree
-
-    def _createCTFEstimationGUI(self, bottomPanel):
-        # Create a division Paned
-        pw = tk.PanedWindow(bottomPanel, orient=tk.HORIZONTAL)
-        # Create a left panel to put the tree
-        bottomleftPanel = tk.Frame(pw)
-        bottomleftPanel.grid(row=0, column=0, padx=0, pady=0, sticky='news')
-        self._createTree(bottomleftPanel)
-        pw.add(bottomleftPanel)
-        # Panel to put the plotter
-        self.bottomRightPanel = ttk.Frame(pw)
-        self.bottomRightPanel.grid(row=0, column=1, padx=0, pady=0, sticky='news')
-        self._createPloter(self.bottomRightPanel)
-        pw.add(self.bottomRightPanel)
-        pw.pack(fill=BOTH, expand=True)
-        # This method is used to show sash
-        pw.configure(sashrelief=RAISED)
-
-    def _createTree(self, parent):
-
-        gui.configureWeigths(parent)
-
-        self.tree = CTFEstimationTree(parent, self.provider,
-                                      selectmode=self._selectmode)
-        item = self.tree.identify_row(0)
-        self.tree.selection_set(item)
-        self.tree.focus(item)
-        self.tree.selectedItem = item
-        self.im_checked = gui.getImage(Icon.CHECKED)
-        self.im_unchecked = gui.getImage(Icon.UNCHECKED)
-        self.tree.tag_configure(CTFSerieStates.UNCHECKED,
-                                image=self.im_unchecked)
-        self.tree.tag_configure(CTFSerieStates.CHECKED,
-                                image=self.im_checked)
-        self.tree.tag_configure(CTFSerieStates.EVEN, background='#F2F2F2',
-                                foreground='black')
-        self.tree.tag_configure(CTFSerieStates.ODD, background='#E6E6E6',
-                                foreground='black')
-        self.tree.bind("<Button-1>", self._createPloter, True)
-
-    def _createPloter(self, event):
-        obj = self.tree.getSelectedObj()
-        self._checkedItems = self.tree._checkedItems
-        if self._checkedItems and self._checkedItems != len(self.provider.getCTFSeries()):
-            self.generateSubsetButton['state'] = tk.NORMAL
-        else:
-            self.generateSubsetButton['state'] = tk.DISABLED
-        if obj is not None:
-            plotterPanel = tk.Frame(self.bottomRightPanel)
-            defocusUList = []
-            defocusVList = []
-            itemSelected = self.tree.selectedItem
-
-            if self.tree.parent(self.tree.selectedItem):
-                itemSelected = self.tree.parent(self.tree.selectedItem)
-
-            for ctfSerie in self.provider.getCTFSeries():
-                if ctfSerie.getTsId() == itemSelected:
-                    for item in ctfSerie.iterItems(orderBy='id'):
-                        defocusUList.append(item.getDefocusU())
-                        defocusVList.append(item.getDefocusV())
-
-                    fig = Figure(figsize=(7, 7), dpi=100)
-                    defocusPlot = fig.add_subplot(111)
-                    defocusPlot.plot(defocusUList, marker='o', label='DefocusU')
-                    defocusPlot.plot(defocusVList, marker='o', label='DefocusV')
-                    fig.legend()
-                    canvas = FigureCanvasTkAgg(fig, master=plotterPanel)
-                    canvas.draw()
-                    canvas.get_tk_widget().pack(fill=tkinter.BOTH, expand=0)
-                    plotterPanel.grid(row=0, column=1, sticky='news')
-                    break
-
+class protClass:
+    protImodEtomoClass = 1
+    protImodCTFEstimation = 2
 
 class ImodGenericTreeProvider(TreeProvider):
     """ Model class that will retrieve the information from TiltSeries,
@@ -496,12 +107,16 @@ class ImodGenericTreeProvider(TreeProvider):
             (self.COL_TS, 100),
             (self.COL_INFO, 350)]
         if self.isInteractive:
-            cols.append((self.COL_PREALIGNED, 80))
-            cols.append((self.COL_ALIGNED, 70))
-            cols.append((self.COL_COOR3D, 110))
-            cols.append((self.COL_LANDMODEL_NO_GAPS, 190))
-            cols.append((self.COL_RECONST_TOMOGRAM, 120))
-            cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 180))
+            protocolClass = self.getProtocolClass()
+            if protocolClass == protClass.protImodEtomoClass:
+                cols.append((self.COL_PREALIGNED, 80))
+                cols.append((self.COL_ALIGNED, 70))
+                cols.append((self.COL_COOR3D, 110))
+                cols.append((self.COL_LANDMODEL_NO_GAPS, 190))
+                cols.append((self.COL_RECONST_TOMOGRAM, 120))
+                cols.append((self.COL_PREPROCESS_RECONST_TOMOGRAM, 180))
+            else:
+                cols.append((self.COL_STATUS, 80))
 
         return cols
 
@@ -538,12 +153,20 @@ class ImodGenericTreeProvider(TreeProvider):
         }
         return item
 
-    def getObjStatus(self, obj, values):
+    def getProtocolClass(self):
+        if issubclass(self.protocol.__class__, ProtImodEtomo):
+            protocolClass = protClass.protImodEtomoClass
+        else:
+            protocolClass = protClass.protImodCTFEstimation
+        return protocolClass
+
+    def getImodEtomoColumnValues(self, obj, values):
         status = 'pending'
-        for item in self.protocol.inputSetOfTiltSeries.get():
+        for item in  self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
                 """Prealigned tilt-series"""
-                prealiFilePath = self.protocol.getFilePath(item, extension=".preali")
+                prealiFilePath = self.protocol.getFilePath(item,
+                                                           extension=".preali")
                 if os.path.exists(prealiFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -567,15 +190,19 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Landmark models with no gaps"""
-                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps", extension=".fid")) and
-                        os.path.exists(self.protocol.getFilePath(item, extension=".resid"))):
+                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps",
+                                                             extension=".fid")) and
+                        os.path.exists(
+                            self.protocol.getFilePath(item, extension=".resid"))):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
 
                 """Full reconstructed tomogram"""
-                reconstructTomoFilePath = self.protocol.getFilePath(item, suffix="_full", extension=".rec")
+                reconstructTomoFilePath = self.protocol.getFilePath(item,
+                                                                    suffix="_full",
+                                                                    extension=".rec")
                 if os.path.exists(reconstructTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -583,13 +210,38 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Post-processed reconstructed tomogram"""
-                posprocessedRecTomoFilePath = self.protocol.getFilePath(item, extension=".rec")
+                posprocessedRecTomoFilePath = self.protocol.getFilePath(item,
+                                                                        extension=".rec")
                 if os.path.exists(posprocessedRecTomoFilePath):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
                 break
+        return status
+
+    def getImodCTFEstimationColumnValues(self, obj, values):
+        status = 'pending'
+        for item in self.protocol.inputSetOfTiltSeries:
+            if item.getTsId() == obj.getTsId():
+                extraPrefix = self.protocol._getExtraPath(item.getTsId())
+                defocusFilePath = os.path.join(extraPrefix, item.getFirstItem().parseFileName(extension=".defocus"))
+                if os.path.exists(defocusFilePath):
+                    values.append('DONE')
+                    status = 'done'
+                else:
+                    values.append('TODO')
+                break
+        return status
+
+    def getObjStatus(self, obj, values):
+        protocolClass = self.getProtocolClass()
+
+        if protocolClass == protClass.protImodEtomoClass:
+            status = self.getImodEtomoColumnValues(obj, values)
+        else:
+            status = self.getImodCTFEstimationColumnValues(obj, values)
+
         return status
 
     def getObjectActions(self, obj):
@@ -613,8 +265,10 @@ class ImodGenericTreeProvider(TreeProvider):
 
 class ImodListDialog(ListDialog):
     def __init__(self, parent, title, provider, displayAllButton=True,
+                 createSetButton=False,
                  itemDoubleClick=False, **kwargs):
         self.displayAllButton = displayAllButton
+        self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
         ListDialog.__init__(self, parent, title, provider, message=None,
@@ -631,19 +285,35 @@ class ImodListDialog(ListDialog):
         self._col = 0
         if self.displayAllButton:
             self.displayAll = self._addButton(dialogFrame,
-                                                        'Display all at once',
-                                                        pwutils.Icon.ACTION_VISUALIZE,
-                                                        self._displayAll,
-                                                        sticky='ne',
-                                                        state=tk.NORMAL)
+                                              'Display all at once',
+                                              pwutils.Icon.ACTION_VISUALIZE,
+                                              self._displayAll,
+                                              sticky='ne',
+                                              state=tk.NORMAL)
+        if self.createSetButton:
+            self.createSet = self._addButton(dialogFrame,
+                                             'CTFTomo',
+                                             pwutils.Icon.PLUS_CIRCLE,
+                                             self._createOutput,
+                                             sticky='ne',
+                                             state=tk.NORMAL)
         self._createTree(dialogFrame)
         self.initial_focus = self.tree
         if self._itemDoubleClick:
             self.tree.itemDoubleClick = self.doubleClickOnItem
 
-    def _addButton(self, frame, text, image, command, sticky='news', state=tk.NORMAL):
+    def _addButton(self, frame, text, image, command, sticky='news',
+                   state=tk.NORMAL):
+
+        defaults = {'activebackground': gui.cfgButtonActiveBgColor,
+                    'bg': gui.cfgButtonBgColor,
+                    'fg': gui.cfgButtonFgColor,
+                    'activeforeground': gui.cfgButtonActiveFgColor,
+                    'compound': tk.LEFT}
+
         btn = tk.Button(frame, text=text, image=self.getImage(image),
-                        compound=tk.LEFT, cursor='hand2', state=state)
+                        cursor='hand2', state=state,
+                        **defaults)
         btn.bind('<Button-1>', command)
         btn.grid(row=0, column=self._col, sticky=sticky,
                  padx=(0, 5), pady=5)
@@ -659,14 +329,16 @@ class ImodListDialog(ListDialog):
         elif isinstance(set, tomo.objects.SetOfTomograms):
             ImodSetOfTomogramsView(set)
 
+    def _createOutput(self, e=None):
+        self.provider.protocol.createOutput()
+
     def doubleClickOnItem(self, e=None):
         ts = e
         protocol = self.provider.protocol
-        if issubclass(protocol.__class__, ProtImodEtomo):
-            self.proc = threading.Thread(target=protocol.runAllSteps,
-                                         args=(ts,))
-            self.proc.start()
-            self.after(1000, self.refresh_gui)
+        self.proc = threading.Thread(target=protocol.runAllSteps,
+                                     args=(ts,))
+        self.proc.start()
+        self.after(1000, self.refresh_gui)
 
     def refresh_gui(self):
         self.tree.update()
@@ -720,7 +392,8 @@ class ImodGenericViewer(pwviewer.View):
     and the ImodTreeProvider.
     """
     def __init__(self, parent, protocol, objs, displayAllButton=True,
-                 isInteractive=False, itemDoubleClick=False, **kwargs):
+                 createSetButton=False, isInteractive=False,
+                 itemDoubleClick=False, **kwargs):
         """
          Params:
             parent: Tkinter parent widget
@@ -741,11 +414,13 @@ class ImodGenericViewer(pwviewer.View):
         self._provider = ImodGenericTreeProvider(protocol, objs, isInteractive)
         self.title = self._provider.title
         self.displayAllButton = displayAllButton
+        self.createSetButton = createSetButton
         self.itemDoubleClick = itemDoubleClick
 
     def show(self):
         ImodListDialog(self._tkParent, self.title, self._provider,
                        displayAllButton=self.displayAllButton,
+                       createSetButton=self.createSetButton,
                        itemDoubleClick=self.itemDoubleClick)
 
 

@@ -26,19 +26,26 @@
 # *
 # **************************************************************************
 
-from .protocol_etomo import ProtImodEtomo
-# from .protocol_auto3d import ProtImodAuto3D
-from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
-from .protocol_fiducialAlignment import ProtImodFiducialAlignment
-from .protocol_tomoReconstruction import ProtImodTomoReconstruction
+# Calculus protocols
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
-from .protocol_tsNormalization import ProtImodTSNormalization
-from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_ctfCorrection import ProtImodCtfCorrection
-from .protocol_ctfEstimation import ProtImodCtfEstimation
-from .protocol_tomoProjection import ProtImodTomoProjection
+from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from .protocol_ctfEstimation_manual import ProtImodManualCtfEstimation
+from .protocol_doseFilter import ProtImodDoseFilter
+from .protocol_etomo import ProtImodEtomo
+from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
+from .protocol_tomoNormalization import ProtImodTomoNormalization
+from .protocol_tomoProjection import ProtImodTomoProjection
+from .protocol_tomoReconstruction import ProtImodTomoReconstruction
+from .protocol_tsNormalization import ProtImodTSNormalization
+from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
-# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
+
+# Import protocols
 from .protocol_importSetOfCTFTomoSeries import ProtImodImportSetOfCtfTomoSeries
 from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
+
+# Deprecated protocols
+# from .protocol_auto3d import ProtImodAuto3D
+# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser

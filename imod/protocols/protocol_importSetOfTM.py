@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+import numpy as np
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
@@ -50,6 +51,11 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
     def _defineParams(self, form):
         ProtTomoImportFiles._defineImportParams(self, form)
+
+        form.addParam('exclusionWords', params.StringParam,
+                      label='Exclusion words:',
+                      help="List of words separated by a space that the path should not have",
+                      expertLevel=params.LEVEL_ADVANCED)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
@@ -87,9 +93,22 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
                         newTi = tomoObj.TiltImage()
                         newTi.copyInfo(tiltImage, copyId=True)
                         newTi.setLocation(tiltImage.getLocation())
+
                         transform = data.Transform()
-                        transform.setMatrix(alignmentMatrix[:, :, index])
-                        newTi.setTransform(transform)
+
+                        if tiltImage.hasTransform():
+                            previousTransform = tiltImage.getTransform().getMatrix()
+                            newTransform = alignmentMatrix[:, :, index]
+                            previousTransformArray = np.array(previousTransform)
+                            newTransformArray = np.array(newTransform)
+                            outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                            transform.setMatrix(outputTransformMatrix)
+                            newTi.setTransform(transform)
+
+                        else:
+                            transform.setMatrix(alignmentMatrix[:, :, index])
+                            newTi.setTransform(transform)
+
                         newTs.append(newTi)
 
                     ih = ImageHandler()
@@ -105,6 +124,48 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
                     self._store()
 
     # --------------------------- UTILS functions ----------------------------
+    def iterFiles(self):
+        """ Iterate through the files matched with the pattern.
+        Provide the fileName and fileId.
+        """
+        filePaths = self.getMatchFiles()
+
+        filePaths = self._excludeByWords(filePaths)
+
+        for fileName in filePaths:
+            if self._idRegex:
+                # Try to match the file id from filename
+                # this is set by the user by using #### format in the pattern
+                match = self._idRegex.match(fileName)
+                if match is None:
+                    raise Exception("File '%s' doesn't match the pattern '%s'"
+                                    % (fileName, self.getPattern()))
+
+                fileId = int(match.group(1))
+
+            else:
+                fileId = None
+
+            yield fileName, fileId
+
+    def _excludeByWords(self, files):
+        exclusionWords = self.exclusionWords.get()
+
+        if exclusionWords is None:
+            return files
+
+        exclusionWordList = exclusionWords.split()
+
+        allowedFiles = []
+
+        for file in files:
+            if any(bannedWord in file for bannedWord in exclusionWordList):
+                print("%s excluded. Contains any of %s" % (file, exclusionWords))
+                continue
+            allowedFiles.append(file)
+
+        return allowedFiles
+
     def getOutputAssignedTransformSetOfTiltSeries(self):
         if not hasattr(self, "outputAssignedTransformSetOfTiltSeries"):
             outputAssignedTransformSetOfTiltSeries = self._createSetOfTiltSeries(suffix='AssignedTransform')

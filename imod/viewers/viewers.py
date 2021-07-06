@@ -28,9 +28,7 @@
 import os
 
 import pyworkflow.viewer as pwviewer
-from imod.viewers.views_tkinter_tree import (CtfEstimationTreeProvider,
-                                             CtfEstimationListDialog,
-                                             ImodGenericViewer)
+from imod.viewers.views_tkinter_tree import ImodGenericViewer
 import pyworkflow.protocol.params as params
 
 import tomo.objects
@@ -156,30 +154,3 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 
     def _notImplemented(self, param=None):
         return [self.errorMessage('Output not implemented yet. ')]
-
-
-class CtfEstimationTomoViewer(pwviewer.Viewer):
-    """ This class implements a view using Tkinter ListDialog
-    and the CtfEstimationTreeProvider.
-    """
-    _label = 'ctf estimation viewer'
-    _environments = [pwviewer.DESKTOP_TKINTER]
-    _targets = [tomo.objects.SetOfCTFTomoSeries]
-
-    def __init__(self, parent, protocol, **kwargs):
-        self._tkParent = parent.root
-        self._protocol = protocol
-        self._title = 'ctf estimation viewer'
-
-    def visualize(self, obj, windows=None, protocol=None):
-        objName = obj.getObjName().split('.')[1]
-        for output in self._protocol._iterOutputsNew():
-            if output[0] == objName:
-                self._outputSetOfCTFTomoSeries = output[1]
-                break
-        self._inputSetOfTiltSeries = self._outputSetOfCTFTomoSeries.getSetOfTiltSeries()
-        self._provider = CtfEstimationTreeProvider(self._tkParent,
-                                                   self._protocol,
-                                                   self._outputSetOfCTFTomoSeries)
-        CtfEstimationListDialog(self._tkParent, self._title, self._provider,
-                                self._protocol, self._inputSetOfTiltSeries)

@@ -810,3 +810,28 @@ def calculateRotationAngleFromTM(ts):
     avgRotationAngle = avgRotationAngle / ts.getSize()
 
     return avgRotationAngle
+
+
+def generateDoseFileFromTS(ts, doseFileOutputPath):
+    """ This method generates a file containing the dose information of a tilt series in the specified location. The
+    format file consist in a """
+    doseInfoList = []
+
+    acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
+    accDoseList = [ti.getAcquisition().getDosePerFrame() for ti in ts]
+
+    for index, ti in enumerate(ts):
+        accDose = ti.getAcquisition().getDosePerFrame()
+        acqOrder = ti.getAcquisitionOrder()
+
+        if acqOrder == 1:
+            doseInfoList.append(accDose)
+
+        else:
+            dosePerTilt = accDose - accDoseList[acqOrderList.index(acqOrder - 1)]
+
+            doseInfoList.append(dosePerTilt)
+
+    with open(doseFileOutputPath, 'w') as f:
+        for dose in doseInfoList:
+            f.writelines("%f\n" % dose)
