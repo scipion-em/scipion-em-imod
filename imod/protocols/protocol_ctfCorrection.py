@@ -125,7 +125,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
 
         """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
