@@ -104,7 +104,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     def doseFilterStep(self, tsObjId):
         """Apply the dose fitler to every tilt series"""
 
-        tsSet = self.inputSetOfTiltSeries.get()
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -145,10 +144,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             })
 
             argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
-
-        print(paramsMtffilter)
-        print(argsMtffilter)
-        print("-----------------------------------------")
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
