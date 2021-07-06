@@ -228,6 +228,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         for ts in self.inputSetOfTiltSeries.get():
             self.inputTiltSeries = ts
             tsId = ts.getTsId()
+
             """Prealigned tilt-series"""
             prealiFilePath = self.getFilePath(ts, extension=".preali")
             if os.path.exists(prealiFilePath):
@@ -245,7 +246,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 ih = ImageHandler()
                 index = 0
-                for tiltImage in ts.iterItems(iterate=False):
+                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
                     newTi.setLocation(index + 1, prealiFilePath)
@@ -265,6 +266,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
             """Aligned tilt-series"""
             aligFilePath = self.getFilePath(ts, extension=".ali")
+
             if os.path.exists(aligFilePath):
                 if outputAliSetOfTiltSeries is None:
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
@@ -286,11 +288,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     tltList = utils.formatAngleList(tltFilePath)
                 else:
                     tltList = None
+
                 index = 0
-                for tiltImage in ts.iterItems(iterate=False):
+                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
-                    newTi.setLocation(index + 1,   self.getFilePath(ts, extension=".ali"))
+                    newTi.setLocation(index + 1, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[index]))
                     xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
@@ -321,13 +324,15 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 coordList = utils.format3DCoordinatesList(coordFilePath)
                 for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D(x=element[0],
-                                                      y=element[1],
-                                                      z=element[2])
+                    newCoord3D = tomoObj.Coordinate3D()
                     newCoord3D.setVolume(ts)
+                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+
                     newCoord3D.setVolId(ts.getObjId())
-                    newCoord3D.write(properties=False)
                     outputSetOfCoordinates3D.append(newCoord3D)
+                    outputSetOfCoordinates3D.update(newCoord3D)
                 outputSetOfCoordinates3D.write()
                 self._store(outputSetOfCoordinates3D)
 
