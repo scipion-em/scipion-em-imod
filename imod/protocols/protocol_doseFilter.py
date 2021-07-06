@@ -119,7 +119,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         paramsMtffilter = {
             'input':firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'voltage': tsSet.getAcquisition().getVoltage(),
+            'voltage': ts.getAcquisition().getVoltage(),
         }
 
         argsMtffilter = "-input %(input)s " \
