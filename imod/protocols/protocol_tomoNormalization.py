@@ -233,7 +233,6 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
-        newTomogram.copyAttributes(tomo, '_origin')
 
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
@@ -256,6 +255,9 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
                              zDim / -2 * sr)
 
             newTomogram.setOrigin(origin)
+
+        else:
+            newTomogram.copyAttributes(tomo, '_origin')
 
         outputNormalizedSetOfTomograms.append(newTomogram)
         outputNormalizedSetOfTomograms.update(newTomogram)
