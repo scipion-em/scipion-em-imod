@@ -178,7 +178,7 @@ def format3DCoordinatesList(coordFilePath):
 
         for line in coorText:
             if line != '':
-                vector = line.split()
+                vector = line.replace('-', ' -').split()
                 coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
     return coorList
