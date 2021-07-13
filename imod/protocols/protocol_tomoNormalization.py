@@ -249,15 +249,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
             newTomogram.setSamplingRate(sr)
 
             # Set tomogram origin
-            ih = ImageHandler()
-            xDim, yDim, zDim, _ = ih.getDimensions(location)
-
-            origin = Transform()
-            origin.setShifts(xDim / -2. * sr,
-                             yDim / -2. * sr,
-                             zDim / -2 * sr)
-
-            newTomogram.setOrigin(origin)
+            newTomogram.setOrigin(tomo.getOrigin(force=True))
 
         else:
             newTomogram.copyAttributes(tomo, '_origin')
