@@ -254,17 +254,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
         newTomogram.setTsId(tsId)
 
-        # Set tomogram origin
-        ih = ImageHandler()
-        xDim, yDim, zDim, _ = \
-            ih.getDimensions(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
-
-        origin = Transform()
-        sr = self.inputSetOfTiltSeries.get().getSamplingRate()
-        origin.setShifts(xDim / -2. * sr,
-                         yDim / -2. * sr,
-                         zDim / -2 * sr)
-        newTomogram.setOrigin(origin)
+        # Set default tomogram origin
+        newTomogram.setOrigin(newOrigin=False)
 
         # Set tomogram acquisition
         acquisition = TomoAcquisition()

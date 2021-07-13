@@ -248,7 +248,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
             newTomogram.setSamplingRate(sr)
 
-            # Set tomogram origin
+            # Set default tomogram origin
             newTomogram.setOrigin(tomo.getOrigin(force=True))
 
         else:
