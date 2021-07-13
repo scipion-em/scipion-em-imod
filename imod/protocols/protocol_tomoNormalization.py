@@ -235,6 +235,7 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
+        newTomogram.setTsId(tomo.getTsId())
 
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
