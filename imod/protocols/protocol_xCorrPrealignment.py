@@ -184,7 +184,11 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                     "-FilterSigma1 %(filterSigma1)f " \
                     "-FilterSigma2 %(filterSigma2)f " \
                     "-FilterRadius1 %(filterRadius1)f " \
-                    "-FilterRadius2 %(filterRadius2)f  -CumulativeCorrelation "
+                    "-FilterRadius2 %(filterRadius2)f "
+
+        if self.cummulativeCorr == 0:
+            argsXcorr += " -CumulativeCorrelation "
+
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
