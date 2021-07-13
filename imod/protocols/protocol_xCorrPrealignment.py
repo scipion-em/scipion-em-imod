@@ -55,15 +55,27 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     def _defineParams(self, form):
         form.addSection('Input')
 
-        form.addParam('inputSetOfTiltSeries', params.PointerParam,
+        form.addParam('inputSetOfTiltSeries',
+                      params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Input set of tilt-series.')
 
-        form.addParam('computeAlignment', params.EnumParam,
+        form.addParam('cummulativeCorr',
+                      params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series', important=True,
+                      label='Use cummulative correlation',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Use this option to add up previously aligned pictures to get the reference for the next '
+                           'alignment. Alignments will start at low tilt and work up to high tilt.')
+
+        form.addParam('computeAlignment',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Generate interpolated tilt-series',
+                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying the'
                            'obtained transformation matrices.')
@@ -71,7 +83,8 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         group = form.addGroup('Interpolated tilt-series',
                               condition='computeAlignment==0')
 
-        group.addParam('binning', params.FloatParam,
+        group.addParam('binning',
+                       params.FloatParam,
                        default=1.0,
                        label='Binning',
                        help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
@@ -171,7 +184,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                     "-FilterSigma1 %(filterSigma1)f " \
                     "-FilterSigma2 %(filterSigma2)f " \
                     "-FilterRadius1 %(filterRadius1)f " \
-                    "-FilterRadius2 %(filterRadius2)f "
+                    "-FilterRadius2 %(filterRadius2)f  -CumulativeCorrelation "
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
