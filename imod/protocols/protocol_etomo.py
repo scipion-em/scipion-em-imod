@@ -413,9 +413,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                                outputSetOfFullTomograms)
 
                 newTomogram = tomoObj.Tomogram()
+
                 newTomogram.setLocation(reconstructTomoFilePath)
                 newTomogram.setTsId(tsId)
                 newTomogram.setSamplingRate(ts.getSamplingRate())
+
+                # Set default tomogram origin
+                newTomogram.setOrigin(newOrigin=False)
+
                 outputSetOfFullTomograms.append(newTomogram)
                 outputSetOfFullTomograms.write()
                 self._store(outputSetOfFullTomograms)
@@ -431,8 +436,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                                outputSetOfPostProcessTomograms)
 
                 newTomogram = tomoObj.Tomogram()
+
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
                 newTomogram.setTsId(tsId)
+
+                # Set default tomogram origin
+                newTomogram.setOrigin(newOrigin=False)
+
                 outputSetOfPostProcessTomograms.append(newTomogram)
                 outputSetOfPostProcessTomograms.write()
                 self._store(outputSetOfPostProcessTomograms)
