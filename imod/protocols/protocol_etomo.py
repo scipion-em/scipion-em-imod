@@ -309,32 +309,32 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputAliSetOfTiltSeries.write()
                 self._store(outputAliSetOfTiltSeries)
 
-            """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-            coordFilePath = self.getFilePath(ts, suffix='fid',
-                                             extension=".xyz")
-            if os.path.exists(coordFilePath):
-                if outputSetOfCoordinates3D is None:
-                    outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
-                                                                              suffix='LandmarkModel')
-                    outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.getSamplingRate())
-                    outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
-                    self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
-                                               outputSetOfCoordinates3D)
+                """Output set of coordinates 3D (associated to the aligned tilt-series)"""
+                coordFilePath = self.getFilePath(ts, suffix='_fid',
+                                                 extension=".xyz")
+                if os.path.exists(coordFilePath):
+                    if outputSetOfCoordinates3D is None:
+                        outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
+                                                                                  suffix='LandmarkModel')
+                        outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.getSamplingRate())
+                        outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
+                        self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+                        self._defineSourceRelation(self.inputSetOfTiltSeries,
+                                                   outputSetOfCoordinates3D)
 
-                coordList = utils.format3DCoordinatesList(coordFilePath)
-                for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D()
-                    newCoord3D.setVolume(ts)
-                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+                    coordList = utils.format3DCoordinatesList(coordFilePath)
+                    for element in coordList:
+                        newCoord3D = tomoObj.Coordinate3D()
+                        newCoord3D.setVolume(ts)
+                        newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                        newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                        newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
 
-                    newCoord3D.setVolId(ts.getObjId())
-                    outputSetOfCoordinates3D.append(newCoord3D)
-                    outputSetOfCoordinates3D.update(newCoord3D)
-                outputSetOfCoordinates3D.write()
-                self._store(outputSetOfCoordinates3D)
+                        newCoord3D.setVolId(ts.getObjId())
+                        outputSetOfCoordinates3D.append(newCoord3D)
+                        outputSetOfCoordinates3D.update(newCoord3D)
+                    outputSetOfCoordinates3D.write()
+                    self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
             if (os.path.exists(self.getFilePath(ts, suffix="_nogaps",
