@@ -252,6 +252,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+        newTomogram.setTsId(tsId)
 
         # Set tomogram origin
         ih = ImageHandler()
