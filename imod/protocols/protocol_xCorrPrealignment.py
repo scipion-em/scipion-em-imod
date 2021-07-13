@@ -61,11 +61,11 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series.')
 
-        form.addParam('cummulativeCorr',
+        form.addParam('cumulativeCorr',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Use cummulative correlation',
+                      label='Use cumulative correlation',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Use this option to add up previously aligned pictures to get the reference for the next '
                            'alignment. Alignments will start at low tilt and work up to high tilt.')
@@ -186,7 +186,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                     "-FilterRadius1 %(filterRadius1)f " \
                     "-FilterRadius2 %(filterRadius2)f "
 
-        if self.cummulativeCorr == 0:
+        if self.cumulativeCorr == 0:
             argsXcorr += " -CumulativeCorrelation "
 
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
