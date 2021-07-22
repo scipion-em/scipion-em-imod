@@ -45,7 +45,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'apply transformation'
+    _label = 'exclude views'
     _devStatus = BETA
 
     excludeViewsInfoMatrix = []
