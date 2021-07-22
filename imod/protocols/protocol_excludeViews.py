@@ -188,8 +188,10 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         return excludedViewsAsList
 
     def getOutputSetOfTiltSeries(self):
-        if not hasattr(self, "outputSetOfTiltSeries"):
-            outputSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
+        if hasattr(self, "outputSetOfTiltSeries"):
+            self.outputSetOfTiltSeries.enableAppend()
+        else:
+            outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
