@@ -201,19 +201,29 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
     def _summary(self):
         summary = []
         if hasattr(self, 'outputSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
+            summary.append("Excluded views:\n")
+
+            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries):
+                summary.append("Tilt-series ID: %s.   Size: %d ----> %d."
+                               % (tsIn.getTsId(),
+                                  tsIn.getSize(),
+                                  tsOut.getSize()))
         else:
             summary.append("Output classes not ready yet.")
+
         return summary
 
     def _methods(self):
         methods = []
         if hasattr(self, 'outputSetOfTiltSeries'):
-            methods.append("The interpolation has been computed for %d "
-                           "Tilt-series using the IMOD newstack program.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
+            methods.append("Excluded views:\n")
+
+            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries):
+                methods.append("Tilt-series ID: %s.   Size: %d ----> %d."
+                               % (tsIn.getTsId(),
+                                  tsIn.getSize(),
+                                  tsOut.getSize()))
         else:
             methods.append("Output classes not ready yet.")
+
         return methods
