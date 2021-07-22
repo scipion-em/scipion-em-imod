@@ -93,15 +93,12 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         position = self.checkPositionTiltSeriesInList(tsId)
-        viewsToExclude = self.excludeViewsInfoMatrix[position][1]
-
-        extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
 
         paramsAlignment = {
             'stackName': firstItem.getFileName(),
-            'viewsToExclude': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
         }
 
         argsAlignment = "-StackName %(stackName)s " \
