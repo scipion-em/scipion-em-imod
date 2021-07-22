@@ -77,6 +77,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         self._insertFunctionStep(self.retrieveInputInformation)
 
         for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.excludeViewsStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -85,26 +86,37 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
     def retrieveInputInformation(self):
         self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
+    def convertInputStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
+
+        """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+        ts.applyTransform(outputTsFileName)
+
+
     def excludeViewsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
-        firstItem = ts.getFirstItem()
+        if(position != -1):
+            firstItem = ts.getFirstItem()
 
-        paramsAlignment = {
-            'stackName': firstItem.getFileName(),
-            'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
-        }
+            paramsAlignment = {
+                'stackName': os.path.join(extraPrefix, firstItem.parseFileName()),
+                'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
+            }
 
-        argsAlignment = "-StackName %(stackName)s " \
-                        "-ViewsToExclude %(viewsToExclude)s "
+            argsAlignment = "-StackName %(stackName)s " \
+                            "-ViewsToExclude %(viewsToExclude)s "
 
-        Plugin.runImod(self, 'excludeviews', argsAlignment % paramsAlignment)
+            Plugin.runImod(self, 'excludeviews', argsAlignment % paramsAlignment)
 
 
     def generateOutputStackStep(self, tsObjId):
@@ -121,11 +133,16 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         newTs.copyInfo(ts)
         getOutputSetOfTiltSeries.append(newTs)
 
+        excludedViews = self.excludeViewsInfoMatrix[self.checkPositionTiltSeriesInList(tsId)][1]
+
+        excludedViewsAsList = self.makeExclusionPatternAsList(excludedViews)
+
         for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-            newTs.append(newTi)
+            if index not in excludedViews:
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+                newTs.append(newTi)
 
         newTs.write(properties=False)
 
@@ -143,18 +160,32 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
     def checkPositionTiltSeriesInList(self, tsId):
         for counter, tsExcludeInfo in enumerate(self.excludeViewsInfoMatrix):
             if tsId == tsExcludeInfo[0]:
+                print(tsId)
+                print(tsExcludeInfo[0])
+                print(tsExcludeInfo)
+                print("--------------------------------------------------")
                 return counter
         return -1
+
+    def makeExclusionPatternAsList(self, excludedViews):
+        excludedViewsAsList = []
+
+        vector = excludedViews.split(',')
+
+        for element in vector:
+            elementVector = element.split('-')
+
+            if len(elementVector) > 1:
+                for i in range(int(elementVector[0]), int(elementVector[1])  + 1):
+                    excludedViewsAsList.append(int(i))
+            else:
+                excludedViewsAsList.append(int(elementVector))
 
     def getOutputSetOfTiltSeries(self):
         if not hasattr(self, "outputSetOfTiltSeries"):
             outputSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputSetOfTiltSeries.setSamplingRate(samplingRate)
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
