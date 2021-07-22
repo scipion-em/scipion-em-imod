@@ -835,3 +835,19 @@ def generateDoseFileFromTS(ts, doseFileOutputPath):
     with open(doseFileOutputPath, 'w') as f:
         for dose in doseInfoList:
             f.writelines("%f\n" % dose)
+
+def readExcludeViewsFile(excludeViewsFilePath):
+    """ Thie method retrieves from a input exclude views file path a matrix with two columns containing the tsId of
+    tilt-series from which exlude the views in the first column and in the second a string with the pattern of the
+    excluded views"""
+
+    excludedViews = []
+
+    with open(excludeViewsFilePath, 'r') as f:
+        lines = f.read().splitlines()
+
+        for line in lines:
+            vector = line.split()
+            excludedViews.append(vector)
+
+    return excludedViews
