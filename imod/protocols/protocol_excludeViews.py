@@ -164,17 +164,6 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
-    def _validate(self):
-        validateMsgs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            if not ts.getFirstItem().hasTransform():
-                validateMsgs.append("Some tilt-series from the input set of tilt-series is missing from a "
-                                    "transformation matrix.")
-                break
-
-        return validateMsgs
-
     def _summary(self):
         summary = []
         if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
