@@ -133,9 +133,14 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         newTs.copyInfo(ts)
         getOutputSetOfTiltSeries.append(newTs)
 
-        excludedViews = self.excludeViewsInfoMatrix[self.checkPositionTiltSeriesInList(tsId)][1]
+        position = self.checkPositionTiltSeriesInList(tsId)
 
-        excludedViewsAsList = self.makeExclusionPatternAsList(excludedViews)
+        if position != -1:
+            excludedViews = self.excludeViewsInfoMatrix[position][1]
+            excludedViewsAsList = self.makeExclusionPatternAsList(excludedViews)
+
+        else:
+            excludedViewsAsList = []
 
         for index, tiltImage in enumerate(ts):
             if index not in excludedViewsAsList:
@@ -144,6 +149,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
                 newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 newTs.append(newTi)
 
+        newTs.set
         newTs.write(properties=False)
 
         getOutputSetOfTiltSeries.update(newTs)
