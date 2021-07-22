@@ -138,7 +138,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         excludedViewsAsList = self.makeExclusionPatternAsList(excludedViews)
 
         for index, tiltImage in enumerate(ts):
-            if index not in excludedViews:
+            if index not in excludedViewsAsList:
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
@@ -159,12 +159,10 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
     # --------------------------- UTILS functions ----------------------------
     def checkPositionTiltSeriesInList(self, tsId):
         for counter, tsExcludeInfo in enumerate(self.excludeViewsInfoMatrix):
+
             if tsId == tsExcludeInfo[0]:
-                print(tsId)
-                print(tsExcludeInfo[0])
-                print(tsExcludeInfo)
-                print("--------------------------------------------------")
                 return counter
+
         return -1
 
     def makeExclusionPatternAsList(self, excludedViews):
@@ -179,7 +177,9 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
                 for i in range(int(elementVector[0]), int(elementVector[1])  + 1):
                     excludedViewsAsList.append(int(i))
             else:
-                excludedViewsAsList.append(int(elementVector))
+                excludedViewsAsList.append(int(elementVector[0]))
+
+        return excludedViewsAsList
 
     def getOutputSetOfTiltSeries(self):
         if not hasattr(self, "outputSetOfTiltSeries"):
