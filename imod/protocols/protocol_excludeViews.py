@@ -74,16 +74,16 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep(self.retrieveInputInformation(), ts.getObjId())
+        self._insertFunctionStep(self.retrieveInputInformation)
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.excludeViewsStep(), ts.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.excludeViewsStep, ts.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def retrieveInputInformation(self):
-        self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile)
+        self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
     def excludeViewsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -93,7 +93,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         position = self.checkPositionTiltSeriesInList(tsId)
-        viewsToExclude = self.excludeViewsInfoMatrix[counter][1]
+        viewsToExclude = self.excludeViewsInfoMatrix[position][1]
 
         extraPrefix = self._getExtraPath(tsId)
 
@@ -144,42 +144,42 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def checkPositionTiltSeriesInList(self, tsId):
-        for counter, tsExcludeInfo in ennumerate(self.excludeViewsInfoMatrix):
+        for counter, tsExcludeInfo in enumerate(self.excludeViewsInfoMatrix):
             if tsId == tsExcludeInfo[0]:
                 return counter
         return -1
 
     def getOutputSetOfTiltSeries(self):
-        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+        if not hasattr(self, "outputSetOfTiltSeries"):
+            outputSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
+            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             if self.binning > 1:
                 samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
                 samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
+                outputSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+        return self.outputSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("The interpolation has been computed for %d "
                            "Tilt-series using the IMOD newstack program.\n"
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
