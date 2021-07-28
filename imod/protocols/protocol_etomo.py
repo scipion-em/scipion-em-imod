@@ -337,14 +337,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
-            if (os.path.exists(self.getFilePath(ts, suffix="_nogaps",
+            if (os.path.exists(self.getFilePath(ts, suffix="_noGaps",
                                                 extension=".fid")) and
                     os.path.exists(self.getFilePath(ts, extension=".resid"))):
 
                 paramsNoGapPoint2Model = {
-                    'inputFile': self.getFilePath(ts, suffix="_nogaps",
+                    'inputFile': self.getFilePath(ts, suffix="_noGaps",
                                                   extension=".fid"),
-                    'outputFile': self.getFilePath(ts, suffix="_nogaps_fid",
+                    'outputFile': self.getFilePath(ts, suffix="_noGaps_fid",
                                                    extension=".txt")
                 }
 
@@ -360,13 +360,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfLandmarkModelsNoGaps)
 
-                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_nogaps_fid",
+                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_noGaps_fid",
                                                          extension=".txt")
 
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
-                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
+                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_noGaps", extension=".fid")
+                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_noGaps", extension=".sfid")
                 landmarkModelNoGapsResidPath = self.getFilePath(ts, extension=".resid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
