@@ -136,7 +136,8 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         outputProjectedSetOfTiltSeries = self.getOutputProjectedSetOfTiltSeries()
         
         newTs = tomoObj.TiltSeries(tsId=tomoId)
-        newTs.copyInfo(tomo)
+        newTs.setTsId(tomo.getTsId())
+        newTs.setAcquisition(tomo.getAcquisition())
         newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
@@ -182,7 +183,6 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             self.outputProjectedSetOfTiltSeries.enableAppend()
         else:
             outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
-            outputProjectedSetOfTiltSeries.copyInfo(self.inputSetOfTomograms.get())
             outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
             outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)
