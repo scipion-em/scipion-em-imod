@@ -146,6 +146,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
             if (index + 1) not in excludedViewsAsList:
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 newTs.append(newTi)
 
