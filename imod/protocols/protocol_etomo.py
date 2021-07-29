@@ -224,8 +224,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         outputSetOfCoordinates3D = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
+        setOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        for ts in self.inputSetOfTiltSeries.get():
+        for ts in setOfTiltSeries:
             self.inputTiltSeries = ts
             tsId = ts.getTsId()
 
@@ -234,11 +235,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             if os.path.exists(prealiFilePath):
                 if outputPrealiSetOfTiltSeries is None:
                     outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
-                    outputPrealiSetOfTiltSeries.copyInfo(self.inputTiltSeries)
-                    outputPrealiSetOfTiltSeries.setDim(self.inputTiltSeries.getDim())
+                    outputPrealiSetOfTiltSeries.copyInfo(setOfTiltSeries)
+                    outputPrealiSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
                     self._defineOutputs(outputPrealignedSetOfTiltSeries=outputPrealiSetOfTiltSeries)
                     self._defineSourceRelation(self.inputTiltSeries,
                                                outputPrealiSetOfTiltSeries)
+                else:
+                    outputPrealiSetOfTiltSeries.enableAppend()
 
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
@@ -270,11 +273,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             if os.path.exists(aligFilePath):
                 if outputAliSetOfTiltSeries is None:
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
-                    outputAliSetOfTiltSeries.copyInfo(self.inputTiltSeries)
-                    outputAliSetOfTiltSeries.setDim(self.inputTiltSeries.getDim())
+                    outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
+                    outputAliSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
                     self._defineOutputs(outputAlignedSetOfTiltSeries=outputAliSetOfTiltSeries)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputAliSetOfTiltSeries)
+                else:
+                    outputAliSetOfTiltSeries.enableAppend()
 
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
@@ -322,6 +327,9 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfCoordinates3D)
 
+                else:
+                    outputSetOfCoordinates3D.enableAppend()
+
                 coordList = utils.format3DCoordinatesList(coordFilePath)
                 for element in coordList:
                     newCoord3D = tomoObj.Coordinate3D()
@@ -355,10 +363,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 if outputSetOfLandmarkModelsNoGaps is None:
                     outputSetOfLandmarkModelsNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
-                    outputSetOfLandmarkModelsNoGaps.copyInfo(self.inputTiltSeries)
+                    outputSetOfLandmarkModelsNoGaps.copyInfo(setOfTiltSeries)
                     self._defineOutputs(outputSetOfLandmarkModelsNoGaps=outputSetOfLandmarkModelsNoGaps)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfLandmarkModelsNoGaps)
+
+                else:
+                    outputSetOfLandmarkModelsNoGaps.enableAppend()
 
                 fiducialNoGapFilePath = self.getFilePath(ts, suffix="_nogaps_fid",
                                                          extension=".txt")
@@ -407,10 +418,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             if os.path.exists(reconstructTomoFilePath):
                 if outputSetOfFullTomograms is None:
                     outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
-                    outputSetOfFullTomograms.copyInfo(self.inputTiltSeries)
+                    outputSetOfFullTomograms.copyInfo(setOfTiltSeries)
                     self._defineOutputs(outputSetOfFullTomograms=outputSetOfFullTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfFullTomograms)
+                else:
+                    outputSetOfFullTomograms.enableAppend()
 
                 newTomogram = tomoObj.Tomogram()
                 newTomogram.setLocation(reconstructTomoFilePath)
@@ -424,10 +437,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             if os.path.exists(posprocessedRecTomoFilePath):
                 if outputSetOfPostProcessTomograms is None:
                     outputSetOfPostProcessTomograms = self._createSetOfTomograms()
-                    outputSetOfPostProcessTomograms.copyInfo(self.inputTiltSeries)
+                    outputSetOfPostProcessTomograms.copyInfo(setOfTiltSeries)
                     self._defineOutputs(outputSetOfPostProcessTomograms=outputSetOfPostProcessTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfPostProcessTomograms)
+                else:
+                    outputSetOfPostProcessTomograms.enableAppend()
+
 
                 newTomogram = tomoObj.Tomogram()
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
