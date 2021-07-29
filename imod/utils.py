@@ -812,9 +812,11 @@ def calculateRotationAngleFromTM(ts):
     return avgRotationAngle
 
 
-def generateDoseFileFromTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information of a tilt series in the specified location. The
-    format file consist in a """
+def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
+    """ This method generates a file containing the dose information of a tilt series in the specified location from
+    the dose per tilt information. The format file consist in a single column with one dose value per line that must
+    coincide with each image from the tilt-series"""
+
     doseInfoList = []
 
     acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
@@ -834,7 +836,8 @@ def generateDoseFileFromTS(ts, doseFileOutputPath):
 
     with open(doseFileOutputPath, 'w') as f:
         for dose in doseInfoList:
-            f.writelines("%f\n" % dose)
+            f.writelines("%f\n" % dose)ç
+
 
 def readExcludeViewsFile(excludeViewsFilePath):
     """ Thie method retrieves from a input exclude views file path a matrix with two columns containing the tsId of
