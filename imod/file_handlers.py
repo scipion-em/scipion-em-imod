@@ -9,4 +9,4 @@ class ImodHandler(FileHandler):
                  pwutils.Icon.ACTION_VISUALIZE)]
 
     def getFileIcon(self, objFile):
-        return 'file_text.gif'
+        return 'file_stack.gif' if not objFile.isLink() else 'file_stack_link.gif'
