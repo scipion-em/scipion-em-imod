@@ -28,6 +28,7 @@
 
 import os
 import pwem
+from pyworkflow.gui import FileTreeProvider
 
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
 from distutils.spawn import find_executable
@@ -161,3 +162,11 @@ class Plugin(pwem.Plugin):
         cmd += program
 
         return cmd
+
+
+# register file handlers to preview info in the Filebrowser....
+# Here register happens very early. Earlier than done in pwem therefore this filehandler will be the default one.
+# We can add .mrc and .mrcs but don't want to overlap with pwem ones.
+from .file_handlers import *
+register = FileTreeProvider.registerFileHandler
+register(ImodHandler(), '.ali', '.st', '.rec')
