@@ -134,8 +134,9 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tomoId)
 
         outputProjectedSetOfTiltSeries = self.getOutputProjectedSetOfTiltSeries()
-        
+
         newTs = tomoObj.TiltSeries(tsId=tomoId)
+
         newTs.setTsId(tomo.getTsId())
         newTs.setAcquisition(tomo.getAcquisition())
         newTs.setTsId(tomoId)
@@ -151,6 +152,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
             newTi.setTsId(tomoId)
+            newTi.setAcquisitionOrder(index+1)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
             newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
             newTs.append(newTi)
@@ -163,7 +165,13 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          0)
+
         newTs.setOrigin(origin)
+
+        import time
+        time.sleep(10)
+        import os
+        print(os.getpid())
 
         newTs.write(properties=False)
 
@@ -183,6 +191,9 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             self.outputProjectedSetOfTiltSeries.enableAppend()
         else:
             outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
+            outputProjectedSetOfTiltSeries.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
+           # outputProjectedSetOfTiltSeries.setAcquisition(self.inputSetOfTomograms.get().getAcquisition())
+            outputProjectedSetOfTiltSeries._anglesCount = self.getProjectionRange()
             outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
             outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)
