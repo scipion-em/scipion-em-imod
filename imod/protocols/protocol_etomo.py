@@ -153,6 +153,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, interpolatedTsFileName)
                 interpolatedTs.append(newTi)
             interpolatedTs.write()
@@ -249,6 +250,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, prealiFilePath)
                     index += 1
                     xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
@@ -293,6 +295,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[index]))
