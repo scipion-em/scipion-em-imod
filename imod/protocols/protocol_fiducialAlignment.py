@@ -734,6 +734,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(ti, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName(suffix="_interpolated")))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
@@ -962,6 +963,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             for index, ti in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(ti, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(ti.getLocation())
                 if self.binning > 1:
                     newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
