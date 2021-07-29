@@ -28,7 +28,7 @@ import os
 
 from pwem.objects import Transform
 from pyworkflow import BETA
-from pyworkflow.object import Set
+from pyworkflow.object import Set, Integer
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -142,8 +142,6 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
-        origin = Transform()
-
         outputProjectedSetOfTiltSeries.append(newTs)
 
         tiltAngleList = self.getTiltAngleList()
@@ -162,17 +160,12 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         # Set origin to output tilt-series
+        origin = Transform()
         origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          0)
 
         newTs.setOrigin(origin)
-
-        import time
-        time.sleep(10)
-        import os
-        print(os.getpid())
-
         newTs.write(properties=False)
 
         outputProjectedSetOfTiltSeries.update(newTs)
@@ -193,7 +186,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
             outputProjectedSetOfTiltSeries.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
            # outputProjectedSetOfTiltSeries.setAcquisition(self.inputSetOfTomograms.get().getAcquisition())
-            outputProjectedSetOfTiltSeries._anglesCount = self.getProjectionRange()
+            outputProjectedSetOfTiltSeries._anglesCount = Integer(self.getProjectionRange())
             outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
             outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)
