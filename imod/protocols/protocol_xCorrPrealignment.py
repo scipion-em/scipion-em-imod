@@ -210,6 +210,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(tiltImage.getLocation())
             transform = data.Transform()
             transform.setMatrix(alignmentMatrix[:, :, index])
