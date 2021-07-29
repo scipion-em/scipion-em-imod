@@ -836,7 +836,23 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
 
     with open(doseFileOutputPath, 'w') as f:
         for dose in doseInfoList:
-            f.writelines("%f\n" % dose)ç
+            f.writelines("%f\n" % dose)
+
+
+def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
+    """ This method generates a file containing the dose information of a tilt series in the specified location from
+    the accumulated dose per tilt information. The format file consist in a single column with one dose value per line
+    that must coincide with each image from the tilt-series"""
+
+    doseInfoList = []
+
+    for ti in ts:
+        accDose = ti.getAcquisition().getDosePerFrame()
+        acqOrder = ti.getAcquisitionOrder()
+
+    with open(doseFileOutputPath, 'w') as f:
+        for dose in doseInfoList:
+            f.writelines("%f\n" % dose)
 
 
 def readExcludeViewsFile(excludeViewsFilePath):
