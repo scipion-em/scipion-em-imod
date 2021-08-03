@@ -40,6 +40,7 @@ from pwem.emlib.image import ImageHandler
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
 
+
 class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
     """
     Tilt-series' dose filtering based on the IMOD procedure.
@@ -86,11 +87,10 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
 
         form.addParam('fixedImageDose',
                       params.FloatParam,
-                      default=1.0,
-                      label='Fixes dose (e/sq A)',
-                      condition='inputDoseType==1',
+                      default=FIXED_DOSE,
+                      label='Fixes dose (e/sq Å)',
+                      condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, in electrons/square Angstrom.')
-
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -98,7 +98,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             self._insertFunctionStep(self.doseFilterStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
-
 
     # --------------------------- STEPS functions ----------------------------
     def doseFilterStep(self, tsObjId):
@@ -146,7 +145,6 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
             argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
-
 
     def createOutputStep(self, tsObjId):
         """Generate output filtered tilt series"""
