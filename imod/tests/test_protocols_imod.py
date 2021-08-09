@@ -67,6 +67,14 @@ class TestImodBase(BaseTest):
         return cls.protDoseFilter
 
     @classmethod
+    def _runExcludeViews(cls, inputSoTS, excludeViewsFile):
+        cls.protExcludeViews = cls.newProtocol(ProtImodExcludeViews,
+                                               inputSetOfTiltSeries=inputSoTS,
+                                               excludeViewsFile=excludeViewsFile)
+        cls.launchProtocol(cls.protExcludeViews)
+        return cls.protExcludeViews
+
+    @classmethod
     def _runTSNormalization(cls, inputSoTS, binning, floatDensities, modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean, scaleSd, scaleMax, scaleMin):
         cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
@@ -316,6 +324,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_doseFilterOutputDoseFile(self):
+        tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        outputLocation = os.path.join(self.protDoseFilter._getExtraPath(tsId), "BB" + tsId + "_fid.xyz")
+
+        self.assertTrue(os.path.exists(outputLocation))
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
