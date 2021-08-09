@@ -329,13 +329,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
 
-    def test_doseFilterOutputDoseFile(self):
-        tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
-
-        outputLocation = os.path.join(self.protDoseFilter._getExtraPath(tsId), "BB" + tsId + "_fid.xyz")
-
-        self.assertTrue(os.path.exists(outputLocation))
-
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
 
