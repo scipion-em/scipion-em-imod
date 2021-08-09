@@ -327,7 +327,14 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
 
-        self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
+        self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_excludeViewsOutputTS(self):
+        self.assertIsNotNone(self.protExcludeViews.outputSetOfTiltSeries)
+
+        tsId = self.protExcludeViews.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId), "BB" + tsId + ".st")))
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
