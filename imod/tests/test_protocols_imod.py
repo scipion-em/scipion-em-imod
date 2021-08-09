@@ -57,6 +57,16 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
+    def _runXRaysEraser(cls, inputSoTS, peakCriterion, diffCriterion, bigDiffCriterion):
+        cls.protXRaysEraser = cls.newProtocol(ProtImodXraysEraser,
+                                              peakCriterion=inputSoTS,
+                                              diffCriterion=initialDose,
+                                              maximumRadius=inputDoseType,
+                                              bigDiffCriterion=fixedImageDose)
+        cls.launchProtocol(cls.protXRaysEraser)
+        return cls.protXRaysEraser
+
+    @classmethod
     def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
         cls.protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
                                             inputSetOfTiltSeries=inputSoTS,
