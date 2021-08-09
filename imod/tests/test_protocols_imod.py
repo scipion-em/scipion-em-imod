@@ -463,7 +463,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         tolerance = 2
-        expectedSize = 50
+        expectedSize = 34
 
         self.assertTrue(
             abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
