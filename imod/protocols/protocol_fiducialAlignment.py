@@ -647,15 +647,15 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.copyInfo(ts)
             outputSetOfTiltSeries.append(newTs)
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
-                newTi.setLocation(ti.getLocation())
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
 
-                if ti.hasTransform():
+                if tiltImage.hasTransform():
                     transform = Transform()
-                    previousTransform = ti.getTransform().getMatrix()
+                    previousTransform = tiltImage.getTransform().getMatrix()
                     newTransform = newTransformationMatricesList[:, :, index]
                     previousTransformArray = np.array(previousTransform)
                     newTransformArray = np.array(newTransform)
@@ -731,14 +731,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             if self.binning > 1:
                 newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
-                newTi.setAcquisition(ti.getAcquisition())
-                newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName(suffix="_interpolated")))
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated")))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
-                    newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -960,13 +960,13 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.copyInfo(ts)
             outputFailedSetOfTiltSeries.append(newTs)
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
+                newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(ti.getLocation())
+                newTi.setLocation(tiltImage.getLocation())
                 if self.binning > 1:
-                    newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
 
             ih = ImageHandler()
