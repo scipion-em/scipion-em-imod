@@ -349,6 +349,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId), "BB" + tsId + ".st")))
 
+    def test_xRaysEraserOutputTS(self):
+        self.assertIsNotNone(self.protXRaysEraser.outputSetOfTiltSeries)
+
+        tsId = self.protXRaysEraser.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protXRaysEraser._getExtraPath(tsId), "BB" + tsId + ".st")))
+
     def test_excludeViewsOutputTS(self):
         self.assertIsNotNone(self.protExcludeViews.outputSetOfTiltSeries)
 
