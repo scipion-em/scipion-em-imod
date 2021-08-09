@@ -340,8 +340,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId), "BB" + tsId + ".st")))
 
     def test_excludeViewsOutputTSSize(self):
-        for index, tsOut in enumerate(self.outputSetOfTiltSeries):
-            self.assertTrue(tsOut.getSize() == cls.excludeViewsOutputSizes[index])
+        for index, tsOut in enumerate(self.protExcludeViews.outputSetOfTiltSeries):
+            self.assertTrue(tsOut.getSize() == self.excludeViewsOutputSizes[index])
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
