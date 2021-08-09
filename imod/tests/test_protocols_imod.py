@@ -57,6 +57,16 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
+    def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
+        cls.protDoseFiler = cls.newProtocol(ProtImodTSNormalization,
+                                            inputSetOfTiltSeries=inputSoTS,
+                                            initialDose=initialDose,
+                                            inputDoseType=inputDoseType,
+                                            fixedImageDose=fixedImageDose)
+        cls.launchProtocol(cls.protDoseFiler)
+        return cls.protDoseFiler
+
+    @classmethod
     def _runTSNormalization(cls, inputSoTS, binning, floatDensities, modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean, scaleSd, scaleMax, scaleMin):
         cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
