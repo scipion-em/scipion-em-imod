@@ -58,7 +58,7 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
-        cls.protDoseFilter = cls.newProtocol(ProtImodTSNormalization,
+        cls.protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
                                             inputSetOfTiltSeries=inputSoTS,
                                             initialDose=initialDose,
                                             inputDoseType=inputDoseType,
