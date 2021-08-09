@@ -265,12 +265,18 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
 
-        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protXRaysEraser = cls._runXRaysEraser(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                  peakCriterion=8.0,
+                                                  diffCriterion=6.0,
+                                                  maximumRadius=4.2,
+                                                  bigDiffCriterion=19)
+
+        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protXRaysEraser.outputTiltSeries,
                                                 initialDose=0,
                                                 inputDoseType=1,
                                                 fixedImageDose=0.2)
 
-        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protXRaysEraser.outputTiltSeries,
                                                     excludeViewsFile=cls.excludeViewsFile)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
