@@ -254,6 +254,8 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
         newTomogram.setTsId(tsId)
 
+        newTomogram.setSamplingRate(ts.getSamplingRate())
+
         # Set default tomogram origin
         newTomogram.setOrigin(newOrigin=False)
 
