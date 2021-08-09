@@ -58,13 +58,13 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
-        cls.protDoseFiler = cls.newProtocol(ProtImodTSNormalization,
+        cls.protDoseFilter = cls.newProtocol(ProtImodTSNormalization,
                                             inputSetOfTiltSeries=inputSoTS,
                                             initialDose=initialDose,
                                             inputDoseType=inputDoseType,
                                             fixedImageDose=fixedImageDose)
-        cls.launchProtocol(cls.protDoseFiler)
-        return cls.protDoseFiler
+        cls.launchProtocol(cls.protDoseFilter)
+        return cls.protDoseFilter
 
     @classmethod
     def _runTSNormalization(cls, inputSoTS, binning, floatDensities, modeToOutput, scaleRangeToggle, scaleRangeMax,
@@ -243,7 +243,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
 
-        cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                initialDose=0,
+                                                inputDoseType=1,
+                                                fixedImageDose=0.2)
+
+        cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
                                                           binning=cls.binningTsNormalization,
                                                           floatDensities=0,
                                                           modeToOutput=0,
@@ -256,7 +261,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                           scaleMax=255,
                                                           scaleMin=0)
 
-        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
                                                   computeAlignmentToggle=0,
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
