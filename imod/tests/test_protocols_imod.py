@@ -310,6 +310,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                    stepAngle=2.0,
                                    rotationAxis=1)
 
+    def test_doseFitlerOutputTS(self):
+        self.assertIsNotNone(self.protDoseFilter.outputSetOfTiltSeries)
+
+        tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
+
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
 
