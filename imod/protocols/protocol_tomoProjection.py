@@ -28,7 +28,7 @@ import os
 
 from pwem.objects import Transform
 from pyworkflow import BETA
-from pyworkflow.object import Set
+from pyworkflow.object import Set, Integer
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.protocols import EMProtocol
@@ -134,14 +134,14 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(tomoId)
 
         outputProjectedSetOfTiltSeries = self.getOutputProjectedSetOfTiltSeries()
-        
+
         newTs = tomoObj.TiltSeries(tsId=tomoId)
-        newTs.copyInfo(tomo)
+
+        newTs.setTsId(tomo.getTsId())
+        newTs.setAcquisition(tomo.getAcquisition())
         newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
-        origin = Transform()
-
         outputProjectedSetOfTiltSeries.append(newTs)
 
         tiltAngleList = self.getTiltAngleList()
@@ -150,6 +150,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
             newTi.setTsId(tomoId)
+            newTi.setAcquisitionOrder(index+1)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
             newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
             newTs.append(newTi)
@@ -159,11 +160,12 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         # Set origin to output tilt-series
+        origin = Transform()
         origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          0)
-        newTs.setOrigin(origin)
 
+        newTs.setOrigin(origin)
         newTs.write(properties=False)
 
         outputProjectedSetOfTiltSeries.update(newTs)
@@ -182,7 +184,9 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             self.outputProjectedSetOfTiltSeries.enableAppend()
         else:
             outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
-            outputProjectedSetOfTiltSeries.copyInfo(self.inputSetOfTomograms.get())
+            outputProjectedSetOfTiltSeries.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
+           # outputProjectedSetOfTiltSeries.setAcquisition(self.inputSetOfTomograms.get().getAcquisition())
+            outputProjectedSetOfTiltSeries._anglesCount = Integer(self.getProjectionRange())
             outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
             outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)

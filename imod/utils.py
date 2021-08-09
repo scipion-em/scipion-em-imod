@@ -817,22 +817,10 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
     the dose per tilt information. The format file consist in a single column with one dose value per line that must
     coincide with each image from the tilt-series"""
 
-    doseInfoList = []
+    ind = np.argsort([ti.getAcquisitionOrder() for ti in ts])
+    tiList = [ti for ti in ts]
 
-    acqOrderList = [ti.getAcquisitionOrder() for ti in ts]
-    accDoseList = [ti.getAcquisition().getDosePerFrame() for ti in ts]
-
-    for index, ti in enumerate(ts):
-        accDose = ti.getAcquisition().getDosePerFrame()
-        acqOrder = ti.getAcquisitionOrder()
-
-        if acqOrder == 1:
-            doseInfoList.append(accDose)
-
-        else:
-            dosePerTilt = accDose - accDoseList[acqOrderList.index(acqOrder - 1)]
-
-            doseInfoList.append(dosePerTilt)
+    doseInfoList = [tiList[i].getAcquisition().getDosePerFrame() for i in ind]
 
     with open(doseFileOutputPath, 'w') as f:
         for dose in doseInfoList:
