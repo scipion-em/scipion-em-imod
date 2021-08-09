@@ -224,6 +224,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+        cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
 
         cls.binningTsNormalization = 2
 
@@ -255,6 +256,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                 initialDose=0,
                                                 inputDoseType=1,
                                                 fixedImageDose=0.2)
+
+        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                    excludeViewsFile=cls.excludeViewsFile)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
                                                           binning=cls.binningTsNormalization,
