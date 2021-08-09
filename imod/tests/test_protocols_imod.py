@@ -57,12 +57,13 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
-    def _runXRaysEraser(cls, inputSoTS, peakCriterion, diffCriterion, bigDiffCriterion):
+    def _runXRaysEraser(cls, inputSoTS, peakCriterion, diffCriterion, maximumRadius, bigDiffCriterion):
         cls.protXRaysEraser = cls.newProtocol(ProtImodXraysEraser,
-                                              peakCriterion=inputSoTS,
-                                              diffCriterion=initialDose,
-                                              maximumRadius=inputDoseType,
-                                              bigDiffCriterion=fixedImageDose)
+                                              inputSetOfTiltSeries=inputSoTS,
+                                              peakCriterion=peakCriterion,
+                                              diffCriterion=diffCriterion,
+                                              maximumRadius=maximumRadius,
+                                              bigDiffCriterion=bigDiffCriterion)
         cls.launchProtocol(cls.protXRaysEraser)
         return cls.protXRaysEraser
 
@@ -271,12 +272,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                   maximumRadius=4.2,
                                                   bigDiffCriterion=19)
 
-        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protXRaysEraser.outputTiltSeries,
+        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protXRaysEraser.outputSetOfTiltSeries,
                                                 initialDose=0,
                                                 inputDoseType=1,
                                                 fixedImageDose=0.2)
 
-        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protXRaysEraser.outputTiltSeries,
+        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protXRaysEraser.outputSetOfTiltSeries,
                                                     excludeViewsFile=cls.excludeViewsFile)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
