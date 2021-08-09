@@ -519,7 +519,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    pattern="WTI042413_1series4.st",
+                                                    pattern="*.mdoc",
                                                     anglesFrom=0,
                                                     voltage=300,
                                                     magnification=50000,
