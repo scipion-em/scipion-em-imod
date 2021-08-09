@@ -30,7 +30,8 @@ DataSet(name='tomo-em',
         folder='tomo-em',
         files={
             'ts1': 'tutorialData/BBa.st',
-            'ts2': 'tutorialData/BBb.st'
+            'ts2': 'tutorialData/BBb.st',
+            'excludeViewsFile': 'tutorialData/excludeViewsFile.txt'
         })
 
 DataSet(name='tutorialDataImodCTF',
