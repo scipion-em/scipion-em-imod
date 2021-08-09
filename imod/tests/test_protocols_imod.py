@@ -224,7 +224,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+
         cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
+
+        cls.excludeViewsOutputSizes = [57, 56]
 
         cls.binningTsNormalization = 2
 
@@ -335,6 +338,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = self.protExcludeViews.outputSetOfTiltSeries.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_excludeViewsOutputTSSize(self):
+        for index, tsOut in enumerate(self.outputSetOfTiltSeries):
+            self.assertTrue(tsOut.getSize() == cls.excludeViewsOutputSizes[index])
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
