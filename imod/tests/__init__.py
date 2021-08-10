@@ -39,5 +39,6 @@ DataSet(name='tomo-em',
 DataSet(name='tutorialDataImodCTF',
         folder='tutorialDataImodCTF',
         files={
-            'tsCtf1': 'WTI042413_1series4.st'
+            'tsCtf1': 'WTI042413_1series4.st',
+            'inputCtfFile': 'WTI042413_1series4.defocus'
         })
