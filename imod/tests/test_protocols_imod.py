@@ -659,6 +659,12 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       defocusTol=200,
                                                       interpolationWidth=15)
 
+    def test_importCtfTomoSeriesOutput(self):
+        self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)
+
+    def test_importCtfTomoSeriesOutputSize(self):
+        self.assertTrue(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize() == 1)
+
     def test_ctfEstimationOutputSize(self):
         self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
 
