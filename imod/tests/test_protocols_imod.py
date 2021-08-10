@@ -57,6 +57,16 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
+    def _runImportTransformationMatrix(cls, filesPath, pattern, exclusionWords, inputSetOfTiltSeries):
+        cls.protImportTM = cls.newProtocol(ProtImodImportTransformationMatrix,
+                                           filesPath=filesPath,
+                                           filesPattern=pattern,
+                                           exclusionWords=exclusionWords,
+                                           inputSetOfTiltSeries=inputSetOfTiltSeries,)
+        cls.launchProtocol(cls.protImportTM)
+        return cls.protImportTM
+
+    @classmethod
     def _runXRaysEraser(cls, inputSoTS, peakCriterion, diffCriterion, maximumRadius, bigDiffCriterion):
         cls.protXRaysEraser = cls.newProtocol(ProtImodXraysEraser,
                                               inputSetOfTiltSeries=inputSoTS,
