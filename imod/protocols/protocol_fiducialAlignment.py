@@ -73,6 +73,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       label='Fiducial radius (nm)',
                       default='4.95',
+                      important=True,
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -86,7 +87,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       label='Tilt rotation angle (deg)',
                       default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
+                      important=True,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
         form.addParam('computeAlignment',
