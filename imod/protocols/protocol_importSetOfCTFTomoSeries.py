@@ -45,6 +45,9 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
     _label = 'import tomo CTFs'
     _devStatus = BETA
 
+    defocusUTolerance = 20
+    defocusVTolerance = 20
+
     def __init__(self, **args):
         ProtTomoImportFiles.__init__(self, **args)
 
@@ -198,6 +201,13 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
                     newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
 
+                    newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
+                    newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
+
+                    if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                            newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                        newCTFTomoSeries.setEnabled(False)
+
                     newCTFTomoSeries.write(properties=False)
 
                     self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
@@ -218,7 +228,6 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
 
-            outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
