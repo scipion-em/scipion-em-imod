@@ -380,6 +380,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
     def test_importTMOutput(self):
         self.assertIsNotNone(self.protImportTM.outputAssignedTransformSetOfTiltSeries)
 
+    def test_importTMOutputSize(self):
+        self.assertTrue(self.protImportTM.outputAssignedTransformSetOfTiltSeries.size() == 2)
+
     def test_doseFitlerOutputTS(self):
         self.assertIsNotNone(self.protDoseFilter.outputSetOfTiltSeries)
 
