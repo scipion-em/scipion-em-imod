@@ -204,6 +204,15 @@ class TestImodBase(BaseTest):
         return cls.protTomoProjection
 
     @classmethod
+    def _runImportSetOfCtfSeries(cls, filesPath, pattern, inputSetOfTiltSeries):
+        cls.protImportSetOfCtfSeries = cls.newProtocol(ProtImodImportSetOfCtfTomoSeries,
+                                           filesPath=filesPath,
+                                           filesPattern=pattern,
+                                           inputSetOfTiltSeries=inputSetOfTiltSeries)
+        cls.launchProtocol(cls.protImportSetOfCtfSeries)
+        return cls.protImportSetOfCtfSeries
+
+    @classmethod
     def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
                           axisAngle, interactiveMode, leftDefTol, rightDefTol, tileSize, angleStep, angleRange,
                           startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
