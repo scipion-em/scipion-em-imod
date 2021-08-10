@@ -290,7 +290,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     stepAngle=2.0)
 
         cls.protImportTM = cls._runImportTransformationMatrix(filesPath=cls.inputTMFolder,
-                                                              pattern="BB{TS}.prexg",
+                                                              pattern="BB*.prexg",
                                                               exclusionWords='',
                                                               inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
