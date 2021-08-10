@@ -234,3 +234,22 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
         return self.outputSetOfCTFTomoSeries
 
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+            summary.append("Imported CTF tomo series: %d.\n"
+                           % (self.outputSetOfCTFTomoSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+            methods.append("%d CTF tomo series have been imported into the scipion framework.\n"
+                           % (self.outputSetOfCTFTomoSeries.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods
+
