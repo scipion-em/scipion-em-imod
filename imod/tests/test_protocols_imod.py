@@ -172,6 +172,28 @@ class TestImodBase(BaseTest):
         return cls.protTomoNormalization
 
     @classmethod
+    def _runGoldBeadPeaker3D(cls, inputSetOfTomograms, beadDiameter, beadsColor, minRelativeStrength, minSpacing):
+        cls.protGoldBeadPicker3d = cls.newProtocol(ProtImodGoldBeadPicker3d,
+                                                   inputSetOfTomograms=inputSetOfTomograms,
+                                                   beadDiameter=beadDiameter,
+                                                   beadsColor=beadsColor,
+                                                   minRelativeStrength=minRelativeStrength,
+                                                   minSpacing=minSpacing)
+        cls.launchProtocol(cls.protGoldBeadPicker3d)
+        return cls.protGoldBeadPicker3d
+
+    @classmethod
+    def _runTomoProjection(cls, inputSetOfTomograms, minAngle, maxAngle, stepAngle, rotationAxis):
+        cls.protTomoProjection = cls.newProtocol(ProtImodTomoProjection,
+                                                 inputSetOfTomograms=inputSetOfTomograms,
+                                                 minAngle=minAngle,
+                                                 maxAngle=maxAngle,
+                                                 stepAngle=stepAngle,
+                                                 rotationAxis=rotationAxis)
+        cls.launchProtocol(cls.protTomoProjection)
+        return cls.protTomoProjection
+
+    @classmethod
     def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
                           axisAngle, interactiveMode, leftDefTol, rightDefTol, tileSize, angleStep, angleRange,
                           startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
@@ -215,17 +237,6 @@ class TestImodBase(BaseTest):
                                                 interpolationWidth=interpolationWidth)
         cls.launchProtocol(cls.protCTFCorrection)
         return cls.protCTFCorrection
-
-    @classmethod
-    def _runTomoProjection(cls, inputSetOfTomograms, minAngle, maxAngle, stepAngle, rotationAxis):
-        cls.protTomoProjection = cls.newProtocol(ProtImodTomoProjection,
-                                                 inputSetOfTomograms=inputSetOfTomograms,
-                                                 minAngle=minAngle,
-                                                 maxAngle=maxAngle,
-                                                 stepAngle=stepAngle,
-                                                 rotationAxis=rotationAxis)
-        cls.launchProtocol(cls.protTomoProjection)
-        return cls.protTomoProjection
 
 
 class TestImodReconstructionWorkflow(TestImodBase):
