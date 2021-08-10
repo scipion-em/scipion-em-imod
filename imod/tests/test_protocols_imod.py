@@ -377,6 +377,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                    stepAngle=2.0,
                                    rotationAxis=1)
 
+    def test_importTMOutput(self):
+        self.assertIsNotNone(self.protImportTM.outputAssignedTransformSetOfTiltSeries)
+
     def test_doseFitlerOutputTS(self):
         self.assertIsNotNone(self.protDoseFilter.outputSetOfTiltSeries)
 
