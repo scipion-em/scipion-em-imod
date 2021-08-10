@@ -346,10 +346,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMax=255,
                                       scaleMin=0)
 
-        cls.protGoldBeadPicker3d = \
+        cls.protGoldBeadPicker3D = \
             cls._runGoldBeadPeaker3D(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
                                      beadDiameter=10,
-                                     beadsColor=1,
+                                     beadsColor=0,
                                      minRelativeStrength=0.05,
                                      minSpacing=0.9)
 
@@ -516,6 +516,14 @@ class TestImodReconstructionWorkflow(TestImodBase):
         outputDimensions = ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem())
 
         self.assertTrue(outputDimensions == (512, 512, self.thicknessTomo, 1))
+
+    def test_goldBeadPeaker3D(self):
+        self.assertIsNotNone(self.protGoldBeadPicker3D.outputSetOfCoordinates3D)
+
+        tomoId = self.protGoldBeadPicker3D.inputSetOfTomograms.get().getFirstItem().getVolId()
+        location = self.protGoldBeadPicker3D.getExtraPath(tomoId)
+
+        self.assertTrue(os.path.exists(os.path.join(location, tomoId + ".mod")))
 
     def test_tomoNormalizationOutput(self):
         self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
