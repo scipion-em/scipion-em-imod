@@ -346,6 +346,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMax=255,
                                       scaleMin=0)
 
+        cls.protGoldBeadPicker3d = \
+            cls._runGoldBeadPeaker3D(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
+                                     beadDiameter=10,
+                                     beadsColor=1,
+                                     minRelativeStrength=0.05,
+                                     minSpacing=0.9)
+
         cls.protTomoProjection = \
             cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputNormalizedSetOfTomograms,
                                    minAngle=-60.0,
