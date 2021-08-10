@@ -204,11 +204,11 @@ class TestImodBase(BaseTest):
         return cls.protTomoProjection
 
     @classmethod
-    def _runImportSetOfCtfSeries(cls, filesPath, pattern, inputSetOfTiltSeries):
+    def _runImportSetOfCtfSeries(cls, filesPath, filesPattern, inputSetOfTiltSeries):
         cls.protImportSetOfCtfSeries = cls.newProtocol(ProtImodImportSetOfCtfTomoSeries,
-                                           filesPath=filesPath,
-                                           filesPattern=pattern,
-                                           inputSetOfTiltSeries=inputSetOfTiltSeries)
+                                                       filesPath=filesPath,
+                                                       filesPattern=filesPattern,
+                                                       inputSetOfTiltSeries=inputSetOfTiltSeries)
         cls.launchProtocol(cls.protImportSetOfCtfSeries)
         return cls.protImportSetOfCtfSeries
 
@@ -611,6 +611,8 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         cls.inputDataSet = DataSet.getDataSet('tutorialDataImodCTF')
         cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
+        cls.inputCtfFile = cls.inputDataSet.getFile('inputCtfFile')
+
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="*.mdoc",
                                                     anglesFrom=0,
@@ -621,6 +623,11 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     samplingRate=6.73981,
                                                     doseInitial=0,
                                                     dosePerFrame=0.3)
+
+        cls.protImportSetOfCtfSeries = \
+            cls._runImportSetOfCtfSeries(filesPath=os.path.split(cls.inputCtfFile)[0],
+                                         filesPattern='WTI042413_1series4.defocus',
+                                         inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
