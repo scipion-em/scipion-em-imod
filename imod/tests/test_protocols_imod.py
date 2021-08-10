@@ -259,6 +259,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
 
+        cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
+
         cls.excludeViewsOutputSizes = [57, 56]
 
         cls.binningTsNormalization = 2
@@ -286,6 +288,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     minAngle=-55,
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
+
+        cls.protImportTM = cls._runImportTransformationMatrix(filesPath=cls.inputTMFolder,
+                                                              pattern="BB{TS}.prexg",
+                                                              exclusionWords='',
+                                                              inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
         cls.protXRaysEraser = cls._runXRaysEraser(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                   peakCriterion=8.0,
