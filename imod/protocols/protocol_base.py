@@ -117,6 +117,17 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
         return self.outputSetOfCoordinates3D
 
+    def getOutputSetOfTomograms(self):
+        if hasattr(self, "outputSetOfTomograms"):
+            self.outputSetOfTomograms.enableAppend()
+        else:
+            outputSetOfTomograms = self._createSetOfTomograms()
+            outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
+        return self.outputSetOfTomograms
+
     def getOutputFailedSetOfTiltSeries(self):
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.enableAppend()
