@@ -45,7 +45,13 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
+        https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
+        https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
+        https://bio3d.colorado.edu/imod/doc/man/model2point.html
+        https://bio3d.colorado.edu/imod/doc/man/imodtrans.html
+        https://bio3d.colorado.edu/imod/doc/man/newstack.html
+        https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
     _label = 'fiducial alignment'
