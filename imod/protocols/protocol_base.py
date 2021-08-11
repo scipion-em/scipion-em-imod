@@ -38,6 +38,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def __init__(self, **args):
         ProtTomoImportFiles.__init__(self, **args)
 
+    def defineExecutionPararell(self):
+        def __init__(self, **args):
+            self.stepsExecutionMode = STEPS_PARALLEL
+
     def _defineImportParams(self, form):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
