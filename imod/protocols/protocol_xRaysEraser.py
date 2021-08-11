@@ -34,7 +34,7 @@ from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
-from imod.protocols import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase
 
 
 class ProtImodXraysEraser(ProtImodBase):
