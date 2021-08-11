@@ -32,12 +32,12 @@ from pwem.protocols import EMProtocol
 import pwem.objects as data
 import tomo.objects as tomoObj
 from tomo.protocols import ProtTomoBase
-from tomo.protocols.protocol_base import ProtTomoImportFiles
 from pwem.emlib.image import ImageHandler
 from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
+class ProtImodImportTransformationMatrix(ProtImodBase):
     """
     Import the transformation matrices assigned to an input set of tilt-series.
     """
@@ -46,11 +46,8 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
-    def __init__(self, **args):
-        ProtTomoImportFiles.__init__(self, **args)
-
     def _defineParams(self, form):
-        ProtTomoImportFiles._defineImportParams(self, form)
+        self._defineImportParams(form)
 
         form.addParam('exclusionWords', params.StringParam,
                       label='Exclusion words:',
