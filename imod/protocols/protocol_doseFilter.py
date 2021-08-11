@@ -77,7 +77,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
                       default=SCIPION_IMPORT,
-                      label='Input doce source',
+                      label='Input dose source',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='This option indicates what kind of source is being provided with the dose information:\n'
                            '- Scipion import: Use the dose obtained ehn importing the tilt-series into Scipion. To use '
