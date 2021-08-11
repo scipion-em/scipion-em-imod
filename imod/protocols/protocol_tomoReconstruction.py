@@ -32,14 +32,13 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
-from tomo.protocols import ProtTomoBase
 from tomo.objects import Tomogram
 from tomo.objects import TomoAcquisition
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
+class ProtImodTomoReconstruction(ProtImodBase):
     """
     Tomogram reconstruction procedure based on the IMOD procedure.
 
@@ -277,17 +276,6 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfTomograms(self):
-        if hasattr(self, "outputSetOfTomograms"):
-            self.outputSetOfTomograms.enableAppend()
-        else:
-            outputSetOfTomograms = self._createSetOfTomograms()
-            outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
-        return self.outputSetOfTomograms
-
     @staticmethod
     def getAngleStepFromSeries(ts):
         """ This method return the average angles step from a series. """
