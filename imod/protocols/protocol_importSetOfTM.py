@@ -40,7 +40,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
     Import the transformation matrices assigned to an input set of tilt-series.
     """
 
-    _label = 'Import transformation matrix'
+    _label = 'import transformation matrix'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
