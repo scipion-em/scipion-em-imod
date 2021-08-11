@@ -29,18 +29,16 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
-
-class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
+class ProtImodTSNormalization(ProtImodBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
     _label = 'tilt-series normalization'
@@ -178,7 +176,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         ts.applyTransform(outputTsFileName)
 
     def generateOutputStackStep(self, tsObjId):
-        outputNormalizedSetOfTiltSeries = self.getOutputNormalizedSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries()
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -221,7 +219,7 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputNormalizedSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -240,33 +238,17 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         newTs.write(properties=False)
-        outputNormalizedSetOfTiltSeries.update(newTs)
-        outputNormalizedSetOfTiltSeries.updateDim()
-        outputNormalizedSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputNormalizedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputNormalizedSetOfTiltSeries(self):
-        if hasattr(self, "outputNormalizedSetOfTiltSeries"):
-            self.outputNormalizedSetOfTiltSeries.enableAppend()
-        else:
-            outputNormalizedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Normalized')
-            outputNormalizedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputNormalizedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputNormalizedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputNormalizedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputNormalizedSetOfTiltSeries=outputNormalizedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputNormalizedSetOfTiltSeries)
-        return self.outputNormalizedSetOfTiltSeries
-
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -281,19 +263,19 @@ class ProtImodTSNormalization(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputNormalizedSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputNormalizedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("%d tilt-series have been normalized using the IMOD newstack program.\n"
-                           % (self.outputNormalizedSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
