@@ -67,7 +67,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     # --------------------------- STEPS functions ----------------------------
     def assignTransformationMatricesStep(self):
-        self.getOutputAssignedTransformSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries()
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
@@ -84,7 +84,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                     newTs = tomoObj.TiltSeries(tsId=tsId)
                     newTs.copyInfo(ts)
-                    self.outputAssignedTransformSetOfTiltSeries.append(newTs)
+                    self.outputSetOfTiltSeries.append(newTs)
 
                     for index, tiltImage in enumerate(ts):
                         newTi = tomoObj.TiltImage()
@@ -115,9 +115,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                     newTs.write(properties=False)
 
-                    self.outputAssignedTransformSetOfTiltSeries.update(newTs)
-                    self.outputAssignedTransformSetOfTiltSeries.updateDim()
-                    self.outputAssignedTransformSetOfTiltSeries.write()
+                    self.outputSetOfTiltSeries.update(newTs)
+                    self.outputSetOfTiltSeries.updateDim()
+                    self.outputSetOfTiltSeries.write()
 
                     self._store()
 
@@ -164,16 +164,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         return allowedFiles
 
-    def getOutputAssignedTransformSetOfTiltSeries(self):
-        if not hasattr(self, "outputAssignedTransformSetOfTiltSeries"):
-            outputAssignedTransformSetOfTiltSeries = self._createSetOfTiltSeries(suffix='AssignedTransform')
-            outputAssignedTransformSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputAssignedTransformSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-
-            self._defineOutputs(outputAssignedTransformSetOfTiltSeries=outputAssignedTransformSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputAssignedTransformSetOfTiltSeries)
-        return self.outputAssignedTransformSetOfTiltSeries
-
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
         validateMsgs = []
@@ -199,19 +189,19 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputAssignedTransformSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nTransformation matrices assigned: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputAssignedTransformSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputAssignedTransformSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("The transformation matrix has been assigned to %d Tilt-series from the input set.\n"
-                           % (self.outputAssignedTransformSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
