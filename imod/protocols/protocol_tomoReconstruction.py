@@ -247,7 +247,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        outputSetOfTomograms = self.getOutputSetOfTomograms()
+        outputSetOfTomograms = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
@@ -271,7 +271,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
