@@ -42,7 +42,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
     _label = 'apply transformation'
