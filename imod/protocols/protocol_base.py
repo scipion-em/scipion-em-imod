@@ -104,17 +104,17 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
     #     return self.outputFiducialModelGaps
 
-    def getOutputSetOfCoordinates3Ds(self):
+    def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.outputSetOfCoordinates3D.enableAppend()
         else:
-            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
+            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputSet,
                                                                       suffix='Fiducials3D')
-            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
+            outputSetOfCoordinates3D.setSamplingRate(inputSet.getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(inputSet)
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
+            self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
         return self.outputSetOfCoordinates3D
 
     def getOutputSetOfTomograms(self, inputSet):
