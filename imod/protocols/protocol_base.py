@@ -26,13 +26,20 @@
 
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
+from tomo.protocols.protocol_base import ProtTomoImportFiles
 from pyworkflow.object import Set
 
 
-class ProtImodBase(EMProtocol, ProtTomoBase):
+class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     """
     Base class with methods used in the rest of the imod protocols
     """
+
+    def __init__(self, **args):
+        ProtTomoImportFiles.__init__(self, **args)
+
+    def _defineImportParams(self, form):
+        ProtTomoImportFiles._defineImportParams(self, form)
 
     def getOutputInterpolatedSetOfTiltSeries(self):
         """ Method to generate output interpolated classes of set of tilt-series"""
