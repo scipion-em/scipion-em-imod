@@ -230,38 +230,40 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-
         self._failedTs = []
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateTrackComStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialSeedStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
-            self._insertFunctionStep('computeFiducialAlignmentStep', ts.getObjId())
-            self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
-            self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
+            tsObjId = ts.getObjId()
+            self._insertFunctionStep(self.convertInputStep, tsObjId)
+            self._insertFunctionStep(self.generateTrackComStep, tsObjId)
+            self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
+            self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+            self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
+            self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
+            self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
 
             if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
+                self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsObjId)
 
             if self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
+                self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
 
-            self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
-            self._insertFunctionStep('createOutputFailedSet', ts.getObjId())
+            self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
+            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
 
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions ----------------------------
     def tryExceptDecorator(func):
         """ This decorator wraps the step in a try/except module which adds the tilt series ID to the failed TS array
         in case the step fails"""
+
         def wrapper(self, tsId):
             try:
                 func(self, tsId)
             except:
                 self._failedTs.append(tsId)
+
         return wrapper
 
     def convertInputStep(self, tsObjId):
@@ -679,13 +681,14 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+        tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = tsIn.getTsId()
+        outputTsIdList = [ts.getTsId() for ts in self.getOutputSetOfTiltSeries()]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        firstItem = ts.getFirstItem()
+        firstItem = tsIn.getFirstItem()
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
@@ -704,7 +707,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.getOutputSetOfTiltSeries()[tsObjId])
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(
+                self.getOutputSetOfTiltSeries()[outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -718,7 +722,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
+            newTs.copyInfo(tsIn)
             outputInterpolatedSetOfTiltSeries.append(newTs)
 
             tltFilePath = os.path.join(
@@ -729,9 +733,9 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             tltList = utils.formatAngleList(tltFilePath)
 
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+                newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
 
-            for index, tiltImage in enumerate(ts):
+            for index, tiltImage in enumerate(tsIn):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
@@ -753,56 +757,56 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
     @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
 
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            firstItem = ts.getFirstItem()
+        firstItem = ts.getFirstItem()
 
-            # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
-            # extra folder
-            path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
-                          os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
+        # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
+        # extra folder
+        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
+                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
 
-            # Generate interpolated model
-            paramsImodtrans = {
-                'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-                'transformFile': os.path.join(extraPrefix,
-                                              firstItem.parseFileName(suffix="_fid", extension=".xf"))
-            }
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(extraPrefix,
+                                      firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix,
+                                       firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'transformFile': os.path.join(extraPrefix,
+                                          firstItem.parseFileName(suffix="_fid", extension=".xf"))
+        }
 
-            argsImodtrans = "-2 %(transformFile)s " \
-                            "%(inputFile)s " \
-                            "%(outputFile)s "
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
 
-            Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
-            # Erase gold beads
-            paramsCcderaser = {
-                'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
-                'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
-                'modelFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-                'betterRadius': self.betterRadius.get(),
-                'polynomialOrder': 0,
-                'circleObjects': "/"
-            }
+        # Erase gold beads
+        paramsCcderaser = {
+            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
+            'modelFile': os.path.join(extraPrefix,
+                                      firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
+        }
 
-            argsCcderaser = "-InputFile %(inputFile)s " \
-                            "-OutputFile %(outputFile)s " \
-                            "-ModelFile %(modelFile)s " \
-                            "-BetterRadius %(betterRadius)d " \
-                            "-PolynomialOrder %(polynomialOrder)d " \
-                            "-CircleObjects %(circleObjects)s " \
-                            "-MergePatches " \
-                            "-ExcludeAdjacent"
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
 
-            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
