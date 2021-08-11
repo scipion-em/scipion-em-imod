@@ -133,11 +133,12 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('computeXcorrStep', ts.getObjId())
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
             if self.computeAlignment.get() == 0:
-                self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+                self._insertFunctionStep(self.computeInterpolatedStackStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def convertInputStep(self, tsObjId):
@@ -195,12 +196,21 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                      "-goutput %(goutput)s"
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
-        """Generate output tilt series"""
+    def generateOutputStackStep(self, tsObjId):
+        """ Generate tilt-serie with the associated transform matrix """
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+
         outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+
         alignmentMatrix = utils.formatTransformationMatrix(
             os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+
         outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
