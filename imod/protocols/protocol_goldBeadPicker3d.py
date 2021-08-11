@@ -24,22 +24,20 @@
 # *
 # **************************************************************************
 
+import os
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.utils import path
 from pyworkflow.object import Set
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pwem.protocols import EMProtocol
-from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import tomo.constants as constants
 from imod import Plugin
 from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
 
-import os
 
-
-class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
+class ProtImodGoldBeadPicker3d(ProtImodBase):
     """
     3-dimensional gold bead picker using the IMOD procedure.
     More info:
@@ -49,12 +47,7 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
     _label = 'Gold bead picker 3D'
     _devStatus = BETA
 
-    def __init__(self, **args):
-        EMProtocol.__init__(self, **args)
-        ProtTomoBase.__init__(self)
-        self.stepsExecutionMode = STEPS_PARALLEL
-
-# -------------------------- DEFINE param functions -----------------------
+    # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
         form.addParam('inputSetOfTomograms',
@@ -103,7 +96,10 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
+        self.defineExecutionPararell()
+
         allOutputId = []
+
         for ts in self.inputSetOfTomograms.get():
             pickId = self._insertFunctionStep('pickGoldBeadsStep',
                                               ts.getObjId(),
@@ -177,7 +173,8 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
 
         """ Create the output set of coordinates 3D from gold beads detected """
-        outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
+        outputSetOfCoordinates3D = \
+            self.getOutputSetOfCoordinates3Ds(self.inputSetOfTomograms.get(), self.inputSetOfTomograms.get())
 
         coordFilePath = os.path.join(extraPrefix, "%s.xyz" % os.path.basename(fileName))
 
@@ -203,18 +200,3 @@ class ProtImodGoldBeadPicker3d(EMProtocol, ProtTomoBase):
         self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfCoordinates3Ds(self):
-        if hasattr(self, "outputSetOfCoordinates3D"):
-            self.outputSetOfCoordinates3D.enableAppend()
-        else:
-            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.inputSetOfTomograms.get(),
-                                                                      suffix='LandmarkModel')
-            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTomograms)
-            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-            self._defineSourceRelation(self.inputSetOfTomograms, outputSetOfCoordinates3D)
-        return self.outputSetOfCoordinates3D
-
