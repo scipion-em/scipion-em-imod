@@ -37,8 +37,10 @@ from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
+from imod.protocols.protocol_base import ProtImodBase
 
-class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
+
+class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
@@ -148,19 +150,19 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
+    # def getOutputInterpolatedSetOfTiltSeries(self):
+    #     if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+    #         outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
+    #         outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+    #         outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+    #         if self.binning > 1:
+    #             samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
+    #             samplingRate *= self.binning.get()
+    #             outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+    #         outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+    #         self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
+    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
+    #     return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
