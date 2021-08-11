@@ -34,7 +34,6 @@ from pyworkflow.object import Set
 import tomo.objects as tomoObj
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
-
 from imod.protocols.protocol_base import ProtImodBase
 
 
