@@ -82,6 +82,53 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputInterpolatedSetOfTiltSeries
 
+    def getOutputFiducialModelNoGaps(self):
+        if hasattr(self, "outputFiducialModelNoGaps"):
+            self.outputFiducialModelNoGaps.enableAppend()
+        else:
+            outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+            outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
+        return self.outputFiducialModelNoGaps
+
+    # def getOutputFiducialModelGaps(self):
+    #     if hasattr(self, "outputFiducialModelGaps"):
+    #         self.outputFiducialModelGaps.enableAppend()
+    #     else:
+    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+    #     return self.outputFiducialModelGaps
+
+    def getOutputSetOfCoordinates3Ds(self):
+        if hasattr(self, "outputSetOfCoordinates3D"):
+            self.outputSetOfCoordinates3D.enableAppend()
+        else:
+            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
+                                                                      suffix='Fiducials3D')
+            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
+            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
+        return self.outputSetOfCoordinates3D
+
+    def getOutputFailedSetOfTiltSeries(self):
+        if hasattr(self, "outputFailedSetOfTiltSeries"):
+            self.outputFailedSetOfTiltSeries.enableAppend()
+        else:
+            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
+            outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFailedSetOfTiltSeries)
+        return self.outputFailedSetOfTiltSeries
+
     # --------------------------- UTILS functions ----------------------------
     def iterFiles(self):
         """ Iterate through the files matched with the pattern.
