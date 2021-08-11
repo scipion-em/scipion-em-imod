@@ -231,7 +231,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
+        self.getOutputSetOfTomograms(self.inputSetOfTomograms.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
@@ -254,31 +254,17 @@ class ProtImodTomoNormalization(ProtImodBase):
         else:
             newTomogram.copyAttributes(tomo, '_origin')
 
-        outputNormalizedSetOfTomograms.append(newTomogram)
-        outputNormalizedSetOfTomograms.update(newTomogram)
-        outputNormalizedSetOfTomograms.write()
+        self.outputSetOfTomograms.append(newTomogram)
+        self.outputSetOfTomograms.update(newTomogram)
+        self.outputSetOfTomograms.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputNormalizedSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputNormalizedSetOfTomograms(self):
-        if hasattr(self, "outputNormalizedSetOfTomograms"):
-            self.outputNormalizedSetOfTomograms.enableAppend()
-        else:
-            outputNormalizedSetOfTomograms = self._createSetOfTomograms(suffix='Normalized')
-            outputNormalizedSetOfTomograms.copyInfo(self.inputSetOfTomograms.get())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTomograms.get().getSamplingRate()
-                outputNormalizedSetOfTomograms.setSamplingRate(samplingRate * self.binning.get())
-            outputNormalizedSetOfTomograms.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputNormalizedSetOfTomograms=outputNormalizedSetOfTomograms)
-            self._defineSourceRelation(self.inputSetOfTomograms, outputNormalizedSetOfTomograms)
-        return self.outputNormalizedSetOfTomograms
-
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -293,19 +279,19 @@ class ProtImodTomoNormalization(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputNormalizedSetOfTomograms'):
+        if hasattr(self, 'outputSetOfTomograms'):
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTomograms.get().getSize(),
-                              self.outputNormalizedSetOfTomograms.getSize()))
+                              self.outputSetOfTomograms.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputNormalizedSetOfTomograms'):
+        if hasattr(self, 'outputSetOfTomograms'):
             methods.append("%d tomograms have been normalized using the IMOD newstack program.\n"
-                           % (self.outputNormalizedSetOfTomograms.getSize()))
+                           % (self.outputSetOfTomograms.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
