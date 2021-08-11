@@ -178,7 +178,7 @@ def format3DCoordinatesList(coordFilePath):
 
         for line in coorText:
             if line != '':
-                vector = line.split()
+                vector = line.replace('-', ' -').split()
                 coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
     return coorList
@@ -812,15 +812,48 @@ def calculateRotationAngleFromTM(ts):
     return avgRotationAngle
 
 
-def generateDoseFileFromTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information of a tilt series in the specified location. The
-    format file consist in a """
-    ind = np.argsort([ti.getAcquisitionOrder() for ti in ts])
+def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
+    """ This method generates a file containing the dose information of a tilt series in the specified location from
+    the dose per tilt information. The format file consist in a single column with one dose value per line that must
+    coincide with each image from the tilt-series"""
+
+    ind = np.argsort([ti.getIndex() for ti in ts])
     tiList = [ti for ti in ts]
+
     doseInfoList = [tiList[i].getAcquisition().getDosePerFrame() for i in ind]
+
     with open(doseFileOutputPath, 'w') as f:
         for dose in doseInfoList:
             f.writelines("%f\n" % dose)
 
 
+def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
+    """ This method generates a file containing the dose information of a tilt series in the specified location from
+    the accumulated dose per tilt information. The format file consist in a single column with one dose value per line
+    that must coincide with each image from the tilt-series"""
 
+    doseInfoList = []
+
+    for ti in ts:
+        doseInfoList.append(ti.getAcquisition().getAccumDose())
+
+    with open(doseFileOutputPath, 'w') as f:
+        for dose in doseInfoList:
+            f.writelines("%f\n" % dose)
+
+
+def readExcludeViewsFile(excludeViewsFilePath):
+    """ Thie method retrieves from a input exclude views file path a matrix with two columns containing the tsId of
+    tilt-series from which exlude the views in the first column and in the second a string with the pattern of the
+    excluded views"""
+
+    excludedViews = []
+
+    with open(excludeViewsFilePath, 'r') as f:
+        lines = f.read().splitlines()
+
+        for line in lines:
+            vector = line.split()
+            excludedViews.append(vector)
+
+    return excludedViews

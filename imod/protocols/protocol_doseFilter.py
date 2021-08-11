@@ -77,7 +77,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
                       default=SCIPION_IMPORT,
-                      label='Input doce source',
+                      label='Input dose source',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='This option indicates what kind of source is being provided with the dose information:\n'
                            '- Scipion import: Use the dose obtained ehn importing the tilt-series into Scipion. To use '
@@ -127,7 +127,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         if self.inputDoseType.get() == SCIPION_IMPORT:
             outputDefocusFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
 
-            utils.generateDoseFileFromTS(ts, outputDefocusFilePath)
+            utils.generateDoseFileFromDoseTS(ts, outputDefocusFilePath)
 
             paramsMtffilter.update({
                 'typeOfDoseFile': 1,
@@ -165,6 +165,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
 
             newTs.append(newTi)

@@ -29,7 +29,9 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pwem.objects import Transform
 from pwem.protocols import EMProtocol
+from pwem.emlib.image import ImageHandler
 from tomo.objects import Tomogram
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
@@ -233,14 +235,25 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
-        newTomogram.copyAttributes(tomo, '_origin')
+        newTomogram.setTsId(tomo.getTsId())
 
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
         else:
-            newTomogram.setLocation(os.path.join(extraPrefix, os.path.basename(location)))
-        if self.binning > 1:
-            newTomogram.setSamplingRate(tomo.getSamplingRate() * int(self.binning.get()))
+            location = os.path.join(extraPrefix, os.path.basename(location))
+            newTomogram.setLocation(location)
+
+        if self.binning.get() > 1:
+            sr = tomo.getSamplingRate() * int(self.binning.get())
+
+            newTomogram.setSamplingRate(sr)
+
+            # Set default tomogram origin
+            newTomogram.setOrigin(tomo.getOrigin(force=True))
+
+        else:
+            newTomogram.copyAttributes(tomo, '_origin')
+
         outputNormalizedSetOfTomograms.append(newTomogram)
         outputNormalizedSetOfTomograms.update(newTomogram)
         outputNormalizedSetOfTomograms.write()

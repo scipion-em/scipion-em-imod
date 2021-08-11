@@ -153,6 +153,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, interpolatedTsFileName)
                 interpolatedTs.append(newTi)
             interpolatedTs.write()
@@ -252,6 +253,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, prealiFilePath)
                     index += 1
                     xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
@@ -298,6 +300,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[index]))
@@ -314,19 +317,26 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 outputAliSetOfTiltSeries.write()
                 self._store(outputAliSetOfTiltSeries)
 
-            """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-            coordFilePath = self.getFilePath(ts, suffix='fid',
-                                             extension=".xyz")
-            if os.path.exists(coordFilePath):
-                if outputSetOfCoordinates3D is None:
-                    outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
-                                                                              suffix='LandmarkModel')
-                    outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.getSamplingRate())
-                    outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
-                    self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
-                                               outputSetOfCoordinates3D)
+                """Output set of coordinates 3D (associated to the aligned tilt-series)"""
+                coordFilePath = self.getFilePath(ts, suffix='_fid',
+                                                 extension=".xyz")
+                if os.path.exists(coordFilePath):
+                    if outputSetOfCoordinates3D is None:
+                        outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
+                                                                                  suffix='LandmarkModel')
+                        outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.getSamplingRate())
+                        outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
+                        self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+                        self._defineSourceRelation(self.inputSetOfTiltSeries,
+                                                   outputSetOfCoordinates3D)
 
+                    coordList = utils.format3DCoordinatesList(coordFilePath)
+                    for element in coordList:
+                        newCoord3D = tomoObj.Coordinate3D()
+                        newCoord3D.setVolume(ts)
+                        newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
+                        newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
+                        newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
                 else:
                     outputSetOfCoordinates3D.enableAppend()
 
@@ -345,14 +355,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
-            if (os.path.exists(self.getFilePath(ts, suffix="_nogaps",
+            if (os.path.exists(self.getFilePath(ts, suffix="_noGaps",
                                                 extension=".fid")) and
                     os.path.exists(self.getFilePath(ts, extension=".resid"))):
 
                 paramsNoGapPoint2Model = {
-                    'inputFile': self.getFilePath(ts, suffix="_nogaps",
+                    'inputFile': self.getFilePath(ts, suffix="_noGaps",
                                                   extension=".fid"),
-                    'outputFile': self.getFilePath(ts, suffix="_nogaps_fid",
+                    'outputFile': self.getFilePath(ts, suffix="_noGaps_fid",
                                                    extension=".txt")
                 }
 
@@ -371,13 +381,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfLandmarkModelsNoGaps.enableAppend()
 
-                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_nogaps_fid",
+                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_noGaps_fid",
                                                          extension=".txt")
 
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
-                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
+                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_noGaps", extension=".fid")
+                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_noGaps", extension=".sfid")
                 landmarkModelNoGapsResidPath = self.getFilePath(ts, extension=".resid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
@@ -426,8 +436,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     outputSetOfFullTomograms.enableAppend()
 
                 newTomogram = tomoObj.Tomogram()
+
                 newTomogram.setLocation(reconstructTomoFilePath)
+                newTomogram.setTsId(tsId)
                 newTomogram.setSamplingRate(ts.getSamplingRate())
+
+                # Set default tomogram origin
+                newTomogram.setOrigin(newOrigin=False)
+
                 outputSetOfFullTomograms.append(newTomogram)
                 outputSetOfFullTomograms.write()
                 self._store(outputSetOfFullTomograms)
@@ -446,7 +462,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
 
                 newTomogram = tomoObj.Tomogram()
+
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
+                newTomogram.setTsId(tsId)
+
+                # Set default tomogram origin
+                newTomogram.setOrigin(newOrigin=False)
+
                 outputSetOfPostProcessTomograms.append(newTomogram)
                 outputSetOfPostProcessTomograms.write()
                 self._store(outputSetOfPostProcessTomograms)
