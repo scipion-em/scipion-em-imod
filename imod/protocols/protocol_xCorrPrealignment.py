@@ -61,6 +61,13 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series.')
 
+        form.addParam('rotationAngle',
+                      params.FloatParam,
+                      label='Tilt rotation angle (deg)',
+                      default='0.0',
+                      important=True,
+                      help="Angle from the vertical to the tilt axis in raw images.")
+
         form.addParam('cumulativeCorr',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -89,13 +96,6 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                        label='Binning',
                        help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
                             'binned by the given factor. Must be an integer bigger than 1')
-
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Angle from the vertical to the tilt axis in raw images.")
 
         form.addParam('filterRadius1',
                       params.FloatParam,

@@ -45,6 +45,9 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
     _label = 'import tomo CTFs'
     _devStatus = BETA
 
+    defocusUTolerance = 20
+    defocusVTolerance = 20
+
     def __init__(self, **args):
         ProtTomoImportFiles.__init__(self, **args)
 
@@ -198,6 +201,13 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
                     newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
 
+                    newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
+                    newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
+
+                    if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                            newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                        newCTFTomoSeries.setEnabled(False)
+
                     newCTFTomoSeries.write(properties=False)
 
                     self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
@@ -218,10 +228,28 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
             outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
 
-            outputSetOfCTFTomoSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
         return self.outputSetOfCTFTomoSeries
+
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+            summary.append("Imported CTF tomo series: %d.\n"
+                           % (self.outputSetOfCTFTomoSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+            methods.append("%d CTF tomo series have been imported into the scipion framework.\n"
+                           % (self.outputSetOfCTFTomoSeries.getSize()))
+        else:
+            methods.append("Output classes not ready yet.")
+        return methods
 

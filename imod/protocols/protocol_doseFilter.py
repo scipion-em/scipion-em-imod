@@ -127,7 +127,7 @@ class ProtImodDoseFilter(EMProtocol, ProtTomoBase):
         if self.inputDoseType.get() == SCIPION_IMPORT:
             outputDefocusFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
 
-            utils.generateDoseFileFromAccDoseTS(ts, outputDefocusFilePath)
+            utils.generateDoseFileFromDoseTS(ts, outputDefocusFilePath)
 
             paramsMtffilter.update({
                 'typeOfDoseFile': 1,

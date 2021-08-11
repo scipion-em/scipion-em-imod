@@ -31,11 +31,14 @@ DataSet(name='tomo-em',
         files={
             'ts1': 'tutorialData/BBa.st',
             'ts2': 'tutorialData/BBb.st',
-            'excludeViewsFile': 'tutorialData/excludeViewsFile.txt'
+            'excludeViewsFile': 'tutorialData/excludeViewsFile.txt',
+            'tm1': 'tutorialData/BBa.prexg',
+            'tm2': 'tutorialData/BBb.prexg'
         })
 
 DataSet(name='tutorialDataImodCTF',
         folder='tutorialDataImodCTF',
         files={
-            'tsCtf1': 'WTI042413_1series4.st'
+            'tsCtf1': 'WTI042413_1series4.st',
+            'inputCtfFile': 'WTI042413_1series4.defocus'
         })
