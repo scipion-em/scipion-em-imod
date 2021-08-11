@@ -28,10 +28,8 @@ import os
 import numpy as np
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-from pwem.protocols import EMProtocol
 import pwem.objects as data
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
 from pwem.emlib.image import ImageHandler
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
