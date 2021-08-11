@@ -31,9 +31,7 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 
