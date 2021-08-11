@@ -31,17 +31,15 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from pyworkflow.object import Set
 from tomo.objects import LandmarkModel
-from tomo.protocols import ProtTomoBase
 import tomo.constants as constants
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
-
-class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
+class ProtImodFiducialAlignment(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
@@ -1182,81 +1180,6 @@ $if (-e ./savework) ./savework
                           " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
                           % minimumRotation,
                    comments='')
-
-    def getOutputSetOfTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
-
-    def getOutputFailedSetOfTiltSeries(self):
-        if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.outputFailedSetOfTiltSeries.enableAppend()
-        else:
-            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
-            outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFailedSetOfTiltSeries)
-        return self.outputFailedSetOfTiltSeries
-
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.outputInterpolatedSetOfTiltSeries.enableAppend()
-        else:
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
-
-    # def getOutputFiducialModelGaps(self):
-    #     if hasattr(self, "outputFiducialModelGaps"):
-    #         self.outputFiducialModelGaps.enableAppend()
-    #     else:
-    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-    #     return self.outputFiducialModelGaps
-
-    def getOutputFiducialModelNoGaps(self):
-        if hasattr(self, "outputFiducialModelNoGaps"):
-            self.outputFiducialModelNoGaps.enableAppend()
-        else:
-            outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
-            outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
-        return self.outputFiducialModelNoGaps
-
-    def getOutputSetOfCoordinates3Ds(self):
-        if hasattr(self, "outputSetOfCoordinates3D"):
-            self.outputSetOfCoordinates3D.enableAppend()
-        else:
-            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
-                                                                      suffix='Fiducials3D')
-            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
-            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
-        return self.outputSetOfCoordinates3D
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
