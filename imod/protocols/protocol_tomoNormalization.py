@@ -30,18 +30,18 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
-from pwem.protocols import EMProtocol
 from pwem.emlib.image import ImageHandler
 from tomo.objects import Tomogram
-from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
+class ProtImodTomoNormalization(ProtImodBase):
     """
     Normalize input tomogram and change its storing formatting.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3D.colorado.edu/imod/doc/newstack.html
+        https://bio3D.colorado.edu/imod/doc/binvol.html
     """
 
     _label = 'tomo normalization'
