@@ -26,6 +26,7 @@
 
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
+from pyworkflow.object import Set
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
@@ -33,4 +34,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     Base class with methods used in the rest of the imod protocols
     """
 
-
+    def getOutputInterpolatedSetOfTiltSeries(self):
+        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
+            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
+            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            if self.binning > 1:
+                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
+                samplingRate *= self.binning.get()
+                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
+        return self.outputInterpolatedSetOfTiltSeries
