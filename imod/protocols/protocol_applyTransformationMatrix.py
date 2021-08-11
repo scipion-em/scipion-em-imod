@@ -147,21 +147,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
-    # def getOutputInterpolatedSetOfTiltSeries(self):
-    #     if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-    #         outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-    #         outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-    #         outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-    #         if self.binning > 1:
-    #             samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-    #             samplingRate *= self.binning.get()
-    #             outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-    #         outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-    #     return self.outputInterpolatedSetOfTiltSeries
-
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
         validateMsgs = []
