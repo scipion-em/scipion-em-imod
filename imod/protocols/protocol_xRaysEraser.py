@@ -34,9 +34,10 @@ from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
+from imod.protocols import ProtImodBase
 
 
-class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
+class ProtImodXraysEraser(ProtImodBase):
     """
     Erase X-rays from aligned tilt-series based on the IMOD procedure.
     More info:
@@ -162,7 +163,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfXraysErasedTiltSeries()
+        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfTiltSeries()
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -186,19 +187,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         self._store()
 
     def closeOutputStep(self):
-        self.getOutputSetOfXraysErasedTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfXraysErasedTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
