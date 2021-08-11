@@ -39,7 +39,25 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         ProtTomoImportFiles.__init__(self, **args)
 
     def _defineImportParams(self, form):
+        """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
+
+    def getOutputSetOfTiltSeries(self):
+        """ Method to generate output classes of set of tilt-series"""
+
+        if hasattr(self, "outputSetOfTiltSeries"):
+            self.outputSetOfTiltSeries.enableAppend()
+
+        else:
+            outputSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
+            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+
+        return self.outputSetOfTiltSeries
 
     def getOutputInterpolatedSetOfTiltSeries(self):
         """ Method to generate output interpolated classes of set of tilt-series"""
