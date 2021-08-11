@@ -31,18 +31,17 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
+class ProtImodExcludeViews(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/excludeviews.html
     """
 
     _label = 'exclude views'
@@ -190,18 +189,6 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
                 excludedViewsAsList.append(int(elementVector[0]))
 
         return excludedViewsAsList
-
-    def getOutputSetOfTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
