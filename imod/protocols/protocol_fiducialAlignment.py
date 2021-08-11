@@ -933,7 +933,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
 
-            outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
+            outputSetOfCoordinates3D = \
+                self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.getOutputSetOfTiltSeries())
 
             coordFilePath = os.path.join(
                 extraPrefix,
