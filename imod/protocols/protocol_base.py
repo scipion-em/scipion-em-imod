@@ -61,7 +61,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfTiltSeries.copyInfo(inputSet)
                 outputSetOfTiltSeries.setDim(inputSet.getDim())
 
-            else:
+            elif isinstance(inputSet, SetOfTomograms):
                 outputSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
                 outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
                 outputSetOfTiltSeries.setDim(inputSet.getDim())
@@ -86,7 +86,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
                 outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
 
-            else:
+            elif isinstance(inputSet, SetOfTomograms):
                 outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
                 outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
@@ -156,12 +156,12 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputSetOfTomograms = self._createSetOfTomograms()
 
             if isinstance(inputSet, SetOfTomograms):
-                outputSetOfTiltSeries.copyInfo(inputSet)
+                outputSetOfTomograms.copyInfo(inputSet)
 
-            else:
-                outputSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
-                outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
-                outputSetOfTiltSeries.setDim(inputSet.getDim())
+            elif isinstance(inputSet, SetOfTiltSeries):
+                outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
+                outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
+                outputSetOfTomograms.setDim(inputSet.getDim())
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
 
