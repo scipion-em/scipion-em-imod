@@ -71,7 +71,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        self.getOutputSetOfCTFTomoSeries()
+        self.getOutputSetOfCTFTomoSeries(self.inputSetOfTiltSeries)
 
         for ts in inputSetOfTiltSeries:
             tsId = ts.getTsId()
