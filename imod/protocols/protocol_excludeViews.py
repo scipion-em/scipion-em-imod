@@ -89,14 +89,18 @@ class ProtImodExcludeViews(ProtImodBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
+
+        firstItem = ts.getFirstItem()
+        outputFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+
+        path.copyFile(firstItem.getFileName(), outputFileName)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
         if(position != -1):
-            firstItem = ts.getFirstItem()
-
             paramsAlignment = {
-                'stackName': firstItem.getFileName(),
+                'stackName': outputFileName,
                 'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
             }
 
