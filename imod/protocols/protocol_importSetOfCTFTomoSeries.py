@@ -25,19 +25,17 @@
 # **************************************************************************
 
 import os
-from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
 from pyworkflow import BETA
 from pyworkflow.object import Set
-from tomo.protocols import ProtTomoBase
-from tomo.protocols.protocol_base import ProtTomoImportFiles
 import tomo.objects as tomoObj
 from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
+class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     """
     Protocol to import estimations of CTF series from tilt-series into Scipion.
     """
@@ -48,11 +46,13 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
     defocusUTolerance = 20
     defocusVTolerance = 20
 
-    def __init__(self, **args):
-        ProtTomoImportFiles.__init__(self, **args)
-
     def _defineParams(self, form):
-        ProtTomoImportFiles._defineImportParams(self, form)
+        self._defineImportParams(form)
+
+        form.addParam('exclusionWords', params.StringParam,
+                      label='Exclusion words:',
+                      help="List of words separated by a space that the path should not have",
+                      expertLevel=params.LEVEL_ADVANCED)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
@@ -219,20 +219,6 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfCTFTomoSeries(self):
-        if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.outputSetOfCTFTomoSeries.enableAppend()
-        else:
-            outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
-                                                                         template='CTFmodels%s.sqlite')
-
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
-        return self.outputSetOfCTFTomoSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
