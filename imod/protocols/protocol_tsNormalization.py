@@ -176,7 +176,7 @@ class ProtImodTSNormalization(ProtImodBase):
         ts.applyTransform(outputTsFileName)
 
     def generateOutputStackStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -244,7 +244,7 @@ class ProtImodTSNormalization(ProtImodBase):
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
