@@ -208,15 +208,23 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             self.outputSetOfCTFTomoSeries.enableAppend()
 
         else:
+
+            # Check if the protocol input is a SetOfTiltSeries object or a generic input set to make available both
+            # SetOfTiltSeries and SetOfCtfTomoSeries objects
+            if hasattr(self, "inputSetOfTiltSeries"):
+                inputSet = self.inputSetOfTiltSeries
+            elif hasattr(self, "inputSet"):
+                inputSet = self.inputSet
+
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                          template='CTFmodels%s.sqlite')
 
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputSet.get())
 
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
+            self._defineSourceRelation(inputSet, outputSetOfCTFTomoSeries)
 
         return self.outputSetOfCTFTomoSeries
 
