@@ -141,22 +141,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
     def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
