@@ -114,7 +114,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+        self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -123,7 +123,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+        self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -143,13 +143,13 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         newTs.write(properties=False)
 
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.updateDim()
-        outputInterpolatedSetOfTiltSeries.write()
+        self.outputInterpolatedSetOfTiltSeries.update(newTs)
+        self.outputInterpolatedSetOfTiltSeries.updateDim()
+        self.outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
