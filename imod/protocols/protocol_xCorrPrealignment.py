@@ -203,7 +203,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         alignmentMatrix = utils.formatTransformationMatrix(
             os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
@@ -211,7 +211,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
 
-        outputSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -225,13 +225,13 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs.write(properties=False)
 
-        outputSetOfTiltSeries.update(newTs)
-        outputSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.write()
 
         self._store()
 
     def computeInterpolatedStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+        self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -256,7 +256,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+        self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -275,15 +275,15 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs.write(properties=False)
 
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.updateDim()
-        outputInterpolatedSetOfTiltSeries.write()
+        self.outputInterpolatedSetOfTiltSeries.update(newTs)
+        self.outputInterpolatedSetOfTiltSeries.updateDim()
+        self.outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if self.computeAlignment.get() == 0:
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
