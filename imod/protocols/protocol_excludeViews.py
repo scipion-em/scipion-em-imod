@@ -119,7 +119,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
 
     def generateOutputStackStep(self, tsObjId):
-        getOutputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -130,7 +130,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        getOutputSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
@@ -155,13 +155,13 @@ class ProtImodExcludeViews(ProtImodBase):
         newTs.set
         newTs.write(properties=False)
 
-        getOutputSetOfTiltSeries.update(newTs)
-        getOutputSetOfTiltSeries.updateDim()
-        getOutputSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
