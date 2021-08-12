@@ -231,7 +231,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        self.getOutputSetOfTomograms(self.inputSetOfTomograms.get())
+        self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
