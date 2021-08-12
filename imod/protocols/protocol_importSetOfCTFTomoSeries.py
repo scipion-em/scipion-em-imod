@@ -63,8 +63,8 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('importSetOfCtfTomoSeries')
-        self._insertFunctionStep('closeOutputSetsStep')
+        self._insertFunctionStep(self.importSetOfCtfTomoSeries)
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def importSetOfCtfTomoSeries(self):
