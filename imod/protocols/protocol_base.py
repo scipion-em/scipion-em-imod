@@ -27,7 +27,7 @@
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
-from tomo.objects import SetOfTiltSeries, SetOfTomograms
+from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries
 from pyworkflow.object import Set
 
 
@@ -108,6 +108,28 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputInterpolatedSetOfTiltSeries
 
+    def getOutputFailedSetOfTiltSeries(self, inputSet):
+        if hasattr(self, "outputFailedSetOfTiltSeries"):
+            self.outputFailedSetOfTiltSeries.enableAppend()
+        else:
+            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
+
+            if isinstance(inputSet, SetOfTiltSeries):
+                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+
+            else:
+                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+
+            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
+            self._defineSourceRelation(inputSet, outputFailedSetOfTiltSeries)
+
+        return self.outputFailedSetOfTiltSeries
+
     def getOutputFiducialModelNoGaps(self):
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.outputFiducialModelNoGaps.enableAppend()
@@ -179,27 +201,23 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfTomograms
 
-    def getOutputFailedSetOfTiltSeries(self, inputSet):
-        if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.outputFailedSetOfTiltSeries.enableAppend()
+    def getOutputSetOfCTFTomoSeries(self):
+        if hasattr(self, "outputSetOfCTFTomoSeries"):
+            self.outputSetOfCTFTomoSeries.enableAppend()
+
         else:
-            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
+            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                                         template='CTFmodels%s.sqlite')
 
-            if isinstance(inputSet, SetOfTiltSeries):
-                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
-            else:
-                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
 
-            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
 
-            self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
-            self._defineSourceRelation(inputSet, outputFailedSetOfTiltSeries)
+        return self.outputSetOfCTFTomoSeries
 
-        return self.outputFailedSetOfTiltSeries
 
     # --------------------------- UTILS functions ----------------------------
     def iterFiles(self):
