@@ -203,28 +203,16 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfTomograms
 
-    def getOutputSetOfCTFTomoSeries(self):
-        if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.outputSetOfCTFTomoSeries.enableAppend()
+    def getOutputSetOfCTFTomoSeries(self, inputSet):
+        outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                             template='CTFmodels%s.sqlite')
 
-        else:
+        outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputSet.get())
 
-            # Check if the protocol input is a SetOfTiltSeries object or a generic input set to make available both
-            # SetOfTiltSeries and SetOfCtfTomoSeries objects
-            if hasattr(self, "inputSetOfTiltSeries"):
-                inputSet = self.inputSetOfTiltSeries
-            elif hasattr(self, "inputSet"):
-                inputSet = self.inputSet
+        outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
 
-            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
-                                                                         template='CTFmodels%s.sqlite')
-
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputSet.get())
-
-            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-            self._defineSourceRelation(inputSet, outputSetOfCTFTomoSeries)
+        self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
+        self._defineSourceRelation(inputSet, outputSetOfCTFTomoSeries)
 
         return self.outputSetOfCTFTomoSeries
 
