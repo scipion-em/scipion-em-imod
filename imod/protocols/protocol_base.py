@@ -73,7 +73,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfTiltSeries
 
-    def getOutputInterpolatedSetOfTiltSeries(self):
+    def getOutputInterpolatedSetOfTiltSeries(self, inputSet):
         """ Method to generate output interpolated classes of set of tilt-series"""
 
         if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
@@ -81,11 +81,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         else:
             outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+
+            if isinstance(inputSet, SetOfTiltSeries):
+                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+
+            else:
+                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
 
             if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
+                samplingRate = inputSet.getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
 
