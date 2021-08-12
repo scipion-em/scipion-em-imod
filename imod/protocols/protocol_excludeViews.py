@@ -76,7 +76,6 @@ class ProtImodExcludeViews(ProtImodBase):
         self._insertFunctionStep(self.retrieveInputInformation)
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.excludeViewsStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -84,17 +83,6 @@ class ProtImodExcludeViews(ProtImodBase):
     # --------------------------- STEPS functions ----------------------------
     def retrieveInputInformation(self):
         self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
 
     def excludeViewsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -108,7 +96,7 @@ class ProtImodExcludeViews(ProtImodBase):
             firstItem = ts.getFirstItem()
 
             paramsAlignment = {
-                'stackName': os.path.join(extraPrefix, firstItem.parseFileName()),
+                'stackName': firstItem.getFileName(),
                 'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
             }
 
@@ -149,6 +137,10 @@ class ProtImodExcludeViews(ProtImodBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(newIndex, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+
+                if(tiltImage.hasTransform()):
+                    newTi.setTransform(tiltImage.getTransform())
+
                 newTs.append(newTi)
                 newIndex += 1
 
