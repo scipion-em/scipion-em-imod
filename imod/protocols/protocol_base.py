@@ -51,22 +51,36 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         ProtTomoImportFiles._defineImportParams(self, form)
 
     # --------------------------- CACULUS functions ---------------------------
-    def convertInputStep(self, tsObjId, generateAngleFile=True):
+    def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
+        firstItem = ts.getFirstItem()
+
         """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
         ts.applyTransform(outputTsFileName)
 
         if generateAngleFile:
             """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+            angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
+
+        if generateExtraLink:
+            """"Link to input tilt-series (needed for fiducial model viewer)"""
+            # TODO: there is no need to come from a prealigned stack
+            inputTS = os.path.join(extraPrefix, firstItem.parseFileName())
+            if firstItem.hasTransform():
+                path.copyFile(outputTsFileName, inputTS)
+
+            else:
+                path.createLink(firstItem.getLocation()[1], inputTS)
 
 
     # --------------------------- OUTPUT functions ----------------------------
