@@ -65,7 +65,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     # --------------------------- STEPS functions ----------------------------
     def assignTransformationMatricesStep(self):
-        self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
