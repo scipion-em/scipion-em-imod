@@ -649,10 +649,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
-            outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+            self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            outputSetOfTiltSeries.append(newTs)
+            self.outputSetOfTiltSeries.append(newTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -680,15 +680,15 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs.write(properties=False)
 
-            outputSetOfTiltSeries.update(newTs)
-            outputSetOfTiltSeries.write()
+            self.outputSetOfTiltSeries.update(newTs)
+            self.outputSetOfTiltSeries.write()
 
             self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.getOutputSetOfTiltSeries()]
+        outputTsIdList = [ts.getTsId() for ts in self.outputSetOfTiltSeries]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -697,7 +697,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
-            outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+            self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
@@ -713,7 +713,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.getOutputSetOfTiltSeries()[outputTsIdList.index(tsId) + 1])
+                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -728,7 +728,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(tsIn)
-            outputInterpolatedSetOfTiltSeries.append(newTs)
+            self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
             tltFilePath = os.path.join(
                 extraPrefix,
@@ -755,9 +755,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            outputInterpolatedSetOfTiltSeries.update(newTs)
-            outputInterpolatedSetOfTiltSeries.updateDim()
-            outputInterpolatedSetOfTiltSeries.write()
+            self.outputInterpolatedSetOfTiltSeries.update(newTs)
+            self.outputInterpolatedSetOfTiltSeries.updateDim()
+            self.outputInterpolatedSetOfTiltSeries.write()
             self._store()
 
     @tryExceptDecorator
@@ -934,7 +934,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
 
             outputSetOfCoordinates3D = \
-                self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.getOutputSetOfTiltSeries())
+                self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
 
             coordFilePath = os.path.join(
                 extraPrefix,
@@ -961,14 +961,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
-            outputFailedSetOfTiltSeries = self.getOutputFailedSetOfTiltSeries()
+            self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            outputFailedSetOfTiltSeries.append(newTs)
+            self.outputFailedSetOfTiltSeries.append(newTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -984,16 +984,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            outputFailedSetOfTiltSeries.update(newTs)
-            outputFailedSetOfTiltSeries.updateDim()
-            outputFailedSetOfTiltSeries.write()
+            self.outputFailedSetOfTiltSeries.update(newTs)
+            self.outputFailedSetOfTiltSeries.updateDim()
+            self.outputFailedSetOfTiltSeries.write()
             self._store()
 
     def createOutputStep(self):
         if hasattr(self, "outputSetOfTiltSeries"):
-            self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         # if hasattr(self, "outputFiducialModelGaps"):
         #     self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelNoGaps"):
@@ -1001,7 +1001,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.getOutputFailedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
