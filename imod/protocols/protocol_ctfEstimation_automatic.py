@@ -441,18 +441,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def allowsDelete(self, obj):
         return True
 
-    # def getOutputSetOfCTFTomoSeries(self, outputSetName):
-    #     if hasattr(self, outputSetName):
-    #         outputSetOfCTFTomoSeries = getattr(self, outputSetName)
-    #         if outputSetOfCTFTomoSeries is not None:
-    #             outputSetOfCTFTomoSeries.enableAppend()
-    #     else:
-    #         outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
-    #                                                                      template='CTFmodels%s.sqlite')
-    #         outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
-    #         outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
-
     def getExpectedDefocus(self, tsId):
         if self.expectedDefocusOrigin.get() == 0:
             return self.expectedDefocusValue.get()
