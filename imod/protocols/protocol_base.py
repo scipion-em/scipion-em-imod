@@ -138,8 +138,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputSet,
                                                                       suffix='Fiducials3D')
 
-            outputSetOfCoordinates3D.setSamplingRate(inputSet.getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(inputSet)
+            outputSetOfCoordinates3D.setSamplingRate(outputSet.getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(outputSet)
 
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
@@ -161,7 +161,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             elif isinstance(inputSet, SetOfTiltSeries):
                 outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
                 outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
-                outputSetOfTomograms.setDim(inputSet.getDim())
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
 
