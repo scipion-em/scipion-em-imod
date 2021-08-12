@@ -66,6 +66,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
                 outputSetOfTiltSeries.setDim(inputSet.getDim())
 
+            if self.binning > 1:
+                samplingRate = inputSet.getSamplingRate()
+                samplingRate *= self.binning.get()
+                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
@@ -161,6 +166,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             elif isinstance(inputSet, SetOfTiltSeries):
                 outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
                 outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
+
+            if self.binning > 1:
+                samplingRate = inputSet.getSamplingRate()
+                samplingRate *= self.binning.get()
+                outputSetOfTomograms.setSamplingRate(samplingRate)
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
 
