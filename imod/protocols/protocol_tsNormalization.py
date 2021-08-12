@@ -176,7 +176,7 @@ class ProtImodTSNormalization(ProtImodBase):
         ts.applyTransform(outputTsFileName)
 
     def generateOutputStackStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
