@@ -27,7 +27,7 @@
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
-from tomo.objects import SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries, SetOfTomograms
 from pyworkflow.object import Set
 
 
@@ -106,12 +106,17 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def getOutputFiducialModelNoGaps(self):
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.outputFiducialModelNoGaps.enableAppend()
+
         else:
             outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+
             outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
+
             outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
+
             self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
+
         return self.outputFiducialModelNoGaps
 
     # def getOutputFiducialModelGaps(self):
@@ -128,25 +133,41 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.outputSetOfCoordinates3D.enableAppend()
+
         else:
             outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputSet,
                                                                       suffix='Fiducials3D')
+
             outputSetOfCoordinates3D.setSamplingRate(inputSet.getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(inputSet)
+
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
+
             self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
             self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
+
         return self.outputSetOfCoordinates3D
 
     def getOutputSetOfTomograms(self, inputSet):
         if hasattr(self, "outputSetOfTomograms"):
             self.outputSetOfTomograms.enableAppend()
+
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
-            outputSetOfTomograms.copyInfo(inputSet)
+
+            if isinstance(inputSet, SetOfTomograms):
+                outputSetOfTiltSeries.copyInfo(inputSet)
+
+            else:
+                outputSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputSetOfTiltSeries.setDim(inputSet.getDim())
+
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
+
             self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
             self._defineSourceRelation(inputSet, outputSetOfTomograms)
+
         return self.outputSetOfTomograms
 
     def getOutputFailedSetOfTiltSeries(self, inputSet):
