@@ -61,7 +61,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('assignTransformationMatricesStep')
+        self._insertFunctionStep(self.assignTransformationMatricesStep)
 
     # --------------------------- STEPS functions ----------------------------
     def assignTransformationMatricesStep(self):
