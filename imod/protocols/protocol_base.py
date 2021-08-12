@@ -48,7 +48,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         ProtTomoImportFiles._defineImportParams(self, form)
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet):
+    def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
         """ Method to generate output classes of set of tilt-series"""
 
         if hasattr(self, "outputSetOfTiltSeries"):
@@ -66,10 +66,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
                 outputSetOfTiltSeries.setDim(inputSet.getDim())
 
-            if self.binning > 1:
+            if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
                 samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
+                outputSetOfTiltSeries.setSamplingRate(samplingRate)
 
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
