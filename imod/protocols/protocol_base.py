@@ -24,12 +24,13 @@
 # *
 # **************************************************************************
 
+import os
 from pwem.protocols import EMProtocol
-from pyworkflow.object import CsvList, Integer
+from pyworkflow.object import Set, CsvList, Integer
+from pyworkflow.utils import path
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries, CTFTomoSeries, CTFTomo
-from pyworkflow.object import Set
 from imod import utils
 
 
@@ -48,6 +49,25 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def _defineImportParams(self, form):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
+
+    # --------------------------- CACULUS functions ---------------------------
+    def convertInputStep(self, tsObjId, generateAngleFile=True):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+
+        """Apply the transformation form the input tilt-series"""
+        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        ts.applyTransform(outputTsFileName)
+
+        if generateAngleFile:
+            """Generate angle file"""
+            angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+            ts.generateTltFile(angleFilePath)
+
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
