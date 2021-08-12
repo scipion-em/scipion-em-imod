@@ -153,7 +153,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfCoordinates3D
 
-    def getOutputSetOfTomograms(self, inputSet):
+    def getOutputSetOfTomograms(self, inputSet, binning = 1):
         if hasattr(self, "outputSetOfTomograms"):
             self.outputSetOfTomograms.enableAppend()
 
@@ -167,7 +167,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
                 outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
 
-            if self.binning > 1:
+            if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
                 samplingRate *= self.binning.get()
                 outputSetOfTomograms.setSamplingRate(samplingRate)
