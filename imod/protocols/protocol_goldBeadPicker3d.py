@@ -101,15 +101,15 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         allOutputId = []
 
         for ts in self.inputSetOfTomograms.get():
-            pickId = self._insertFunctionStep('pickGoldBeadsStep',
+            pickId = self._insertFunctionStep(self.pickGoldBeadsStep,
                                               ts.getObjId(),
                                               prerequisites=[])
 
-            convertId = self._insertFunctionStep('convertModelToCoordinatesStep',
+            convertId = self._insertFunctionStep(self.convertModelToCoordinatesStep,
                                                  ts.getObjId(),
                                                  prerequisites=[pickId])
 
-            outputID = self._insertFunctionStep('createOutputStep',
+            outputID = self._insertFunctionStep(self.createOutputStep,
                                                 ts.getObjId(),
                                                 prerequisites=[convertId])
 
