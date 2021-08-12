@@ -163,7 +163,7 @@ class ProtImodXraysEraser(ProtImodBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -171,7 +171,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputXraysErasedSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -182,12 +182,12 @@ class ProtImodXraysEraser(ProtImodBase):
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        outputXraysErasedSetOfTiltSeries.update(newTs)
-        outputXraysErasedSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
