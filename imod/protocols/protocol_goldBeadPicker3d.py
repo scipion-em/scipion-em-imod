@@ -173,8 +173,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
 
         """ Create the output set of coordinates 3D from gold beads detected """
-        outputSetOfCoordinates3D = \
-            self.getOutputSetOfCoordinates3Ds(self.inputSetOfTomograms.get(), self.inputSetOfTomograms.get())
+        self.getOutputSetOfCoordinates3Ds(self.inputSetOfTomograms.get(), self.inputSetOfTomograms.get())
 
         coordFilePath = os.path.join(extraPrefix, "%s.xyz" % os.path.basename(fileName))
 
@@ -189,14 +188,14 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
 
                 newCoord3D.setVolId(tsObjId)
-                outputSetOfCoordinates3D.append(newCoord3D)
-                outputSetOfCoordinates3D.update(newCoord3D)
+                self.outputSetOfCoordinates3D.append(newCoord3D)
+                self.outputSetOfCoordinates3D.update(newCoord3D)
 
-            outputSetOfCoordinates3D.write()
+            self.outputSetOfCoordinates3D.write()
 
         self._store()
 
     def closeOutputSetStep(self):
-        self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfCoordinates3D.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
