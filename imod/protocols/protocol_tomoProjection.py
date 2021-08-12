@@ -94,9 +94,9 @@ class ProtImodTomoProjection(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep('projectTomogram', tomo.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.projectTomogram, tomo.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def projectTomogram(self, tomoObjId):
