@@ -270,7 +270,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
 
-        cls.excludeViewsOutputSizes = [57, 56]
+        cls.excludeViewsOutputSizes = {'a': 57, 'b': 56}
 
         cls.binningTsNormalization = 2
 
@@ -419,7 +419,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_excludeViewsOutputTSSize(self):
         for index, tsOut in enumerate(self.protExcludeViews.outputSetOfTiltSeries):
-            self.assertTrue(tsOut.getSize() == self.excludeViewsOutputSizes[index])
+            self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
 
     def test_normalizationOutputTS(self):
         self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
