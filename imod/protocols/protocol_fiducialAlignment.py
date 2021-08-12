@@ -239,7 +239,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId)
+            self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
             self._insertFunctionStep(self.generateTrackComStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
@@ -270,35 +270,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 self._failedTs.append(tsId)
 
         return wrapper
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        firstItem = ts.getFirstItem()
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
-        """"Link to input tilt-series (needed for fiducial model viewer)"""
-        # TODO: there is no need to come from a prealigned stack
-        inputTS = os.path.join(extraPrefix, firstItem.parseFileName())
-        if firstItem.hasTransform():
-            path.copyFile(outputTsFileName, inputTS)
-
-        else:
-            path.createLink(firstItem.getLocation()[1], inputTS)
 
     def generateTrackComStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
