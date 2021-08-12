@@ -27,6 +27,7 @@
 from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
+from tomo.objects import SetOfTiltSeries
 from pyworkflow.object import Set
 
 
@@ -47,7 +48,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         ProtTomoImportFiles._defineImportParams(self, form)
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self):
+    def getOutputSetOfTiltSeries(self, inputSet):
         """ Method to generate output classes of set of tilt-series"""
 
         if hasattr(self, "outputSetOfTiltSeries"):
@@ -55,12 +56,20 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+
+            if isinstance(inputSet, SetOfTiltSeries):
+                outputSetOfTiltSeries.copyInfo(inputSet)
+                outputSetOfTiltSeries.setDim(inputSet.getDim())
+
+            else:
+                outputSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputSetOfTiltSeries.setDim(inputSet.getDim())
+
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+            self._defineSourceRelation(inputSet, outputSetOfTiltSeries)
 
         return self.outputSetOfTiltSeries
 
