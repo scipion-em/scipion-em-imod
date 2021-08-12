@@ -380,20 +380,20 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                      minSpacing=0.9)
 
         cls.protTomoProjection = \
-            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputNormalizedSetOfTomograms,
+            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputSetOfTomograms,
                                    minAngle=-60.0,
                                    maxAngle=60.0,
                                    stepAngle=2.0,
                                    rotationAxis=1)
 
     def test_importTMOutput(self):
-        self.assertIsNotNone(self.protImportTM.outputAssignedTransformSetOfTiltSeries)
+        self.assertIsNotNone(self.protImportTM.outputSetOfTiltSeries)
 
     def test_importTMOutputSize(self):
-        self.assertTrue(self.protImportTM.outputAssignedTransformSetOfTiltSeries.getSize() == 2)
+        self.assertTrue(self.protImportTM.outputSetOfTiltSeries.getSize() == 2)
 
     def test_importTMOutputCheckTransform(self):
-        for ts in self.protImportTM.outputAssignedTransformSetOfTiltSeries:
+        for ts in self.protImportTM.outputSetOfTiltSeries:
             self.assertTrue(ts.getFirstItem().hasTransform())
 
     def test_doseFitlerOutputTS(self):
@@ -422,17 +422,17 @@ class TestImodReconstructionWorkflow(TestImodBase):
             self.assertTrue(tsOut.getSize() == self.excludeViewsOutputSizes[index])
 
     def test_normalizationOutputTS(self):
-        self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
+        self.assertIsNotNone(self.protTSNormalization.outputSetOfTiltSeries)
 
-        tsId = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getFirstItem().getTsId()
+        tsId = self.protTSNormalization.outputSetOfTiltSeries.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
 
     def test_normalizationOutputTSSamplingRate(self):
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getSamplingRate()
+        outSamplingRate = self.protTSNormalization.outputSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningTsNormalization == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningTsNormalization, outSamplingRate)
 
     def test_prealignmentOutputTS(self):
         self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
@@ -569,7 +569,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
 
     def test_tomoNormalizationOutput(self):
-        self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
+        self.assertIsNotNone(self.protTomoNormalization.outputSetOfTomograms)
 
         location = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getLocation()[1]
         fileName, _ = os.path.splitext(location)
@@ -578,27 +578,27 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), tomoId + ".mrc")))
 
     def test_tomoNormalizationOutputSize(self):
-        self.assertTrue(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
+        self.assertTrue(self.protTomoNormalization.outputSetOfTomograms.getSize() == 2)
 
     def test_tomoNormalizationOutputSamplingRate(self):
         inSamplingRate = self.protTomoNormalization.inputSetOfTomograms.get().getSamplingRate()
-        outSamplingRate = self.protTomoNormalization.outputNormalizedSetOfTomograms.getSamplingRate()
+        outSamplingRate = self.protTomoNormalization.outputSetOfTomograms.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningTomoNormalization == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningTomoNormalization, outSamplingRate)
 
     def test_tomoProjectionOutputTiltSeriesSize(self):
-        self.assertTrue(self.protTomoProjection.outputProjectedSetOfTiltSeries.getSize() == 2)
+        self.assertTrue(self.protTomoProjection.outputSetOfTiltSeries.getSize() == 2)
 
     def test_tomoProjectionOutputTiltSeriesDimension(self):
         ih = ImageHandler()
         outputDimensions = ih.getDimensions(
-            self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem().getFirstItem().getFileName())
+            self.protTomoProjection.outputSetOfTiltSeries.getFirstItem().getFirstItem().getFileName())
 
         self.assertTrue(outputDimensions == (256, 256, 61, 1))
 
     def test_tomoProjectionOutputTiltSeriesSamplingRate(self):
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
-        outSamplingRate = self.protTomoProjection.outputProjectedSetOfTiltSeries.getSamplingRate()
+        outSamplingRate = self.protTomoProjection.outputSetOfTiltSeries.getSamplingRate()
 
         self.assertTrue(inSamplingRate == outSamplingRate)
 
