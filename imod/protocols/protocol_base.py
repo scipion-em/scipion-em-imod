@@ -97,6 +97,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
 
             outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+
             self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
 
@@ -148,16 +149,26 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             self._defineSourceRelation(inputSet, outputSetOfTomograms)
         return self.outputSetOfTomograms
 
-    def getOutputFailedSetOfTiltSeries(self):
+    def getOutputFailedSetOfTiltSeries(self, inputSet):
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.enableAppend()
         else:
             outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
-            outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+
+            if isinstance(inputSet, SetOfTiltSeries):
+                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+
+            else:
+                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+
             outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+
             self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFailedSetOfTiltSeries)
+            self._defineSourceRelation(inputSet, outputFailedSetOfTiltSeries)
+
         return self.outputFailedSetOfTiltSeries
 
     # --------------------------- UTILS functions ----------------------------
