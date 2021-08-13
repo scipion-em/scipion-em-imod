@@ -677,9 +677,9 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(defocusFile))
 
     def test_ctfCorrectionOutput(self):
-        self.assertIsNotNone(self.protCTFCorrection.outputCtfCorrectedSetOfTiltSeries)
+        self.assertIsNotNone(self.protCTFCorrection.outputSetOfTiltSeries)
 
-        tsId = self.protCTFCorrection.outputCtfCorrectedSetOfTiltSeries.getFirstItem().getTsId()
+        tsId = self.protCTFCorrection.outputSetOfTiltSeries.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), "WTI042413_1series4.st")
 
         self.assertTrue(os.path.exists(outputLocation))
