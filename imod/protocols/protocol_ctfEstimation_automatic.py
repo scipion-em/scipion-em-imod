@@ -288,6 +288,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         return obj
 
     def _insertAllSteps(self):
+        # This assignment is needed to use methods from base class
+        self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
+
         for item in self.inputSet.get():
             self._insertFunctionStep(self.convertInputStep, item.getObjId())
             self._insertFunctionStep(self.ctfEstimation, item.getObjId())
@@ -296,21 +299,21 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
+    # def convertInputStep(self, tsObjId):
+    #     ts = self._getTiltSeries(tsObjId)
+    #     tsId = ts.getTsId()
+    #     extraPrefix = self._getExtraPath(tsId)
+    #     tmpPrefix = self._getTmpPath(tsId)
+    #     path.makePath(tmpPrefix)
+    #     path.makePath(extraPrefix)
+    #
+    #     """Apply the transformation form the input tilt-series"""
+    #     outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+    #     ts.applyTransform(outputTsFileName)
+    #
+    #     """Generate angle file"""
+    #     angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+    #     ts.generateTltFile(angleFilePath)
 
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
