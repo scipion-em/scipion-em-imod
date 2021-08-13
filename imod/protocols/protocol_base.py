@@ -26,7 +26,7 @@
 
 import os
 from pwem.protocols import EMProtocol
-from pyworkflow.object import Set, CsvList, Integer
+from pyworkflow.object import Set, CsvList, Integer, Pointer
 from pyworkflow.utils import path
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
@@ -52,7 +52,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
+            ts = self.inputSetOfTiltSeries[tsObjId]
+        elif isinstance(self.inputSetOfTiltSeries, Pointer):
+            ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
