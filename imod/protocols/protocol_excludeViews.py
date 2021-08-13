@@ -44,7 +44,7 @@ class ProtImodExcludeViews(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/excludeviews.html
     """
 
-    _label = 'exclude views'
+    _label = 'Exclude views'
     _devStatus = BETA
 
     excludeViewsInfoMatrix = []

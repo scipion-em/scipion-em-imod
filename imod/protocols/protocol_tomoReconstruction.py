@@ -46,7 +46,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/tilt.html
     """
 
-    _label = 'tomo reconstruction'
+    _label = 'Tomo reconstruction'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

@@ -44,7 +44,7 @@ class ProtImodXraysEraser(ProtImodBase):
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'x-rays eraser'
+    _label = 'X-rays eraser'
     _devStatus = BETA
 
     def __init__(self, **kwargs):

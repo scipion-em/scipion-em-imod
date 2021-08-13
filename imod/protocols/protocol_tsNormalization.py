@@ -41,7 +41,7 @@ class ProtImodTSNormalization(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
-    _label = 'tilt-series normalization'
+    _label = 'Tilt-series normalization'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

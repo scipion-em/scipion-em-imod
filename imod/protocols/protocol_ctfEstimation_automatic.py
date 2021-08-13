@@ -43,7 +43,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
     """
 
-    _label = 'automatic CTF estimation (step 1)'
+    _label = 'Automatic CTF estimation (step 1)'
     _devStatus = BETA
 
     defocusUTolerance = 20

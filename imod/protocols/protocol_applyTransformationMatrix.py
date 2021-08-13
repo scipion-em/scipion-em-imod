@@ -44,7 +44,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
-    _label = 'apply transformation'
+    _label = 'Apply transformation'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

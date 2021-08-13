@@ -44,7 +44,7 @@ class ProtImodTomoProjection(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
     """
 
-    _label = 'tomo projection'
+    _label = 'Tomo projection'
     _devStatus = BETA
 
     AXIS_X = 0

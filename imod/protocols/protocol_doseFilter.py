@@ -47,7 +47,7 @@ class ProtImodDoseFilter(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/mtffilter.html
     """
 
-    _label = 'dose filter'
+    _label = 'Dose filter'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

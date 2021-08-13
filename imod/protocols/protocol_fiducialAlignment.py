@@ -52,7 +52,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'fiducial alignment'
+    _label = 'Fiducial alignment'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

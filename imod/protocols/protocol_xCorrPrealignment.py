@@ -44,7 +44,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
     """
 
-    _label = 'xcorr prealignment'
+    _label = 'Xcorr prealignment'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

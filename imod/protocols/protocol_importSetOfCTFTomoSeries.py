@@ -40,7 +40,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     Protocol to import estimations of CTF series from tilt-series into Scipion.
     """
 
-    _label = 'import tomo CTFs'
+    _label = 'Import tomo CTFs'
     _devStatus = BETA
 
     defocusUTolerance = 20
