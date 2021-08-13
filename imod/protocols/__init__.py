@@ -26,6 +26,9 @@
 # *
 # **************************************************************************
 
+# Base protocols
+from .protocol_base import ProtImodBase
+
 # Calculus protocols
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection

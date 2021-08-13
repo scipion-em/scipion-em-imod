@@ -25,34 +25,34 @@
 # **************************************************************************
 
 import os
-from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
 from pyworkflow import BETA
 from pyworkflow.object import Set
-from tomo.protocols import ProtTomoBase
-from tomo.protocols.protocol_base import ProtTomoImportFiles
 import tomo.objects as tomoObj
 from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
+class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     """
     Protocol to import estimations of CTF series from tilt-series into Scipion.
     """
 
-    _label = 'import tomo CTFs'
+    _label = 'Import tomo CTFs'
     _devStatus = BETA
 
     defocusUTolerance = 20
     defocusVTolerance = 20
 
-    def __init__(self, **args):
-        ProtTomoImportFiles.__init__(self, **args)
-
     def _defineParams(self, form):
-        ProtTomoImportFiles._defineImportParams(self, form)
+        self._defineImportParams(form)
+
+        form.addParam('exclusionWords', params.StringParam,
+                      label='Exclusion words:',
+                      help="List of words separated by a space that the path should not have",
+                      expertLevel=params.LEVEL_ADVANCED)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
@@ -63,15 +63,15 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('importSetOfCtfTomoSeries')
-        self._insertFunctionStep('closeOutputSetsStep')
+        self._insertFunctionStep(self.importSetOfCtfTomoSeries)
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def importSetOfCtfTomoSeries(self):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        self.getOutputSetOfCTFTomoSeries()
+        self.getOutputSetOfCTFTomoSeries(self.inputSetOfTiltSeries)
 
         for ts in inputSetOfTiltSeries:
             tsId = ts.getTsId()
@@ -86,153 +86,12 @@ class ProtImodImportSetOfCtfTomoSeries(ProtTomoImportFiles, EMProtocol, ProtTomo
 
                     print("Parsing file: " + defocusFilePath)
 
-                    defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
-
-                    newCTFTomoSeries = tomoObj.CTFTomoSeries()
-                    newCTFTomoSeries.copyInfo(ts)
-                    newCTFTomoSeries.setTiltSeries(ts)
-                    newCTFTomoSeries.setTsId(tsId)
-                    newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-
-                    # We need to create now all the attributes of this object in order to append it to the set and be
-                    # able to update it posteriorly.
-
-                    newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-                    self.outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
-
-                    if defocusFileFlag == 0:
-                        " Plain estimation "
-                        defocusUDict = utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                                       flag=defocusFileFlag)
-
-                    elif defocusFileFlag == 1:
-                        " Astigmatism estimation "
-                        defocusUDict, defocusVDict, defocusAngleDict = utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                                                                       flag=defocusFileFlag)
-
-                    elif defocusFileFlag == 4:
-                        " Phase-shift information "
-                        defocusUDict, phaseShiftDict = utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                                                       flag=defocusFileFlag)
-
-                    elif defocusFileFlag == 5:
-                        " Astigmatism and phase shift estimation "
-                        defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
-                            utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                            flag=defocusFileFlag)
-
-                    elif defocusFileFlag == 37:
-                        " Astigmatism, phase shift and cut-on frequency estimation "
-                        defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict = \
-                            utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                            flag=defocusFileFlag)
-
-                    else:
-                        raise Exception(
-                            "Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
-                            "1, 4, 5, and 37.")
-
-                    for index, _ in enumerate(ts):
-                        newCTFTomo = tomoObj.CTFTomo()
-                        newCTFTomo.setIndex(pwobj.Integer(index + 1))
-
-                        if defocusFileFlag == 0:
-                            " Plain estimation "
-                            newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                        elif defocusFileFlag == 1:
-                            " Astigmatism estimation "
-                            newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                            newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusVList(defocusVDict[index + 1])
-
-                            newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
-
-                        elif defocusFileFlag == 4:
-                            " Phase-shift information "
-                            newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                            newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
-
-                        elif defocusFileFlag == 5:
-                            " Astigmatism and phase shift estimation "
-                            newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                            newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusVList(defocusVDict[index + 1])
-
-                            newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
-
-                            newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
-
-                        elif defocusFileFlag == 37:
-                            " Astigmatism, phase shift and cut-on frequency estimation "
-                            newCTFTomo._defocusUList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
-                            newCTFTomo._defocusVList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusVList(defocusVDict[index + 1])
-
-                            newCTFTomo._defocusAngleList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
-
-                            newCTFTomo._phaseShiftList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
-
-                            newCTFTomo._cutOnFreqList = pwobj.CsvList(pType=float)
-                            newCTFTomo.setCutOnFreqList(cutOnFreqDict[index + 1])
-
-                            defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict = \
-                                utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                                flag=defocusFileFlag)
-
-                        newCTFTomo.completeInfoFromList()
-
-                        newCTFTomoSeries.append(newCTFTomo)
-
-                    newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-
-                    newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
-                    newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
-
-                    if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                            newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                        newCTFTomoSeries.setEnabled(False)
-
-                    newCTFTomoSeries.write(properties=False)
-
-                    self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
-                    self.outputSetOfCTFTomoSeries.write()
-
-                    self._store()
+                    self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath)
 
     def closeOutputSetsStep(self):
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfCTFTomoSeries(self):
-        if hasattr(self, "outputSetOfCTFTomoSeries"):
-            self.outputSetOfCTFTomoSeries.enableAppend()
-        else:
-            outputSetOfCTFTomoSeries = tomoObj.SetOfCTFTomoSeries.create(self._getPath(),
-                                                                         template='CTFmodels%s.sqlite')
-
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCTFTomoSeries)
-        return self.outputSetOfCTFTomoSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

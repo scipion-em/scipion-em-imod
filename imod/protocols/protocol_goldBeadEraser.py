@@ -43,7 +43,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'gold bead eraser'
+    _label = 'Gold bead eraser'
     _devStatus = BETA
 
     def __init__(self, **kwargs):
