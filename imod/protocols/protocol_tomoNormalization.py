@@ -161,8 +161,8 @@ class ProtImodTomoNormalization(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def generateOutputStackStep(self, tsObjId):
