@@ -56,6 +56,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             ts = self.inputSetOfTiltSeries[tsObjId]
         elif isinstance(self.inputSetOfTiltSeries, Pointer):
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
+
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
