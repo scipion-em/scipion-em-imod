@@ -98,20 +98,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            "of the fiducial models does not consider this option it is algo recomended to set this "
                            "option to 'No'.")
 
-        # form.addParam('fiducialRadius',
-        #               params.FloatParam,
-        #               label='Fiducial radius (nm)',
-        #               default='4.95',
-        #               important=True,
-        #               help="Fiducials diameter to be tracked for alignment.")
-
-        # form.addParam('numberFiducial',
-        #               params.IntParam,
-        #               label='Number of fiducials',
-        #               default='25',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help="Number of fiducials to be tracked for alignment.")
-
         form.addParam('rotationAngle',
                       params.FloatParam,
                       label='Tilt rotation angle (deg)',
@@ -140,25 +126,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                          'Images will be binned by the given factor. Must be an integer bigger than 1')
 
         form.addSection('Global variables')
-
-        # form.addParam('refineSobelFilter',
-        #               params.EnumParam,
-        #               choices=['Yes', 'No'],
-        #               default=1,
-        #               label='Refine center with Sobel filter',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Use edge-detecting Sobel filter to refine the bead positions.')
-        #
-        # form.addParam('scalableSigmaForSobelFilter',
-        #               params.FloatParam,
-        #               default=0.5,
-        #               condition='refineSobelFilter==0',
-        #               label='Sobel sigma relative to bead size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
-        #                    'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
-        #                    'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
 
         form.addParam('rotationSolutionType',
                       params.EnumParam,
@@ -267,9 +234,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
             self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
-            # self._insertFunctionStep(self.generateTrackComStep, tsObjId)
-            # self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
-            # self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
             self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
@@ -298,162 +262,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         return wrapper
 
-    # def generateTrackComStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #
-    #     fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-    #
-    #     boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
-    #
-    #     # Make boxSizeXandY parameter even due to computational efficiency
-    #     if boxSizeXandY % 2 == 1:
-    #         boxSizeXandY += 1
-    #
-    #     paramsDict = {
-    #         'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-    #         'inputSeedModel': os.path.join(extraPrefix, firstItem.parseFileName(extension=".seed")),
-    #         'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
-    #         'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
-    #         'rotationAngle': self.rotationAngle.get(),
-    #         'fiducialRadius': fiducialRadiusPixel,
-    #         'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
-    #         'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
-    #         'boxSizeXandY': boxSizeXandY,
-    #         'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
-    #         'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
-    #         'maxRescueDistance': 0.2 * fiducialRadiusPixel,
-    #         'minDiamForParamScaling': 12.5,
-    #         'deletionCriterionMinAndSD': '0.3,2.0'
-    #     }
-    #
-    #     self.translateTrackCom(ts, paramsDict)
-    #
-    # @tryExceptDecorator
-    # def generateFiducialSeedStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #
-    #     paramsAutofidseed = {
-    #         'trackCommandFile': os.path.join(extraPrefix,
-    #                                          ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
-    #         'minSpacing': 0.85,
-    #         'peakStorageFraction': 1.0,
-    #         'RotationAngle': self.rotationAngle.get(),
-    #         'targetNumberOfBeads': self.numberFiducial.get()
-    #     }
-    #
-    #     argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
-    #                       "-MinSpacing %(minSpacing)f " \
-    #                       "-PeakStorageFraction %(peakStorageFraction)f " \
-    #                       "-TargetNumberOfBeads %(targetNumberOfBeads)d "
-    #
-    #     if self.twoSurfaces.get() == 0:
-    #         argsAutofidseed += " -TwoSurfaces"
-    #
-    #     Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
-    #
-    #     autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
-    #     path.makePath(autofidseedDirPath)
-    #     path.moveTree("autofidseed.dir", autofidseedDirPath)
-    #     path.moveFile("autofidseed.info", self._getExtraPath(tsId))
-    #
-    # @tryExceptDecorator
-    # def generateFiducialModelStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #
-    #     fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-    #
-    #     boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
-    #
-    #     # Make boxSizeXandY parameter even due to computational efficiency
-    #     if boxSizeXandY % 2 == 1:
-    #         boxSizeXandY += 1
-    #
-    #     paramsBeadtrack = {
-    #         'inputSeedModel': os.path.join(extraPrefix, firstItem.parseFileName(extension=".seed")),
-    #         'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
-    #         'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-    #         'imagesAreBinned': 1,
-    #         'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
-    #         'tiltDefaultGrouping': 7,
-    #         'magDefaultGrouping': 5,
-    #         'rotDefaultGrouping': 1,
-    #         'minViewsForTiltalign': 4,
-    #         'beadDiameter': fiducialRadiusPixel,
-    #         'fillGaps': 1,
-    #         'maxGapSize': 5,
-    #         'minTiltRangeToFindAxis': 10.0,
-    #         'minTiltRangeToFindAngles': 20.0,
-    #         'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
-    #         'roundsOfTracking': 2,
-    #         'localAreaTracking': 1,
-    #         'localAreaTargetSize': 1000,
-    #         'minBeadsInArea': 8,
-    #         'minOverlapBeads': 5,
-    #         'maxBeadsToAverage': 4,
-    #         'sobelFilterCentering': 1,
-    #         'pointsToFitMaxAndMin': '7,3',
-    #         'densityRescueFractionAndSD': '0.6,1.0',
-    #         'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
-    #         'rescueRelaxationDensityAndDistance': '0.7,0.9',
-    #         'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
-    #         'densityRelaxationPostFit': 0.9,
-    #         'maxRescueDistance': 0.2 * fiducialRadiusPixel,
-    #         'residualsToAnalyzeMaxAndMin': '9,5',
-    #         'deletionCriterionMinAndSD': '0.3,2.0',
-    #         'minDiamForParamScaling': 12.5
-    #     }
-    #
-    #     argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
-    #                     "-OutputModel %(outputModel)s " \
-    #                     "-ImageFile %(imageFile)s " \
-    #                     "-ImagesAreBinned %(imagesAreBinned)d " \
-    #                     "-TiltFile %(tiltFile)s " \
-    #                     "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
-    #                     "-MagDefaultGrouping %(magDefaultGrouping)d " \
-    #                     "-RotDefaultGrouping %(rotDefaultGrouping)d " \
-    #                     "-MinViewsForTiltalign %(minViewsForTiltalign)d " \
-    #                     "-BeadDiameter %(beadDiameter).2f " \
-    #                     "-FillGaps %(fillGaps)d " \
-    #                     "-MaxGapSize %(maxGapSize)d " \
-    #                     "-MinTiltRangeToFindAxis %(minTiltRangeToFindAxis).2f " \
-    #                     "-MinTiltRangeToFindAngles %(minTiltRangeToFindAngles).2f " \
-    #                     "-BoxSizeXandY %(boxSizeXandY)s " \
-    #                     "-RoundsOfTracking %(roundsOfTracking)d " \
-    #                     "-LocalAreaTracking %(localAreaTracking)d " \
-    #                     "-LocalAreaTargetSize %(localAreaTargetSize)d " \
-    #                     "-MinBeadsInArea %(minBeadsInArea)d " \
-    #                     "-MinOverlapBeads %(minOverlapBeads)d " \
-    #                     "-MaxBeadsToAverage %(maxBeadsToAverage)d " \
-    #                     "-SobelFilterCentering %(sobelFilterCentering)d " \
-    #                     "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
-    #                     "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
-    #                     "-DistanceRescueCriterion %(distanceRescueCriterion).2f " \
-    #                     "-RescueRelaxationDensityAndDistance %(rescueRelaxationDensityAndDistance)s " \
-    #                     "-PostFitRescueResidual %(postFitRescueResidual).2f " \
-    #                     "-DensityRelaxationPostFit %(densityRelaxationPostFit).2f " \
-    #                     "-MaxRescueDistance %(maxRescueDistance).2f " \
-    #                     "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
-    #                     "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
-    #                     "-MinDiamForParamScaling %(minDiamForParamScaling).1f"
-    #
-    #     Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
-
-    # @tryExceptDecorator
+    @tryExceptDecorator
     def computeFiducialAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -584,10 +393,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
 
-        # self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
-        #                             os.path.join(extraPrefix, "taSolution.log"),
-        #                             ts.getSize(),
-        #                             ts.getSamplingRate())
+        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
+                                    os.path.join(extraPrefix, "taSolution.log"),
+                                    ts.getSize(),
+                                    ts.getSamplingRate())
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -596,20 +405,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
-
-        # Check that previous steps have been completed satisfactorily
-        # if os.path.exists(os.path.join(extraPrefix,
-        #                                firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
-        #     paramsGapModel2Point = {
-        #         'inputFile': os.path.join(extraPrefix,
-        #                                   firstItem.parseFileName(suffix="_gaps", extension=".fid")),
-        #         'outputFile': os.path.join(extraPrefix,
-        #                                    firstItem.parseFileName(suffix="_gaps_fid", extension=".txt"))
-        #     }
-        #     argsGapModel2Point = "-InputFile %(inputFile)s " \
-        #                          "-OutputFile %(outputFile)s"
-        #
-        #     Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix,
@@ -820,51 +615,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         firstItem = ts.getFirstItem()
 
-        # Create the output set of landmark models with gaps
-        # Check that previous steps have been completed satisfactorily
-        # if os.path.exists(
-        #         os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
-        #
-        #     outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
-        #
-        #     landmarkModelNoGapsFilePath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_gaps", extension=".sfid")
-        #     )
-        #
-        #     fiducialModelGapPath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_gaps", extension=".fid")
-        #     )
-        #
-        #     landmarkModelGapsResidPath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_resid", extension=".txt")
-        #     )
-        #
-        #     fiducialGapResidList = utils.formatFiducialResidList(landmarkModelGapsResidPath)
-        #
-        #     landmarkModelGaps = LandmarkModel(tsId=tsId,
-        #                                       fileName=landmarkModelNoGapsFilePath,
-        #                                       modelName=fiducialModelGapPath)
-        #
-        #     prevTiltIm = 0
-        #     chainId = 0
-        #     for index, fiducial in enumerate(fiducialGapResidList):
-        #         if int(fiducial[2]) <= prevTiltIm:
-        #             chainId += 1
-        #         prevTiltIm = int(fiducial[2])
-        #         landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-        #                                       yCoor=fiducial[1],
-        #                                       tiltIm=fiducial[2],
-        #                                       chainId=chainId,
-        #                                       xResid=fiducial[3],
-        #                                       yResid=fiducial[4])
-        #
-        #     outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-        #     outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-        #     outputSetOfLandmarkModelsGaps.write()
-
         # Create the output set of landmark models with no gaps
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
@@ -994,8 +744,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
             self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        # if hasattr(self, "outputFiducialModelGaps"):
-        #     self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputSetOfCoordinates3D"):
@@ -1050,88 +798,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         elif self.twoSurfaces.get() == 1:
             return 1
 
-#     def translateTrackCom(self, ts, paramsDict):
-#         tsId = ts.getTsId()
-#         extraPrefix = self._getExtraPath(tsId)
-#
-#         trackFilePath = os.path.join(extraPrefix,
-#                                      ts.getFirstItem().parseFileName(suffix="_track", extension=".com"))
-#
-#         template = """# Command file for running BEADTRACK
-# #
-# ####CreatedVersion####4.9.12
-# #
-# # For beads lighter than background, add a line with "LightBeads"
-# #
-# # To restrict tilt alignment to a subset of views, add a line with:
-# # "MaxViewsInAlign #_of_views"
-# #
-# # To exclude views, add a line "SkipViews view_list"; with the list of views
-# #
-# # To specify sets of views to be grouped separately in automapping, add a line
-# # "SeparateGroup view_list" with the list of views, one line per group
-# #
-# $beadtrack -StandardInput
-# ImageFile	%(imageFile)s
-# ImagesAreBinned	1
-# InputSeedModel	%(inputSeedModel)s
-# OutputModel	%(outputModel)s
-# RotationAngle	%(rotationAngle).1f
-# TiltFile	%(tiltFile)s
-# TiltDefaultGrouping	7
-# MagDefaultGrouping	5
-# RotDefaultGrouping	1
-# PixelSize   %(samplingRate)f
-# BeadDiameter	%(fiducialRadius).2f
-# FillGaps
-# MaxGapSize	5
-# RoundsOfTracking	2
-# #
-# # Set this to 1 to track in local areas
-# LocalAreaTracking	1
-# LocalAreaTargetSize	1000
-# MinBeadsInArea	8
-# MinOverlapBeads	5
-# #
-# # CONTROL PARAMETERS FOR EXPERTS, EXPERIMENTATION, OR SPECIAL CASES
-# #
-# # minimum range of tilt angles for finding axis and for finding tilts
-# MinViewsForTiltalign	4
-# MinTiltRangeToFindAxis	10.0
-# MinTiltRangeToFindAngles	20.0
-# BoxSizeXandY	%(boxSizeXandY)d,%(boxSizeXandY)d
-# MaxBeadsToAverage	4
-# # points and minimum for extrapolation
-# PointsToFitMaxAndMin	7,3
-# # fraction of mean, and # of SD below mean: density criterion for rescue
-# DensityRescueFractionAndSD	0.6,1.0
-# # distance criterion for rescue
-# DistanceRescueCriterion	%(distanceRescueCriterion).2f
-# # relaxation of criterion for density and distance rescues
-# RescueRelaxationDensityAndDistance	0.7,0.9
-# # distance for rescue after fit
-# PostFitRescueResidual	%(postFitRescueResidual).2f
-# # relaxation of density criterion, maximum radius to search
-# DensityRelaxationPostFit	0.9
-# MaxRescueDistance	%(maxRescueDistance).2f
-# # Max and min residual changes to use to get mean and SD change
-# ResidualsToAnalyzeMaxAndMin	9,5
-# # minimum residual difference, criterion # of sd's
-# DeletionCriterionMinAndSD	%(deletionCriterionMinAndSD)s
-# MinDiamForParamScaling %(minDiamForParamScaling).1f
-# """
-#
-#         if self.refineSobelFilter.get() == 0:
-#             template += """SobelFilterCentering
-# ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
-# $if (-e ./savework) ./savework
-# """
-#         elif self.refineSobelFilter.get() == 1:
-#             template += """$if (-e ./savework) ./savework"""
-#
-#         with open(trackFilePath, 'w') as f:
-#             f.write(template % paramsDict)
-
     def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
         """ This method generates a text file containing the TA solution from the tiltalign output log. """
 
@@ -1185,10 +851,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        # if hasattr(self, 'outputFiducialModelGaps'):
-        #     summary.append("Input Tilt-Series: %d.\nFiducial models generated presenting gaps: %d."
-        #                    % (self.inputSetOfTiltSeries.get().getSize(),
-        #                       self.outputFiducialModelGaps.getSize()))
 
         if hasattr(self, 'outputFiducialModelNoGaps'):
             summary.append("Fiducial models generated with no gaps: %d."
@@ -1217,10 +879,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def _methods(self):
         methods = []
-        # if hasattr(self, 'outputFiducialModelGaps'):
-        #     methods.append("The fiducial model (presenting gaps) has been computed for %d "
-        #                    "Tilt-series using the IMOD procedure."
-        #                    % (self.outputFiducialModelGaps.getSize()))
 
         if hasattr(self, 'outputFiducialModelNoGaps'):
             methods.append("The fiducial model (with no gaps) has been computed for %d "
