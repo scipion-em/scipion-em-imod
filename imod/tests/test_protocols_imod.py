@@ -136,13 +136,10 @@ class TestImodBase(BaseTest):
         return cls.protFiducialAlignment
 
     @classmethod
-    def _runFiducialAlignemnt(cls, inputSoTS, twoSurfaces, fiducialDiameter, numberFiducial, rotationAngle,
-                              computeAlignment, binning):
+    def _runFiducialAlignemnt(cls, inputSofLM, twoSurfaces, rotationAngle, computeAlignment, binning):
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
-                                                    inputSetOfTiltSeries=inputSoTS,
+                                                    inputSofLM=inputSofLM,
                                                     twoSurfaces=twoSurfaces,
-                                                    fiducialDiameter=fiducialDiameter,
-                                                    numberFiducial=numberFiducial,
                                                     rotationAngle=rotationAngle,
                                                     computeAlignment=computeAlignment,
                                                     binning=binning)
