@@ -343,11 +343,15 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
 
-        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+        cls.protFiducialModels = cls._runFiducialModels (inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+                                                            twoSurfaces=0,
+                                                            fiducialRadius=4.95,
+                                                            numberFiducial=25,
+                                                            rotationAngle=-12.5)
+
+        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoTS=cls.protFiducialModels.outputFiducialModelGaps,
                                                               twoSurfaces=0,
-                                                              fiducialDiameter=4.95,
-                                                              numberFiducial=25,
-                                                              rotationAngle=0,
+                                                              rotationAngle=-12.5,
                                                               computeAlignment=0,
                                                               binning=cls.binningFiducialAlignment)
 
