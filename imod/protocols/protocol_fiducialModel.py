@@ -39,17 +39,14 @@ from pwem.emlib.image import ImageHandler
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
 
+
 class ProtImodFiducialModel(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
-        https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
         https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
         https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
         https://bio3d.colorado.edu/imod/doc/man/model2point.html
-        https://bio3d.colorado.edu/imod/doc/man/imodtrans.html
-        https://bio3d.colorado.edu/imod/doc/man/newstack.html
-        https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
     _label = 'Generate fiducial model'
@@ -94,144 +91,145 @@ class ProtImodFiducialModel(ProtImodBase):
                       important=True,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
-        form.addParam('computeAlignment',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Generate interpolated tilt-series',
-                      important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+        # form.addParam('computeAlignment',
+        #               params.EnumParam,
+        #               choices=['Yes', 'No'],
+        #               default=1,
+        #               label='Generate interpolated tilt-series',
+        #               important=True,
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Generate and save the interpolated tilt-series applying the'
+        #                    'obtained transformation matrices.')
 
-        groupInterpolation = form.addGroup('Interpolated tilt-series',
-                                           condition='computeAlignment==0')
+        # groupInterpolation = form.addGroup('Interpolated tilt-series',
+        #                                    condition='computeAlignment==0')
+        #
+        # groupInterpolation.addParam('binning',
+        #                             params.FloatParam,
+        #                             default=1.0,
+        #                             label='Binning',
+        #                             help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
+        #                                  'Images will be binned by the given factor. Must be an integer bigger than 1')
 
-        groupInterpolation.addParam('binning',
-                                    params.FloatParam,
-                                    default=1.0,
-                                    label='Binning',
-                                    help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
-                                         'Images will be binned by the given factor. Must be an integer bigger than 1')
+        groupGlobalVariables = form.addGroup('Global variables',
+                                             expertLevel=params.LEVEL_ADVANCED)
 
-        form.addSection('Global variables')
+        groupGlobalVariables.addParam('refineSobelFilter',
+                                      params.EnumParam,
+                                      choices=['Yes', 'No'],
+                                      default=1,
+                                      label='Refine center with Sobel filter',
+                                      expertLevel=params.LEVEL_ADVANCED,
+                                      display=params.EnumParam.DISPLAY_HLIST,
+                                      help='Use edge-detecting Sobel filter to refine the bead positions.')
 
-        form.addParam('refineSobelFilter',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Refine center with Sobel filter',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Use edge-detecting Sobel filter to refine the bead positions.')
+        groupGlobalVariables.addParam('scalableSigmaForSobelFilter',
+                                      params.FloatParam,
+                                      default=0.5,
+                                      condition='refineSobelFilter==0',
+                                      label='Sobel sigma relative to bead size',
+                                      expertLevel=params.LEVEL_ADVANCED,
+                                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
+                                           'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
+                                           'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
 
-        form.addParam('scalableSigmaForSobelFilter',
-                      params.FloatParam,
-                      default=0.5,
-                      condition='refineSobelFilter==0',
-                      label='Sobel sigma relative to bead size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
-                           'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
-                           'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
+        # form.addParam('rotationSolutionType',
+        #               params.EnumParam,
+        #               choices=['No rotation', 'One rotation', 'Group rotations', 'Solve for all rotations'],
+        #               default=3,
+        #               label='Rotation solution type',
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Type of rotation solution.')
+        #
+        # form.addParam('groupRotationSize',
+        #               params.IntParam,
+        #               default=5,
+        #               condition='rotationSolutionType==2',
+        #               label='Group size',
+        #               expertLevel=params.LEVEL_ADVANCED,
+        #               help='Size of the rotation group')
 
-        form.addParam('rotationSolutionType',
-                      params.EnumParam,
-                      choices=['No rotation', 'One rotation', 'Group rotations', 'Solve for all rotations'],
-                      default=3,
-                      label='Rotation solution type',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of rotation solution.')
+        # form.addParam('magnificationSolutionType',
+        #               params.EnumParam,
+        #               choices=['Fixed magnification at 1.0', 'Group magnifications', 'Solve for all magnifications'],
+        #               default=1,
+        #               label='Magnification solution type',
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Type of magnification solution.')
+        #
+        # form.addParam('groupMagnificationSize',
+        #               params.IntParam,
+        #               default=4,
+        #               condition='magnificationSolutionType==1',
+        #               label='Group size',
+        #               expertLevel=params.LEVEL_ADVANCED,
+        #               help='Size of the magnification group')
 
-        form.addParam('groupRotationSize',
-                      params.IntParam,
-                      default=5,
-                      condition='rotationSolutionType==2',
-                      label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Size of the rotation group')
+        # form.addParam('tiltAngleSolutionType',
+        #               params.EnumParam,
+        #               choices=['Fixed tilt angles', 'Group tilt angles', 'Solve for all except minimum tilt'],
+        #               default=1,
+        #               label='Tilt angle solution type',
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Type of tilt angle solution.')
+        #
+        # form.addParam('groupTiltAngleSize',
+        #               params.IntParam,
+        #               default=5,
+        #               condition='tiltAngleSolutionType==1',
+        #               label='Group size',
+        #               expertLevel=params.LEVEL_ADVANCED,
+        #               help='Size of the tilt angle group')
 
-        form.addParam('magnificationSolutionType',
-                      params.EnumParam,
-                      choices=['Fixed magnification at 1.0', 'Group magnifications', 'Solve for all magnifications'],
-                      default=1,
-                      label='Magnification solution type',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of magnification solution.')
+        # form.addParam('distortionSolutionType',
+        #               params.EnumParam,
+        #               choices=['Disabled', 'Full solution', 'Skew only'],
+        #               default=0,
+        #               label='Distortion solution type',
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Type of distortion solution.')
+        #
+        # form.addParam('xStretchGroupSize',
+        #               params.IntParam,
+        #               default=7,
+        #               condition='distortionSolutionType==1',
+        #               label='X stretch group size',
+        #               expertLevel=params.LEVEL_ADVANCED,
+        #               help='Basic grouping size for X stretch')
 
-        form.addParam('groupMagnificationSize',
-                      params.IntParam,
-                      default=4,
-                      condition='magnificationSolutionType==1',
-                      label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Size of the magnification group')
+        # form.addParam('skewGroupSize',
+        #               params.IntParam,
+        #               default=11,
+        #               condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
+        #               label='Skew group size',
+        #               expertLevel=params.LEVEL_ADVANCED,
+        #               help='Size of the skew group')
 
-        form.addParam('tiltAngleSolutionType',
-                      params.EnumParam,
-                      choices=['Fixed tilt angles', 'Group tilt angles', 'Solve for all except minimum tilt'],
-                      default=1,
-                      label='Tilt angle solution type',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of tilt angle solution.')
-
-        form.addParam('groupTiltAngleSize',
-                      params.IntParam,
-                      default=5,
-                      condition='tiltAngleSolutionType==1',
-                      label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Size of the tilt angle group')
-
-        form.addParam('distortionSolutionType',
-                      params.EnumParam,
-                      choices=['Disabled', 'Full solution', 'Skew only'],
-                      default=0,
-                      label='Distortion solution type',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of distortion solution.')
-
-        form.addParam('xStretchGroupSize',
-                      params.IntParam,
-                      default=7,
-                      condition='distortionSolutionType==1',
-                      label='X stretch group size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Basic grouping size for X stretch')
-
-        form.addParam('skewGroupSize',
-                      params.IntParam,
-                      default=11,
-                      condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
-                      label='Skew group size',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='Size of the skew group')
-
-        form.addSection('Erase gold beads')
-
-        form.addParam('eraseGoldBeads',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Erase gold beads',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Remove the gold beads detected during fiducial alignment with ccderaser program. This '
-                           'option will generate an interpolated tilt series with the gold beads erased and '
-                           'interpolated with the calculated transformation matrices form the alignment. ')
-
-        groupEraseGoldBeads = form.addGroup('Gold bead eraser',
-                                            condition='eraseGoldBeads==0')
-
-        groupEraseGoldBeads.addParam('betterRadius',
-                                     params.IntParam,
-                                     default=10,
-                                     label='Bead diameter (pixels)',
-                                     help="For circle objects, this entry specifies a radius to use for points without "
-                                          "an individual point size instead of the object's default sphere radius. "
-                                          "This entry is floating point and can be used to overcome the limitations of "
-                                          "having an integer default sphere radius. If there are multiple circle "
-                                          "objects, enter one value to apply to all objects or a value for each "
-                                          "object.")
+        # form.addSection('Erase gold beads')
+        #
+        # form.addParam('eraseGoldBeads',
+        #               params.EnumParam,
+        #               choices=['Yes', 'No'],
+        #               default=1,
+        #               label='Erase gold beads',
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               help='Remove the gold beads detected during fiducial alignment with ccderaser program. This '
+        #                    'option will generate an interpolated tilt series with the gold beads erased and '
+        #                    'interpolated with the calculated transformation matrices form the alignment. ')
+        #
+        # groupEraseGoldBeads = form.addGroup('Gold bead eraser',
+        #                                     condition='eraseGoldBeads==0')
+        #
+        # groupEraseGoldBeads.addParam('betterRadius',
+        #                              params.IntParam,
+        #                              default=10,
+        #                              label='Bead diameter (pixels)',
+        #                              help="For circle objects, this entry specifies a radius to use for points without "
+        #                                   "an individual point size instead of the object's default sphere radius. "
+        #                                   "This entry is floating point and can be used to overcome the limitations of "
+        #                                   "having an integer default sphere radius. If there are multiple circle "
+        #                                   "objects, enter one value to apply to all objects or a value for each "
+        #                                   "object.")
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -583,18 +581,18 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_noGaps", extension=".fid"))):
-            paramsNoGapModel2Point = {
-                'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt"))
-            }
-            argsNoGapModel2Point = "-InputFile %(inputFile)s " \
-                                   "-OutputFile %(outputFile)s"
-
-            Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
+        # if os.path.exists(os.path.join(extraPrefix,
+        #                                firstItem.parseFileName(suffix="_noGaps", extension=".fid"))):
+        #     paramsNoGapModel2Point = {
+        #         'inputFile': os.path.join(extraPrefix,
+        #                                   firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
+        #         'outputFile': os.path.join(extraPrefix,
+        #                                    firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt"))
+        #     }
+        #     argsNoGapModel2Point = "-InputFile %(inputFile)s " \
+        #                            "-OutputFile %(outputFile)s"
+        #
+        #     Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
     # def computeOutputStackStep(self, tsObjId):
     #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -845,7 +843,6 @@ class ProtImodFiducialModel(ProtImodBase):
             self.outputFiducialModelGaps.update(landmarkModelGaps)
             self.outputFiducialModelGaps.write()
 
-
         # Create the output set of landmark models with no gaps
         # if os.path.exists(
         #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
@@ -991,49 +988,49 @@ class ProtImodFiducialModel(ProtImodBase):
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getRotationType(self):
-        if self.rotationSolutionType.get() == 0:
-            return 0
-        elif self.rotationSolutionType.get() == 1:
-            return -1
-        elif self.rotationSolutionType.get() == 2:
-            return 3
-        elif self.rotationSolutionType.get() == 3:
-            return 1
+    # def getRotationType(self):
+    #     if self.rotationSolutionType.get() == 0:
+    #         return 0
+    #     elif self.rotationSolutionType.get() == 1:
+    #         return -1
+    #     elif self.rotationSolutionType.get() == 2:
+    #         return 3
+    #     elif self.rotationSolutionType.get() == 3:
+    #         return 1
 
-    def getMagnificationType(self):
-        if self.magnificationSolutionType.get() == 0:
-            return 0
-        elif self.magnificationSolutionType.get() == 1:
-            return 3
-        elif self.magnificationSolutionType.get() == 2:
-            return 1
+    # def getMagnificationType(self):
+    #     if self.magnificationSolutionType.get() == 0:
+    #         return 0
+    #     elif self.magnificationSolutionType.get() == 1:
+    #         return 3
+    #     elif self.magnificationSolutionType.get() == 2:
+    #         return 1
 
-    def getTiltAngleType(self):
-        if self.tiltAngleSolutionType.get() == 0:
-            return 0
-        elif self.tiltAngleSolutionType.get() == 1:
-            return 5
-        elif self.tiltAngleSolutionType.get() == 2:
-            return 2
+    # def getTiltAngleType(self):
+    #     if self.tiltAngleSolutionType.get() == 0:
+    #         return 0
+    #     elif self.tiltAngleSolutionType.get() == 1:
+    #         return 5
+    #     elif self.tiltAngleSolutionType.get() == 2:
+    #         return 2
 
-    def getSkewType(self):
-        if self.distortionSolutionType.get() == 0:
-            return 0
-        elif self.distortionSolutionType.get() == 1 or self.distortionSolutionType.get() == 2:
-            return 3
+    # def getSkewType(self):
+    #     if self.distortionSolutionType.get() == 0:
+    #         return 0
+    #     elif self.distortionSolutionType.get() == 1 or self.distortionSolutionType.get() == 2:
+    #         return 3
+    #
+    # def getStretchType(self):
+    #     if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
+    #         return 0
+    #     elif self.distortionSolutionType.get() == 1:
+    #         return 3
 
-    def getStretchType(self):
-        if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
-            return 0
-        elif self.distortionSolutionType.get() == 1:
-            return 3
-
-    def getSurfaceToAnalyze(self):
-        if self.twoSurfaces.get() == 0:
-            return 2
-        elif self.twoSurfaces.get() == 1:
-            return 1
+    # def getSurfaceToAnalyze(self):
+    #     if self.twoSurfaces.get() == 0:
+    #         return 2
+    #     elif self.twoSurfaces.get() == 1:
+    #         return 1
 
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
