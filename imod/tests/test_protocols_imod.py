@@ -125,6 +125,17 @@ class TestImodBase(BaseTest):
         return cls.protXcorr
 
     @classmethod
+    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle):
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
+                                                    inputSetOfTiltSeries=inputSoTS,
+                                                    twoSurfaces=twoSurfaces,
+                                                    fiducialRadius=fiducialRadius,
+                                                    numberFiducial=numberFiducial,
+                                                    rotationAngle=rotationAngle)
+        cls.launchProtocol(cls.protFiducialAlignment)
+        return cls.protFiducialAlignment
+
+    @classmethod
     def _runFiducialAlignemnt(cls, inputSoTS, twoSurfaces, fiducialDiameter, numberFiducial, rotationAngle,
                               computeAlignment, binning):
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
