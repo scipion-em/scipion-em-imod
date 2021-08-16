@@ -787,6 +787,7 @@ class ProtImodFiducialModel(ProtImodBase):
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
@@ -796,7 +797,9 @@ class ProtImodFiducialModel(ProtImodBase):
         if os.path.exists(
                 os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
 
-            outputSetOfLandmarkModelsGaps = self.getOutputFiducialModelGaps()
+            self.getOutputFiducialModelGaps()
+
+            self.outputFiducialModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             landmarkModelGapsFilePath = os.path.join(
                 extraPrefix,
@@ -808,97 +811,104 @@ class ProtImodFiducialModel(ProtImodBase):
                 firstItem.parseFileName(suffix="_gaps", extension=".fid")
             )
 
-            landmarkModelGapTxtPath = os.path.join(
+            fiducialModelGapTxtPath = os.path.join(
                 extraPrefix,
                 firstItem.parseFileName(suffix="_gaps_fid", extension=".txt")
             )
 
-            fiducialGapList = utils.formatFiducialList(landmarkModelGapTxtPath)
+            fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
 
             landmarkModelGaps = LandmarkModel(tsId=tsId,
+                                              tiltSeriesPointer=ts,
                                               fileName=landmarkModelGapsFilePath,
                                               modelName=fiducialModelGapPath)
 
+            landmarkModelGaps.setTiltSeries(ts)
+
             prevTiltIm = 0
             chainId = 0
+
             for index, fiducial in enumerate(fiducialGapList):
                 if int(fiducial[2]) <= prevTiltIm:
                     chainId += 1
+
                 prevTiltIm = int(fiducial[2])
+
                 landmarkModelGaps.addLandmark(xCoor=fiducial[0],
                                               yCoor=fiducial[1],
                                               tiltIm=fiducial[2],
                                               chainId=chainId,
-                                              xResid=0, #fiducial[3],
-                                              yResid=0) #fiducial[4])
+                                              xResid=0,
+                                              yResid=0)
 
-            outputSetOfLandmarkModelsGaps.append(landmarkModelGaps)
-            outputSetOfLandmarkModelsGaps.update(landmarkModelGaps)
-            outputSetOfLandmarkModelsGaps.write()
+            self.outputFiducialModelGaps.append(landmarkModelGaps)
+            self.outputFiducialModelGaps.update(landmarkModelGaps)
+            self.outputFiducialModelGaps.write()
+
 
         # Create the output set of landmark models with no gaps
-        if os.path.exists(
-                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
-
-            outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
-
-            fiducialNoGapFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt")
-            )
-
-            fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-
-            fiducialModelNoGapPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps", extension=".fid")
-            )
-
-            landmarkModelNoGapsFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps", extension=".sfid")
-            )
-
-            landmarkModelNoGapsResidPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_resid", extension=".txt")
-            )
-
-            fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
-
-            landmarkModelNoGaps = LandmarkModel(tsId=tsId,
-                                                fileName=landmarkModelNoGapsFilePath,
-                                                modelName=fiducialModelNoGapPath)
-
-            prevTiltIm = 0
-            chainId = 0
-            indexFake = 0
-
-            for fiducial in fiducialNoGapList:
-                if int(float(fiducial[2])) <= prevTiltIm:
-                    chainId += 1
-                prevTiltIm = int(float(fiducial[2]))
-
-                if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
-                    landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-                                                    yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
-                                                    chainId=chainId,
-                                                    xResid=fiducialNoGapsResidList[indexFake][3],
-                                                    yResid=fiducialNoGapsResidList[indexFake][4])
-                    indexFake += 1
-
-                else:
-                    landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-                                                    yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
-                                                    chainId=chainId,
-                                                    xResid='0',
-                                                    yResid='0')
-
-            outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
-            outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
-            outputSetOfLandmarkModelsNoGaps.write()
+        # if os.path.exists(
+        #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
+        #
+        #     outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
+        #
+        #     fiducialNoGapFilePath = os.path.join(
+        #         extraPrefix,
+        #         firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt")
+        #     )
+        #
+        #     fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
+        #
+        #     fiducialModelNoGapPath = os.path.join(
+        #         extraPrefix,
+        #         firstItem.parseFileName(suffix="_noGaps", extension=".fid")
+        #     )
+        #
+        #     landmarkModelNoGapsFilePath = os.path.join(
+        #         extraPrefix,
+        #         firstItem.parseFileName(suffix="_noGaps", extension=".sfid")
+        #     )
+        #
+        #     landmarkModelNoGapsResidPath = os.path.join(
+        #         extraPrefix,
+        #         firstItem.parseFileName(suffix="_resid", extension=".txt")
+        #     )
+        #
+        #     fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
+        #
+        #     landmarkModelNoGaps = LandmarkModel(tsId=tsId,
+        #                                         fileName=landmarkModelNoGapsFilePath,
+        #                                         modelName=fiducialModelNoGapPath)
+        #
+        #     prevTiltIm = 0
+        #     chainId = 0
+        #     indexFake = 0
+        #
+        #     for fiducial in fiducialNoGapList:
+        #         if int(float(fiducial[2])) <= prevTiltIm:
+        #             chainId += 1
+        #         prevTiltIm = int(float(fiducial[2]))
+        #
+        #         if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+        #             landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+        #                                             yCoor=fiducial[1],
+        #                                             tiltIm=fiducial[2],
+        #                                             chainId=chainId,
+        #                                             xResid=fiducialNoGapsResidList[indexFake][3],
+        #                                             yResid=fiducialNoGapsResidList[indexFake][4])
+        #             indexFake += 1
+        #
+        #         else:
+        #             landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+        #                                             yCoor=fiducial[1],
+        #                                             tiltIm=fiducial[2],
+        #                                             chainId=chainId,
+        #                                             xResid='0',
+        #                                             yResid='0')
+        #
+        #     outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
+        #     outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
+        #     outputSetOfLandmarkModelsNoGaps.write()
 
         # Create the output set of landmark models with no gaps
         # if os.path.exists(
@@ -961,14 +971,18 @@ class ProtImodFiducialModel(ProtImodBase):
             self._store()
 
     def createOutputStep(self):
+        for lm in self.outputFiducialModelGaps:
+            lm = self.outputFiducialModelGaps.completeLandmarkModel(lm)
+            print(lm.getTiltSeries())
+
         # if hasattr(self, "outputSetOfTiltSeries"):
         #     self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         # if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
         #     self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelGaps"):
-            self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputFiducialModelNoGaps"):
-            self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
+            self.outputFiducialModelGaps.setStreamState(Set.STREAM_CLOSED)
+        # if hasattr(self, "outputFiducialModelNoGaps"):
+        #     self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
         # if hasattr(self, "outputSetOfCoordinates3D"):
         #     self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
