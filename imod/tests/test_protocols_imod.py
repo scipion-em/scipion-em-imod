@@ -62,7 +62,7 @@ class TestImodBase(BaseTest):
                                            filesPath=filesPath,
                                            filesPattern=pattern,
                                            exclusionWords=exclusionWords,
-                                           inputSetOfTiltSeries=inputSetOfTiltSeries,)
+                                           inputSetOfTiltSeries=inputSetOfTiltSeries, )
         cls.launchProtocol(cls.protImportTM)
         return cls.protImportTM
 
@@ -80,10 +80,10 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
         cls.protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
-                                            inputSetOfTiltSeries=inputSoTS,
-                                            initialDose=initialDose,
-                                            inputDoseType=inputDoseType,
-                                            fixedImageDose=fixedImageDose)
+                                             inputSetOfTiltSeries=inputSoTS,
+                                             initialDose=initialDose,
+                                             inputDoseType=inputDoseType,
+                                             fixedImageDose=fixedImageDose)
         cls.launchProtocol(cls.protDoseFilter)
         return cls.protDoseFilter
 
@@ -136,9 +136,9 @@ class TestImodBase(BaseTest):
         return cls.protFiducialAlignment
 
     @classmethod
-    def _runFiducialAlignemnt(cls, inputSofLM, twoSurfaces, rotationAngle, computeAlignment, binning):
+    def _runFiducialAlignemnt(cls, inputSoLM, twoSurfaces, rotationAngle, computeAlignment, binning):
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
-                                                    inputSofLM=inputSofLM,
+                                                    inputSetOfLandmarkModels=inputSoLM,
                                                     twoSurfaces=twoSurfaces,
                                                     rotationAngle=rotationAngle,
                                                     computeAlignment=computeAlignment,
@@ -343,13 +343,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
 
-        cls.protFiducialModels = cls._runFiducialModels (inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
-                                                            twoSurfaces=0,
-                                                            fiducialRadius=4.95,
-                                                            numberFiducial=25,
-                                                            rotationAngle=-12.5)
+        cls.protFiducialModels = cls._runFiducialModels(inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+                                                        twoSurfaces=0,
+                                                        fiducialRadius=4.95,
+                                                        numberFiducial=25,
+                                                        rotationAngle=-12.5)
 
-        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoTS=cls.protFiducialModels.outputFiducialModelGaps,
+        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.outputFiducialModelGaps,
                                                               twoSurfaces=0,
                                                               rotationAngle=-12.5,
                                                               computeAlignment=0,
