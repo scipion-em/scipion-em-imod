@@ -1172,22 +1172,22 @@ $if (-e ./savework) ./savework
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.outputFiducialModelGaps.getSize()))
 
-        if hasattr(self, 'outputFiducialModelNoGaps'):
-            summary.append("Fiducial models generated with no gaps: %d."
-                           % (self.outputFiducialModelNoGaps.getSize()))
-
-        if hasattr(self, 'outputSetOfTiltSeries'):
-            summary.append("Transformation matrices updated from the input Tilt-Series: %d."
-                           % (self.outputSetOfTiltSeries.getSize()))
-
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            summary.append("Interpolated Tilt-Series calculated: %d."
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
-
-        if hasattr(self, 'outputSetOfCoordinates3D'):
-            summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfCoordinates3D.getSize()))
+        # if hasattr(self, 'outputFiducialModelNoGaps'):
+        #     summary.append("Fiducial models generated with no gaps: %d."
+        #                    % (self.outputFiducialModelNoGaps.getSize()))
+        #
+        # if hasattr(self, 'outputSetOfTiltSeries'):
+        #     summary.append("Transformation matrices updated from the input Tilt-Series: %d."
+        #                    % (self.outputSetOfTiltSeries.getSize()))
+        #
+        # if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        #     summary.append("Interpolated Tilt-Series calculated: %d."
+        #                    % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+        #
+        # if hasattr(self, 'outputSetOfCoordinates3D'):
+        #     summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
+        #                    % (self.inputSetOfTiltSeries.get().getSize(),
+        #                       self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             summary.append("Failed tilt-series: %d."
@@ -1204,24 +1204,24 @@ $if (-e ./savework) ./savework
                            "Tilt-series using the IMOD procedure."
                            % (self.outputFiducialModelGaps.getSize()))
 
-        if hasattr(self, 'outputFiducialModelNoGaps'):
-            methods.append("The fiducial model (with no gaps) has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.outputFiducialModelNoGaps.getSize()))
+        # if hasattr(self, 'outputFiducialModelNoGaps'):
+        #     methods.append("The fiducial model (with no gaps) has been computed for %d "
+        #                    "Tilt-series using the IMOD procedure."
+        #                    % (self.outputFiducialModelNoGaps.getSize()))
 
-        if hasattr(self, 'outputSetOfTiltSeries'):
-            methods.append("The transformation matrices has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.outputSetOfTiltSeries.getSize()))
+        # if hasattr(self, 'outputSetOfTiltSeries'):
+        #     methods.append("The transformation matrices has been computed for %d "
+        #                    "Tilt-series using the IMOD procedure."
+        #                    % (self.outputSetOfTiltSeries.getSize()))
 
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+        # if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        #     methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
+        #                    % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
-        if hasattr(self, 'outputSetOfCoordinates3D'):
-            methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
-                           % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfTiltSeries.get().getSize()))
+        # if hasattr(self, 'outputSetOfCoordinates3D'):
+        #     methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
+        #                    % (self.outputSetOfCoordinates3D.getSize(),
+        #                       self.inputSetOfTiltSeries.get().getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
