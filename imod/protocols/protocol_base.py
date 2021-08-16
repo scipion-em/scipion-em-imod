@@ -156,13 +156,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
 
             if isinstance(inputSet, SetOfTiltSeries):
-                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+                outputFailedSetOfTiltSeries.copyInfo(inputSet)
+                outputFailedSetOfTiltSeries.setDim(inputSet.getDim())
 
             else:
-                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+                outputFailedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputFailedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputFailedSetOfTiltSeries.setDim(inputSet.getDim())
 
             outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
