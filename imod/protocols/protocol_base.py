@@ -187,16 +187,16 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputFiducialModelNoGaps
 
-    # def getOutputFiducialModelGaps(self):
-    #     if hasattr(self, "outputFiducialModelGaps"):
-    #         self.outputFiducialModelGaps.enableAppend()
-    #     else:
-    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-    #     return self.outputFiducialModelGaps
+    def getOutputFiducialModelGaps(self):
+        if hasattr(self, "outputFiducialModelGaps"):
+            self.outputFiducialModelGaps.enableAppend()
+        else:
+            outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+            outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+            outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+        return self.outputFiducialModelGaps
 
     def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
         if hasattr(self, "outputSetOfCoordinates3D"):
