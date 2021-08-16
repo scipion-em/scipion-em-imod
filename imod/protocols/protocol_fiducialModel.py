@@ -91,26 +91,6 @@ class ProtImodFiducialModel(ProtImodBase):
                       important=True,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
-        # form.addParam('computeAlignment',
-        #               params.EnumParam,
-        #               choices=['Yes', 'No'],
-        #               default=1,
-        #               label='Generate interpolated tilt-series',
-        #               important=True,
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Generate and save the interpolated tilt-series applying the'
-        #                    'obtained transformation matrices.')
-
-        # groupInterpolation = form.addGroup('Interpolated tilt-series',
-        #                                    condition='computeAlignment==0')
-        #
-        # groupInterpolation.addParam('binning',
-        #                             params.FloatParam,
-        #                             default=1.0,
-        #                             label='Binning',
-        #                             help='Binning to be applied to the interpolated tilt-series in IMOD convention. '
-        #                                  'Images will be binned by the given factor. Must be an integer bigger than 1')
-
         groupGlobalVariables = form.addGroup('Global variables',
                                              expertLevel=params.LEVEL_ADVANCED)
 
@@ -129,107 +109,10 @@ class ProtImodFiducialModel(ProtImodBase):
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
-                                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, as fraction of '
-                                           'bead diameter. The default sigma is 0.5 pixels regardless of bead size. '
-                                           'A value of around 0.12 diameters is needed for higher noise (eg. cryo) data.')
-
-        # form.addParam('rotationSolutionType',
-        #               params.EnumParam,
-        #               choices=['No rotation', 'One rotation', 'Group rotations', 'Solve for all rotations'],
-        #               default=3,
-        #               label='Rotation solution type',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Type of rotation solution.')
-        #
-        # form.addParam('groupRotationSize',
-        #               params.IntParam,
-        #               default=5,
-        #               condition='rotationSolutionType==2',
-        #               label='Group size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Size of the rotation group')
-
-        # form.addParam('magnificationSolutionType',
-        #               params.EnumParam,
-        #               choices=['Fixed magnification at 1.0', 'Group magnifications', 'Solve for all magnifications'],
-        #               default=1,
-        #               label='Magnification solution type',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Type of magnification solution.')
-        #
-        # form.addParam('groupMagnificationSize',
-        #               params.IntParam,
-        #               default=4,
-        #               condition='magnificationSolutionType==1',
-        #               label='Group size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Size of the magnification group')
-
-        # form.addParam('tiltAngleSolutionType',
-        #               params.EnumParam,
-        #               choices=['Fixed tilt angles', 'Group tilt angles', 'Solve for all except minimum tilt'],
-        #               default=1,
-        #               label='Tilt angle solution type',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Type of tilt angle solution.')
-        #
-        # form.addParam('groupTiltAngleSize',
-        #               params.IntParam,
-        #               default=5,
-        #               condition='tiltAngleSolutionType==1',
-        #               label='Group size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Size of the tilt angle group')
-
-        # form.addParam('distortionSolutionType',
-        #               params.EnumParam,
-        #               choices=['Disabled', 'Full solution', 'Skew only'],
-        #               default=0,
-        #               label='Distortion solution type',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Type of distortion solution.')
-        #
-        # form.addParam('xStretchGroupSize',
-        #               params.IntParam,
-        #               default=7,
-        #               condition='distortionSolutionType==1',
-        #               label='X stretch group size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Basic grouping size for X stretch')
-
-        # form.addParam('skewGroupSize',
-        #               params.IntParam,
-        #               default=11,
-        #               condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
-        #               label='Skew group size',
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               help='Size of the skew group')
-
-        # form.addSection('Erase gold beads')
-        #
-        # form.addParam('eraseGoldBeads',
-        #               params.EnumParam,
-        #               choices=['Yes', 'No'],
-        #               default=1,
-        #               label='Erase gold beads',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help='Remove the gold beads detected during fiducial alignment with ccderaser program. This '
-        #                    'option will generate an interpolated tilt series with the gold beads erased and '
-        #                    'interpolated with the calculated transformation matrices form the alignment. ')
-        #
-        # groupEraseGoldBeads = form.addGroup('Gold bead eraser',
-        #                                     condition='eraseGoldBeads==0')
-        #
-        # groupEraseGoldBeads.addParam('betterRadius',
-        #                              params.IntParam,
-        #                              default=10,
-        #                              label='Bead diameter (pixels)',
-        #                              help="For circle objects, this entry specifies a radius to use for points without "
-        #                                   "an individual point size instead of the object's default sphere radius. "
-        #                                   "This entry is floating point and can be used to overcome the limitations of "
-        #                                   "having an integer default sphere radius. If there are multiple circle "
-        #                                   "objects, enter one value to apply to all objects or a value for each "
-        #                                   "object.")
+                                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, '
+                                           'as fraction of bead diameter. The default sigma is 0.5 pixels regardless of '
+                                           'bead size. A value of around 0.12 diameters is needed for higher noise '
+                                           '(eg. cryo) data.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -241,16 +124,7 @@ class ProtImodFiducialModel(ProtImodBase):
             self._insertFunctionStep(self.generateTrackComStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
-            # self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
-            # self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
-
-            # if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
-            #     self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsObjId)
-
-            # if self.eraseGoldBeads.get() == 0:
-            #     self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
-
             self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
             self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
 
@@ -424,140 +298,6 @@ class ProtImodFiducialModel(ProtImodBase):
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
-    # @tryExceptDecorator
-    # def computeFiducialAlignmentStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #
-    #     paramsTiltAlign = {
-    #         'modelFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
-    #         'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-    #         'imagesAreBinned': 1,
-    #         'outputModelFile': os.path.join(extraPrefix,
-    #                                         firstItem.parseFileName(suffix="_fidxyz", extension=".mod")),
-    #         'outputResidualFile': os.path.join(extraPrefix,
-    #                                            firstItem.parseFileName(suffix="_resid", extension=".txt")),
-    #         'outputFidXYZFile': os.path.join(extraPrefix,
-    #                                          firstItem.parseFileName(suffix="_fid", extension=".xyz")),
-    #         'outputTiltFile': os.path.join(extraPrefix,
-    #                                        firstItem.parseFileName(suffix="_interpolated", extension=".tlt")),
-    #         'outputTransformFile': os.path.join(extraPrefix,
-    #                                             firstItem.parseFileName(suffix="_fid", extension=".xf")),
-    #         'outputFilledInModel': os.path.join(extraPrefix,
-    #                                             firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-    #         'rotationAngle': self.rotationAngle.get(),
-    #         'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
-    #         'angleOffset': 0.0,
-    #         'rotOption': self.getRotationType(),
-    #         'rotDefaultGrouping': self.groupRotationSize.get(),
-    #         'tiltOption': self.getTiltAngleType(),
-    #         'tiltDefaultGrouping': self.groupTiltAngleSize.get(),
-    #         'magReferenceView': 1,
-    #         'magOption': self.getMagnificationType(),
-    #         'magDefaultGrouping': self.groupMagnificationSize.get(),
-    #         'xStretchOption': self.getStretchType(),
-    #         'skewOption': self.getSkewType(),
-    #         'xStretchDefaultGrouping': self.xStretchGroupSize.get(),
-    #         'skewDefaultGrouping': self.skewGroupSize.get(),
-    #         'beamTiltOption': 0,
-    #         'xTiltOption': 0,
-    #         'xTiltDefaultGrouping': 2000,
-    #         'residualReportCriterion': 3.0,
-    #         'surfacesToAnalyze': self.getSurfaceToAnalyze(),
-    #         'metroFactor': 0.25,
-    #         'maximumCycles': 1000,
-    #         'kFactorScaling': 1.0,
-    #         'noSeparateTiltGroups': 1,
-    #         'axisZShift': 0.0,
-    #         'shiftZFromOriginal': 1,
-    #         'localAlignments': 0,
-    #         'outputLocalFile': os.path.join(extraPrefix,
-    #                                         firstItem.parseFileName(suffix="_local", extension=".xf")),
-    #         'targetPatchSizeXandY': '700,700',
-    #         'minSizeOrOverlapXandY': '0.5,0.5',
-    #         'minFidsTotalAndEachSurface': '8,3',
-    #         'fixXYZCoordinates': 0,
-    #         'localOutputOptions': '1,0,1',
-    #         'localRotOption': 3,
-    #         'localRotDefaultGrouping': 6,
-    #         'localTiltOption': 5,
-    #         'localTiltDefaultGrouping': 6,
-    #         'localMagReferenceView': 1,
-    #         'localMagOption': 3,
-    #         'localMagDefaultGrouping': 7,
-    #         'localXStretchOption': 0,
-    #         'localXStretchDefaultGrouping': 7,
-    #         'localSkewOption': 0,
-    #         'localSkewDefaultGrouping': 11,
-    #         'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
-    #     }
-    #
-    #     argsTiltAlign = "-ModelFile %(modelFile)s " \
-    #                     "-ImageFile %(imageFile)s " \
-    #                     "-ImagesAreBinned %(imagesAreBinned)d " \
-    #                     "-OutputModelFile %(outputModelFile)s " \
-    #                     "-OutputResidualFile %(outputResidualFile)s " \
-    #                     "-OutputFidXYZFile %(outputFidXYZFile)s " \
-    #                     "-OutputTiltFile %(outputTiltFile)s " \
-    #                     "-OutputTransformFile %(outputTransformFile)s " \
-    #                     "-OutputFilledInModel %(outputFilledInModel)s " \
-    #                     "-RotationAngle %(rotationAngle)f " \
-    #                     "-TiltFile %(tiltFile)s " \
-    #                     "-AngleOffset %(angleOffset)f " \
-    #                     "-RotOption %(rotOption)d " \
-    #                     "-RotDefaultGrouping %(rotDefaultGrouping)d " \
-    #                     "-TiltOption %(tiltOption)d " \
-    #                     "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
-    #                     "-MagReferenceView %(magReferenceView)d " \
-    #                     "-MagOption %(magOption)d " \
-    #                     "-MagDefaultGrouping %(magDefaultGrouping)d " \
-    #                     "-XStretchOption %(xStretchOption)d " \
-    #                     "-SkewOption %(skewOption)d " \
-    #                     "-SkewDefaultGrouping %(skewDefaultGrouping)d " \
-    #                     "-XStretchDefaultGrouping %(xStretchDefaultGrouping)d " \
-    #                     "-BeamTiltOption %(beamTiltOption)d " \
-    #                     "-XTiltOption %(xTiltOption)d " \
-    #                     "-XTiltDefaultGrouping %(xTiltDefaultGrouping)d " \
-    #                     "-ResidualReportCriterion %(residualReportCriterion)f " \
-    #                     "-SurfacesToAnalyze %(surfacesToAnalyze)d " \
-    #                     "-MetroFactor %(metroFactor)f " \
-    #                     "-MaximumCycles %(maximumCycles)d " \
-    #                     "-KFactorScaling %(kFactorScaling)f " \
-    #                     "-NoSeparateTiltGroups %(noSeparateTiltGroups)d " \
-    #                     "-AxisZShift %(axisZShift)f " \
-    #                     "-ShiftZFromOriginal %(shiftZFromOriginal)d " \
-    #                     "-LocalAlignments %(localAlignments)d " \
-    #                     "-OutputLocalFile %(outputLocalFile)s " \
-    #                     "-TargetPatchSizeXandY %(targetPatchSizeXandY)s " \
-    #                     "-MinSizeOrOverlapXandY %(minSizeOrOverlapXandY)s " \
-    #                     "-MinFidsTotalAndEachSurface %(minFidsTotalAndEachSurface)s " \
-    #                     "-FixXYZCoordinates %(fixXYZCoordinates)d " \
-    #                     "-LocalOutputOptions %(localOutputOptions)s " \
-    #                     "-LocalRotOption %(localRotOption)d " \
-    #                     "-LocalRotDefaultGrouping %(localRotDefaultGrouping)d " \
-    #                     "-LocalTiltOption %(localTiltOption)d " \
-    #                     "-LocalTiltDefaultGrouping %(localTiltDefaultGrouping)d " \
-    #                     "-LocalMagReferenceView %(localMagReferenceView)d " \
-    #                     "-LocalMagOption %(localMagOption)d " \
-    #                     "-LocalMagDefaultGrouping %(localMagDefaultGrouping)d " \
-    #                     "-LocalXStretchOption %(localXStretchOption)d " \
-    #                     "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
-    #                     "-LocalSkewOption %(localSkewOption)d " \
-    #                     "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
-    #                     "> %(outputTiltAlignFileText)s "
-    #
-    #     Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
-    #
-    #     self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
-    #                                 os.path.join(extraPrefix, "taSolution.log"),
-    #                                 ts.getSize(),
-    #                                 ts.getSamplingRate())
-
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -579,208 +319,6 @@ class ProtImodFiducialModel(ProtImodBase):
                                  "-OutputFile %(outputFile)s"
 
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
-
-        # Check that previous steps have been completed satisfactorily
-        # if os.path.exists(os.path.join(extraPrefix,
-        #                                firstItem.parseFileName(suffix="_noGaps", extension=".fid"))):
-        #     paramsNoGapModel2Point = {
-        #         'inputFile': os.path.join(extraPrefix,
-        #                                   firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-        #         'outputFile': os.path.join(extraPrefix,
-        #                                    firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt"))
-        #     }
-        #     argsNoGapModel2Point = "-InputFile %(inputFile)s " \
-        #                            "-OutputFile %(outputFile)s"
-        #
-        #     Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
-
-    # def computeOutputStackStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #
-    #     # Check that previous steps have been completed satisfactorily
-    #     if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
-    #         tltFilePath = os.path.join(
-    #             extraPrefix,
-    #             firstItem.parseFileName(suffix="_interpolated", extension=".tlt")
-    #         )
-    #
-    #         tltList = utils.formatAngleList(tltFilePath)
-    #
-    #         transformationMatricesFilePath = os.path.join(
-    #             extraPrefix,
-    #             firstItem.parseFileName(suffix="_fid", extension=".xf")
-    #         )
-    #
-    #         newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
-    #
-    #         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-    #         newTs = tomoObj.TiltSeries(tsId=tsId)
-    #         newTs.copyInfo(ts)
-    #         self.outputSetOfTiltSeries.append(newTs)
-    #
-    #         for index, tiltImage in enumerate(ts):
-    #             newTi = tomoObj.TiltImage()
-    #             newTi.copyInfo(tiltImage, copyId=True)
-    #             newTi.setLocation(tiltImage.getLocation())
-    #             newTi.setTiltAngle(float(tltList[index]))
-    #
-    #             if tiltImage.hasTransform():
-    #                 transform = Transform()
-    #                 previousTransform = tiltImage.getTransform().getMatrix()
-    #                 newTransform = newTransformationMatricesList[:, :, index]
-    #                 previousTransformArray = np.array(previousTransform)
-    #                 newTransformArray = np.array(newTransform)
-    #                 outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
-    #                 transform.setMatrix(outputTransformMatrix)
-    #                 newTi.setTransform(transform)
-    #             else:
-    #                 transform = Transform()
-    #                 newTransform = newTransformationMatricesList[:, :, index]
-    #                 newTransformArray = np.array(newTransform)
-    #                 transform.setMatrix(newTransformArray)
-    #                 newTi.setTransform(transform)
-    #
-    #             newTs.append(newTi)
-    #
-    #         newTs.write(properties=False)
-    #
-    #         self.outputSetOfTiltSeries.update(newTs)
-    #         self.outputSetOfTiltSeries.write()
-    #
-    #         self._store()
-
-    # def computeOutputInterpolatedStackStep(self, tsObjId):
-    #     tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = tsIn.getTsId()
-    #     outputTsIdList = [ts.getTsId() for ts in self.outputSetOfTiltSeries]
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = tsIn.getFirstItem()
-    #
-    #     # Check that previous steps have been completed satisfactorily
-    #     if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
-    #         self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-    #
-    #         paramsAlignment = {
-    #             'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
-    #             'output': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_interpolated")),
-    #             'xform': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf")),
-    #             'bin': int(self.binning.get()),
-    #             'imagebinned': 1.0}
-    #
-    #         argsAlignment = "-input %(input)s " \
-    #                         "-output %(output)s " \
-    #                         "-xform %(xform)s " \
-    #                         "-bin %(bin)d " \
-    #                         "-imagebinned %(imagebinned)s "
-    #
-    #         rotationAngleAvg = utils.calculateRotationAngleFromTM(
-    #             self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
-    #
-    #         # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
-    #         # the final sample disposition.
-    #         if rotationAngleAvg > 45 or rotationAngleAvg < -45:
-    #             paramsAlignment.update({
-    #                 'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
-    #             })
-    #
-    #             argsAlignment += " -size %(size)s "
-    #
-    #         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-    #
-    #         newTs = tomoObj.TiltSeries(tsId=tsId)
-    #         newTs.copyInfo(tsIn)
-    #         self.outputInterpolatedSetOfTiltSeries.append(newTs)
-    #
-    #         tltFilePath = os.path.join(
-    #             extraPrefix,
-    #             firstItem.parseFileName(suffix="_interpolated", extension=".tlt")
-    #         )
-    #
-    #         tltList = utils.formatAngleList(tltFilePath)
-    #
-    #         if self.binning > 1:
-    #             newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
-    #
-    #         for index, tiltImage in enumerate(tsIn):
-    #             newTi = tomoObj.TiltImage()
-    #             newTi.copyInfo(tiltImage, copyId=True)
-    #             newTi.setAcquisition(tiltImage.getAcquisition())
-    #             newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated")))
-    #             newTi.setTiltAngle(float(tltList[index]))
-    #             if self.binning > 1:
-    #                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-    #             newTs.append(newTi)
-    #
-    #         ih = ImageHandler()
-    #         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-    #         newTs.setDim((x, y, z))
-    #         newTs.write(properties=False)
-    #
-    #         self.outputInterpolatedSetOfTiltSeries.update(newTs)
-    #         self.outputInterpolatedSetOfTiltSeries.updateDim()
-    #         self.outputInterpolatedSetOfTiltSeries.write()
-    #         self._store()
-
-    # @tryExceptDecorator
-    # def eraseGoldBeadsStep(self, tsObjId):
-    #     ts = self.inputSetOfTiltSeries.get()[tsObjId]
-    #     tsId = ts.getTsId()
-    #
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #
-    #     # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
-    #     # extra folder
-    #     path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
-    #                   os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
-    #
-    #     # Generate interpolated model
-    #     paramsImodtrans = {
-    #         'inputFile': os.path.join(extraPrefix,
-    #                                   firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-    #         'outputFile': os.path.join(extraPrefix,
-    #                                    firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-    #         'transformFile': os.path.join(extraPrefix,
-    #                                       firstItem.parseFileName(suffix="_fid", extension=".xf"))
-    #     }
-    #
-    #     argsImodtrans = "-2 %(transformFile)s " \
-    #                     "%(inputFile)s " \
-    #                     "%(outputFile)s "
-    #
-    #     Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
-    #
-    #     # Erase gold beads
-    #     paramsCcderaser = {
-    #         'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
-    #         'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
-    #         'modelFile': os.path.join(extraPrefix,
-    #                                   firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-    #         'betterRadius': self.betterRadius.get(),
-    #         'polynomialOrder': 0,
-    #         'circleObjects': "/"
-    #     }
-    #
-    #     argsCcderaser = "-InputFile %(inputFile)s " \
-    #                     "-OutputFile %(outputFile)s " \
-    #                     "-ModelFile %(modelFile)s " \
-    #                     "-BetterRadius %(betterRadius)d " \
-    #                     "-PolynomialOrder %(polynomialOrder)d " \
-    #                     "-CircleObjects %(circleObjects)s " \
-    #                     "-MergePatches " \
-    #                     "-ExcludeAdjacent"
-    #
-    #     Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -843,99 +381,6 @@ class ProtImodFiducialModel(ProtImodBase):
             self.outputFiducialModelGaps.update(landmarkModelGaps)
             self.outputFiducialModelGaps.write()
 
-        # Create the output set of landmark models with no gaps
-        # if os.path.exists(
-        #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
-        #
-        #     outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
-        #
-        #     fiducialNoGapFilePath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt")
-        #     )
-        #
-        #     fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-        #
-        #     fiducialModelNoGapPath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_noGaps", extension=".fid")
-        #     )
-        #
-        #     landmarkModelNoGapsFilePath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_noGaps", extension=".sfid")
-        #     )
-        #
-        #     landmarkModelNoGapsResidPath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_resid", extension=".txt")
-        #     )
-        #
-        #     fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
-        #
-        #     landmarkModelNoGaps = LandmarkModel(tsId=tsId,
-        #                                         fileName=landmarkModelNoGapsFilePath,
-        #                                         modelName=fiducialModelNoGapPath)
-        #
-        #     prevTiltIm = 0
-        #     chainId = 0
-        #     indexFake = 0
-        #
-        #     for fiducial in fiducialNoGapList:
-        #         if int(float(fiducial[2])) <= prevTiltIm:
-        #             chainId += 1
-        #         prevTiltIm = int(float(fiducial[2]))
-        #
-        #         if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
-        #             landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-        #                                             yCoor=fiducial[1],
-        #                                             tiltIm=fiducial[2],
-        #                                             chainId=chainId,
-        #                                             xResid=fiducialNoGapsResidList[indexFake][3],
-        #                                             yResid=fiducialNoGapsResidList[indexFake][4])
-        #             indexFake += 1
-        #
-        #         else:
-        #             landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-        #                                             yCoor=fiducial[1],
-        #                                             tiltIm=fiducial[2],
-        #                                             chainId=chainId,
-        #                                             xResid='0',
-        #                                             yResid='0')
-        #
-        #     outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
-        #     outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
-        #     outputSetOfLandmarkModelsNoGaps.write()
-
-        # Create the output set of landmark models with no gaps
-        # if os.path.exists(
-        #         os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
-        #
-        #     outputSetOfCoordinates3D = \
-        #         self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
-        #
-        #     coordFilePath = os.path.join(
-        #         extraPrefix,
-        #         firstItem.parseFileName(suffix="_fid", extension=".xyz")
-        #     )
-        #
-        #     xDim = firstItem.getXDim()
-        #     yDim = firstItem.getYDim()
-        #     coordList = utils.format3DCoordinatesList(coordFilePath)
-        #
-        #     for element in coordList:
-        #         newCoord3D = tomoObj.Coordinate3D()
-        #         newCoord3D.setVolume(ts)
-        #         newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
-        #         newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
-        #         newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
-        #
-        #         newCoord3D.setVolId(tsObjId)
-        #         outputSetOfCoordinates3D.append(newCoord3D)
-        #         outputSetOfCoordinates3D.update(newCoord3D)
-        #     outputSetOfCoordinates3D.write()
-        #     self._store()
-
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
@@ -968,70 +413,14 @@ class ProtImodFiducialModel(ProtImodBase):
             self._store()
 
     def createOutputStep(self):
-        for lm in self.outputFiducialModelGaps:
-            lm = self.outputFiducialModelGaps.completeLandmarkModel(lm)
-            print(lm.getTiltSeries())
-
-        # if hasattr(self, "outputSetOfTiltSeries"):
-        #     self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        # if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-        #     self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelGaps"):
             self.outputFiducialModelGaps.setStreamState(Set.STREAM_CLOSED)
-        # if hasattr(self, "outputFiducialModelNoGaps"):
-        #     self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
-        # if hasattr(self, "outputSetOfCoordinates3D"):
-        #     self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    # def getRotationType(self):
-    #     if self.rotationSolutionType.get() == 0:
-    #         return 0
-    #     elif self.rotationSolutionType.get() == 1:
-    #         return -1
-    #     elif self.rotationSolutionType.get() == 2:
-    #         return 3
-    #     elif self.rotationSolutionType.get() == 3:
-    #         return 1
-
-    # def getMagnificationType(self):
-    #     if self.magnificationSolutionType.get() == 0:
-    #         return 0
-    #     elif self.magnificationSolutionType.get() == 1:
-    #         return 3
-    #     elif self.magnificationSolutionType.get() == 2:
-    #         return 1
-
-    # def getTiltAngleType(self):
-    #     if self.tiltAngleSolutionType.get() == 0:
-    #         return 0
-    #     elif self.tiltAngleSolutionType.get() == 1:
-    #         return 5
-    #     elif self.tiltAngleSolutionType.get() == 2:
-    #         return 2
-
-    # def getSkewType(self):
-    #     if self.distortionSolutionType.get() == 0:
-    #         return 0
-    #     elif self.distortionSolutionType.get() == 1 or self.distortionSolutionType.get() == 2:
-    #         return 3
-    #
-    # def getStretchType(self):
-    #     if self.distortionSolutionType.get() == 0 or self.distortionSolutionType.get() == 2:
-    #         return 0
-    #     elif self.distortionSolutionType.get() == 1:
-    #         return 3
-
-    # def getSurfaceToAnalyze(self):
-    #     if self.twoSurfaces.get() == 0:
-    #         return 2
-    #     elif self.twoSurfaces.get() == 1:
-    #         return 1
-
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -1172,23 +561,6 @@ $if (-e ./savework) ./savework
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.outputFiducialModelGaps.getSize()))
 
-        # if hasattr(self, 'outputFiducialModelNoGaps'):
-        #     summary.append("Fiducial models generated with no gaps: %d."
-        #                    % (self.outputFiducialModelNoGaps.getSize()))
-        #
-        # if hasattr(self, 'outputSetOfTiltSeries'):
-        #     summary.append("Transformation matrices updated from the input Tilt-Series: %d."
-        #                    % (self.outputSetOfTiltSeries.getSize()))
-        #
-        # if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-        #     summary.append("Interpolated Tilt-Series calculated: %d."
-        #                    % (self.outputInterpolatedSetOfTiltSeries.getSize()))
-        #
-        # if hasattr(self, 'outputSetOfCoordinates3D'):
-        #     summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-        #                    % (self.inputSetOfTiltSeries.get().getSize(),
-        #                       self.outputSetOfCoordinates3D.getSize()))
-
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             summary.append("Failed tilt-series: %d."
                            % (self.outputFailedSetOfTiltSeries.getSize()))
@@ -1203,25 +575,6 @@ $if (-e ./savework) ./savework
             methods.append("The fiducial model (presenting gaps) has been computed for %d "
                            "Tilt-series using the IMOD procedure."
                            % (self.outputFiducialModelGaps.getSize()))
-
-        # if hasattr(self, 'outputFiducialModelNoGaps'):
-        #     methods.append("The fiducial model (with no gaps) has been computed for %d "
-        #                    "Tilt-series using the IMOD procedure."
-        #                    % (self.outputFiducialModelNoGaps.getSize()))
-
-        # if hasattr(self, 'outputSetOfTiltSeries'):
-        #     methods.append("The transformation matrices has been computed for %d "
-        #                    "Tilt-series using the IMOD procedure."
-        #                    % (self.outputSetOfTiltSeries.getSize()))
-
-        # if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-        #     methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
-        #                    % (self.outputInterpolatedSetOfTiltSeries.getSize()))
-
-        # if hasattr(self, 'outputSetOfCoordinates3D'):
-        #     methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
-        #                    % (self.outputSetOfCoordinates3D.getSize(),
-        #                       self.inputSetOfTiltSeries.get().getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
