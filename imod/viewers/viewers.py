@@ -25,6 +25,9 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
@@ -76,10 +79,16 @@ class ImodObjectView(pwviewer.CommandView):
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
-            itemComplete = obj
+            if obj.getTiltSeries().getFirstItem().hasTransform():
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated.mrc")
+                obj.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
 
-            fn = Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
-                  " " + itemComplete.getModelName() + " ; "
+                fn = Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                      obj.getModelName() + " ; "
+
+            else:
+                fn = Plugin.getImodCmd('3dmod') + " -m " + obj.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + obj.getModelName() + " ; "
 
         else:
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
