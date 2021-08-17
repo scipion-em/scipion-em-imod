@@ -384,8 +384,8 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
             itemComplete = set.completeLandmarkModel(item)
 
             if itemComplete.getTiltSeries().getFirstItem().hasTransform():
-                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_%d.mrc" % index)
-                item.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated_%d.mrc" % index)
+                itemComplete.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
 
                 fn += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
                       itemComplete.getModelName() + " ; "
