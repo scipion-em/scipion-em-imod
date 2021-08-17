@@ -24,6 +24,9 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import threading
 import tkinter
 from tkinter import *
@@ -377,9 +380,19 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
 
     def __init__(self, set, **kwargs):
         fn = ""
-        for item in set:
-            fn += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
-                  " " + itemComplete.getModelName() + " ; "
+        for index, item in enumerate(set):
+            itemComplete = set.completeLandmarkModel(item)
+
+            if itemComplete.getTiltSeries().getFirstItem().hasTransform():
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_%d.mrc" % index)
+                item.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
+
+                fn += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                      itemComplete.getModelName() + " ; "
+
+            else:
+                fn += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + itemComplete.getModelName() + " ; "
 
         pwviewer.CommandView.__init__(self, fn)
         self.show()
