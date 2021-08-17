@@ -76,20 +76,10 @@ class ImodObjectView(pwviewer.CommandView):
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
-            # Remove :mrc if present
-            tsId = os.path.basename(obj.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                           "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s.preali" % tsId)
-            else:
-                prealiTSPath = ""
+            itemComplete = obj
 
-            fn = Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + obj.getModelName() + " ; "
+            fn = Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
+                  " " + itemComplete.getModelName() + " ; "
 
         else:
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
