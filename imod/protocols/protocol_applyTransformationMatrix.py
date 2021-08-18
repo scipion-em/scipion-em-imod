@@ -67,16 +67,16 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         groupMatchBinning = form.addGroup('Match binning')
 
         groupMatchBinning.addParam('binningTM',
-                       params.IntParam,
-                       default=1,
-                       label='Transformation matrix binning',
-                       help='Binning of the tilt series at which the transformation matrices were calculated.')
+                                   params.IntParam,
+                                   default=1,
+                                   label='Transformation matrix binning',
+                                   help='Binning of the tilt series at which the transformation matrices were calculated.')
 
         groupMatchBinning.addParam('binningTS',
-                       params.IntParam,
-                       default=1,
-                       label='Tilt-series binning',
-                       help='Binning of the tilt-serie to which the ')
+                                   params.IntParam,
+                                   default=1,
+                                   label='Tilt-series binning',
+                                   help='Binning of the tilt-serie to which the ')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
