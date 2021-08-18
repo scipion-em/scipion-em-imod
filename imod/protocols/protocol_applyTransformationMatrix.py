@@ -57,8 +57,9 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('binning', params.FloatParam,
-                      default=1.0,
+        form.addParam('binning',
+                      params.IntParam,
+                      default=1,
                       label='Binning',
                       help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
                            'binned by the given factor. Must be an integer bigger than 1')
