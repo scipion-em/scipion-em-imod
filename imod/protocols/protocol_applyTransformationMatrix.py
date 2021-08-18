@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
 from pwem.protocols import EMProtocol
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage
 from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
@@ -79,6 +79,8 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
+        self.matchBiningFactor = self.binningTM.get() / self.binningTS.get()
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
             self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
@@ -88,9 +90,35 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
-        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+
+        # Update shits from the transformation matrix considering the matching bining between the input tilt series and
+        # the transformation matrix. We create an empty tilt-series containing only tilt-images with transform
+        # information.
+        transformMatrixList = []
+
+        for ti in ts:
+            inputTransformMatrix = ti.getTransform().getMatrix()
+
+            outputTrasformMatrix = inputTransformMatrix
+            outputTrasformMatrix[0][0] = inputTransformMatrix[0][0]
+            outputTrasformMatrix[0][1] = inputTransformMatrix[0][1]
+            outputTrasformMatrix[0][2] = inputTransformMatrix[0][2] * self.matchBiningFactor
+            outputTrasformMatrix[1][0] = inputTransformMatrix[1][0]
+            outputTrasformMatrix[1][1] = inputTransformMatrix[1][1]
+            outputTrasformMatrix[1][2] = inputTransformMatrix[1][2] * self.matchBiningFactor
+            outputTrasformMatrix[2][0] = inputTransformMatrix[2][0]
+            outputTrasformMatrix[2][1] = inputTransformMatrix[2][1]
+            outputTrasformMatrix[2][2] = inputTransformMatrix[2][2]
+
+            transformMatrixList.append(outputTrasformMatrix)
+
+        utils.formatTransformFileFromTransformList(
+            transformMatrixList,
+            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+        )
 
     def generateOutputStackStep(self, tsObjId):
         outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
@@ -105,7 +133,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         paramsAlignment = {
             'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".prexg")),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
@@ -129,7 +157,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         outputInterpolatedSetOfTiltSeries.append(newTs)
 
@@ -137,7 +165,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
+            newTi = TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
