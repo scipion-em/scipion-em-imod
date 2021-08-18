@@ -63,6 +63,20 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
                       help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
                            'binned by the given factor. Must be an integer bigger than 1')
 
+        groupMatchBinning = form.addGroup('Match binning')
+
+        groupMatchBinning.addParam('binningTM',
+                       params.IntParam,
+                       default=1,
+                       label='Transformation matrix binning',
+                       help='Binning of the tilt series at which the transformation matrices were calculated.')
+
+        groupMatchBinning.addParam('binningTS',
+                       params.IntParam,
+                       default=1,
+                       label='Tilt-series binning',
+                       help='Binning of the tilt-serie to which the ')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
