@@ -29,14 +29,12 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from imod import Plugin
-from imod import utils
+from imod import Plugin, utils
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
+class ProtImodCtfCorrection(ProtImodBase):
     """
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:
@@ -109,13 +107,14 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('ctfCorrection', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.generateDefocusFile, ts.getObjId())
+            self._insertFunctionStep(self.ctfCorrection, ts.getObjId())
+            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
+    def generateDefocusFile(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -126,14 +125,6 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
 
         """Generate defocus file"""
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
@@ -180,7 +171,7 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
-        outputCtfCorrectedSetOfTiltSeries = self.getOutputCtfCorrectedSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -188,22 +179,23 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputCtfCorrectedSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        outputCtfCorrectedSetOfTiltSeries.update(newTs)
-        outputCtfCorrectedSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputCtfCorrectedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -212,18 +204,6 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
         for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
             if tsId == ctfTomoSeries.getTsId():
                 return ctfTomoSeries
-            
-    def getOutputCtfCorrectedSetOfTiltSeries(self):
-        if hasattr(self, "outputCtfCorrectedSetOfTiltSeries"):
-            self.outputCtfCorrectedSetOfTiltSeries.enableAppend()
-        else:
-            outputCtfCorrectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='CtfCorrected')
-            outputCtfCorrectedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputCtfCorrectedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputCtfCorrectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputCtfCorrectedSetOfTiltSeries=outputCtfCorrectedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries.get(), outputCtfCorrectedSetOfTiltSeries)
-        return self.outputCtfCorrectedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
@@ -237,19 +217,19 @@ class ProtImodCtfCorrection(EMProtocol, ProtTomoBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
                            % (self.inputSetOfCtfTomoSeries.get().getSize(),
-                              self.outputCtfCorrectedSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputCtfCorrectedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("%d Tilt-series have been CTF corrected using the IMOD ctfphaseflip software.\n"
-                           % (self.outputCtfCorrectedSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

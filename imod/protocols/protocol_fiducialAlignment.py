@@ -31,24 +31,28 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
 from pyworkflow.object import Set
 from tomo.objects import LandmarkModel
-from tomo.protocols import ProtTomoBase
 import tomo.constants as constants
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
-
-class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
+class ProtImodFiducialAlignment(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
+        https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
+        https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
+        https://bio3d.colorado.edu/imod/doc/man/model2point.html
+        https://bio3d.colorado.edu/imod/doc/man/imodtrans.html
+        https://bio3d.colorado.edu/imod/doc/man/newstack.html
+        https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'fiducial alignment'
+    _label = 'Fiducial alignment'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -73,6 +77,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       label='Fiducial radius (nm)',
                       default='4.95',
+                      important=True,
                       help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
@@ -86,7 +91,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                       params.FloatParam,
                       label='Tilt rotation angle (deg)',
                       default='0.0',
-                      expertLevel=params.LEVEL_ADVANCED,
+                      important=True,
                       help="Angle from the vertical to the tilt axis in raw images.")
 
         form.addParam('computeAlignment',
@@ -230,68 +235,41 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-
         self._failedTs = []
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateTrackComStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialSeedStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
-            self._insertFunctionStep('computeFiducialAlignmentStep', ts.getObjId())
-            self._insertFunctionStep('translateFiducialPointModelStep', ts.getObjId())
-            self._insertFunctionStep('computeOutputStackStep', ts.getObjId())
+            tsObjId = ts.getObjId()
+            self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
+            self._insertFunctionStep(self.generateTrackComStep, tsObjId)
+            self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
+            self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+            self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
+            self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
+            self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
 
             if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep('computeOutputInterpolatedStackStep', ts.getObjId())
+                self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsObjId)
 
             if self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep('eraseGoldBeadsStep', ts.getObjId())
+                self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
 
-            self._insertFunctionStep('computeOutputModelsStep', ts.getObjId())
-            self._insertFunctionStep('createOutputFailedSet', ts.getObjId())
+            self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
+            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
 
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions ----------------------------
     def tryExceptDecorator(func):
         """ This decorator wraps the step in a try/except module which adds the tilt series ID to the failed TS array
         in case the step fails"""
+
         def wrapper(self, tsId):
             try:
                 func(self, tsId)
             except:
                 self._failedTs.append(tsId)
+
         return wrapper
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        firstItem = ts.getFirstItem()
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
-        """"Link to input tilt-series (needed for fiducial model viewer)"""
-        # TODO: there is no need to come from a prealigned stack
-        inputTS = os.path.join(extraPrefix, firstItem.parseFileName())
-        if firstItem.hasTransform():
-            path.copyFile(outputTsFileName, inputTS)
-
-        else:
-            path.createLink(firstItem.getLocation()[1], inputTS)
 
     def generateTrackComStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -642,20 +620,20 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
-            outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+            self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            outputSetOfTiltSeries.append(newTs)
+            self.outputSetOfTiltSeries.append(newTs)
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
-                newTi.setLocation(ti.getLocation())
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
 
-                if ti.hasTransform():
+                if tiltImage.hasTransform():
                     transform = Transform()
-                    previousTransform = ti.getTransform().getMatrix()
+                    previousTransform = tiltImage.getTransform().getMatrix()
                     newTransform = newTransformationMatricesList[:, :, index]
                     previousTransformArray = np.array(previousTransform)
                     newTransformArray = np.array(newTransform)
@@ -673,23 +651,24 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
 
             newTs.write(properties=False)
 
-            outputSetOfTiltSeries.update(newTs)
-            outputSetOfTiltSeries.write()
+            self.outputSetOfTiltSeries.update(newTs)
+            self.outputSetOfTiltSeries.write()
 
             self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+        tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = tsIn.getTsId()
+        outputTsIdList = [ts.getTsId() for ts in self.outputSetOfTiltSeries]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        firstItem = ts.getFirstItem()
+        firstItem = tsIn.getFirstItem()
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
-            outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+            self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
@@ -704,7 +683,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.getOutputSetOfTiltSeries()[tsObjId])
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(
+                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -718,8 +698,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            outputInterpolatedSetOfTiltSeries.append(newTs)
+            newTs.copyInfo(tsIn)
+            self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
             tltFilePath = os.path.join(
                 extraPrefix,
@@ -729,15 +709,16 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             tltList = utils.formatAngleList(tltFilePath)
 
             if self.binning > 1:
-                newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+                newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(tsIn):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
-                newTi.setLocation(index + 1, os.path.join(extraPrefix, ti.parseFileName(suffix="_interpolated")))
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated")))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
-                    newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -745,63 +726,63 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            outputInterpolatedSetOfTiltSeries.update(newTs)
-            outputInterpolatedSetOfTiltSeries.updateDim()
-            outputInterpolatedSetOfTiltSeries.write()
+            self.outputInterpolatedSetOfTiltSeries.update(newTs)
+            self.outputInterpolatedSetOfTiltSeries.updateDim()
+            self.outputInterpolatedSetOfTiltSeries.write()
             self._store()
 
     @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
 
-            extraPrefix = self._getExtraPath(tsId)
-            tmpPrefix = self._getTmpPath(tsId)
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
-            firstItem = ts.getFirstItem()
+        firstItem = ts.getFirstItem()
 
-            # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
-            # extra folder
-            path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
-                          os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
+        # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
+        # extra folder
+        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
+                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
 
-            # Generate interpolated model
-            paramsImodtrans = {
-                'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-                'transformFile': os.path.join(extraPrefix,
-                                              firstItem.parseFileName(suffix="_fid", extension=".xf"))
-            }
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(extraPrefix,
+                                      firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix,
+                                       firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'transformFile': os.path.join(extraPrefix,
+                                          firstItem.parseFileName(suffix="_fid", extension=".xf"))
+        }
 
-            argsImodtrans = "-2 %(transformFile)s " \
-                            "%(inputFile)s " \
-                            "%(outputFile)s "
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
 
-            Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
-            # Erase gold beads
-            paramsCcderaser = {
-                'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
-                'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
-                'modelFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-                'betterRadius': self.betterRadius.get(),
-                'polynomialOrder': 0,
-                'circleObjects': "/"
-            }
+        # Erase gold beads
+        paramsCcderaser = {
+            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
+            'modelFile': os.path.join(extraPrefix,
+                                      firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
+            'betterRadius': self.betterRadius.get(),
+            'polynomialOrder': 0,
+            'circleObjects': "/"
+        }
 
-            argsCcderaser = "-InputFile %(inputFile)s " \
-                            "-OutputFile %(outputFile)s " \
-                            "-ModelFile %(modelFile)s " \
-                            "-BetterRadius %(betterRadius)d " \
-                            "-PolynomialOrder %(polynomialOrder)d " \
-                            "-CircleObjects %(circleObjects)s " \
-                            "-MergePatches " \
-                            "-ExcludeAdjacent"
+        argsCcderaser = "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-ModelFile %(modelFile)s " \
+                        "-BetterRadius %(betterRadius)d " \
+                        "-PolynomialOrder %(polynomialOrder)d " \
+                        "-CircleObjects %(circleObjects)s " \
+                        "-MergePatches " \
+                        "-ExcludeAdjacent"
 
-            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -923,7 +904,8 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
 
-            outputSetOfCoordinates3D = self.getOutputSetOfCoordinates3Ds()
+            outputSetOfCoordinates3D = \
+                self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
 
             coordFilePath = os.path.join(
                 extraPrefix,
@@ -950,21 +932,22 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
-            outputFailedSetOfTiltSeries = self.getOutputFailedSetOfTiltSeries()
+            self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            outputFailedSetOfTiltSeries.append(newTs)
+            self.outputFailedSetOfTiltSeries.append(newTs)
 
-            for index, ti in enumerate(ts):
+            for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(ti, copyId=True)
-                newTi.setLocation(ti.getLocation())
+                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(tiltImage.getLocation())
                 if self.binning > 1:
-                    newTi.setSamplingRate(ti.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -972,16 +955,16 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            outputFailedSetOfTiltSeries.update(newTs)
-            outputFailedSetOfTiltSeries.updateDim()
-            outputFailedSetOfTiltSeries.write()
+            self.outputFailedSetOfTiltSeries.update(newTs)
+            self.outputFailedSetOfTiltSeries.updateDim()
+            self.outputFailedSetOfTiltSeries.write()
             self._store()
 
     def createOutputStep(self):
         if hasattr(self, "outputSetOfTiltSeries"):
-            self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         # if hasattr(self, "outputFiducialModelGaps"):
         #     self.getOutputFiducialModelGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelNoGaps"):
@@ -989,7 +972,7 @@ class ProtImodFiducialAlignment(EMProtocol, ProtTomoBase):
         if hasattr(self, "outputSetOfCoordinates3D"):
             self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.getOutputFailedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -1169,81 +1152,6 @@ $if (-e ./savework) ./savework
                           " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
                           % minimumRotation,
                    comments='')
-
-    def getOutputSetOfTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
-
-    def getOutputFailedSetOfTiltSeries(self):
-        if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.outputFailedSetOfTiltSeries.enableAppend()
-        else:
-            outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
-            outputFailedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFailedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFailedSetOfTiltSeries=outputFailedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFailedSetOfTiltSeries)
-        return self.outputFailedSetOfTiltSeries
-
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.outputInterpolatedSetOfTiltSeries.enableAppend()
-        else:
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
-
-    # def getOutputFiducialModelGaps(self):
-    #     if hasattr(self, "outputFiducialModelGaps"):
-    #         self.outputFiducialModelGaps.enableAppend()
-    #     else:
-    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-    #     return self.outputFiducialModelGaps
-
-    def getOutputFiducialModelNoGaps(self):
-        if hasattr(self, "outputFiducialModelNoGaps"):
-            self.outputFiducialModelNoGaps.enableAppend()
-        else:
-            outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
-            outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputFiducialModelNoGaps=outputFiducialModelNoGaps)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
-        return self.outputFiducialModelNoGaps
-
-    def getOutputSetOfCoordinates3Ds(self):
-        if hasattr(self, "outputSetOfCoordinates3D"):
-            self.outputSetOfCoordinates3D.enableAppend()
-        else:
-            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=self.getOutputSetOfTiltSeries(),
-                                                                      suffix='Fiducials3D')
-            outputSetOfCoordinates3D.setSamplingRate(self.inputSetOfTiltSeries.get().getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(self.inputSetOfTiltSeries)
-            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
-        return self.outputSetOfCoordinates3D
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

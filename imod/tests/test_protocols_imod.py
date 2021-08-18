@@ -57,6 +57,45 @@ class TestImodBase(BaseTest):
         return cls.protImportTS
 
     @classmethod
+    def _runImportTransformationMatrix(cls, filesPath, pattern, exclusionWords, inputSetOfTiltSeries):
+        cls.protImportTM = cls.newProtocol(ProtImodImportTransformationMatrix,
+                                           filesPath=filesPath,
+                                           filesPattern=pattern,
+                                           exclusionWords=exclusionWords,
+                                           inputSetOfTiltSeries=inputSetOfTiltSeries,)
+        cls.launchProtocol(cls.protImportTM)
+        return cls.protImportTM
+
+    @classmethod
+    def _runXRaysEraser(cls, inputSoTS, peakCriterion, diffCriterion, maximumRadius, bigDiffCriterion):
+        cls.protXRaysEraser = cls.newProtocol(ProtImodXraysEraser,
+                                              inputSetOfTiltSeries=inputSoTS,
+                                              peakCriterion=peakCriterion,
+                                              diffCriterion=diffCriterion,
+                                              maximumRadius=maximumRadius,
+                                              bigDiffCriterion=bigDiffCriterion)
+        cls.launchProtocol(cls.protXRaysEraser)
+        return cls.protXRaysEraser
+
+    @classmethod
+    def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
+        cls.protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
+                                            inputSetOfTiltSeries=inputSoTS,
+                                            initialDose=initialDose,
+                                            inputDoseType=inputDoseType,
+                                            fixedImageDose=fixedImageDose)
+        cls.launchProtocol(cls.protDoseFilter)
+        return cls.protDoseFilter
+
+    @classmethod
+    def _runExcludeViews(cls, inputSoTS, excludeViewsFile):
+        cls.protExcludeViews = cls.newProtocol(ProtImodExcludeViews,
+                                               inputSetOfTiltSeries=inputSoTS,
+                                               excludeViewsFile=excludeViewsFile)
+        cls.launchProtocol(cls.protExcludeViews)
+        return cls.protExcludeViews
+
+    @classmethod
     def _runTSNormalization(cls, inputSoTS, binning, floatDensities, modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean, scaleSd, scaleMax, scaleMin):
         cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
@@ -143,6 +182,37 @@ class TestImodBase(BaseTest):
         return cls.protTomoNormalization
 
     @classmethod
+    def _runGoldBeadPeaker3D(cls, inputSetOfTomograms, beadDiameter, beadsColor, minRelativeStrength, minSpacing):
+        cls.protGoldBeadPicker3d = cls.newProtocol(ProtImodGoldBeadPicker3d,
+                                                   inputSetOfTomograms=inputSetOfTomograms,
+                                                   beadDiameter=beadDiameter,
+                                                   beadsColor=beadsColor,
+                                                   minRelativeStrength=minRelativeStrength,
+                                                   minSpacing=minSpacing)
+        cls.launchProtocol(cls.protGoldBeadPicker3d)
+        return cls.protGoldBeadPicker3d
+
+    @classmethod
+    def _runTomoProjection(cls, inputSetOfTomograms, minAngle, maxAngle, stepAngle, rotationAxis):
+        cls.protTomoProjection = cls.newProtocol(ProtImodTomoProjection,
+                                                 inputSetOfTomograms=inputSetOfTomograms,
+                                                 minAngle=minAngle,
+                                                 maxAngle=maxAngle,
+                                                 stepAngle=stepAngle,
+                                                 rotationAxis=rotationAxis)
+        cls.launchProtocol(cls.protTomoProjection)
+        return cls.protTomoProjection
+
+    @classmethod
+    def _runImportSetOfCtfSeries(cls, filesPath, filesPattern, inputSetOfTiltSeries):
+        cls.protImportSetOfCtfSeries = cls.newProtocol(ProtImodImportSetOfCtfTomoSeries,
+                                                       filesPath=filesPath,
+                                                       filesPattern=filesPattern,
+                                                       inputSetOfTiltSeries=inputSetOfTiltSeries)
+        cls.launchProtocol(cls.protImportSetOfCtfSeries)
+        return cls.protImportSetOfCtfSeries
+
+    @classmethod
     def _runCTFEstimation(cls, inputSoTS, defocusTol, expectedDefocusOrigin, expectedDefocusValue, expectedDefocusFile,
                           axisAngle, interactiveMode, leftDefTol, rightDefTol, tileSize, angleStep, angleRange,
                           startFreq, endFreq, extraZerosToFit, skipAstigmaticViews, searchAstigmatism,
@@ -187,17 +257,6 @@ class TestImodBase(BaseTest):
         cls.launchProtocol(cls.protCTFCorrection)
         return cls.protCTFCorrection
 
-    @classmethod
-    def _runTomoProjection(cls, inputSetOfTomograms, minAngle, maxAngle, stepAngle, rotationAxis):
-        cls.protTomoProjection = cls.newProtocol(ProtImodTomoProjection,
-                                                 inputSetOfTomograms=inputSetOfTomograms,
-                                                 minAngle=minAngle,
-                                                 maxAngle=maxAngle,
-                                                 stepAngle=stepAngle,
-                                                 rotationAxis=rotationAxis)
-        cls.launchProtocol(cls.protTomoProjection)
-        return cls.protTomoProjection
-
 
 class TestImodReconstructionWorkflow(TestImodBase):
     @classmethod
@@ -206,6 +265,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
+
+        cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
+
+        cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
+
+        cls.excludeViewsOutputSizes = {'a': 57, 'b': 56}
 
         cls.binningTsNormalization = 2
 
@@ -233,7 +298,26 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
 
-        cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protImportTM = cls._runImportTransformationMatrix(filesPath=cls.inputTMFolder,
+                                                              pattern="BB*.prexg",
+                                                              exclusionWords='',
+                                                              inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
+
+        cls.protXRaysEraser = cls._runXRaysEraser(inputSoTS=cls.protImportTS.outputTiltSeries,
+                                                  peakCriterion=8.0,
+                                                  diffCriterion=6.0,
+                                                  maximumRadius=4.2,
+                                                  bigDiffCriterion=19)
+
+        cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protXRaysEraser.outputSetOfTiltSeries,
+                                                initialDose=0,
+                                                inputDoseType=1,
+                                                fixedImageDose=0.2)
+
+        cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protXRaysEraser.outputSetOfTiltSeries,
+                                                    excludeViewsFile=cls.excludeViewsFile)
+
+        cls.protTSNormalization = cls._runTSNormalization(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
                                                           binning=cls.binningTsNormalization,
                                                           floatDensities=0,
                                                           modeToOutput=0,
@@ -246,7 +330,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                           scaleMax=255,
                                                           scaleMin=0)
 
-        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protImportTS.outputTiltSeries,
+        cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protDoseFilter.outputSetOfTiltSeries,
                                                   computeAlignmentToggle=0,
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
@@ -288,25 +372,67 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMax=255,
                                       scaleMin=0)
 
+        cls.protGoldBeadPicker3D = \
+            cls._runGoldBeadPeaker3D(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
+                                     beadDiameter=10,
+                                     beadsColor=0,
+                                     minRelativeStrength=0.05,
+                                     minSpacing=0.9)
+
         cls.protTomoProjection = \
-            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputNormalizedSetOfTomograms,
+            cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputSetOfTomograms,
                                    minAngle=-60.0,
                                    maxAngle=60.0,
                                    stepAngle=2.0,
                                    rotationAxis=1)
 
-    def test_normalizationOutputTS(self):
-        self.assertIsNotNone(self.protTSNormalization.outputNormalizedSetOfTiltSeries)
+    def test_importTMOutput(self):
+        self.assertIsNotNone(self.protImportTM.outputSetOfTiltSeries)
 
-        tsId = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getFirstItem().getTsId()
+    def test_importTMOutputSize(self):
+        self.assertEqual(self.protImportTM.outputSetOfTiltSeries.getSize(), 2)
+
+    def test_importTMOutputCheckTransform(self):
+        for ts in self.protImportTM.outputSetOfTiltSeries:
+            self.assertTrue(ts.getFirstItem().hasTransform())
+
+    def test_doseFitlerOutputTS(self):
+        self.assertIsNotNone(self.protDoseFilter.outputSetOfTiltSeries)
+
+        tsId = self.protDoseFilter.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_xRaysEraserOutputTS(self):
+        self.assertIsNotNone(self.protXRaysEraser.outputSetOfTiltSeries)
+
+        tsId = self.protXRaysEraser.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protXRaysEraser._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_excludeViewsOutputTS(self):
+        self.assertIsNotNone(self.protExcludeViews.outputSetOfTiltSeries)
+
+        tsId = self.protExcludeViews.outputSetOfTiltSeries.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId), "BB" + tsId + ".st")))
+
+    def test_excludeViewsOutputTSSize(self):
+        for index, tsOut in enumerate(self.protExcludeViews.outputSetOfTiltSeries):
+            self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
+
+    def test_normalizationOutputTS(self):
+        self.assertIsNotNone(self.protTSNormalization.outputSetOfTiltSeries)
+
+        tsId = self.protTSNormalization.outputSetOfTiltSeries.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId), "BB" + tsId + ".st")))
 
     def test_normalizationOutputTSSamplingRate(self):
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = self.protTSNormalization.outputNormalizedSetOfTiltSeries.getSamplingRate()
+        outSamplingRate = self.protTSNormalization.outputSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningTsNormalization == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningTsNormalization, outSamplingRate)
 
     def test_prealignmentOutputTS(self):
         self.assertIsNotNone(self.protXcorr.outputSetOfTiltSeries)
@@ -331,7 +457,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protXcorr.outputInterpolatedSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningPrealignment == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningPrealignment, outSamplingRate)
 
     def test_fiducialAlignmentOutputTS(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfTiltSeries)
@@ -357,7 +483,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protFiducialAlignment.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningFiducialAlignment == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
 
     # def test_fiducialAlignmentOutputFiducialModelGaps(self):
     #     self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
@@ -368,7 +494,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
     #     self.assertTrue(os.path.exists(outputLocation))
     #
     # def test_fiducialAlignmentOutputFiducialModelGapsSize(self):
-    #     self.assertTrue(self.protFiducialAlignment.outputFiducialModelGaps.getSize() == 2)
+    #     self.assertEqual(self.protFiducialAlignment.outputFiducialModelGaps.getSize(), 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
@@ -379,7 +505,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(outputLocation))
 
     def test_fiducialAlignmentOutputFiducialModelNoGapsSize(self):
-        self.assertTrue(self.protFiducialAlignment.outputFiducialModelNoGaps.getSize() == 2)
+        self.assertEqual(self.protFiducialAlignment.outputFiducialModelNoGaps.getSize(), 2)
 
     def test_fiducialAlignmentOutputCoordinates3D(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfCoordinates3D)
@@ -391,7 +517,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         tolerance = 2
-        expectedSize = 50
+        expectedSize = 34
 
         self.assertTrue(
             abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
@@ -408,7 +534,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         inSamplingRate = self.protApplyTransformationMatrix.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = self.protApplyTransformationMatrix.outputInterpolatedSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningApplyTransformMatrix == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningApplyTransformMatrix, outSamplingRate)
 
     def test_tomoReconstructionOutputTomogram(self):
         self.assertIsNotNone(self.protTomoReconstruction.outputSetOfTomograms)
@@ -425,10 +551,25 @@ class TestImodReconstructionWorkflow(TestImodBase):
         ih = ImageHandler()
         outputDimensions = ih.getDimensions(self.protTomoReconstruction.outputSetOfTomograms.getFirstItem())
 
-        self.assertTrue(outputDimensions == (512, 512, self.thicknessTomo, 1))
+        self.assertEqual(outputDimensions, (512, 512, self.thicknessTomo, 1))
+
+    def test_goldBeadPeaker3DOutput(self):
+        self.assertIsNotNone(self.protGoldBeadPicker3D.outputSetOfCoordinates3D)
+
+        tomoId = self.protGoldBeadPicker3D.inputSetOfTomograms.get().getFirstItem().getTsId()
+        location = self.protGoldBeadPicker3D._getExtraPath("BB" + tomoId)
+
+        self.assertTrue(os.path.exists(os.path.join(location, "BB" + tomoId + ".mod")))
+
+    def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
+        tolerance = 1
+        expectedSize = 14
+
+        self.assertTrue(
+            abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
 
     def test_tomoNormalizationOutput(self):
-        self.assertIsNotNone(self.protTomoNormalization.outputNormalizedSetOfTomograms)
+        self.assertIsNotNone(self.protTomoNormalization.outputSetOfTomograms)
 
         location = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getLocation()[1]
         fileName, _ = os.path.splitext(location)
@@ -437,29 +578,29 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId), tomoId + ".mrc")))
 
     def test_tomoNormalizationOutputSize(self):
-        self.assertTrue(self.protTomoNormalization.outputNormalizedSetOfTomograms.getSize() == 2)
+        self.assertEqual(self.protTomoNormalization.outputSetOfTomograms.getSize(), 2)
 
     def test_tomoNormalizationOutputSamplingRate(self):
         inSamplingRate = self.protTomoNormalization.inputSetOfTomograms.get().getSamplingRate()
-        outSamplingRate = self.protTomoNormalization.outputNormalizedSetOfTomograms.getSamplingRate()
+        outSamplingRate = self.protTomoNormalization.outputSetOfTomograms.getSamplingRate()
 
-        self.assertTrue(inSamplingRate * self.binningTomoNormalization == outSamplingRate)
+        self.assertEqual(inSamplingRate * self.binningTomoNormalization, outSamplingRate)
 
     def test_tomoProjectionOutputTiltSeriesSize(self):
-        self.assertTrue(self.protTomoProjection.outputProjectedSetOfTiltSeries.getSize() == 2)
+        self.assertEqual(self.protTomoProjection.outputSetOfTiltSeries.getSize(), 2)
 
     def test_tomoProjectionOutputTiltSeriesDimension(self):
         ih = ImageHandler()
         outputDimensions = ih.getDimensions(
-            self.protTomoProjection.outputProjectedSetOfTiltSeries.getFirstItem().getFirstItem().getFileName())
+            self.protTomoProjection.outputSetOfTiltSeries.getFirstItem().getFirstItem().getFileName())
 
-        self.assertTrue(outputDimensions == (256, 256, 61, 1))
+        self.assertEqual(outputDimensions, (256, 256, 61, 1))
 
     def test_tomoProjectionOutputTiltSeriesSamplingRate(self):
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
-        outSamplingRate = self.protTomoProjection.outputProjectedSetOfTiltSeries.getSamplingRate()
+        outSamplingRate = self.protTomoProjection.outputSetOfTiltSeries.getSamplingRate()
 
-        self.assertTrue(inSamplingRate == outSamplingRate)
+        self.assertEqual(inSamplingRate, outSamplingRate)
 
 
 class TestImodCTFCorrectionWorkflow(TestImodBase):
@@ -470,8 +611,10 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         cls.inputDataSet = DataSet.getDataSet('tutorialDataImodCTF')
         cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
+        cls.inputCtfFile = cls.inputDataSet.getFile('inputCtfFile')
+
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    pattern="WTI042413_1series4.st",
+                                                    pattern="*.mdoc",
                                                     anglesFrom=0,
                                                     voltage=300,
                                                     magnification=50000,
@@ -480,6 +623,11 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     samplingRate=6.73981,
                                                     doseInitial=0,
                                                     dosePerFrame=0.3)
+
+        cls.protImportSetOfCtfSeries = \
+            cls._runImportSetOfCtfSeries(filesPath=os.path.split(cls.inputCtfFile)[0],
+                                         filesPattern='WTI042413_1series4.defocus',
+                                         inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
         cls.protCTFEstimation = cls._runCTFEstimation(inputSoTS=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200.0,
@@ -511,10 +659,16 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       defocusTol=200,
                                                       interpolationWidth=15)
 
+    def test_importCtfTomoSeriesOutput(self):
+        self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)
+
+    def test_importCtfTomoSeriesOutputSize(self):
+        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 1)
+
     def test_ctfEstimationOutputSize(self):
         self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
 
-        self.assertTrue(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize() == 1)
+        self.assertEqual(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize(), 1)
 
     def test_ctfEstimationOutputDefocusFile(self):
         tsId = self.protCTFEstimation.inputSet.get().getFirstItem().getTsId()
@@ -523,9 +677,9 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(defocusFile))
 
     def test_ctfCorrectionOutput(self):
-        self.assertIsNotNone(self.protCTFCorrection.outputCtfCorrectedSetOfTiltSeries)
+        self.assertIsNotNone(self.protCTFCorrection.outputSetOfTiltSeries)
 
-        tsId = self.protCTFCorrection.outputCtfCorrectedSetOfTiltSeries.getFirstItem().getTsId()
+        tsId = self.protCTFCorrection.outputSetOfTiltSeries.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), "WTI042413_1series4.st")
 
         self.assertTrue(os.path.exists(outputLocation))

@@ -28,16 +28,14 @@ import os
 import numpy as np
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-from pwem.protocols import EMProtocol
 import pwem.objects as data
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from tomo.protocols.protocol_base import ProtTomoImportFiles
 from pwem.emlib.image import ImageHandler
 from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
+class ProtImodImportTransformationMatrix(ProtImodBase):
     """
     Import the transformation matrices assigned to an input set of tilt-series.
     """
@@ -46,11 +44,8 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
-    def __init__(self, **args):
-        ProtTomoImportFiles.__init__(self, **args)
-
     def _defineParams(self, form):
-        ProtTomoImportFiles._defineImportParams(self, form)
+        self._defineImportParams(form)
 
         form.addParam('exclusionWords', params.StringParam,
                       label='Exclusion words:',
@@ -66,11 +61,11 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('assignTransformationMatricesStep')
+        self._insertFunctionStep(self.assignTransformationMatricesStep)
 
     # --------------------------- STEPS functions ----------------------------
     def assignTransformationMatricesStep(self):
-        self.getOutputAssignedTransformSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
@@ -87,11 +82,12 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
                     newTs = tomoObj.TiltSeries(tsId=tsId)
                     newTs.copyInfo(ts)
-                    self.outputAssignedTransformSetOfTiltSeries.append(newTs)
+                    self.outputSetOfTiltSeries.append(newTs)
 
                     for index, tiltImage in enumerate(ts):
                         newTi = tomoObj.TiltImage()
                         newTi.copyInfo(tiltImage, copyId=True)
+                        newTi.setAcquisition(tiltImage.getAcquisition())
                         newTi.setLocation(tiltImage.getLocation())
 
                         transform = data.Transform()
@@ -117,64 +113,11 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
                     newTs.write(properties=False)
 
-                    self.outputAssignedTransformSetOfTiltSeries.update(newTs)
-                    self.outputAssignedTransformSetOfTiltSeries.updateDim()
-                    self.outputAssignedTransformSetOfTiltSeries.write()
+                    self.outputSetOfTiltSeries.update(newTs)
+                    self.outputSetOfTiltSeries.updateDim()
+                    self.outputSetOfTiltSeries.write()
 
                     self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def iterFiles(self):
-        """ Iterate through the files matched with the pattern.
-        Provide the fileName and fileId.
-        """
-        filePaths = self.getMatchFiles()
-
-        filePaths = self._excludeByWords(filePaths)
-
-        for fileName in filePaths:
-            if self._idRegex:
-                # Try to match the file id from filename
-                # this is set by the user by using #### format in the pattern
-                match = self._idRegex.match(fileName)
-                if match is None:
-                    raise Exception("File '%s' doesn't match the pattern '%s'"
-                                    % (fileName, self.getPattern()))
-
-                fileId = int(match.group(1))
-
-            else:
-                fileId = None
-
-            yield fileName, fileId
-
-    def _excludeByWords(self, files):
-        exclusionWords = self.exclusionWords.get()
-
-        if exclusionWords is None:
-            return files
-
-        exclusionWordList = exclusionWords.split()
-
-        allowedFiles = []
-
-        for file in files:
-            if any(bannedWord in file for bannedWord in exclusionWordList):
-                print("%s excluded. Contains any of %s" % (file, exclusionWords))
-                continue
-            allowedFiles.append(file)
-
-        return allowedFiles
-
-    def getOutputAssignedTransformSetOfTiltSeries(self):
-        if not hasattr(self, "outputAssignedTransformSetOfTiltSeries"):
-            outputAssignedTransformSetOfTiltSeries = self._createSetOfTiltSeries(suffix='AssignedTransform')
-            outputAssignedTransformSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputAssignedTransformSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-
-            self._defineOutputs(outputAssignedTransformSetOfTiltSeries=outputAssignedTransformSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputAssignedTransformSetOfTiltSeries)
-        return self.outputAssignedTransformSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
@@ -201,19 +144,19 @@ class ProtImodImportTransformationMatrix(ProtTomoImportFiles, EMProtocol, ProtTo
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputAssignedTransformSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tilt-Series: %d.\nTransformation matrices assigned: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputAssignedTransformSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputAssignedTransformSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("The transformation matrix has been assigned to %d Tilt-series from the input set.\n"
-                           % (self.outputAssignedTransformSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

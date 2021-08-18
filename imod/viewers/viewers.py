@@ -71,8 +71,12 @@ class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
     def __init__(self, obj, **kwargs):
-        # Remove :mrc if present
-        if isinstance(obj, tomo.objects.LandmarkModel):
+        # Accept file paths
+        if isinstance(obj, str):
+            fn = Plugin.getImodCmd('3dmod') + ' ' + obj
+
+        elif isinstance(obj, tomo.objects.LandmarkModel):
+            # Remove :mrc if present
             tsId = os.path.basename(obj.getFileName()).split('_')[0]
             if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
                                            "%s_preali.st" % tsId)):

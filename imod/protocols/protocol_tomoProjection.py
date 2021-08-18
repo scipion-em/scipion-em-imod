@@ -28,24 +28,23 @@ import os
 
 from pwem.objects import Transform
 from pyworkflow import BETA
-from pyworkflow.object import Set
+from pyworkflow.object import Set, Integer
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
+class ProtImodTomoProjection(ProtImodBase):
     """
     Re-project a tomogram given a geometric description (axis and angles).
     More info:
         https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
     """
 
-    _label = 'tomo projection'
+    _label = 'Tomo projection'
     _devStatus = BETA
 
     AXIS_X = 0
@@ -95,9 +94,9 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep('projectTomogram', tomo.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.projectTomogram, tomo.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def projectTomogram(self, tomoObjId):
@@ -133,16 +132,16 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
         extraPrefix = self._getExtraPath(tomoId)
 
-        outputProjectedSetOfTiltSeries = self.getOutputProjectedSetOfTiltSeries()
-        
+        self.getOutputSetOfTiltSeries(self.inputSetOfTomograms.get())
+
         newTs = tomoObj.TiltSeries(tsId=tomoId)
-        newTs.copyInfo(tomo)
+
+        newTs.setTsId(tomo.getTsId())
+        newTs.setAcquisition(tomo.getAcquisition())
         newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
-        origin = Transform()
-
-        outputProjectedSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         tiltAngleList = self.getTiltAngleList()
 
@@ -150,6 +149,7 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
             newTi.setTsId(tomoId)
+            newTi.setAcquisitionOrder(index+1)
             newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
             newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
             newTs.append(newTi)
@@ -159,36 +159,25 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
         newTs.setDim((x, y, z))
 
         # Set origin to output tilt-series
+        origin = Transform()
         origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
                          0)
-        newTs.setOrigin(origin)
 
+        newTs.setOrigin(origin)
         newTs.write(properties=False)
 
-        outputProjectedSetOfTiltSeries.update(newTs)
-        outputProjectedSetOfTiltSeries.updateDim()
-        outputProjectedSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputProjectedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputProjectedSetOfTiltSeries(self):
-        if hasattr(self, "outputProjectedSetOfTiltSeries"):
-            self.outputProjectedSetOfTiltSeries.enableAppend()
-        else:
-            outputProjectedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Projected')
-            outputProjectedSetOfTiltSeries.copyInfo(self.inputSetOfTomograms.get())
-            outputProjectedSetOfTiltSeries.setDim(self.inputSetOfTomograms.get().getDim())
-            outputProjectedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputProjectedSetOfTiltSeries=outputProjectedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTomograms, outputProjectedSetOfTiltSeries)
-        return self.outputProjectedSetOfTiltSeries
-
     def getRotationAxis(self):
         parseParamsRotationAxis = {
             self.AXIS_X: 'X',
@@ -227,19 +216,19 @@ class ProtImodTomoProjection(EMProtocol, ProtTomoBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputProjectedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             summary.append("Input Tomograms: %d.\nTilt-series generated: %d.\n"
                            % (self.inputSetOfTomograms.get().getSize(),
-                              self.outputProjectedSetOfTiltSeries.getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputProjectedSetOfTiltSeries'):
+        if hasattr(self, 'outputSetOfTiltSeries'):
             methods.append("%d tilt-series have been generated by projecting the input tomogram.\n"
-                           % (self.outputProjectedSetOfTiltSeries.getSize()))
+                           % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

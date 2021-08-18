@@ -32,14 +32,13 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
-from tomo.protocols import ProtTomoBase
 from tomo.objects import Tomogram
 from tomo.objects import TomoAcquisition
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
+class ProtImodTomoReconstruction(ProtImodBase):
     """
     Tomogram reconstruction procedure based on the IMOD procedure.
 
@@ -47,7 +46,7 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         https://bio3d.colorado.edu/imod/doc/man/tilt.html
     """
 
-    _label = 'tomo reconstruction'
+    _label = 'Tomo reconstruction'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -155,28 +154,12 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('computeReconstructionStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.computeReconstructionStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -248,22 +231,16 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        outputSetOfTomograms = self.getOutputSetOfTomograms()
+        self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+        newTomogram.setTsId(tsId)
 
-        # Set tomogram origin
-        ih = ImageHandler()
-        xDim, yDim, zDim, _ = \
-            ih.getDimensions(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+        newTomogram.setSamplingRate(ts.getSamplingRate())
 
-        origin = Transform()
-        sr = self.inputSetOfTiltSeries.get().getSamplingRate()
-        origin.setShifts(xDim / -2. * sr,
-                         yDim / -2. * sr,
-                         zDim / -2 * sr)
-        newTomogram.setOrigin(origin)
+        # Set default tomogram origin
+        newTomogram.setOrigin(newOrigin=False)
 
         # Set tomogram acquisition
         acquisition = TomoAcquisition()
@@ -272,28 +249,17 @@ class ProtImodTomoReconstruction(EMProtocol, ProtTomoBase):
         acquisition.setStep(self.getAngleStepFromSeries(ts))
         newTomogram.setAcquisition(acquisition)
 
-        outputSetOfTomograms.append(newTomogram)
-        outputSetOfTomograms.update(newTomogram)
-        outputSetOfTomograms.write()
+        self.outputSetOfTomograms.append(newTomogram)
+        self.outputSetOfTomograms.update(newTomogram)
+        self.outputSetOfTomograms.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfTomograms(self):
-        if hasattr(self, "outputSetOfTomograms"):
-            self.outputSetOfTomograms.enableAppend()
-        else:
-            outputSetOfTomograms = self._createSetOfTomograms()
-            outputSetOfTomograms.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTomograms=outputSetOfTomograms)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTomograms)
-        return self.outputSetOfTomograms
-
     @staticmethod
     def getAngleStepFromSeries(ts):
         """ This method return the average angles step from a series. """
