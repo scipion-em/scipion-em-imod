@@ -62,7 +62,7 @@ class TestImodBase(BaseTest):
                                            filesPath=filesPath,
                                            filesPattern=pattern,
                                            exclusionWords=exclusionWords,
-                                           inputSetOfTiltSeries=inputSetOfTiltSeries,)
+                                           inputSetOfTiltSeries=inputSetOfTiltSeries, )
         cls.launchProtocol(cls.protImportTM)
         return cls.protImportTM
 
@@ -80,10 +80,10 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runDoseFilter(cls, inputSoTS, initialDose, inputDoseType, fixedImageDose):
         cls.protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
-                                            inputSetOfTiltSeries=inputSoTS,
-                                            initialDose=initialDose,
-                                            inputDoseType=inputDoseType,
-                                            fixedImageDose=fixedImageDose)
+                                             inputSetOfTiltSeries=inputSoTS,
+                                             initialDose=initialDose,
+                                             inputDoseType=inputDoseType,
+                                             fixedImageDose=fixedImageDose)
         cls.launchProtocol(cls.protDoseFilter)
         return cls.protDoseFilter
 
@@ -125,13 +125,21 @@ class TestImodBase(BaseTest):
         return cls.protXcorr
 
     @classmethod
-    def _runFiducialAlignemnt(cls, inputSoTS, twoSurfaces, fiducialDiameter, numberFiducial, rotationAngle,
-                              computeAlignment, binning):
-        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
+    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle):
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
                                                     inputSetOfTiltSeries=inputSoTS,
                                                     twoSurfaces=twoSurfaces,
-                                                    fiducialDiameter=fiducialDiameter,
+                                                    fiducialRadius=fiducialRadius,
                                                     numberFiducial=numberFiducial,
+                                                    rotationAngle=rotationAngle)
+        cls.launchProtocol(cls.protFiducialAlignment)
+        return cls.protFiducialAlignment
+
+    @classmethod
+    def _runFiducialAlignemnt(cls, inputSoLM, twoSurfaces, rotationAngle, computeAlignment, binning):
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialAlignment,
+                                                    inputSetOfLandmarkModels=inputSoLM,
+                                                    twoSurfaces=twoSurfaces,
                                                     rotationAngle=rotationAngle,
                                                     computeAlignment=computeAlignment,
                                                     binning=binning)
@@ -335,11 +343,15 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5)
 
-        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+        cls.protFiducialModels = cls._runFiducialModels(inputSoTS=cls.protXcorr.outputSetOfTiltSeries,
+                                                        twoSurfaces=0,
+                                                        fiducialRadius=4.95,
+                                                        numberFiducial=25,
+                                                        rotationAngle=-12.5)
+
+        cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.outputFiducialModelGaps,
                                                               twoSurfaces=0,
-                                                              fiducialDiameter=4.95,
-                                                              numberFiducial=25,
-                                                              rotationAngle=0,
+                                                              rotationAngle=-12.5,
                                                               computeAlignment=0,
                                                               binning=cls.binningFiducialAlignment)
 
@@ -459,6 +471,19 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertEqual(inSamplingRate * self.binningPrealignment, outSamplingRate)
 
+    def test_fiducialModelstOutputFiducialModelGaps(self):
+        self.assertIsNotNone(self.protFiducialModels.outputFiducialModelGaps)
+
+        tsId = self.protFiducialModels.outputFiducialModelGaps.getFirstItem().getTsId()
+        outputLocationImod = os.path.join(self.protFiducialModels._getExtraPath(tsId), "BB" + tsId + "_gaps.fid")
+        outputLocationScipion = os.path.join(self.protFiducialModels._getExtraPath(tsId), "BB" + tsId + "_gaps.sfid")
+
+        self.assertTrue(os.path.exists(outputLocationImod))
+        self.assertTrue(os.path.exists(outputLocationScipion))
+
+    def test_fiducialModelsOutputFiducialModelGapsSize(self):
+        self.assertEqual(self.protFiducialModels.outputFiducialModelGaps.getSize(), 2)
+
     def test_fiducialAlignmentOutputTS(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputSetOfTiltSeries)
 
@@ -480,21 +505,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(outputLocation))
 
     def test_fiducialAlignmentOutputInterpolatedTSSamplingRate(self):
-        inSamplingRate = self.protFiducialAlignment.inputSetOfTiltSeries.get().getSamplingRate()
-        outSamplingRate = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSamplingRate()
+        inputSoTS = self.protFiducialAlignment.inputSetOfLandmarkModels.get().getSetOfTiltSeries()
+        outputSoTS = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries
+
+        inSamplingRate = inputSoTS.getSamplingRate()
+        outSamplingRate = outputSoTS.getSamplingRate()
 
         self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
-
-    # def test_fiducialAlignmentOutputFiducialModelGaps(self):
-    #     self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelGaps)
-    #
-    #     tsId = self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getFirstItem().getTsId()
-    #     outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId), "BB" + tsId + "_resid.txt")
-    #
-    #     self.assertTrue(os.path.exists(outputLocation))
-    #
-    # def test_fiducialAlignmentOutputFiducialModelGapsSize(self):
-    #     self.assertEqual(self.protFiducialAlignment.outputFiducialModelGaps.getSize(), 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
@@ -563,7 +580,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 1
-        expectedSize = 14
+        expectedSize = 17
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)

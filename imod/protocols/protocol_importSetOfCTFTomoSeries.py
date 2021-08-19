@@ -63,6 +63,8 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
+        self.outputSetName = 'outputSetOfCTFTomoSeries'
+
         self._insertFunctionStep(self.importSetOfCtfTomoSeries)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
@@ -71,7 +73,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        self.getOutputSetOfCTFTomoSeries(self.inputSetOfTiltSeries)
+        self.getOutputSetOfCTFTomoSeries(self.outputSetName)
 
         for ts in inputSetOfTiltSeries:
             tsId = ts.getTsId()
@@ -92,6 +94,10 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
+
+    # --------------------------- UTILS functions ---------------------------
+    def _getSetOfTiltSeries(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
