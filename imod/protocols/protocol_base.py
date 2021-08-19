@@ -313,6 +313,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo = CTFTomo()
             newCTFTomo.setIndex(Integer(index + 1))
 
+            if (index + 1) not in defocusUDict.keys():
+                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (tsId, (index+1), inputTs[index+1].getTiltAngle()))
+
             if defocusFileFlag == 0:
                 " Plain estimation "
                 newCTFTomo._defocusUList = CsvList(pType=float)
