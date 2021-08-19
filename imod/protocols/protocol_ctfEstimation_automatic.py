@@ -413,7 +413,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
-            self.getOutputSetOfCTFTomoSeries(self._getSetOfTiltSeries(pointer=True))
+            self.getOutputSetOfCTFTomoSeries(self.outputSetName)
 
             self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath)
 
