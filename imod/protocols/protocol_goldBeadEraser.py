@@ -25,18 +25,17 @@
 # **************************************************************************
 
 import os
-from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
-from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
+class ProtImodGoldBeadEraser(ProtImodBase):
     """
     Erase fiducial markers from aligned tilt-series based on the IMOD procedure.
     More info:
@@ -80,23 +79,11 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
-            self._insertFunctionStep('eraseXraysStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputStep')
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.generateFiducialModelStep, ts.getObjId())
+            self._insertFunctionStep(self.eraseGoldBeadStep(), ts.getObjId())
+            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputStep)
 
     def generateFiducialModelStep(self, tsObjId):
         # TODO: check si es el landmark model correcto
@@ -129,7 +116,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
-    def eraseXraysStep(self, tsObjId):
+    def eraseGoldBeadStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
         tsId = ts.getTsId()
@@ -157,7 +144,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfXraysErasedTiltSeries()
+        self.getOutputSetOfTiltSeries()
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -165,7 +152,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputXraysErasedSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -175,24 +162,11 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        outputXraysErasedSetOfTiltSeries.update(newTs)
-        outputXraysErasedSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputStep(self):
-        self.getOutputSetOfXraysErasedTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfXraysErasedTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
