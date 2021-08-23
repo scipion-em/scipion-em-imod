@@ -79,7 +79,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId(), False, False)
             self._insertFunctionStep(self.generateFiducialModelStep, ts.getObjId())
             self._insertFunctionStep(self.eraseGoldBeadStep(), ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
