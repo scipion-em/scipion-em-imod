@@ -122,7 +122,7 @@ def formatFiducialResidList(fiducialFilePath):
 
 
 def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
-    """ This method takes a Scipion LandmarkModel object and generates a text file in the sepecified location in IMOD
+    """ This method takes a Scipion LandmarkModel object and generates a text file in the specified location in IMOD
     convention that contains the information of the position of each fiducial through the tilt-series.
     :param landmarkModel: landmarkModel Scipion object.
     :param outputFilePath: location where the output file must be saved.
