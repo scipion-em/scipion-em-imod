@@ -201,7 +201,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
