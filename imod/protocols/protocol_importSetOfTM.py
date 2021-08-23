@@ -100,7 +100,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
             if tsFileName == tmFileName:
 
-                if self.matchBinningFactor == 1:
+                if self.matchBinningFactor != 1:
 
                     inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
 
@@ -132,7 +132,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                 else:
                     path.createLink(tmFilePath, outputTransformFile)
-
 
     def assignTransformationMatricesStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
