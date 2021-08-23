@@ -45,11 +45,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
     _label = 'Gold bead eraser'
     _devStatus = BETA
 
-    def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
-
-        # -------------------------- DEFINE param functions -----------------------
-
+    # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
 
@@ -66,6 +62,24 @@ class ProtImodGoldBeadEraser(ProtImodBase):
                       label='Input set of landmark models',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
+        form.addParam('useTMFromTS',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Use alignment from TS',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='If this option is set to yes, the alignment use to remove the gold beads from the fiducial '
+                           'model is the one associated to the input set of tilt-series. In case other alignment is to'
+                           'be used, input a tilt-series.')
+
+        form.addParam('inputSetOfTiltSeriesTransform',
+                      params.PointerParam,
+                      pointerClass='SetOfTiltSeries',
+                      important=True,
+                      label='Input set of tilt-series transform.',
+                      help='Input set of tilt-series from which the alignment will be used to remove the gold beads '
+                           'from the fiducial model')
+
         form.addParam('betterRadius',
                       params.IntParam,
                       default=10,
@@ -81,12 +95,12 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId(), False, False)
             self._insertFunctionStep(self.generateFiducialModelStep, ts.getObjId())
-            self._insertFunctionStep(self.eraseGoldBeadStep(), ts.getObjId())
+            self._insertFunctionStep(self.eraseGoldBeadStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputStep)
 
     def generateFiducialModelStep(self, tsObjId):
-        # TODO: check si es el landmark model correcto
+        # TODO: check si es el landmark model correct
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
@@ -170,3 +184,25 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
+
+    # --------------------------- INFO functions ----------------------------
+    def _validate(self):
+        validateMsgs = []
+
+        tsNoTransformSet = []
+        transform = True
+
+        for ts in self.inputSetOfTiltSeries.get():
+            if not ts.getFirstItem().hasTransform():
+                transform = False
+
+                tsNoTransformSet.append(ts)
+
+        if not transform and not self.useTMFromTS.get():
+            validateMsgs.append("The following tilt-series (tsId) does not have an associated alignment and there is "
+                                "no optional source from where to input alignment information: ")
+
+            for tsNoTransform in tsNoTransformSet:
+                validateMsgs.append(tsNoTransform.getTsId())
+
+        return validateMsgs
