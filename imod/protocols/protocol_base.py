@@ -50,8 +50,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
 
-
-    # --------------------------- CACULUS functions ---------------------------
+    # --------------------------- CALCULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False):
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
