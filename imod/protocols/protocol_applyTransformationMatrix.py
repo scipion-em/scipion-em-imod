@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import os
-import math
 import imod.utils as utils
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
