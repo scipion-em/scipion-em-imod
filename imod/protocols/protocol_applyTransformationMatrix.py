@@ -25,12 +25,13 @@
 # **************************************************************************
 
 import os
+import math
 import imod.utils as utils
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from tomo.objects import TiltSeries, TiltImage
+import tomo.objects as tomoObj
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 from imod.protocols.protocol_base import ProtImodBase
@@ -55,31 +56,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('binning',
-                      params.FloatParam,
+        form.addParam('binning', params.FloatParam,
                       default=1.0,
                       label='Binning',
                       help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
                            'binned by the given factor. Must be an integer bigger than 1')
 
-        groupMatchBinning = form.addGroup('Match binning')
-
-        groupMatchBinning.addParam('binningTM',
-                                   params.IntParam,
-                                   default=1,
-                                   label='Transformation matrix binning',
-                                   help='Binning of the tilt series at which the transformation matrices were calculated.')
-
-        groupMatchBinning.addParam('binningTS',
-                                   params.IntParam,
-                                   default=1,
-                                   label='Tilt-series binning',
-                                   help='Binning of the tilt-serie to which the ')
-
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
             self._insertFunctionStep(self.computeAlignmentStep, ts.getObjId())
@@ -90,35 +74,9 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
-
-        # Update shits from the transformation matrix considering the matching bining between the input tilt series and
-        # the transformation matrix. We create an empty tilt-series containing only tilt-images with transform
-        # information.
-        transformMatrixList = []
-
-        for ti in ts:
-            inputTransformMatrix = ti.getTransform().getMatrix()
-
-            outputTrasformMatrix = inputTransformMatrix
-            outputTrasformMatrix[0][0] = inputTransformMatrix[0][0]
-            outputTrasformMatrix[0][1] = inputTransformMatrix[0][1]
-            outputTrasformMatrix[0][2] = inputTransformMatrix[0][2] * self.matchBinningFactor
-            outputTrasformMatrix[1][0] = inputTransformMatrix[1][0]
-            outputTrasformMatrix[1][1] = inputTransformMatrix[1][1]
-            outputTrasformMatrix[1][2] = inputTransformMatrix[1][2] * self.matchBinningFactor
-            outputTrasformMatrix[2][0] = inputTransformMatrix[2][0]
-            outputTrasformMatrix[2][1] = inputTransformMatrix[2][1]
-            outputTrasformMatrix[2][2] = inputTransformMatrix[2][2]
-
-            transformMatrixList.append(outputTrasformMatrix)
-
-        utils.formatTransformFileFromTransformList(
-            transformMatrixList,
-            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
-        )
+        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf")))
 
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -163,7 +121,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        newTs = TiltSeries(tsId=tsId)
+        newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
@@ -171,7 +129,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
-            newTi = TiltImage()
+            newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
