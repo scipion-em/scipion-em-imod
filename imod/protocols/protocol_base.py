@@ -86,7 +86,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             else:
                 path.createLink(firstItem.getLocation()[1], inputTS)
 
-
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
         """ Method to generate output classes of set of tilt-series"""
@@ -401,7 +400,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         self._store()
 
-
     # --------------------------- UTILS functions ----------------------------
     def iterFiles(self):
         """ Iterate through the files matched with the pattern.
@@ -444,3 +442,15 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             allowedFiles.append(file)
 
         return allowedFiles
+
+    @staticmethod
+    def getLandMarkModelFromTs(SoLM, tsId):
+        """ This metod inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
+        tsId.
+        :param SoLM: input set of landmark models.
+        :param tsId: is of the landmark to search.
+        """
+
+        for lm in SoLM:
+            if lm.getTsId() == tsId:
+                return lm
