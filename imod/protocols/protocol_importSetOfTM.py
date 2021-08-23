@@ -27,9 +27,10 @@
 import os
 import numpy as np
 from pyworkflow import BETA
+from pyworkflow.utils import path
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage
 from pwem.emlib.image import ImageHandler
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
@@ -59,65 +60,130 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                       help='Set of tilt-series on which transformation matrices will be assigned.',
                       label='Assign transformation set of tilt-series')
 
+        groupMatchBinning = form.addGroup('Match binning')
+
+        groupMatchBinning.addParam('binningTM',
+                                   params.IntParam,
+                                   default=1,
+                                   label='Transformation matrix binning',
+                                   help='Binning of the tilt series at which the transformation matrices were '
+                                        'calculated.')
+
+        groupMatchBinning.addParam('binningTS',
+                                   params.IntParam,
+                                   default=1,
+                                   label='Tilt-series binning',
+                                   help='Binning of the tilt-series to which the ')
+
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep(self.assignTransformationMatricesStep)
+        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
+
+        for ts in self.inputSetOfTiltSeries.get():
+            self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
+            self._insertFunctionStep(self.assignTransformationMatricesStep, ts.getObjId())
 
     # --------------------------- STEPS functions ----------------------------
-    def assignTransformationMatricesStep(self):
+    def generateTransformFileStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        tsFileName = ts.getFirstItem().parseFileName(extension='')
+
+        extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
+
+        outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+
+        for tmFilePath, _ in self.iterFiles():
+            tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
+
+            if tsFileName == tmFileName:
+
+                if self.matchBinningFactor != 1:
+
+                    inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
+
+                    extraPrefix = self._getExtraPath(tsId)
+                    path.makePath(extraPrefix)
+
+                    # Update shits from the transformation matrix considering the matching bining between the input tilt
+                    # series and the transformation matrix. We create an empty tilt-series containing only tilt-images
+                    # with transform information.
+                    transformMatrixList = []
+
+                    for index, ti in enumerate(ts):
+                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
+
+                        outputTransformMatrix = inputTransformMatrix
+                        outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
+                        outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
+                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * self.matchBinningFactor
+                        outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
+                        outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
+                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * self.matchBinningFactor
+                        outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
+                        outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
+                        outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
+
+                        transformMatrixList.append(outputTransformMatrix)
+
+                    utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
+
+                else:
+                    path.createLink(tmFilePath, outputTransformFile)
+
+    def assignTransformationMatricesStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+
+        outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
-        inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
+        newTs = TiltSeries(tsId=tsId)
+        newTs.copyInfo(ts)
 
-        for ts in inputSetOfTiltSeries:
-            tsId = ts.getTsId()
+        self.outputSetOfTiltSeries.append(newTs)
 
-            tsFileName = ts.getFirstItem().parseFileName(extension='')
+        alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
 
-            for tmFilePath, _ in self.iterFiles():
-                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
+        for index, tiltImage in enumerate(ts):
+            newTi = TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.setAcquisition(tiltImage.getAcquisition())
+            newTi.setLocation(tiltImage.getLocation())
 
-                if tsFileName == tmFileName:
-                    alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
+            transform = data.Transform()
 
-                    newTs = tomoObj.TiltSeries(tsId=tsId)
-                    newTs.copyInfo(ts)
-                    self.outputSetOfTiltSeries.append(newTs)
+            if tiltImage.hasTransform():
+                previousTransform = tiltImage.getTransform().getMatrix()
+                newTransform = alignmentMatrix[:, :, index]
+                previousTransformArray = np.array(previousTransform)
+                newTransformArray = np.array(newTransform)
+                outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                transform.setMatrix(outputTransformMatrix)
+                newTi.setTransform(transform)
 
-                    for index, tiltImage in enumerate(ts):
-                        newTi = tomoObj.TiltImage()
-                        newTi.copyInfo(tiltImage, copyId=True)
-                        newTi.setAcquisition(tiltImage.getAcquisition())
-                        newTi.setLocation(tiltImage.getLocation())
+            else:
+                transform.setMatrix(alignmentMatrix[:, :, index])
+                newTi.setTransform(transform)
 
-                        transform = data.Transform()
+            newTs.append(newTi)
 
-                        if tiltImage.hasTransform():
-                            previousTransform = tiltImage.getTransform().getMatrix()
-                            newTransform = alignmentMatrix[:, :, index]
-                            previousTransformArray = np.array(previousTransform)
-                            newTransformArray = np.array(newTransform)
-                            outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
-                            transform.setMatrix(outputTransformMatrix)
-                            newTi.setTransform(transform)
+        ih = ImageHandler()
+        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+        newTs.setDim((x, y, z))
 
-                        else:
-                            transform.setMatrix(alignmentMatrix[:, :, index])
-                            newTi.setTransform(transform)
+        newTs.write(properties=False)
 
-                        newTs.append(newTi)
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
 
-                    ih = ImageHandler()
-                    x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-                    newTs.setDim((x, y, z))
-
-                    newTs.write(properties=False)
-
-                    self.outputSetOfTiltSeries.update(newTs)
-                    self.outputSetOfTiltSeries.updateDim()
-                    self.outputSetOfTiltSeries.write()
-
-                    self._store()
+        self._store()
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
@@ -127,7 +193,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         for tmFilePath, _ in self.iterFiles():
             tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-            print(tmFilePath)
 
             for ts in self.inputSetOfTiltSeries.get():
                 tsFileName = ts.getFirstItem().parseFileName(extension='')
@@ -137,6 +202,21 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
             if not match:
                 validateMsgs.append("No matching tilt-series found for file: %s" % tmFilePath)
+
+            match = False
+
+        for ts in self.inputSetOfTiltSeries.get():
+            tsFileName = ts.getFirstItem().parseFileName(extension='')
+
+            for tmFilePath, _ in self.iterFiles():
+                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
+
+                if tsFileName == tmFileName:
+                    match = True
+
+            if not match:
+                validateMsgs.append("No matching file found for tilt-series: %s (with tsID %s)"
+                                    % (tsFileName, ts.getTsId()))
 
             match = False
 
