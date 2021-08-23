@@ -30,7 +30,7 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
 from imod.protocols.protocol_base import ProtImodBase
@@ -120,7 +120,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
@@ -128,7 +128,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
+            newTi = TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
