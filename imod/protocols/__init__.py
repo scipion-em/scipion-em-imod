@@ -39,6 +39,7 @@ from .protocol_etomo import ProtImodEtomo
 from .protocol_excludeViews import ProtImodExcludeViews
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_fiducialModel import ProtImodFiducialModel
+from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
@@ -53,4 +54,3 @@ from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
 
 # Deprecated protocols
 # from .protocol_auto3d import ProtImodAuto3D
-# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser
