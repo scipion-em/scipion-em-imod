@@ -26,10 +26,9 @@
 
 import os
 from pyworkflow import BETA
-import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage
 import imod.utils as utils
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
@@ -59,13 +58,15 @@ class ProtImodGoldBeadEraser(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfLandmarkModels',
                       important=True,
-                      label='Input set of landmark models',
-                      help='Input set of landmark models containing the location of the gold beads through the series')
+                      label='Input set of landmark models (no gaps)',
+                      help='Input set of landmark models containing the location of the gold beads to be erased '
+                           'through the series.\n'
+                           'IMPORTANT: It is highly recommended to use a Landmark Model with no gaps.')
 
         form.addParam('useTMFromTS',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=1,
+                      default=0,
                       label='Use alignment from TS',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='If this option is set to yes, the alignment use to remove the gold beads from the fiducial '
@@ -75,6 +76,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         form.addParam('inputSetOfTiltSeriesTransform',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
+                      condition='useTMFromTS==1',
                       important=True,
                       label='Input set of tilt-series transform.',
                       help='Input set of tilt-series from which the alignment will be used to remove the gold beads '
@@ -93,54 +95,95 @@ class ProtImodGoldBeadEraser(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId(), False, False)
-            self._insertFunctionStep(self.generateFiducialModelStep, ts.getObjId())
-            self._insertFunctionStep(self.eraseGoldBeadStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+            tsObjId = ts.getObjId()
+            self._insertFunctionStep(self.convertInputStep, tsObjId, False, False)
+            self._insertFunctionStep(self.generateIntermediateFiles, tsObjId)
+            self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+            self._insertFunctionStep(self.eraseGoldBeadStep, tsObjId)
+            self._insertFunctionStep(self.createOutputStep, tsObjId)
         self._insertFunctionStep(self.closeOutputStep)
 
-    def generateFiducialModelStep(self, tsObjId):
-        # TODO: check si es el landmark model correct
-        lm = self.inputSetOfLandmarkModels.get()[tsObjId]
+    def generateIntermediateFiles(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
-
         tsId = ts.getTsId()
+
+        firstItem = ts.getFirstItem()
+
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(extraPrefix)
-        path.makePath(tmpPrefix)
 
-        landmarkTextFilePath = os.path.join(extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
-        landmarkModelPath = os.path.join(extraPrefix,
-                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod"))
+        outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
-        # Generate the IMOD file containing the information from the landmark model
-        utils.generateIMODFiducialTextFile(landmarkModel=lm,
-                                           outputFilePath=landmarkTextFilePath)
+        if self.useTMFromTS.get() == 0:
+            utils.formatTransformFile(ts, outputTMPath)
 
-        # Convert IMOD file into IMOD model
-        paramsPoint2Model = {
-            'inputFile': landmarkTextFilePath,
-            'outputFile': landmarkModelPath,
+        else:
+            tsTM = self.inputSetOfTiltSeriesTransform.get()[tsObjId]
+
+            utils.formatTransformFile(tsTM, outputTMPath)
+
+    def generateFiducialModelStep(self, tsObjId):
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        firstItem = ts.getFirstItem()
+
+        lm = self.getLandMarkModelFromTs(self.inputSetOfLandmarkModels.get(), tsId)
+
+        extraPrefix = self._getExtraPath(tsId)
+
+        outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
+
+        # Generate model if it does not exist
+        if lm.getModelName() is not None:
+            landmarkModelPath = lm.getModelName()
+
+        else:
+            landmarkTextFilePath = lm.getFileName()
+            landmarkModelPath = os.path.join(extraPrefix,
+                                             firstItem.parseFileName(suffix="_noInterpolation_fid", extension=".mod")
+                                             )
+
+            # Generate the IMOD file containing the information from the landmark model
+            utils.generateIMODFiducialTextFile(landmarkModel=lm,
+                                               outputFilePath=landmarkTextFilePath)
+
+            # Convert IMOD file into IMOD model
+            paramsPoint2Model = {
+                'inputFile': landmarkTextFilePath,
+                'outputFile': landmarkModelPath,
+            }
+
+            argsPoint2Model = "-InputFile %(inputFile)s " \
+                              "-OutputFile %(outputFile)s"
+
+            Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
+
+        # Generate interpolated model
+        paramsImodtrans = {
+            'inputFile': os.path.join(landmarkModelPath),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod")),
+            'transformFile': outputTMPath
         }
 
-        argsPoint2Model = "-InputFile %(inputFile)s " \
-                          "-OutputFile %(outputFile)s"
+        argsImodtrans = "-2 %(transformFile)s " \
+                        "%(inputFile)s " \
+                        "%(outputFile)s "
 
-        Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
+        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
     def eraseGoldBeadStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
-
         tsId = ts.getTsId()
+
+        firstItem = ts.getFirstItem()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsCcderaser = {
-            'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
+            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'modelFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod")),
             'betterRadius': self.betterRadius.get(),
             'polynomialOrder': 0,
             'circleObjects': "/"
@@ -164,12 +207,12 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
+            newTi = TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
