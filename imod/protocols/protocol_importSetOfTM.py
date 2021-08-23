@@ -193,7 +193,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         for tmFilePath, _ in self.iterFiles():
             tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-            print(tmFilePath)
 
             for ts in self.inputSetOfTiltSeries.get():
                 tsFileName = ts.getFirstItem().parseFileName(extension='')
@@ -203,6 +202,21 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
             if not match:
                 validateMsgs.append("No matching tilt-series found for file: %s" % tmFilePath)
+
+            match = False
+
+        for ts in self.inputSetOfTiltSeries.get():
+            tsFileName = ts.getFirstItem().parseFileName(extension='')
+
+            for tmFilePath, _ in self.iterFiles():
+                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
+
+                if tsFileName == tmFileName:
+                    match = True
+
+            if not match:
+                validateMsgs.append("No matching file found for tilt-series: %s (with tsID %s)"
+                                    % (tsFileName, ts.getTsId()))
 
             match = False
 
