@@ -31,25 +31,21 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
+class ProtImodXcorrPrealignment(ProtImodBase):
     """
     Tilt-series' cross correlation alignment based on the IMOD procedure.
     More info:
-        https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
     """
 
-    _label = 'xcorr prealignment'
+    _label = 'Xcorr prealignment'
     _devStatus = BETA
-
-    def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -137,29 +133,14 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('computeXcorrStep', ts.getObjId())
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
+            self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
             if self.computeAlignment.get() == 0:
-                self._insertFunctionStep('computeInterpolatedStackStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+                self._insertFunctionStep(self.computeInterpolatedStackStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-        """Generate angle file"""
-        angleFilePath = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
-
     def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -199,13 +180,22 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
                      "-goutput %(goutput)s"
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
-        """Generate output tilt series"""
-        outputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+    def generateOutputStackStep(self, tsObjId):
+        """ Generate tilt-serie with the associated transform matrix """
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+
         alignmentMatrix = utils.formatTransformationMatrix(
             os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputSetOfTiltSeries.append(newTs)
+
+        self.outputSetOfTiltSeries.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -219,13 +209,13 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         newTs.write(properties=False)
 
-        outputSetOfTiltSeries.update(newTs)
-        outputSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.write()
 
         self._store()
 
     def computeInterpolatedStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
+        self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -250,7 +240,7 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+        self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -269,46 +259,17 @@ class ProtImodXcorrPrealignment(EMProtocol, ProtTomoBase):
 
         newTs.write(properties=False)
 
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.updateDim()
-        outputInterpolatedSetOfTiltSeries.write()
+        self.outputInterpolatedSetOfTiltSeries.update(newTs)
+        self.outputInterpolatedSetOfTiltSeries.updateDim()
+        self.outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if self.computeAlignment.get() == 0:
-            self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
-
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.outputInterpolatedSetOfTiltSeries.enableAppend()
-        else:
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

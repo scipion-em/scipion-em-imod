@@ -50,7 +50,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
     """
 
-    _label = 'etomo interactive'
+    _label = 'Etomo interactive'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

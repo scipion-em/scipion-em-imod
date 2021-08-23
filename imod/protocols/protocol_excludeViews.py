@@ -31,21 +31,20 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
+class ProtImodExcludeViews(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/excludeviews.html
     """
 
-    _label = 'exclude views'
+    _label = 'Exclude views'
     _devStatus = BETA
 
     excludeViewsInfoMatrix = []
@@ -77,7 +76,6 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
         self._insertFunctionStep(self.retrieveInputInformation)
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.excludeViewsStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -86,30 +84,23 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
     def retrieveInputInformation(self):
         self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
-
-
     def excludeViewsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
+        path.makePath(extraPrefix)
+
+        firstItem = ts.getFirstItem()
+        outputFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+
+        path.copyFile(firstItem.getFileName(), outputFileName)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
         if(position != -1):
-            firstItem = ts.getFirstItem()
-
             paramsAlignment = {
-                'stackName': os.path.join(extraPrefix, firstItem.parseFileName()),
+                'stackName': outputFileName,
                 'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
             }
 
@@ -120,7 +111,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
 
 
     def generateOutputStackStep(self, tsObjId):
-        getOutputSetOfTiltSeries = self.getOutputSetOfTiltSeries()
+        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -131,7 +122,7 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        getOutputSetOfTiltSeries.append(newTs)
+        self.outputSetOfTiltSeries.append(newTs)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
@@ -150,19 +141,23 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(newIndex, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+
+                if(tiltImage.hasTransform()):
+                    newTi.setTransform(tiltImage.getTransform())
+
                 newTs.append(newTi)
                 newIndex += 1
 
         newTs.set
         newTs.write(properties=False)
 
-        getOutputSetOfTiltSeries.update(newTs)
-        getOutputSetOfTiltSeries.updateDim()
-        getOutputSetOfTiltSeries.write()
+        self.outputSetOfTiltSeries.update(newTs)
+        self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -190,18 +185,6 @@ class ProtImodExcludeViews(EMProtocol, ProtTomoBase):
                 excludedViewsAsList.append(int(elementVector[0]))
 
         return excludedViewsAsList
-
-    def getOutputSetOfTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
-        else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

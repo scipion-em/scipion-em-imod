@@ -24,6 +24,9 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import threading
 import tkinter
 from tkinter import *
@@ -88,6 +91,9 @@ class ImodGenericTreeProvider(TreeProvider):
         for obj in self.objs.iterItems(orderBy=orderBy, direction=direction):
             if isinstance(obj, tomo.objects.TiltSeries):
                 item = obj.clone(ignoreAttrs=('_mapperPath',))
+            elif isinstance(obj, tomo.objects.LandmarkModel):
+                self.objs.completeLandmarkModel(obj)
+                item = obj.clone()
             else:
                 item = obj.clone()
             item._allowsSelection = True
@@ -374,15 +380,20 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
 
     def __init__(self, set, **kwargs):
         fn = ""
-        for item in set:
-            tsId = os.path.basename(item.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+        for index, item in enumerate(set):
+            itemComplete = set.completeLandmarkModel(item)
+
+            if itemComplete.getTiltSeries().getFirstItem().hasTransform():
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated_%d.mrc" % index)
+                itemComplete.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
+
+                fn += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                      itemComplete.getModelName() + " ; "
+
             else:
-                prealiTSPath = ""
-            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
+                fn += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + itemComplete.getModelName() + " ; "
+
         pwviewer.CommandView.__init__(self, fn)
         self.show()
 

@@ -26,6 +26,9 @@
 # *
 # **************************************************************************
 
+# Base protocols
+from .protocol_base import ProtImodBase
+
 # Calculus protocols
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection
@@ -35,6 +38,7 @@ from .protocol_doseFilter import ProtImodDoseFilter
 from .protocol_etomo import ProtImodEtomo
 from .protocol_excludeViews import ProtImodExcludeViews
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
+from .protocol_fiducialModel import ProtImodFiducialModel
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
