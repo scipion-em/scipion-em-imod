@@ -163,9 +163,9 @@ class ProtImodGoldBeadEraser(ProtImodBase):
 
         # Generate interpolated model
         paramsImodtrans = {
+            'transformFile': outputTMPath,
             'inputFile': os.path.join(landmarkModelPath),
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod")),
-            'transformFile': outputTMPath
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod"))
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
