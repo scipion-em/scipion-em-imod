@@ -114,15 +114,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
+        inputIterFiles, tsIdList = self.iterFiles()
+
         for ts in inputSetOfTiltSeries:
             tsId = ts.getTsId()
 
-            tsFileName = ts.getFirstItem().parseFileName(extension='')
+            for index, fileTsId in enumerate(tsIdList):
+                tmFilePath = inputIterFiles[index]
 
-            for tmFilePath, _ in self.iterFiles():
-                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-
-                if tsFileName == tmFileName:
+                if tsId == fileTsId:
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
 
                     newTs = tomoObj.TiltSeries(tsId=tsId)
