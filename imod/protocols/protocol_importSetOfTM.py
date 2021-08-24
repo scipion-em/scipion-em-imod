@@ -79,6 +79,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
             for indexTsId, fileTsId in enumerate(tsIdList):
                 tmFilePath = inputIterFiles[indexTsId]
 
+                print("--------------------------")
+                print(tsId)
+                print(fileTsId)
+                print(tmFilePath)
+
                 if tsId == fileTsId:
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
 
