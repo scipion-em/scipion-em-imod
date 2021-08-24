@@ -454,3 +454,15 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         for lm in SoLM:
             if lm.getTsId() == tsId:
                 return lm
+
+    @staticmethod
+    def getTiltSeriesFromTs(SoTS, tsId):
+        """ This metod inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
+        tsId.
+        :param SoTS: input set of landmark models.
+        :param tsId: is of the landmark to search.
+        """
+
+        for ts in SoTS:
+            if ts.getTsId() == tsId:
+                return ts
