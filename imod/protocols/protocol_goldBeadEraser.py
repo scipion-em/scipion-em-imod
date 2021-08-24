@@ -74,7 +74,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
                            'be used, input a tilt-series.\n'
                            'IMPORTANT: the alignment that should be applied to the model is the one correcting for the '
                            'tilt axis rotation (no prealignment). This corresponds to the _fid.xf in the fiducial '
-                           'alignment protocol or ')
+                           'alignment or etomo protocol.')
 
         form.addParam('inputSetOfTiltSeriesTransform',
                       params.PointerParam,
