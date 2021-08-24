@@ -71,7 +71,10 @@ class ProtImodGoldBeadEraser(ProtImodBase):
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='If this option is set to yes, the alignment use to remove the gold beads from the fiducial '
                            'model is the one associated to the input set of tilt-series. In case other alignment is to'
-                           'be used, input a tilt-series.')
+                           'be used, input a tilt-series.\n'
+                           'IMPORTANT: the alignment that should be applied to the model is the one correcting for the '
+                           'tilt axis rotation (no prealignment). This corresponds to the _fid.xf in the fiducial '
+                           'alignment protocol or ')
 
         form.addParam('inputSetOfTiltSeriesTransform',
                       params.PointerParam,
