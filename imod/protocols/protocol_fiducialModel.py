@@ -398,8 +398,9 @@ class ProtImodFiducialModel(ProtImodBase):
                 newTi.copyInfo(tiltImage, copyId=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                if hasattr(self, 'binning'):
+                    if self.binning > 1:
+                        newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
 
             ih = ImageHandler()
