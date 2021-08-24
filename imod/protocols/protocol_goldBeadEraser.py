@@ -120,7 +120,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
             utils.formatTransformFile(ts, outputTMPath)
 
         else:
-            tsTM = self.inputSetOfTiltSeriesTransform.get()[tsObjId]
+            tsTM = self.getTiltSeriesFromTs(self.inputSetOfTiltSeriesTransform.get(), tsId)
 
             utils.formatTransformFile(tsTM, outputTMPath)
 
