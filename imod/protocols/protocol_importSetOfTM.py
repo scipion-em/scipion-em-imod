@@ -88,6 +88,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
 
+                    print(alignmentMatrix)
+
                     newTs = tomoObj.TiltSeries(tsId=tsId)
                     newTs.copyInfo(ts)
                     self.outputSetOfTiltSeries.append(newTs)
