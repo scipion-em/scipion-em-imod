@@ -25,6 +25,8 @@
 # **************************************************************************
 
 import os
+import re
+from glob import glob
 import numpy as np
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
@@ -64,6 +66,49 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         self._insertFunctionStep(self.assignTransformationMatricesStep)
 
     # --------------------------- STEPS functions ----------------------------
+    def iterFiles(self):
+        """ Overwrite base method to iterate through the files matched with the pattern considering the {TS} keyword.
+        """
+
+        path = self.filesPath.get('').strip()
+        pattern = self.filesPattern.get('').strip()
+        _pattern = os.path.join(path, pattern) if pattern else path
+
+        print(path)
+        print(pattern)
+        print(_pattern)
+
+        def _replace(p, ts):
+            p = p.replace('{TS}', ts)
+            return p
+
+        _regexPattern = _replace(_pattern.replace('*', '(.*)'),
+                                 '(?P<TS>.*)')
+        _regex = re.compile(_regexPattern)
+        _globPattern = _replace(_pattern, '*')
+
+        print(_regexPattern)
+        print(_regex)
+        print(_globPattern)
+
+        filePaths = glob(_globPattern)
+
+        filePaths = self._excludeByWords(filePaths)
+
+        print(filePaths)
+
+        tsIdList = []
+
+        for f in filePaths:
+            m = _regex.match(f)
+
+            if m is not None:
+                tsId = m.group('TS')
+
+                tsIdList.append(tsId)
+
+        return filePaths, tsIdList
+
     def assignTransformationMatricesStep(self):
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -125,20 +170,44 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         match = False
 
-        for tmFilePath, _ in self.iterFiles():
-            tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-            print(tmFilePath)
+        inputIterFiles, tsIdList = self.iterFiles()
+
+        # Check length of input set of tilt-series and input list of paths
+        if len(inputIterFiles) != self.inputSetOfTiltSeries.get().getSize():
+            validateMsgs.append("ERROR: number of matching files (%d) differ from number of input tilt-series (%d)"
+                                % (len(inputIterFiles), self.inputSetOfTiltSeries.get().getSize()))
+
+            validateMsgs.append("Input files:")
+            for tmFilePath, _ in inputIterFiles:
+                validateMsgs.append(tmFilePath)
+
+            validateMsgs.append("Tilt-series:")
+            for ts in self.inputSetOfTiltSeries.get():
+                ts.getFirstItem().parseFileName()
+
+        # Check match of tsId from each tilt-series and each input paths
+        for fileTsId in tsIdList:
 
             for ts in self.inputSetOfTiltSeries.get():
-                tsFileName = ts.getFirstItem().parseFileName(extension='')
+                tsId = ts.getTsId()
 
-                if tsFileName == tmFileName:
+                if fileTsId == tsId:
                     match = True
 
             if not match:
-                validateMsgs.append("No matching tilt-series found for file: %s" % tmFilePath)
+                validateMsgs.append("No matching tilt-series found for file with tilt-series ID {TS}: %s" % fileTsId)
 
-            match = False
+        # Check there is only one file corresponding to each tilt-series
+        for fileTsId in tsIdList:
+
+            if tsIdList.count(fileTsId) > 1:
+                validateMsgs.append("There is more than one file matching tilt-series ID {TS}: %s" % fileTsId)
+
+                validateMsgs.append("Files:")
+
+                for index, matchFileTsId in enumerate(tsIdList):
+                    if matchFileTsId == fileTsId:
+                        validateMsgs.append("%s" % inputIterFiles[index])
 
         return validateMsgs
 
