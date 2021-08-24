@@ -77,14 +77,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
             tsId = ts.getTsId()
 
             for indexTsId, fileTsId in enumerate(tsIdList):
-                tmFilePath = inputIterFiles[indexTsId]
-
-                print("--------------------------")
-                print(tsId)
-                print(fileTsId)
-                print(tmFilePath)
 
                 if tsId == fileTsId:
+                    tmFilePath = inputIterFiles[indexTsId]
+
+                    print("--------------------------")
+                    print(tsId)
+                    print(fileTsId)
+                    print(tmFilePath)
+
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
 
                     newTs = tomoObj.TiltSeries(tsId=tsId)
