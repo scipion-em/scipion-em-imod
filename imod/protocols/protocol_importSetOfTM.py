@@ -74,10 +74,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         pattern = self.filesPattern.get('').strip()
         _pattern = os.path.join(path, pattern) if pattern else path
 
-        print(path)
-        print(pattern)
-        print(_pattern)
-
         def _replace(p, ts):
             p = p.replace('{TS}', ts)
             return p
@@ -87,15 +83,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         _regex = re.compile(_regexPattern)
         _globPattern = _replace(_pattern, '*')
 
-        print(_regexPattern)
-        print(_regex)
-        print(_globPattern)
-
         filePaths = glob(_globPattern)
 
         filePaths = self._excludeByWords(filePaths)
-
-        print(filePaths)
 
         tsIdList = []
 
@@ -177,13 +167,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
             validateMsgs.append("ERROR: number of matching files (%d) differ from number of input tilt-series (%d)"
                                 % (len(inputIterFiles), self.inputSetOfTiltSeries.get().getSize()))
 
-            validateMsgs.append("Input files:")
-            for tmFilePath, _ in inputIterFiles:
+            validateMsgs.append("Matching files:")
+            for tmFilePath in inputIterFiles:
                 validateMsgs.append(tmFilePath)
 
             validateMsgs.append("Tilt-series:")
             for ts in self.inputSetOfTiltSeries.get():
-                ts.getFirstItem().parseFileName()
+                validateMsgs.append(ts.getFirstItem().getFileName())
 
         # Check match of tsId from each tilt-series and each input paths
         for fileTsId in tsIdList:
