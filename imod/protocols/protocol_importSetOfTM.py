@@ -66,39 +66,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         self._insertFunctionStep(self.assignTransformationMatricesStep)
 
     # --------------------------- STEPS functions ----------------------------
-    def iterFiles(self):
-        """ Overwrite base method to iterate through the files matched with the pattern considering the {TS} keyword.
-        """
-
-        path = self.filesPath.get('').strip()
-        pattern = self.filesPattern.get('').strip()
-        _pattern = os.path.join(path, pattern) if pattern else path
-
-        def _replace(p, ts):
-            p = p.replace('{TS}', ts)
-            return p
-
-        _regexPattern = _replace(_pattern.replace('*', '(.*)'),
-                                 '(?P<TS>.*)')
-        _regex = re.compile(_regexPattern)
-        _globPattern = _replace(_pattern, '*')
-
-        filePaths = glob(_globPattern)
-
-        filePaths = self._excludeByWords(filePaths)
-
-        tsIdList = []
-
-        for f in filePaths:
-            m = _regex.match(f)
-
-            if m is not None:
-                tsId = m.group('TS')
-
-                tsIdList.append(tsId)
-
-        return filePaths, tsIdList
-
     def assignTransformationMatricesStep(self):
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -109,8 +76,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         for ts in inputSetOfTiltSeries:
             tsId = ts.getTsId()
 
-            for index, fileTsId in enumerate(tsIdList):
-                tmFilePath = inputIterFiles[index]
+            for indexTsId, fileTsId in enumerate(tsIdList):
+                tmFilePath = inputIterFiles[indexTsId]
 
                 if tsId == fileTsId:
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
@@ -153,6 +120,40 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                     self.outputSetOfTiltSeries.write()
 
                     self._store()
+
+    # --------------------------- UTILS functions ----------------------------
+    def iterFiles(self):
+        """ Overwrite base method to iterate through the files matched with the pattern considering the {TS} keyword.
+        """
+
+        path = self.filesPath.get('').strip()
+        pattern = self.filesPattern.get('').strip()
+        _pattern = os.path.join(path, pattern) if pattern else path
+
+        def _replace(p, ts):
+            p = p.replace('{TS}', ts)
+            return p
+
+        _regexPattern = _replace(_pattern.replace('*', '(.*)'),
+                                 '(?P<TS>.*)')
+        _regex = re.compile(_regexPattern)
+        _globPattern = _replace(_pattern, '*')
+
+        filePaths = glob(_globPattern)
+
+        filePaths = self._excludeByWords(filePaths)
+
+        tsIdList = []
+
+        for f in filePaths:
+            m = _regex.match(f)
+
+            if m is not None:
+                tsId = m.group('TS')
+
+                tsIdList.append(tsId)
+
+        return filePaths, tsIdList
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
