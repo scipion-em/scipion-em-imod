@@ -143,7 +143,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         else:
             landmarkTextFilePath = lm.getFileName()
             landmarkModelPath = os.path.join(extraPrefix,
-                                             firstItem.parseFileName(suffix="_noInterpolation_fid", extension=".mod")
+                                             firstItem.parseFileName(extension=".fid")
                                              )
 
             # Generate the IMOD file containing the information from the landmark model
@@ -164,7 +164,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         # Generate interpolated model
         paramsImodtrans = {
             'transformFile': outputTMPath,
-            'inputFile': os.path.join(landmarkModelPath),
+            'inputFile': landmarkModelPath,
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod"))
         }
 
