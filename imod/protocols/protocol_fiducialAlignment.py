@@ -483,7 +483,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.outputSetOfTiltSeries]
+        outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
