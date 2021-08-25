@@ -165,7 +165,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         paramsImodtrans = {
             'transformFile': outputTMPath,
             'inputFile': landmarkModelPath,
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod"))
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_ali", extension=".fid"))
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
