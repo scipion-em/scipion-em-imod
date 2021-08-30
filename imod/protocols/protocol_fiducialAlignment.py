@@ -621,6 +621,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             self.getOutputFiducialModelNoGaps()
 
+            self.outputFiducialModelNoGaps.setSetOfTiltSeries(self.outputSetOfTiltSeries)
+
             fiducialNoGapFilePath = os.path.join(
                 extraPrefix,
                 firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt")
