@@ -679,7 +679,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputFiducialModelNoGaps.update(landmarkModelNoGaps)
             self.outputFiducialModelNoGaps.write()
 
-        # Create the output set of landmark models with no gaps
+        # Create the output set of 3D coordinates
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
 
