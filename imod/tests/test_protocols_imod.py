@@ -276,7 +276,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
 
-        cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
+        cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0] + "/"
 
         cls.excludeViewsOutputSizes = {'a': 57, 'b': 56}
 
@@ -307,7 +307,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     stepAngle=2.0)
 
         cls.protImportTM = cls._runImportTransformationMatrix(filesPath=cls.inputTMFolder,
-                                                              pattern="BB*.prexg",
+                                                              pattern="BB{TS}.prexg",
                                                               exclusionWords='',
                                                               inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
@@ -671,10 +671,11 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       numberSectorsAstigmatism=36,
                                                       maximumAstigmatism=1.2)
 
-        cls.protCTFCorrection = cls._runCTFCorrection(inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries,
-                                                      inputSetOfCtfTomoSeries=cls.protCTFEstimation.outputSetOfCTFTomoSeries,
-                                                      defocusTol=200,
-                                                      interpolationWidth=15)
+        cls.protCTFCorrection = cls._runCTFCorrection(
+            inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries,
+            inputSetOfCtfTomoSeries=cls.protCTFEstimation.outputSetOfCTFTomoSeries,
+            defocusTol=200,
+            interpolationWidth=15)
 
     def test_importCtfTomoSeriesOutput(self):
         self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)

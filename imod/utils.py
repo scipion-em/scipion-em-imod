@@ -54,6 +54,29 @@ def formatTransformFile(ts, transformFilePath):
         csvW.writerows(tsMatrixTransformList)
 
 
+def formatTransformFileFromTransformList(transformMatrixList, transformFilePath):
+    """ This method takes a list of Transform matrices and the output transformation file path and creates an
+    IMOD-based transform file in the location indicated.
+    :param transformMatrixList: list of transformation matrices to be writter in file.
+    :param transformFilePath: output location of the file. """
+
+    tsMatrixTransformList = []
+
+    for tm in transformMatrixList:
+        tmFlat = tm.flatten()
+        transformIMOD = [tmFlat[0],
+                         tmFlat[1],
+                         tmFlat[3],
+                         tmFlat[4],
+                         tmFlat[2],
+                         tmFlat[5]]
+        tsMatrixTransformList.append(transformIMOD)
+
+    with open(transformFilePath, 'w') as f:
+        csvW = csv.writer(f, delimiter='\t')
+        csvW.writerows(tsMatrixTransformList)
+
+
 def formatTransformationMatrix(matrixFile):
     """ This method takes an IMOD-based transformation matrix file path and returns a 3D matrix containing the
     transformation matrices for each tilt-image belonging to the tilt-series. """

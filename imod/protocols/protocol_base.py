@@ -87,7 +87,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 path.createLink(firstItem.getLocation()[1], inputTS)
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
+    def getOutputSetOfTiltSeries(self, inputSet, binning=1):
         """ Method to generate output classes of set of tilt-series"""
 
         if hasattr(self, "outputSetOfTiltSeries"):
