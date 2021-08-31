@@ -113,7 +113,6 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
 
         outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
@@ -134,6 +133,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         lm = self.getLandMarkModelFromTs(self.inputSetOfLandmarkModels.get(), tsId)
 
         extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
         outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
