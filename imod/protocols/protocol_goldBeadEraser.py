@@ -157,10 +157,12 @@ class ProtImodGoldBeadEraser(ProtImodBase):
             paramsPoint2Model = {
                 'inputFile': landmarkTextFilePath,
                 'outputFile': landmarkModelPath,
+                'image': os.path.join(tmpPrefix, firstItem.parseFileName())
             }
 
             argsPoint2Model = "-InputFile %(inputFile)s " \
-                              "-OutputFile %(outputFile)s"
+                              "-OutputFile %(outputFile)s " \
+                              "-ImageForCoordinates %(image)s "
 
             Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
@@ -173,7 +175,6 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
-                        "-I %(image)s " \
                         "%(inputFile)s " \
                         "%(outputFile)s "
 
