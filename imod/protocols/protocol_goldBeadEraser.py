@@ -138,10 +138,12 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
         # Generate model if it does not exist
-        if lm.getModelName() is not None:
-            landmarkModelPath = lm.getModelName()
+        # if lm.getModelName() is not None:
+        #     landmarkModelPath = lm.getModelName()
+        #
+        # else:
 
-        else:
+        if True:
             landmarkTextFilePath = lm.getFileName()
             landmarkModelPath = os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".fid")
