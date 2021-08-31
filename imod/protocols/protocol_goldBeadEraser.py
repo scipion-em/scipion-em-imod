@@ -173,10 +173,9 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
+                        "-I %(image)s " \
                         "%(inputFile)s " \
                         "%(outputFile)s "
-
-        #                         "-I %(image)s " \
 
         Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
