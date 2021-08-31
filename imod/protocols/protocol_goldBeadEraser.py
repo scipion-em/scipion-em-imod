@@ -144,7 +144,9 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         # else:
 
         if True:
-            landmarkTextFilePath = lm.getFileName()
+            landmarkTextFilePath = os.path.join(tmpPrefix,
+                                                os.path.basename(lm.getFileName())
+                                                )
             landmarkModelPath = os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".fid")
                                              )
