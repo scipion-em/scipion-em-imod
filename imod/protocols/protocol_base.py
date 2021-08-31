@@ -445,10 +445,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     @staticmethod
     def getLandMarkModelFromTs(SoLM, tsId):
-        """ This metod inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
+        """ This method inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
         tsId.
         :param SoLM: input set of landmark models.
-        :param tsId: is of the landmark to search.
+        :param tsId: ID of the landmark to search.
         """
 
         for lm in SoLM:
@@ -457,10 +457,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     @staticmethod
     def getTiltSeriesFromTs(SoTS, tsId):
-        """ This metod inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
+        """ This method inputs a set of Landmark Models and the TsId and search for a Landmark Model with a coincident
         tsId.
-        :param SoTS: input set of landmark models.
-        :param tsId: is of the landmark to search.
+        :param SoTS: input set of tilt-series.
+        :param tsId: ID of the tilt-series to search.
         """
 
         for ts in SoTS:
