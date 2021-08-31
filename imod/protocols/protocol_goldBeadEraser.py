@@ -138,10 +138,12 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
         # Generate model if it does not exist
-        if lm.getModelName() is not None:
-            landmarkModelPath = lm.getModelName()
+        # if lm.getModelName() is not None:
+        #     landmarkModelPath = lm.getModelName()
+        #
+        # else:
 
-        else:
+        if True:
             landmarkTextFilePath = lm.getFileName()
             landmarkModelPath = os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".fid")
@@ -160,7 +162,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
 
             argsPoint2Model = "-InputFile %(inputFile)s " \
                               "-OutputFile %(outputFile)s " \
-                              # "-ImageForCoordinates %(image)s "
+                              "-ImageForCoordinates %(image)s "
 
             Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
@@ -173,9 +175,10 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
-                        "-i %(image)s " \
                         "%(inputFile)s " \
                         "%(outputFile)s "
+
+#                        "-i %(image)s " \
 
         Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
 
