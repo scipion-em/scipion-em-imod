@@ -113,6 +113,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
         outputTMPath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf"))
 
@@ -164,7 +165,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         # Generate interpolated model
         paramsImodtrans = {
             'transformFile': outputTMPath,
-            'image': firstItem.getFileName(),
+            'image': os.path.join(tmpPrefix, firstItem.parseFileName()),
             'inputFile': landmarkModelPath,
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_ali", extension=".fid"))
         }
