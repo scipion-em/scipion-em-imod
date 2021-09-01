@@ -81,14 +81,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                 if tsId == fileTsId:
                     tmFilePath = inputIterFiles[indexTsId]
 
-                    print("--------------------------")
-                    print(tsId)
-                    print(fileTsId)
-                    print(tmFilePath)
-
                     alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
-
-                    print(alignmentMatrix)
 
                     newTs = tomoObj.TiltSeries(tsId=tsId)
                     newTs.copyInfo(ts)
@@ -218,6 +211,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                               self.outputSetOfTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
+
         return summary
 
     def _methods(self):
@@ -227,4 +221,5 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                            % (self.outputSetOfTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
+
         return methods
