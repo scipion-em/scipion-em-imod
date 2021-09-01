@@ -260,6 +260,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         def wrapper(self, tsId):
             try:
                 func(self, tsId)
+
             except:
                 self._failedTs.append(tsId)
 
@@ -448,8 +449,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
             self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
+
             self.outputSetOfTiltSeries.append(newTs)
 
             for index, tiltImage in enumerate(ts):
@@ -486,7 +489,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -511,7 +513,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
+                self.getTiltSeriesFromTs(self.outputSetOfTiltSeries,
+                                         tsId))
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
