@@ -144,23 +144,30 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         # else:
 
         if True:
-            landmarkTextFilePath = os.path.join(tmpPrefix,
-                                                os.path.basename(lm.getFileName())
-                                                )
-            landmarkModelPath = os.path.join(extraPrefix,
-                                             firstItem.parseFileName(extension=".fid")
-                                             )
+            inputLandmarkTextFile = lm.getFileName()
+
+            outputLandmarkTextFile = os.path.join(
+                tmpPrefix,
+                os.path.splitext(os.path.basename(inputLandmarkTextFile))[0] + "_fid.txt"
+            )
+
+            outputLandmarkModelFile = os.path.join(
+                tmpPrefix,
+                firstItem.parseFileName(suffix="_fid", extension=".mod")
+            )
 
             # Generate the IMOD file containing the information from the landmark model
             utils.generateIMODFiducialTextFile(landmarkModel=lm,
-                                               outputFilePath=landmarkTextFilePath)
+                                               outputFilePath=outputLandmarkTextFile)
 
-            # Convert IMOD file into IMOD model
+            # Convert IMOD fiducial file into IMOD model
             paramsPoint2Model = {
-                'inputFile': landmarkTextFilePath,
-                'outputFile': landmarkModelPath,
-                'image': os.path.join(tmpPrefix, firstItem.parseFileName())
-            }
+                'inputFile': outputLandmarkTextFile,
+                'outputFile': outputLandmarkModelFile
+                                }
+            #     ,
+            #     'image': os.path.join(tmpPrefix, firstItem.parseFileName())
+            # }
 
             argsPoint2Model = "-InputFile %(inputFile)s " \
                               "-OutputFile %(outputFile)s " \
@@ -172,7 +179,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         paramsImodtrans = {
             'transformFile': outputTMPath,
             'image': firstItem.getFileName(),
-            'inputFile': landmarkModelPath,
+            'inputFile': outputLandmarkModelFile,
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".mod"))
         }
 
