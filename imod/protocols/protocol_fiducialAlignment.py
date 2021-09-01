@@ -26,18 +26,21 @@
 
 import os
 import numpy as np
-import imod.utils as utils
+
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.objects import Transform
-import tomo.objects as tomoObj
 from pyworkflow.object import Set
+from pwem.objects import Transform
+from pwem.emlib.image import ImageHandler
+import tomo.objects as tomoObj
 from tomo.objects import LandmarkModel
 import tomo.constants as constants
-from pwem.emlib.image import ImageHandler
+
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
+import imod.utils as utils
+
 
 class ProtImodFiducialAlignment(ProtImodBase):
     """
@@ -872,7 +875,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
             summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self.outputSetOfTiltSeries.getSize(),
                               self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
@@ -903,7 +906,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if hasattr(self, 'outputSetOfCoordinates3D'):
             methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
                            % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfTiltSeries.get().getSize()))
+                              self.outputSetOfTiltSeries.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
