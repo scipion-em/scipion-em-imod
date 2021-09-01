@@ -186,7 +186,7 @@ class ProtImodGoldBeadEraser(ProtImodBase):
         }
 
         argsImodtrans = "-2 %(transformFile)s " \
-                        "-i %(image)s " \
+                        "-I %(image)s " \
                         "%(inputFile)s " \
                         "%(outputFile)s "
 
