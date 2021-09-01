@@ -171,6 +171,8 @@ class ProtImodGoldBeadEraser(ProtImodBase):
 
             argsPoint2Model = "-InputFile %(inputFile)s " \
                               "-OutputFile %(outputFile)s " \
+                              "-circle 1 " \
+                              "-scat " \
                               # "-ImageForCoordinates %(image)s "
 
             Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
