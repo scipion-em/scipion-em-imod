@@ -231,8 +231,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
 
-        for ts in self.inputSetOfTiltSeries.get():
+        for lm in self.inputSetOfLandmarkModels.get():
+            # Get the tilt-series associated with each input landmark model
+            ts = self.getTiltSeriesFromTs(self.inputSetOfTiltSeries.get(), lm.getTsId())
             tsObjId = ts.getObjId()
+
             self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
