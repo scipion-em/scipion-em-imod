@@ -663,7 +663,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
+                                                    tiltIm=fiducial[2] + 1,
                                                     chainId=chainId,
                                                     xResid=fiducialNoGapsResidList[indexFake][3],
                                                     yResid=fiducialNoGapsResidList[indexFake][4])
@@ -672,7 +672,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 else:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
+                                                    tiltIm=fiducial[2] + 1,
                                                     chainId=chainId,
                                                     xResid='0',
                                                     yResid='0')

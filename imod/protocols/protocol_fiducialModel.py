@@ -372,7 +372,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
                 landmarkModelGaps.addLandmark(xCoor=fiducial[0],
                                               yCoor=fiducial[1],
-                                              tiltIm=fiducial[2],
+                                              tiltIm=fiducial[2] + 1,
                                               chainId=chainId,
                                               xResid=0,
                                               yResid=0)
