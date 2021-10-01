@@ -628,7 +628,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
 
-            outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
+            self.getOutputFiducialModelNoGaps()
+
+            self.outputFiducialModelNoGaps.setSetOfTiltSeries(self.outputSetOfTiltSeries)
 
             fiducialNoGapFilePath = os.path.join(
                 extraPrefix,
@@ -670,7 +672,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
+                                                    tiltIm=fiducial[2] + 1,
                                                     chainId=chainId,
                                                     xResid=fiducialNoGapsResidList[indexFake][3],
                                                     yResid=fiducialNoGapsResidList[indexFake][4])
@@ -679,16 +681,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 else:
                     landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                     yCoor=fiducial[1],
-                                                    tiltIm=fiducial[2],
+                                                    tiltIm=fiducial[2] + 1,
                                                     chainId=chainId,
                                                     xResid='0',
                                                     yResid='0')
 
-            outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
-            outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
-            outputSetOfLandmarkModelsNoGaps.write()
+            self.outputFiducialModelNoGaps.append(landmarkModelNoGaps)
+            self.outputFiducialModelNoGaps.update(landmarkModelNoGaps)
+            self.outputFiducialModelNoGaps.write()
 
-        # Create the output set of landmark models with no gaps
+        # Create the output set of 3D coordinates
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
 
@@ -700,8 +702,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 firstItem.parseFileName(suffix="_fid", extension=".xyz")
             )
 
-            xDim = firstItem.getXDim()
-            yDim = firstItem.getYDim()
             coordList = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
