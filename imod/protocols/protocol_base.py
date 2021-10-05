@@ -156,13 +156,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputFailedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Failed')
 
             if isinstance(inputSet, SetOfTiltSeries):
-                outputInterpolatedSetOfTiltSeries.copyInfo(inputSet)
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+                outputFailedSetOfTiltSeries.copyInfo(inputSet)
+                outputFailedSetOfTiltSeries.setDim(inputSet.getDim())
 
             else:
-                outputInterpolatedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
-                outputInterpolatedSetOfTiltSeries.setDim(inputSet.getDim())
+                outputFailedSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
+                outputFailedSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
+                outputFailedSetOfTiltSeries.setDim(inputSet.getDim())
 
             outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
@@ -187,16 +187,20 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputFiducialModelNoGaps
 
-    # def getOutputFiducialModelGaps(self):
-    #     if hasattr(self, "outputFiducialModelGaps"):
-    #         self.outputFiducialModelGaps.enableAppend()
-    #     else:
-    #         outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-    #         outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-    #         outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-    #         self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
-    #         self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
-    #     return self.outputFiducialModelGaps
+    def getOutputFiducialModelGaps(self):
+        if hasattr(self, "outputFiducialModelGaps"):
+            self.outputFiducialModelGaps.enableAppend()
+        else:
+            outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+
+            outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
+
+            outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(outputFiducialModelGaps=outputFiducialModelGaps)
+            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
+
+        return self.outputFiducialModelGaps
 
     def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
         if hasattr(self, "outputSetOfCoordinates3D"):
@@ -242,18 +246,17 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfTomograms
 
-    def getOutputSetOfCTFTomoSeries(self, inputSet):
-        outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
-                                                             template='CTFmodels%s.sqlite')
-
-        outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputSet.get())
-
-        outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
-
-        self._defineOutputs(outputSetOfCTFTomoSeries=outputSetOfCTFTomoSeries)
-        self._defineSourceRelation(inputSet, outputSetOfCTFTomoSeries)
-
-        return self.outputSetOfCTFTomoSeries
+    def getOutputSetOfCTFTomoSeries(self, outputSetName):
+        if hasattr(self, outputSetName):
+            outputSetOfCTFTomoSeries = getattr(self, outputSetName)
+            if outputSetOfCTFTomoSeries is not None:
+                outputSetOfCTFTomoSeries.enableAppend()
+        else:
+            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                                         template='CTFmodels%s.sqlite')
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
 
     def addCTFTomoSeriesToSetFromDefocusFile(self, inputTs, defocusFilePath):
         """ This method generates a CtfTomoSeries Scipion object from a CTF estimation IMOD .defocus file.
@@ -263,11 +266,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
         tsId = inputTs.getTsId()
+        tsObjId = inputTs.getObjId()
 
         newCTFTomoSeries = CTFTomoSeries()
 
         newCTFTomoSeries.copyInfo(inputTs)
         newCTFTomoSeries.setTiltSeries(inputTs)
+        newCTFTomoSeries.setObjId(tsObjId)
         newCTFTomoSeries.setTsId(tsId)
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
 
@@ -275,7 +280,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         # able to update it posteriorly.
 
         newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-        self.outputSetOfCTFTomoSeries.append(newCTFTomoSeries)
+
+        output = getattr(self, self.outputSetName)
+        output.append(newCTFTomoSeries)
 
         if defocusFileFlag == 0:
             " Plain estimation "
@@ -312,6 +319,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         for index, _ in enumerate(inputTs):
             newCTFTomo = CTFTomo()
             newCTFTomo.setIndex(Integer(index + 1))
+
+            if (index + 1) not in defocusUDict.keys():
+                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (tsId, (index+1), inputTs[index+1].getTiltAngle()))
 
             if defocusFileFlag == 0:
                 " Plain estimation "
@@ -387,8 +397,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         newCTFTomoSeries.write(properties=False)
 
-        self.outputSetOfCTFTomoSeries.update(newCTFTomoSeries)
-        self.outputSetOfCTFTomoSeries.write()
+        output.update(newCTFTomoSeries)
+        output.write()
 
         self._store()
 

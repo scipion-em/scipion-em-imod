@@ -25,6 +25,9 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
@@ -76,20 +79,16 @@ class ImodObjectView(pwviewer.CommandView):
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
-            # Remove :mrc if present
-            tsId = os.path.basename(obj.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                           "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s.preali" % tsId)
-            else:
-                prealiTSPath = ""
+            if obj.getTiltSeries().getFirstItem().hasTransform():
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated.mrc")
+                obj.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
 
-            fn = Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + obj.getModelName() + " ; "
+                fn = Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                      obj.getModelName() + " ; "
+
+            else:
+                fn = Plugin.getImodCmd('3dmod') + " -m " + obj.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + obj.getModelName() + " ; "
 
         else:
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
