@@ -517,19 +517,22 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
         if flag == 0:
             # Plain estimation
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
+            nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
                 lines = []
+                pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
+                lines.append(pattern % (0, 0, 0, 0, 2))
 
                 for index in defocusUDict.keys():
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
-                    newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
+                    newLine = (pattern % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
@@ -537,10 +540,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         int(float(defocusUDict[index][0]))
                     ))
 
-                    lines = [newLine] + lines
-
-                # Finally, add flag to the first line of file
-                lines[0] = lines[0][0:-1] + "\t2\n"
+                    lines.append(newLine)
 
                 f.writelines(lines)
 
