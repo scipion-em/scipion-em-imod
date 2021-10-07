@@ -503,7 +503,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
 
 
-def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
+def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=False):
     """ This methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
@@ -517,19 +517,23 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
         if flag == 0:
             # Plain estimation
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
+            nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
                 lines = []
+                pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
+                if isRelion:
+                    lines.append(pattern % (0, 0, 0, 0, 2))
 
                 for index in defocusUDict.keys():
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
-                    newLine = ("%d\t%d\t%.2f\t%.2f\t%d\n" % (
+                    newLine = (pattern % (
                         index,
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
@@ -537,10 +541,11 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         int(float(defocusUDict[index][0]))
                     ))
 
-                    lines = [newLine] + lines
+                    lines.append(newLine)
 
-                # Finally, add flag to the first line of file
-                lines[0] = lines[0][0:-1] + "\t2\n"
+                if not isRelion:
+                    # Finally, add flag to the first line of file
+                    lines[0] = lines[0][0:-1] + "\t2\n"
 
                 f.writelines(lines)
 
@@ -553,7 +558,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                lines = []
+                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
 
@@ -572,11 +578,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         float(defocusAngleDict[index][0]),
                     ))
 
-                    lines = [newLine] + lines
-
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
-                lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"] + lines
-
+                    lines.append(newLine)
                 f.writelines(lines)
 
         elif flag == 4:
@@ -587,7 +589,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                lines = []
+                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                lines = ["4\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
 
@@ -605,10 +608,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         float(phaseShiftDict[index][0]),
                     ))
 
-                    lines = [newLine] + lines
-
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
-                lines = ["4\t0\t0.0\t0.0\t0.0\t3\n"] + lines
+                    lines.append(newLine)
 
                 f.writelines(lines)
 
@@ -622,7 +622,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                lines = []
+                # This line is added at the beginning of the file in order to match the IMOD defocus file format
+                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] 
 
                 for index in defocusUDict.keys():
 
@@ -642,11 +643,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         float(phaseShiftDict[index][0])
                     ))
 
-                    lines = [newLine] + lines
-
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format
-                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] + lines
-
+                    lines.append(newLine)
                 f.writelines(lines)
 
         elif flag == 37:
@@ -660,7 +657,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                lines = []
+                # This line is added at the beginning of the file in order to match the IMOD defocus file format
+                lines = ["37\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
 
@@ -681,11 +679,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                         float(cutOnFreqDict[index][0])
                     ))
 
-                    lines = [newLine] + lines
-
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format
-                lines = ["37\t0\t0.0\t0.0\t0.0\t3\n"] + lines
-
+                    lines.append(newLine)
                 f.writelines(lines)
 
         else:
@@ -713,8 +707,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath):
                     ctfTomo.getDefocusAngle())
                            )
 
-                lines = [newLine] + lines
-
+                lines.append(newLine)
             f.writelines(lines)
 
 

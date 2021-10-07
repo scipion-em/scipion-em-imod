@@ -680,12 +680,12 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)
 
     def test_importCtfTomoSeriesOutputSize(self):
-        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 1)
+        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 2)
 
     def test_ctfEstimationOutputSize(self):
         self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
 
-        self.assertEqual(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize(), 1)
+        self.assertEqual(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize(), 2)
 
     def test_ctfEstimationOutputDefocusFile(self):
         tsId = self.protCTFEstimation.inputSet.get().getFirstItem().getTsId()
