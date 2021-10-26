@@ -535,7 +535,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         tolerance = 2
-        expectedSize = 34
+        expectedSize = 35
 
         self.assertTrue(
             abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
@@ -581,7 +581,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 1
-        expectedSize = 17
+        expectedSize = 10
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
