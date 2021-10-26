@@ -50,7 +50,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
 
-
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False):
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
@@ -87,9 +86,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             else:
                 path.createLink(firstItem.getLocation()[1], inputTS)
 
-
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
+    def getOutputSetOfTiltSeries(self, inputSet, binning=1):
         """ Method to generate output classes of set of tilt-series"""
 
         if hasattr(self, "outputSetOfTiltSeries"):
@@ -220,7 +218,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfCoordinates3D
 
-    def getOutputSetOfTomograms(self, inputSet, binning = 1):
+    def getOutputSetOfTomograms(self, inputSet, binning=1):
         if hasattr(self, "outputSetOfTomograms"):
             self.outputSetOfTomograms.enableAppend()
 
@@ -253,7 +251,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
-                                                                         template='CTFmodels%s.sqlite')
+                                                                 template='CTFmodels%s.sqlite')
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
@@ -321,7 +319,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo.setIndex(Integer(index + 1))
 
             if (index + 1) not in defocusUDict.keys():
-                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (tsId, (index+1), inputTs[index+1].getTiltAngle()))
+                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
+                tsId, (index + 1), inputTs[index + 1].getTiltAngle()))
 
             if defocusFileFlag == 0:
                 " Plain estimation "
@@ -401,7 +400,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         output.write()
 
         self._store()
-
 
     # --------------------------- UTILS functions ----------------------------
     def iterFiles(self):
