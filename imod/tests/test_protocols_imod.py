@@ -38,7 +38,7 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runImportTiltSeries(cls, filesPath, pattern, voltage, magnification, sphericalAberration, amplitudeContrast,
                              samplingRate, doseInitial, dosePerFrame, anglesFrom=0, minAngle=0.0, maxAngle=0.0,
-                             stepAngle=1.0):
+                             stepAngle=1.0, tiltAxisAngle=-12.5):
         cls.protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
                                            filesPath=filesPath,
                                            filesPattern=pattern,
@@ -52,7 +52,8 @@ class TestImodBase(BaseTest):
                                            dosePerFrame=dosePerFrame,
                                            minAngle=minAngle,
                                            maxAngle=maxAngle,
-                                           stepAngle=stepAngle)
+                                           stepAngle=stepAngle,
+                                           tiltAxisAngle=tiltAxisAngle)
         cls.launchProtocol(cls.protImportTS)
         return cls.protImportTS
 
