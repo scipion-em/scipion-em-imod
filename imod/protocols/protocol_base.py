@@ -74,35 +74,41 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
 
         """Apply the transformation form the input tilt-series"""
+        # Use IMOD newstack interpolation
         if imodInterpolation:
-            # Generate transformation matrices file
-            outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-            utils.formatTransformFile(ts, outputTmFileName)
+            if firstItem.hasTransform():
+                # Generate transformation matrices file
+                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+                utils.formatTransformFile(ts, outputTmFileName)
 
-            # Apply interpolation
-            paramsAlignment = {
-                'input': firstItem.getFileName(),
-                'output': outputTsFileName,
-                'xform': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf")),
-            }
+                # Apply interpolation
+                paramsAlignment = {
+                    'input': firstItem.getFileName(),
+                    'output': outputTsFileName,
+                    'xform': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf")),
+                }
 
-            argsAlignment = "-input %(input)s " \
-                            "-output %(output)s " \
-                            "-xform %(xform)s " \
+                argsAlignment = "-input %(input)s " \
+                                "-output %(output)s " \
+                                "-xform %(xform)s " \
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+                rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
 
-            # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
-            # the final sample disposition.
-            if rotationAngleAvg > 45 or rotationAngleAvg < -45:
-                paramsAlignment.update({
-                    'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
-                })
+                # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+                # the final sample disposition.
+                if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+                    paramsAlignment.update({
+                        'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+                    })
 
-                argsAlignment += "-size %(size)s "
+                    argsAlignment += "-size %(size)s "
 
-            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
+            else:
+                path.createLink(firstItem.getLocation()[1], outputTsFileName)
+
+        # Use Xmipp interpolation via Scipion
         else:
             outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
             ts.applyTransform(outputTsFileName)
