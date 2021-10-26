@@ -493,6 +493,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(outputLocation))
 
+    def test_fiducialAlignmentOutputTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputSetOfTiltSeries.getSize(), 2)
+
     def test_fiducialAlignmentTransformMatrixOutputTS(self):
         self.assertIsNotNone(
             self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
@@ -513,6 +516,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
         outSamplingRate = outputSoTS.getSamplingRate()
 
         self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
+
+    def test_fiducialAlignmentOutputInterpolatedTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSize(), 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
