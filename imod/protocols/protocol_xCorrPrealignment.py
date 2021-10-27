@@ -30,7 +30,6 @@ import pwem.objects as data
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
@@ -143,6 +142,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     # --------------------------- STEPS functions ----------------------------
     def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
+        print("===============================================================================================")
+        print(self.inputSetOfTiltSeries.get().getAcquisition().getTiltAxisAngle())
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
