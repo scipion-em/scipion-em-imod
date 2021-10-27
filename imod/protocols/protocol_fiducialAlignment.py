@@ -490,6 +490,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         firstItem = tsIn.getFirstItem()
 
+        print("===============================================================================================")
+        print(tsObjId)
+        print(tsId)
+        print(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf")))
+        print(os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))))
+        print(self._failedTs)
+
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
             self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
