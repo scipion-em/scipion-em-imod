@@ -482,12 +482,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
-
-        import time
-        time.sleep(10)
-        import os
-        print(os.getpid())
-
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
 
