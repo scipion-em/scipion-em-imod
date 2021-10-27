@@ -38,7 +38,7 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runImportTiltSeries(cls, filesPath, pattern, voltage, magnification, sphericalAberration, amplitudeContrast,
                              samplingRate, doseInitial, dosePerFrame, anglesFrom=0, minAngle=0.0, maxAngle=0.0,
-                             stepAngle=1.0):
+                             stepAngle=1.0, tiltAxisAngle=-12.5):
         cls.protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
                                            filesPath=filesPath,
                                            filesPattern=pattern,
@@ -52,7 +52,8 @@ class TestImodBase(BaseTest):
                                            dosePerFrame=dosePerFrame,
                                            minAngle=minAngle,
                                            maxAngle=maxAngle,
-                                           stepAngle=stepAngle)
+                                           stepAngle=stepAngle,
+                                           tiltAxisAngle=tiltAxisAngle)
         cls.launchProtocol(cls.protImportTS)
         return cls.protImportTS
 
@@ -492,6 +493,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(outputLocation))
 
+    def test_fiducialAlignmentOutputTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputSetOfTiltSeries.getSize(), 2)
+
     def test_fiducialAlignmentTransformMatrixOutputTS(self):
         self.assertIsNotNone(
             self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
@@ -512,6 +516,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
         outSamplingRate = outputSoTS.getSamplingRate()
 
         self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
+
+    def test_fiducialAlignmentOutputInterpolatedTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSize(), 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
@@ -534,7 +541,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         tolerance = 2
-        expectedSize = 34
+        expectedSize = 35
 
         self.assertTrue(
             abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
@@ -580,7 +587,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 1
-        expectedSize = 17
+        expectedSize = 10
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)

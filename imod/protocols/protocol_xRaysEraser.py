@@ -179,3 +179,27 @@ class ProtImodXraysEraser(ProtImodBase):
 
         self._store()
 
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if hasattr(self, 'outputSetOfTiltSeries'):
+            summary.append("Input Tilt-Series: %d.\nX-rays erased output tilt series: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.outputSetOfTiltSeries.getSize()))
+        else:
+            summary.append("Output classes not ready yet.")
+
+        return summary
+
+    def _methods(self):
+        methods = []
+        if hasattr(self, 'outputSetOfTiltSeries'):
+            methods.append("The x-rays artifacts have been erased for %d "
+                           "Tilt-series using the IMOD program ccderaser.\n"
+                           % (self.outputSetOfTiltSeries.getSize()))
+
+        else:
+            methods.append("Output classes not ready yet.")
+
+        return methods
+

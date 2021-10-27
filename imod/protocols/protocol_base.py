@@ -25,13 +25,17 @@
 # **************************************************************************
 
 import os
+
 from pwem.protocols import EMProtocol
 from pyworkflow.object import Set, CsvList, Integer, Pointer
 from pyworkflow.utils import path
+
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries, CTFTomoSeries, CTFTomo
+
 from imod import utils
+from imod import Plugin
 
 
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -50,9 +54,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
 
-
     # --------------------------- CACULUS functions ---------------------------
-    def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False):
+    def convertInputStep(self, tsObjId, generateAngleFile=True, generateExtraLink=False, imodInterpolation=True):
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
         elif isinstance(self.inputSetOfTiltSeries, Pointer):
@@ -68,9 +71,47 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         firstItem = ts.getFirstItem()
 
-        """Apply the transformation form the input tilt-series"""
         outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-        ts.applyTransform(outputTsFileName)
+
+        """Apply the transformation form the input tilt-series"""
+        # Use IMOD newstack interpolation
+        if imodInterpolation:
+            if firstItem.hasTransform():
+                # Generate transformation matrices file
+                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+                utils.formatTransformFile(ts, outputTmFileName)
+
+                # Apply interpolation
+                paramsAlignment = {
+                    'input': firstItem.getFileName(),
+                    'output': outputTsFileName,
+                    'xform': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf")),
+                }
+
+                argsAlignment = "-input %(input)s " \
+                                "-output %(output)s " \
+                                "-xform %(xform)s " \
+
+                rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+
+                # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+                # the final sample disposition.
+                if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+                    paramsAlignment.update({
+                        'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+                    })
+
+                    argsAlignment += "-size %(size)s "
+
+                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+            else:
+                path.createLink(firstItem.getLocation()[1], outputTsFileName)
+
+        # Use Xmipp interpolation via Scipion
+        else:
+            outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
+            ts.applyTransform(outputTsFileName)
 
         if generateAngleFile:
             """Generate angle file"""
@@ -87,9 +128,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             else:
                 path.createLink(firstItem.getLocation()[1], inputTS)
 
-
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning = 1):
+    def getOutputSetOfTiltSeries(self, inputSet, binning=1):
         """ Method to generate output classes of set of tilt-series"""
 
         if hasattr(self, "outputSetOfTiltSeries"):
@@ -220,7 +260,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputSetOfCoordinates3D
 
-    def getOutputSetOfTomograms(self, inputSet, binning = 1):
+    def getOutputSetOfTomograms(self, inputSet, binning=1):
         if hasattr(self, "outputSetOfTomograms"):
             self.outputSetOfTomograms.enableAppend()
 
@@ -253,7 +293,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
-                                                                         template='CTFmodels%s.sqlite')
+                                                                 template='CTFmodels%s.sqlite')
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
@@ -321,7 +361,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo.setIndex(Integer(index + 1))
 
             if (index + 1) not in defocusUDict.keys():
-                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (tsId, (index+1), inputTs[index+1].getTiltAngle()))
+                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
+                tsId, (index + 1), inputTs[index + 1].getTiltAngle()))
 
             if defocusFileFlag == 0:
                 " Plain estimation "
@@ -401,7 +442,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         output.write()
 
         self._store()
-
 
     # --------------------------- UTILS functions ----------------------------
     def iterFiles(self):

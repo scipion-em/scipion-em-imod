@@ -227,9 +227,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
+
+        self._failedTs = []
+        self._outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
@@ -483,7 +484,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -508,7 +508,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
+                self.outputSetOfTiltSeries[self._outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -866,7 +866,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
             summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize(),
                               self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
@@ -897,7 +897,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if hasattr(self, 'outputSetOfCoordinates3D'):
             methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
                            % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfTiltSeries.get().getSize()))
+                              self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
