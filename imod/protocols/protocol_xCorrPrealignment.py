@@ -56,13 +56,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       important=True,
                       label='Input set of tilt-series.')
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      important=True,
-                      help="Angle from the vertical to the tilt axis in raw images.")
-
         form.addParam('cumulativeCorr',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -142,8 +135,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     # --------------------------- STEPS functions ----------------------------
     def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
-        print("===============================================================================================")
-        print(self.inputSetOfTiltSeries.get().getAcquisition().getTiltAxisAngle())
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -153,16 +144,17 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
             'tiltfile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'rotationAngle': self.rotationAngle.get(),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'filterSigma1': self.filterSigma1.get(),
             'filterSigma2': self.filterSigma2.get(),
             'filterRadius1': self.filterRadius1.get(),
             'filterRadius2': self.filterRadius2.get()
         }
+
         argsXcorr = "-input %(input)s " \
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
-                    "-RotationAngle %(rotationAngle)f " \
+                    "-RotationAngle %(rotationAngle).2f " \
                     "-FilterSigma1 %(filterSigma1)f " \
                     "-FilterSigma2 %(filterSigma2)f " \
                     "-FilterRadius1 %(filterRadius1)f " \
