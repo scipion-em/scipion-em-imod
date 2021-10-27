@@ -227,9 +227,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
+
+        self._failedTs = []
+        self._outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
@@ -481,21 +482,19 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self._store()
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
+
+        import time
+        time.sleep(10)
+        import os
+        print(os.getpid())
+
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
         firstItem = tsIn.getFirstItem()
-
-        print("===============================================================================================")
-        print(tsObjId)
-        print(tsId)
-        print(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf")))
-        print(os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))))
-        print(self._failedTs)
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
@@ -515,7 +514,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
+                self.outputSetOfTiltSeries[self._outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
