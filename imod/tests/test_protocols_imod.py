@@ -644,14 +644,10 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
 
         # Create links to the input tilt-series and its associated mdoc file to test the protocols with a set of two
         # elements to make the tests more robust
-
-        #comprobar que existen
         linkTs = os.path.join(os.path.split(cls.inputSoTS)[0], "WTI042413_1series4_copy.st")
-        inMdoc = os.path.join(os.path.split(cls.inputSoTS)[0], "WTI042413_1series4.mdoc")
-        linkMdoc = os.path.join(os.path.split(cls.inputSoTS)[0], "WTI042413_1series4_copy.mdoc")
 
-        path.createLink(cls.inputSoTS, linkTs)
-        # path.createLink(inMdoc, linkMdoc)
+        if not os.path.exists(linkTs):
+            path.createLink(cls.inputSoTS, linkTs)
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="*.mdoc",
