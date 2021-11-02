@@ -131,7 +131,7 @@ class ProtImodFiducialModel(ProtImodBase):
         def wrapper(self, tsId):
             try:
                 func(self, tsId)
-            except:
+            except Exception as e:
                 self._failedTs.append(tsId)
 
         return wrapper
@@ -195,7 +195,7 @@ class ProtImodFiducialModel(ProtImodBase):
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
-        Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
+        Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed) + ' -ShiftsNearZeroFraction 0')
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
