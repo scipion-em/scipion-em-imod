@@ -413,6 +413,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         output = getattr(self, self.outputSetName)
         if output is not None:
             output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
