@@ -259,8 +259,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.write()
         if self.computeAlignment.get() == 0:
             self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.write()
 
         self._store()
 

@@ -149,7 +149,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-
+        self.outputInterpolatedSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- INFO functions ----------------------------
