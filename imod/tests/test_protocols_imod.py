@@ -25,9 +25,14 @@
 # **************************************************************************
 
 from pyworkflow.tests import *
-from imod.protocols import *
+from pyworkflow.utils import path
+
 from pwem.emlib.image import ImageHandler
+
 import tomo
+
+from imod.protocols import *
+
 
 
 class TestImodBase(BaseTest):
@@ -637,6 +642,13 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
 
         cls.inputCtfFile = cls.inputDataSet.getFile('inputCtfFile')
 
+        # Create links to the input tilt-series and its associated mdoc file to test the protocols with a set of two
+        # elements to make the tests more robust
+        linkTs = os.path.join(os.path.split(cls.inputSoTS)[0], "WTI042413_1series4_copy.st")
+
+        if not os.path.exists(linkTs):
+            path.createLink(cls.inputSoTS, linkTs)
+
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="*.mdoc",
                                                     anglesFrom=0,
@@ -687,7 +699,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)
 
     def test_importCtfTomoSeriesOutputSize(self):
-        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 2)
+        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 1)
 
     def test_ctfEstimationOutputSize(self):
         self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
@@ -695,15 +707,17 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertEqual(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize(), 2)
 
     def test_ctfEstimationOutputDefocusFile(self):
-        tsId = self.protCTFEstimation.inputSet.get().getFirstItem().getTsId()
-        defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
+        for ts in self.protCTFEstimation.inputSet.get():
+            tsId = ts.getTsId()
+            defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
 
-        self.assertTrue(os.path.exists(defocusFile))
+            self.assertTrue(os.path.exists(defocusFile))
 
     def test_ctfCorrectionOutput(self):
         self.assertIsNotNone(self.protCTFCorrection.outputSetOfTiltSeries)
 
-        tsId = self.protCTFCorrection.outputSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), "WTI042413_1series4.st")
+        for ts in self.protCTFCorrection.outputSetOfTiltSeries:
+            tsId = ts.getTsId()
+            outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), '%s.st' % tsId)
 
-        self.assertTrue(os.path.exists(outputLocation))
+            self.assertTrue(os.path.exists(outputLocation))

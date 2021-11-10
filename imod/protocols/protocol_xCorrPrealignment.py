@@ -30,7 +30,6 @@ import pwem.objects as data
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
@@ -56,13 +55,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Input set of tilt-series.')
-
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      important=True,
-                      help="Angle from the vertical to the tilt axis in raw images.")
 
         form.addParam('cumulativeCorr',
                       params.EnumParam,
@@ -152,16 +144,17 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
             'tiltfile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'rotationAngle': self.rotationAngle.get(),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'filterSigma1': self.filterSigma1.get(),
             'filterSigma2': self.filterSigma2.get(),
             'filterRadius1': self.filterRadius1.get(),
             'filterRadius2': self.filterRadius2.get()
         }
+
         argsXcorr = "-input %(input)s " \
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
-                    "-RotationAngle %(rotationAngle)f " \
+                    "-RotationAngle %(rotationAngle).2f " \
                     "-FilterSigma1 %(filterSigma1)f " \
                     "-FilterSigma2 %(filterSigma2)f " \
                     "-FilterRadius1 %(filterRadius1)f " \
@@ -266,8 +259,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfTiltSeries.write()
         if self.computeAlignment.get() == 0:
             self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+            self.outputInterpolatedSetOfTiltSeries.write()
 
         self._store()
 

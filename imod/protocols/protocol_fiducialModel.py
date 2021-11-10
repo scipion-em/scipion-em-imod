@@ -84,13 +84,6 @@ class ProtImodFiducialModel(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      important=True,
-                      help="Angle from the vertical to the tilt axis in raw images.")
-
         groupGlobalVariables = form.addGroup('Global variables',
                                              expertLevel=params.LEVEL_ADVANCED)
 
@@ -165,7 +158,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'inputSeedModel': os.path.join(extraPrefix, firstItem.parseFileName(extension=".seed")),
             'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
-            'rotationAngle': self.rotationAngle.get(),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialRadius': fiducialRadiusPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
@@ -191,7 +184,6 @@ class ProtImodFiducialModel(ProtImodBase):
                                              ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
-            'RotationAngle': self.rotationAngle.get(),
             'targetNumberOfBeads': self.numberFiducial.get()
         }
 
@@ -445,7 +437,7 @@ ImageFile	%(imageFile)s
 ImagesAreBinned	1
 InputSeedModel	%(inputSeedModel)s
 OutputModel	%(outputModel)s
-RotationAngle	%(rotationAngle).1f 
+RotationAngle	%(rotationAngle).2f 
 TiltFile	%(tiltFile)s
 TiltDefaultGrouping	7
 MagDefaultGrouping	5

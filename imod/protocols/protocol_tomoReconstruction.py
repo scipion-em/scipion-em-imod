@@ -256,7 +256,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
-
+        self.outputSetOfTomograms.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------

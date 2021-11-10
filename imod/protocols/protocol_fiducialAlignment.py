@@ -98,13 +98,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            "of the fiducial models does not consider this option it is algo recomended to set this "
                            "option to 'No'.")
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      important=True,
-                      help="Angle from the vertical to the tilt axis in raw images.")
-
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -291,7 +284,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                                 firstItem.parseFileName(suffix="_fid", extension=".xf")),
             'outputFilledInModel': os.path.join(extraPrefix,
                                                 firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-            'rotationAngle': self.rotationAngle.get(),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'angleOffset': 0.0,
             'rotOption': self.getRotationType(),
@@ -347,7 +340,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-OutputTiltFile %(outputTiltFile)s " \
                         "-OutputTransformFile %(outputTransformFile)s " \
                         "-OutputFilledInModel %(outputFilledInModel)s " \
-                        "-RotationAngle %(rotationAngle)f " \
+                        "-RotationAngle %(rotationAngle).2f " \
                         "-TiltFile %(tiltFile)s " \
                         "-AngleOffset %(angleOffset)f " \
                         "-RotOption %(rotOption)d " \

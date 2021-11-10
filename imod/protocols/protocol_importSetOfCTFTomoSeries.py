@@ -92,6 +92,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
+        self.outputSetOfCTFTomoSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ---------------------------

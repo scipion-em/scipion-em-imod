@@ -103,14 +103,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            'This file must contain two columns. The first column must be the filename of the '
                            'tilt-series and the second the expected defocus.')
 
-        form.addParam('axisAngle',
-                      params.FloatParam,
-                      default=0.0,
-                      label='Axis angle',
-                      important=True,
-                      help='Specifies how much the tilt axis deviates from vertical (Y axis). This angle is in degrees.'
-                           ' It follows the right hand  rule and counter-clockwise is positive.')
-
         form.addParam('leftDefTol',
                       params.FloatParam,
                       label='Left defocus tolerance (nm)',
@@ -311,7 +303,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
-            'axisAngle': self.axisAngle.get(),
+            'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
             'pixelSize': tsSet.getSamplingRate() / 10,
             'expectedDefocus': self.getExpectedDefocus(tsId),
             'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
@@ -421,6 +413,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         output = getattr(self, self.outputSetName)
         if output is not None:
             output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
