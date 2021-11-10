@@ -41,12 +41,12 @@ def formatTransformFile(ts, transformFilePath):
 
     for ti in ts:
         transform = ti.getTransform().getMatrix().flatten()
-        transformIMOD = [transform[0],
-                         transform[1],
-                         transform[3],
-                         transform[4],
-                         transform[2],
-                         transform[5]]
+        transformIMOD = ['%.7f' % transform[0],
+                         '%.7f' % transform[1],
+                         '%.7f' % transform[3],
+                         '%.7f' % transform[4],
+                         "{:>6}".format('%.3g' % transform[2]),
+                         "{:>6}".format('%.3g' % transform[5])]
         tsMatrixTransformList.append(transformIMOD)
 
     with open(transformFilePath, 'w') as f:
@@ -185,7 +185,7 @@ def formatAngleList(tltFilePath):
         tltText = f.read().splitlines()
         for line in tltText:
             angleList.append(float(line))
-    angleList.reverse()
+    # angleList.reverse()
 
     return angleList
 
