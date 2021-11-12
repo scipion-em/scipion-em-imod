@@ -98,7 +98,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
-        if(position != -1):
+        if position != -1:
             paramsAlignment = {
                 'stackName': outputFileName,
                 'viewsToExclude': self.excludeViewsInfoMatrix[position][1],
@@ -108,7 +108,6 @@ class ProtImodExcludeViews(ProtImodBase):
                             "-ViewsToExclude %(viewsToExclude)s "
 
             Plugin.runImod(self, 'excludeviews', argsAlignment % paramsAlignment)
-
 
     def generateOutputStackStep(self, tsObjId):
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
@@ -133,22 +132,14 @@ class ProtImodExcludeViews(ProtImodBase):
         else:
             excludedViewsAsList = []
 
-        newIndex = 1
-
         for index, tiltImage in enumerate(ts):
             if (index + 1) not in excludedViewsAsList:
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(tiltImage)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(newIndex, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-
-                if(tiltImage.hasTransform()):
-                    newTi.setTransform(tiltImage.getTransform())
-
+                newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 newTs.append(newTi)
-                newIndex += 1
 
-        newTs.set
         newTs.write(properties=False)
 
         self.outputSetOfTiltSeries.update(newTs)
