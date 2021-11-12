@@ -84,6 +84,19 @@ class ProtImodFiducialModel(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
+        form.addParam('shiftsNearZeroFraction',
+                      params.FloatParam,
+                      label='Shifts near zero fraction',
+                      default='0.2',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Fraction of the tracking box size above which to supply shifts near zero tilt to "
+                           "Beadtrack. The dominant net shifts in the bead positions between views are found as "
+                           "described above, and if one of the shifts is larger than this fraction of the "
+                           "-BoxSizeXandY entry to Beadtrack, then the shifts are provided when running Beadtrack on "
+                           "the initial seed models. Also, a command file will be written with modified parameters, "
+                           "named as the root name of the input command file followed by '_adjusted' and its "
+                           "extension. Enter 0 or a large value to disable this analysis.")
+
         groupGlobalVariables = form.addGroup('Filter variables',
                                              expertLevel=params.LEVEL_ADVANCED)
 
@@ -184,18 +197,20 @@ class ProtImodFiducialModel(ProtImodBase):
                                              ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
-            'targetNumberOfBeads': self.numberFiducial.get()
+            'targetNumberOfBeads': self.numberFiducial.get(),
+            'shiftsNearZeroFraction': self.shiftsNearZeroFraction.get()
         }
 
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
-                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d " \
+                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f"
 
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
-        Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed) + ' -ShiftsNearZeroFraction 0')
+        Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed))
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
