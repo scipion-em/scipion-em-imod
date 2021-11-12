@@ -318,8 +318,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputAliSetOfTiltSeries)
 
                 """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-                coordFilePath = self.getFilePath(ts, suffix='fid',
-                                                 extension=".xyz")
+                coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
+
                 if os.path.exists(coordFilePath):
                     if outputSetOfCoordinates3D is None:
                         outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
@@ -347,15 +347,15 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
-            if (os.path.exists(self.getFilePath(ts, suffix="_nogaps",
-                                                extension=".fid")) and
-                    os.path.exists(self.getFilePath(ts, extension=".resid"))):
+            modelFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
+            residFilePath = self.getFilePath(ts, extension=".resid")
+
+            if os.path.exists(modelFilePath) and os.path.exists(residFilePath):
+                modelFilePathTxt = self.getFilePath(ts, suffix="_nogaps_fid", extension=".txt")
 
                 paramsNoGapPoint2Model = {
-                    'inputFile': self.getFilePath(ts, suffix="_nogaps",
-                                                  extension=".fid"),
-                    'outputFile': self.getFilePath(ts, suffix="_nogaps_fid",
-                                                   extension=".txt")
+                    'inputFile': modelFilePath,
+                    'outputFile': modelFilePathTxt
                 }
 
                 argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
@@ -373,18 +373,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfLandmarkModelsNoGaps.enableAppend()
 
-                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_nogaps_fid",
-                                                         extension=".txt")
+                fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 
-                fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-
-                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
                 landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
-                landmarkModelNoGapsResidPath = self.getFilePath(ts, extension=".resid")
-                fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
+                fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
                                                             landmarkModelNoGapsFilePath,
-                                                            fiducialModelNoGapPath)
+                                                            modelFilePath)
 
                 prevTiltIm = 0
                 chainId = 0
