@@ -318,27 +318,20 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputAliSetOfTiltSeries)
 
                 """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-                coordFilePath1 = self.getFilePath(ts, suffix='_fid', extension=".xyz")
-                coordFilePath2 = self.getFilePath(ts, suffix='fid', extension=".xyz")
-                coordFilePath = None
-                if os.path.exists(coordFilePath1):
-                    coordFilePath = coordFilePath1
-                elif os.path.exists(coordFilePath2):
-                    coordFilePath = coordFilePath2
+                coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
 
-                # Set management
-                if coordFilePath:
+                if os.path.exists(coordFilePath):
                     if outputSetOfCoordinates3D is None:
                         outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
                                                                                   suffix='LandmarkModel')
                         outputSetOfCoordinates3D.setSamplingRate(self.inputTiltSeries.getSamplingRate())
                         outputSetOfCoordinates3D.setPrecedents(outputAliSetOfTiltSeries)
                         self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
-                        self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfCoordinates3D)
+                        self._defineSourceRelation(self.inputSetOfTiltSeries,
+                                                   outputSetOfCoordinates3D)
                     else:
                         outputSetOfCoordinates3D.enableAppend()
 
-                    # Filling the set
                     coordList = utils.format3DCoordinatesList(coordFilePath)
                     for element in coordList:
                         newCoord3D = tomoObj.Coordinate3D()
@@ -350,7 +343,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         newCoord3D.setVolId(ts.getObjId())
                         outputSetOfCoordinates3D.append(newCoord3D)
                         outputSetOfCoordinates3D.update(newCoord3D)
-
                     outputSetOfCoordinates3D.write()
                     self._store(outputSetOfCoordinates3D)
 
