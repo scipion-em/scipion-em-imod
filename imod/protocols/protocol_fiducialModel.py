@@ -84,7 +84,7 @@ class ProtImodFiducialModel(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
-        groupGlobalVariables = form.addGroup('Global variables',
+        groupGlobalVariables = form.addGroup('Filter variables',
                                              expertLevel=params.LEVEL_ADVANCED)
 
         groupGlobalVariables.addParam('refineSobelFilter',
@@ -102,10 +102,10 @@ class ProtImodFiducialModel(ProtImodBase):
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
-                                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, '
-                                           'as fraction of bead diameter. The default sigma is 0.5 pixels regardless of '
-                                           'bead size. A value of around 0.12 diameters is needed for higher noise '
-                                           '(eg. cryo) data.')
+                                      help='Sigma for gaussian kernel filtering of single beads before Sobel '
+                                           'filtering, as fraction of bead diameter. The default sigma is 0.5 pixels '
+                                           'regardless of bead size. A value of around 0.12 diameters is needed for '
+                                           'higher noise (eg. cryo) data.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
