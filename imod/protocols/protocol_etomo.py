@@ -318,7 +318,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputAliSetOfTiltSeries)
 
                 """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-                coordFilePath = self.getFilePath(ts, suffix='_fid',
+                coordFilePath = self.getFilePath(ts, suffix='fid',
                                                  extension=".xyz")
                 if os.path.exists(coordFilePath):
                     if outputSetOfCoordinates3D is None:
@@ -347,14 +347,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                     self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
-            if (os.path.exists(self.getFilePath(ts, suffix="_noGaps",
+            if (os.path.exists(self.getFilePath(ts, suffix="_nogaps",
                                                 extension=".fid")) and
                     os.path.exists(self.getFilePath(ts, extension=".resid"))):
 
                 paramsNoGapPoint2Model = {
-                    'inputFile': self.getFilePath(ts, suffix="_noGaps",
+                    'inputFile': self.getFilePath(ts, suffix="_nogaps",
                                                   extension=".fid"),
-                    'outputFile': self.getFilePath(ts, suffix="_noGaps_fid",
+                    'outputFile': self.getFilePath(ts, suffix="_nogaps_fid",
                                                    extension=".txt")
                 }
 
@@ -373,13 +373,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfLandmarkModelsNoGaps.enableAppend()
 
-                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_noGaps_fid",
+                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_nogaps_fid",
                                                          extension=".txt")
 
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
 
-                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_noGaps", extension=".fid")
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_noGaps", extension=".sfid")
+                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
+                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
                 landmarkModelNoGapsResidPath = self.getFilePath(ts, extension=".resid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
