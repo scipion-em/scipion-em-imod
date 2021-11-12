@@ -329,6 +329,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
                         self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                    outputSetOfCoordinates3D)
+                    else:
+                        outputSetOfCoordinates3D.enableAppend()
 
                     coordList = utils.format3DCoordinatesList(coordFilePath)
                     for element in coordList:
@@ -337,22 +339,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
                         newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
                         newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
-                else:
-                    outputSetOfCoordinates3D.enableAppend()
 
-                coordList = utils.format3DCoordinatesList(coordFilePath)
-                for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D()
-                    newCoord3D.setVolume(ts)
-                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
-
-                    newCoord3D.setVolId(ts.getObjId())
-                    outputSetOfCoordinates3D.append(newCoord3D)
-                    outputSetOfCoordinates3D.update(newCoord3D)
-                outputSetOfCoordinates3D.write()
-                self._store(outputSetOfCoordinates3D)
+                        newCoord3D.setVolId(ts.getObjId())
+                        outputSetOfCoordinates3D.append(newCoord3D)
+                        outputSetOfCoordinates3D.update(newCoord3D)
+                    outputSetOfCoordinates3D.write()
+                    self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
             if (os.path.exists(self.getFilePath(ts, suffix="_noGaps",
