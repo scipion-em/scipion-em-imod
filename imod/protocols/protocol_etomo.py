@@ -452,11 +452,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfPostProcessTomograms.enableAppend()
 
-
                 newTomogram = tomoObj.Tomogram()
+
+                ih = ImageHandler()
+                outputDim, _, _, _ = ih.getDimensions(posprocessedRecTomoFilePath)
 
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
                 newTomogram.setTsId(tsId)
+                newTomogram.setSamplingRate(self.getPixSizeFromDimensions(outputDim))
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=False)
@@ -584,11 +587,10 @@ ProcessTrack.TomogramCombination=Not started
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
         return self.inputTiltSeries.getSamplingRate() * round(originalDim/outputDim)
 
-
     def getResizeFactorFromDimensions(self, outputDim):
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
-        return  round(outputDim / originalDim)
+        return round(outputDim / originalDim)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
