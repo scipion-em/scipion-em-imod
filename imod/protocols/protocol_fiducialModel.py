@@ -84,7 +84,20 @@ class ProtImodFiducialModel(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
-        groupGlobalVariables = form.addGroup('Global variables',
+        form.addParam('shiftsNearZeroFraction',
+                      params.FloatParam,
+                      label='Shifts near zero fraction',
+                      default='0.2',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="Fraction of the tracking box size above which to supply shifts near zero tilt to "
+                           "Beadtrack. The dominant net shifts in the bead positions between views are found as "
+                           "described above, and if one of the shifts is larger than this fraction of the "
+                           "-BoxSizeXandY entry to Beadtrack, then the shifts are provided when running Beadtrack on "
+                           "the initial seed models. Also, a command file will be written with modified parameters, "
+                           "named as the root name of the input command file followed by '_adjusted' and its "
+                           "extension. Enter 0 or a large value to disable this analysis.")
+
+        groupGlobalVariables = form.addGroup('Filter variables',
                                              expertLevel=params.LEVEL_ADVANCED)
 
         groupGlobalVariables.addParam('refineSobelFilter',
@@ -102,10 +115,10 @@ class ProtImodFiducialModel(ProtImodBase):
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
-                                      help='Sigma for gaussian kernel filtering of single beads before Sobel filtering, '
-                                           'as fraction of bead diameter. The default sigma is 0.5 pixels regardless of '
-                                           'bead size. A value of around 0.12 diameters is needed for higher noise '
-                                           '(eg. cryo) data.')
+                                      help='Sigma for gaussian kernel filtering of single beads before Sobel '
+                                           'filtering, as fraction of bead diameter. The default sigma is 0.5 pixels '
+                                           'regardless of bead size. A value of around 0.12 diameters is needed for '
+                                           'higher noise (eg. cryo) data.')
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
@@ -131,7 +144,7 @@ class ProtImodFiducialModel(ProtImodBase):
         def wrapper(self, tsId):
             try:
                 func(self, tsId)
-            except:
+            except Exception as e:
                 self._failedTs.append(tsId)
 
         return wrapper
@@ -184,18 +197,20 @@ class ProtImodFiducialModel(ProtImodBase):
                                              ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
-            'targetNumberOfBeads': self.numberFiducial.get()
+            'targetNumberOfBeads': self.numberFiducial.get(),
+            'shiftsNearZeroFraction': self.shiftsNearZeroFraction.get()
         }
 
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
-                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d " \
+                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f"
 
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
 
-        Plugin.runImod(self, 'autofidseed', argsAutofidseed % paramsAutofidseed)
+        Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed))
 
         autofidseedDirPath = os.path.join(self._getExtraPath(tsId), "autofidseed.dir")
         path.makePath(autofidseedDirPath)
