@@ -77,12 +77,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      default=0.0,
-                      label='Tilt rotation angle in degrees',
-                      help='Angle from the vertical to the tilt axis in raw images.')
-
     # -------------------------- INSERT steps functions ---------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
@@ -176,7 +170,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         pixelSizeNm = ts.getSamplingRate() / 10.
 
         args += '-pixel %0.3f ' % pixelSizeNm
-        args += '-rotation %0.3f ' % self.rotationAngle
+        args += '-rotation %0.3f ' % ts.getAcquisition().getTiltAxisAngle()
         args += '-userawtlt '
 
         # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
@@ -206,7 +200,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
-                                'rotationAngle': self.rotationAngle
+                                'rotationAngle': ts.getAcquisition().getTiltAxisAngle()
                             })
 
     def runEtomo(self, ts):
