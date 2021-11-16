@@ -455,7 +455,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                     newTransform = newTransformationMatricesList[:, :, index]
                     previousTransformArray = np.array(previousTransform)
                     newTransformArray = np.array(newTransform)
-                    outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                    outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
                     transform.setMatrix(outputTransformMatrix)
                     newTi.setTransform(transform)
                 else:
