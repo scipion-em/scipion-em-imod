@@ -131,13 +131,15 @@ class TestImodBase(BaseTest):
         return cls.protXcorr
 
     @classmethod
-    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle):
+    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle,
+                           shiftsNearZeroFraction):
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
                                                     inputSetOfTiltSeries=inputSoTS,
                                                     twoSurfaces=twoSurfaces,
                                                     fiducialRadius=fiducialRadius,
                                                     numberFiducial=numberFiducial,
-                                                    rotationAngle=rotationAngle)
+                                                    rotationAngle=rotationAngle,
+                                                    shiftsNearZeroFraction=shiftsNearZeroFraction)
         cls.launchProtocol(cls.protFiducialAlignment)
         return cls.protFiducialAlignment
 
@@ -353,7 +355,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                         twoSurfaces=0,
                                                         fiducialRadius=4.95,
                                                         numberFiducial=25,
-                                                        rotationAngle=-12.5)
+                                                        rotationAngle=-12.5,
+                                                        shiftsNearZeroFraction=0.2)
 
         cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.outputFiducialModelGaps,
                                                               twoSurfaces=0,
@@ -592,7 +595,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 1
-        expectedSize = 10
+        expectedSize = 52
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
