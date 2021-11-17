@@ -695,7 +695,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
             # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
             for ctfTomo in ctfTomoSeries:
-                index = ctfTomo.getIndex()
+                index = ctfTomo.getIndex().get()
 
                 newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                     index,
