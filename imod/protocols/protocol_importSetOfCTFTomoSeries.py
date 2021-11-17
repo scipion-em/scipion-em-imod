@@ -76,8 +76,6 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
         self.getOutputSetOfCTFTomoSeries(self.outputSetName)
 
         for ts in inputSetOfTiltSeries:
-            tsId = ts.getTsId()
-
             tsFileName = ts.getFirstItem().parseFileName(extension='')
 
             for ctfFile, _ in self.iterFiles():
