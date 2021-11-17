@@ -570,7 +570,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        int(float(defocusUDict[index][0]))
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        int(float(defocusUDict[index][0])/10)
                     ))
 
                     lines.append(newLine)
@@ -605,8 +606,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                     ))
 
@@ -636,7 +639,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
                         float(phaseShiftDict[index][0]),
                     ))
 
@@ -669,8 +673,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0])
                     ))
@@ -704,8 +710,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0]),
                         float(cutOnFreqDict[index][0])
@@ -734,8 +742,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                     index,
                     tiltSeries[index].getTiltAngle(),
                     tiltSeries[index].getTiltAngle(),
-                    ctfTomo.getDefocusU(),
-                    ctfTomo.getDefocusV(),
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusU()/10,
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusV()/10,
                     ctfTomo.getDefocusAngle())
                            )
 
