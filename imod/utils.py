@@ -730,7 +730,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
         # There is no information available as list (not an IMOD CTF estimation)
 
         with open(defocusFilePath, 'w') as f:
-            lines = []
+            lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
             # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
