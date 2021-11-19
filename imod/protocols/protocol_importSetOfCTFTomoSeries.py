@@ -92,7 +92,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
-
+        self.outputSetOfCTFTomoSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ---------------------------
@@ -117,4 +117,13 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
         else:
             methods.append("Output classes not ready yet.")
         return methods
+
+    def _validate(self):
+        errorMsg = []
+        if not self.getMatchFiles():
+            errorMsg.append('Unable to find the files provided:\n\n'
+                            '\t-filePath = %s\n'
+                            '\t-pattern = %s\n' % (self.filesPath.get(), self.filesPattern.get()))
+
+        return errorMsg
 

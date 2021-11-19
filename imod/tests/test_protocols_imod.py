@@ -25,9 +25,14 @@
 # **************************************************************************
 
 from pyworkflow.tests import *
-from imod.protocols import *
+from pyworkflow.utils import path
+
 from pwem.emlib.image import ImageHandler
+
 import tomo
+
+from imod.protocols import *
+
 
 
 class TestImodBase(BaseTest):
@@ -38,7 +43,7 @@ class TestImodBase(BaseTest):
     @classmethod
     def _runImportTiltSeries(cls, filesPath, pattern, voltage, magnification, sphericalAberration, amplitudeContrast,
                              samplingRate, doseInitial, dosePerFrame, anglesFrom=0, minAngle=0.0, maxAngle=0.0,
-                             stepAngle=1.0):
+                             stepAngle=1.0, tiltAxisAngle=-12.5):
         cls.protImportTS = cls.newProtocol(tomo.protocols.ProtImportTs,
                                            filesPath=filesPath,
                                            filesPattern=pattern,
@@ -52,7 +57,8 @@ class TestImodBase(BaseTest):
                                            dosePerFrame=dosePerFrame,
                                            minAngle=minAngle,
                                            maxAngle=maxAngle,
-                                           stepAngle=stepAngle)
+                                           stepAngle=stepAngle,
+                                           tiltAxisAngle=tiltAxisAngle)
         cls.launchProtocol(cls.protImportTS)
         return cls.protImportTS
 
@@ -125,13 +131,15 @@ class TestImodBase(BaseTest):
         return cls.protXcorr
 
     @classmethod
-    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle):
+    def _runFiducialModels(cls, inputSoTS, twoSurfaces, fiducialRadius, numberFiducial, rotationAngle,
+                           shiftsNearZeroFraction):
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
                                                     inputSetOfTiltSeries=inputSoTS,
                                                     twoSurfaces=twoSurfaces,
                                                     fiducialRadius=fiducialRadius,
                                                     numberFiducial=numberFiducial,
-                                                    rotationAngle=rotationAngle)
+                                                    rotationAngle=rotationAngle,
+                                                    shiftsNearZeroFraction=shiftsNearZeroFraction)
         cls.launchProtocol(cls.protFiducialAlignment)
         return cls.protFiducialAlignment
 
@@ -347,7 +355,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                         twoSurfaces=0,
                                                         fiducialRadius=4.95,
                                                         numberFiducial=25,
-                                                        rotationAngle=-12.5)
+                                                        rotationAngle=-12.5,
+                                                        shiftsNearZeroFraction=0.2)
 
         cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.outputFiducialModelGaps,
                                                               twoSurfaces=0,
@@ -492,6 +501,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(outputLocation))
 
+    def test_fiducialAlignmentOutputTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputSetOfTiltSeries.getSize(), 2)
+
     def test_fiducialAlignmentTransformMatrixOutputTS(self):
         self.assertIsNotNone(
             self.protFiducialAlignment.outputSetOfTiltSeries.getFirstItem().getFirstItem().getTransform())
@@ -512,6 +524,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
         outSamplingRate = outputSoTS.getSamplingRate()
 
         self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
+
+    def test_fiducialAlignmentOutputInterpolatedTSSize(self):
+        self.assertEqual(self.protFiducialAlignment.outputInterpolatedSetOfTiltSeries.getSize(), 2)
 
     def test_fiducialAlignmentOutputFiducialModelNoGaps(self):
         self.assertIsNotNone(self.protFiducialAlignment.outputFiducialModelNoGaps)
@@ -534,7 +549,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_fiducialAlignmentOutputCoordinates3DSize(self):
         tolerance = 2
-        expectedSize = 34
+        expectedSize = 35
 
         self.assertTrue(
             abs(self.protFiducialAlignment.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
@@ -580,7 +595,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 1
-        expectedSize = 17
+        expectedSize = 52
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
@@ -629,6 +644,13 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         cls.inputSoTS = cls.inputDataSet.getFile('tsCtf1')
 
         cls.inputCtfFile = cls.inputDataSet.getFile('inputCtfFile')
+
+        # Create links to the input tilt-series and its associated mdoc file to test the protocols with a set of two
+        # elements to make the tests more robust
+        linkTs = os.path.join(os.path.split(cls.inputSoTS)[0], "WTI042413_1series4_copy.st")
+
+        if not os.path.exists(linkTs):
+            path.createLink(cls.inputSoTS, linkTs)
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
                                                     pattern="*.mdoc",
@@ -680,7 +702,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertIsNotNone(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries)
 
     def test_importCtfTomoSeriesOutputSize(self):
-        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 2)
+        self.assertEqual(self.protImportSetOfCtfSeries.outputSetOfCTFTomoSeries.getSize(), 1)
 
     def test_ctfEstimationOutputSize(self):
         self.assertIsNotNone(self.protCTFEstimation.outputSetOfCTFTomoSeries)
@@ -688,15 +710,17 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertEqual(self.protCTFEstimation.outputSetOfCTFTomoSeries.getSize(), 2)
 
     def test_ctfEstimationOutputDefocusFile(self):
-        tsId = self.protCTFEstimation.inputSet.get().getFirstItem().getTsId()
-        defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
+        for ts in self.protCTFEstimation.inputSet.get():
+            tsId = ts.getTsId()
+            defocusFile = os.path.join(self.protCTFEstimation._getExtraPath(tsId), '%s.defocus' % tsId)
 
-        self.assertTrue(os.path.exists(defocusFile))
+            self.assertTrue(os.path.exists(defocusFile))
 
     def test_ctfCorrectionOutput(self):
         self.assertIsNotNone(self.protCTFCorrection.outputSetOfTiltSeries)
 
-        tsId = self.protCTFCorrection.outputSetOfTiltSeries.getFirstItem().getTsId()
-        outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), "WTI042413_1series4.st")
+        for ts in self.protCTFCorrection.outputSetOfTiltSeries:
+            tsId = ts.getTsId()
+            outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId), '%s.st' % tsId)
 
-        self.assertTrue(os.path.exists(outputLocation))
+            self.assertTrue(os.path.exists(outputLocation))

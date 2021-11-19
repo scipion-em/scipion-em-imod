@@ -77,12 +77,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      default=0.0,
-                      label='Tilt rotation angle in degrees',
-                      help='Angle from the vertical to the tilt axis in raw images.')
-
     # -------------------------- INSERT steps functions ---------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
@@ -176,7 +170,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
         pixelSizeNm = ts.getSamplingRate() / 10.
 
         args += '-pixel %0.3f ' % pixelSizeNm
-        args += '-rotation %0.3f ' % self.rotationAngle
+        args += '-rotation %0.3f ' % ts.getAcquisition().getTiltAxisAngle()
         args += '-userawtlt '
 
         # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
@@ -206,7 +200,7 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
-                                'rotationAngle': self.rotationAngle
+                                'rotationAngle': ts.getAcquisition().getTiltAxisAngle()
                             })
 
     def runEtomo(self, ts):
@@ -318,8 +312,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 self._store(outputAliSetOfTiltSeries)
 
                 """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-                coordFilePath = self.getFilePath(ts, suffix='_fid',
-                                                 extension=".xyz")
+                coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
+
                 if os.path.exists(coordFilePath):
                     if outputSetOfCoordinates3D is None:
                         outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputAliSetOfTiltSeries,
@@ -329,6 +323,8 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
                         self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                    outputSetOfCoordinates3D)
+                    else:
+                        outputSetOfCoordinates3D.enableAppend()
 
                     coordList = utils.format3DCoordinatesList(coordFilePath)
                     for element in coordList:
@@ -337,33 +333,23 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                         newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
                         newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
                         newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
-                else:
-                    outputSetOfCoordinates3D.enableAppend()
 
-                coordList = utils.format3DCoordinatesList(coordFilePath)
-                for element in coordList:
-                    newCoord3D = tomoObj.Coordinate3D()
-                    newCoord3D.setVolume(ts)
-                    newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
-                    newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
-
-                    newCoord3D.setVolId(ts.getObjId())
-                    outputSetOfCoordinates3D.append(newCoord3D)
-                    outputSetOfCoordinates3D.update(newCoord3D)
-                outputSetOfCoordinates3D.write()
-                self._store(outputSetOfCoordinates3D)
+                        newCoord3D.setVolId(ts.getObjId())
+                        outputSetOfCoordinates3D.append(newCoord3D)
+                        outputSetOfCoordinates3D.update(newCoord3D)
+                    outputSetOfCoordinates3D.write()
+                    self._store(outputSetOfCoordinates3D)
 
             """Landmark models with no gaps"""
-            if (os.path.exists(self.getFilePath(ts, suffix="_noGaps",
-                                                extension=".fid")) and
-                    os.path.exists(self.getFilePath(ts, extension=".resid"))):
+            modelFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
+            residFilePath = self.getFilePath(ts, extension=".resid")
+
+            if os.path.exists(modelFilePath) and os.path.exists(residFilePath):
+                modelFilePathTxt = self.getFilePath(ts, suffix="_nogaps_fid", extension=".txt")
 
                 paramsNoGapPoint2Model = {
-                    'inputFile': self.getFilePath(ts, suffix="_noGaps",
-                                                  extension=".fid"),
-                    'outputFile': self.getFilePath(ts, suffix="_noGaps_fid",
-                                                   extension=".txt")
+                    'inputFile': modelFilePath,
+                    'outputFile': modelFilePathTxt
                 }
 
                 argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
@@ -381,18 +367,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfLandmarkModelsNoGaps.enableAppend()
 
-                fiducialNoGapFilePath = self.getFilePath(ts, suffix="_noGaps_fid",
-                                                         extension=".txt")
+                fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 
-                fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-
-                fiducialModelNoGapPath = self.getFilePath(ts, suffix="_noGaps", extension=".fid")
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_noGaps", extension=".sfid")
-                landmarkModelNoGapsResidPath = self.getFilePath(ts, extension=".resid")
-                fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
+                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
+                fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
                                                             landmarkModelNoGapsFilePath,
-                                                            fiducialModelNoGapPath)
+                                                            modelFilePath)
 
                 prevTiltIm = 0
                 chainId = 0
@@ -460,11 +441,14 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     outputSetOfPostProcessTomograms.enableAppend()
 
-
                 newTomogram = tomoObj.Tomogram()
+
+                ih = ImageHandler()
+                outputDim, _, _, _ = ih.getDimensions(posprocessedRecTomoFilePath)
 
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
                 newTomogram.setTsId(tsId)
+                newTomogram.setSamplingRate(self.getPixSizeFromDimensions(outputDim))
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=False)
@@ -592,11 +576,10 @@ ProcessTrack.TomogramCombination=Not started
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
         return self.inputTiltSeries.getSamplingRate() * round(originalDim/outputDim)
 
-
     def getResizeFactorFromDimensions(self, outputDim):
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
-        return  round(outputDim / originalDim)
+        return round(outputDim / originalDim)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

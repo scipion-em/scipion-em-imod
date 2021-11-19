@@ -98,13 +98,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            "of the fiducial models does not consider this option it is algo recomended to set this "
                            "option to 'No'.")
 
-        form.addParam('rotationAngle',
-                      params.FloatParam,
-                      label='Tilt rotation angle (deg)',
-                      default='0.0',
-                      important=True,
-                      help="Angle from the vertical to the tilt axis in raw images.")
-
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -227,9 +220,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
+
+        self._failedTs = []
+        self._outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
@@ -290,7 +284,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                                 firstItem.parseFileName(suffix="_fid", extension=".xf")),
             'outputFilledInModel': os.path.join(extraPrefix,
                                                 firstItem.parseFileName(suffix="_noGaps", extension=".fid")),
-            'rotationAngle': self.rotationAngle.get(),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'angleOffset': 0.0,
             'rotOption': self.getRotationType(),
@@ -346,7 +340,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-OutputTiltFile %(outputTiltFile)s " \
                         "-OutputTransformFile %(outputTransformFile)s " \
                         "-OutputFilledInModel %(outputFilledInModel)s " \
-                        "-RotationAngle %(rotationAngle)f " \
+                        "-RotationAngle %(rotationAngle).2f " \
                         "-TiltFile %(tiltFile)s " \
                         "-AngleOffset %(angleOffset)f " \
                         "-RotOption %(rotOption)d " \
@@ -461,7 +455,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                     newTransform = newTransformationMatricesList[:, :, index]
                     previousTransformArray = np.array(previousTransform)
                     newTransformArray = np.array(newTransform)
-                    outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+                    outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
                     transform.setMatrix(outputTransformMatrix)
                     newTi.setTransform(transform)
                 else:
@@ -483,7 +477,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
-        outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -508,7 +501,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.outputSetOfTiltSeries[outputTsIdList.index(tsId) + 1])
+                self.outputSetOfTiltSeries[self._outputTsIdList.index(tsId) + 1])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -866,7 +859,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
             summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize(),
                               self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
@@ -897,7 +890,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if hasattr(self, 'outputSetOfCoordinates3D'):
             methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
                            % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfTiltSeries.get().getSize()))
+                              self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."

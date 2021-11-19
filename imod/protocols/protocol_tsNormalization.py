@@ -233,7 +233,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
     def closeOutputSetsStep(self):
         self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-
+        self.outputSetOfTiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
