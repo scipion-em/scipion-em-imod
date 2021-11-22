@@ -402,7 +402,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 newTs.append(newTi)
