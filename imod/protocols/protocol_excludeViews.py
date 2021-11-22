@@ -92,7 +92,7 @@ class ProtImodExcludeViews(ProtImodBase):
         path.makePath(extraPrefix)
 
         firstItem = ts.getFirstItem()
-        outputFileName = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+        outputFileName = os.path.join(extraPrefix, firstItem.parseFileName())
 
         path.copyFile(firstItem.getFileName(), outputFileName)
 
@@ -117,8 +117,6 @@ class ProtImodExcludeViews(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        firstItem = ts.getFirstItem()
-
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         self.outputSetOfTiltSeries.append(newTs)
@@ -135,7 +133,7 @@ class ProtImodExcludeViews(ProtImodBase):
         for index, tiltImage in enumerate(ts):
             if (index + 1) not in excludedViewsAsList:
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage)
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 newTs.append(newTi)
