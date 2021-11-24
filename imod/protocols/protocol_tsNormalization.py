@@ -214,7 +214,9 @@ class ProtImodTSNormalization(ProtImodBase):
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+            if tiltImage.hasTransform():
+                newTi = self.updateTM(newTi)
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
@@ -247,6 +249,18 @@ class ProtImodTSNormalization(ProtImodBase):
             5: 2
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
+
+    def updateTM(self, newTi):
+        transform = newTi.getTransform()
+        matrix = transform.getMatrix()
+
+        matrix[0][2] = matrix[0][2] / self.binning.get()
+        matrix[1][2] = matrix[1][2] / self.binning.get()
+
+        transform.setMatrix(matrix)
+        newTi.setTransform(transform)
+        
+        return newTi
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

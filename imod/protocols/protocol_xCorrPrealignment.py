@@ -26,7 +26,9 @@
 
 import os
 import imod.utils as utils
+import numpy as np
 import pwem.objects as data
+from pwem.objects import Transform
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
@@ -192,12 +194,28 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+
+            if tiltImage.hasTransform():
+                transform = Transform()
+                previousTransform = tiltImage.getTransform().getMatrix()
+                newTransform = alignmentMatrix[:, :, index]
+                previousTransformArray = np.array(previousTransform)
+                newTransformArray = np.array(newTransform)
+                outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+                transform.setMatrix(outputTransformMatrix)
+                newTi.setTransform(transform)
+
+            else:
+                transform = Transform()
+                newTransform = alignmentMatrix[:, :, index]
+                newTransformArray = np.array(newTransform)
+                transform.setMatrix(newTransformArray)
+                newTi.setTransform(transform)
+
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(tiltImage.getLocation())
-            transform = data.Transform()
-            transform.setMatrix(alignmentMatrix[:, :, index])
-            newTi.setTransform(transform)
+
             newTs.append(newTi)
 
         newTs.write(properties=False)

@@ -397,7 +397,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def createOutputStep(self, tsObjId, outputSetName):
         ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
-        objId = ts.getObjId()
         self.outputSetName = outputSetName
 
         extraPrefix = self._getExtraPath(tsId)

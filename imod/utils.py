@@ -319,10 +319,14 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
 
             # Segregate information from range
             for index in range(int(element[0]), int(element[1]) + 1):
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocus = float(element[4]) * 10
+
                 if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
+                    defocusUDict[index].append(pwobj.Float(defocus))
                 else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                    defocusUDict[index] = [pwobj.Float(defocus)]
 
     else:
         raise Exception("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
@@ -346,16 +350,24 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
             for index in range(int(element[0]), int(element[1]) + 1):
 
                 # Defocus U info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusU = float(element[4]) * 10
+
                 if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
+                    defocusUDict[index].append(pwobj.Float(defocusU))
                 else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                    defocusUDict[index] = [pwobj.Float(defocusU)]
 
                 # Defocus V info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusV = float(element[5]) * 10
+
                 if index in defocusVDict.keys():
-                    defocusVDict[index].append(pwobj.Float(element[5]))
+                    defocusVDict[index].append(pwobj.Float(defocusV))
                 else:
-                    defocusVDict[index] = [pwobj.Float(element[5])]
+                    defocusVDict[index] = [pwobj.Float(defocusV)]
 
                 # Defocus angle info
                 if index in defocusAngleDict.keys():
@@ -384,10 +396,14 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
             for index in range(int(element[0]), int(element[1]) + 1):
 
                 # Defocus U info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusU = float(element[4]) * 10
+
                 if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
+                    defocusUDict[index].append(pwobj.Float(defocusU))
                 else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                    defocusUDict[index] = [pwobj.Float(defocusU)]
 
                 # Phase shift info
                 if index in phaseShiftDict.keys():
@@ -419,16 +435,24 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
             for index in range(int(element[0]), int(element[1]) + 1):
 
                 # Defocus U info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusU = float(element[4]) * 10
+
                 if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
+                    defocusUDict[index].append(pwobj.Float(defocusU))
                 else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                    defocusUDict[index] = [pwobj.Float(defocusU)]
 
                 # Defocus V info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusV = float(element[5]) * 10
+
                 if index in defocusVDict.keys():
-                    defocusVDict[index].append(pwobj.Float(element[5]))
+                    defocusVDict[index].append(pwobj.Float(defocusV))
                 else:
-                    defocusVDict[index] = [pwobj.Float(element[5])]
+                    defocusVDict[index] = [pwobj.Float(defocusV)]
 
                 # Defocus angle info
                 if index in defocusAngleDict.keys():
@@ -467,16 +491,24 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
             for index in range(int(element[0]), int(element[1]) + 1):
 
                 # Defocus U info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusU = float(element[4]) * 10
+
                 if index in defocusUDict.keys():
-                    defocusUDict[index].append(pwobj.Float(element[4]))
+                    defocusUDict[index].append(pwobj.Float(defocusU))
                 else:
-                    defocusUDict[index] = [pwobj.Float(element[4])]
+                    defocusUDict[index] = [pwobj.Float(defocusU)]
 
                 # Defocus V info
+
+                # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
+                defocusV = float(element[5]) * 10
+
                 if index in defocusVDict.keys():
-                    defocusVDict[index].append(pwobj.Float(element[5]))
+                    defocusVDict[index].append(pwobj.Float(defocusV))
                 else:
-                    defocusVDict[index] = [pwobj.Float(element[5])]
+                    defocusVDict[index] = [pwobj.Float(defocusV)]
 
                 # Defocus angle info
                 if index in defocusAngleDict.keys():
@@ -538,7 +570,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        int(float(defocusUDict[index][0]))
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        int(float(defocusUDict[index][0])/10)
                     ))
 
                     lines.append(newLine)
@@ -573,8 +606,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                     ))
 
@@ -604,7 +639,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
                         float(phaseShiftDict[index][0]),
                     ))
 
@@ -637,8 +673,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0])
                     ))
@@ -672,8 +710,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                         index + ctfTomoSeries.getNumberOfEstimationsInRange(),
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
-                        float(defocusUDict[index][0]),
-                        float(defocusVDict[index][0]),
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusUDict[index][0])/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        float(defocusVDict[index][0])/10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0]),
                         float(cutOnFreqDict[index][0])
@@ -690,20 +730,22 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
         # There is no information available as list (not an IMOD CTF estimation)
 
         with open(defocusFilePath, 'w') as f:
-            lines = []
+            lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
             # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
             for ctfTomo in ctfTomoSeries:
-                index = ctfTomo.getIndex()
+                index = ctfTomo.getIndex().get()
 
                 newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                     index,
                     index,
                     tiltSeries[index].getTiltAngle(),
                     tiltSeries[index].getTiltAngle(),
-                    ctfTomo.getDefocusU(),
-                    ctfTomo.getDefocusV(),
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusU()/10,
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusV()/10,
                     ctfTomo.getDefocusAngle())
                            )
 

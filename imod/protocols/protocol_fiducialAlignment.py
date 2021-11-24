@@ -445,7 +445,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
 
@@ -530,7 +530,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             for index, tiltImage in enumerate(tsIn):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated")))
                 newTi.setTiltAngle(float(tltList[index]))
@@ -715,7 +715,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True)
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 if self.binning > 1:
