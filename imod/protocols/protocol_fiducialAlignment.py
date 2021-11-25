@@ -507,7 +507,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # the final sample disposition.
             if rotationAngleAvg > 45 or rotationAngleAvg < -45:
                 paramsAlignment.update({
-                    'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+                    'size': "%d,%d" %
+                            (firstItem.getYDim()/int(self.binning.get()), firstItem.getXDim()/int(self.binning.get()))
                 })
 
                 argsAlignment += " -size %(size)s "
