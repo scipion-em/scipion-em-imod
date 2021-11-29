@@ -82,10 +82,10 @@ class ImodObjectView(pwviewer.CommandView):
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
             if obj.getTiltSeries().getFirstItem().hasTransform():
-                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated.mrc")
-                obj.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
+                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated.mrc")
+                obj.getTiltSeries().applyTransform(outputTSInterpolatedPath)
 
-                fn = Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSInterpolatedPath + " " + \
                       obj.getModelName() + " ; "
 
             else:
