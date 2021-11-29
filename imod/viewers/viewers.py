@@ -82,7 +82,10 @@ class ImodObjectView(pwviewer.CommandView):
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
             if obj.getTiltSeries().getFirstItem().hasTransform():
-                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated.mrc")
+                # Input and output extensions must match if we want to apply the transform with Xmipp
+                _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+
+                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated." + extension)
                 obj.getTiltSeries().applyTransform(outputTSInterpolatedPath)
 
                 fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSInterpolatedPath + " " + \
