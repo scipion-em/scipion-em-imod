@@ -65,14 +65,14 @@ class ProtImodFiducialModel(ProtImodBase):
         form.addParam('twoSurfaces',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=0,
+                      default=1,
                       label='Find on two surfaces',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.")
 
-        form.addParam('fiducialRadius',
+        form.addParam('fiducialDiameter',
                       params.FloatParam,
-                      label='Fiducial radius (nm)',
+                      label='Fiducial diameter (nm)',
                       default='4.95',
                       important=True,
                       help="Fiducials diameter to be tracked for alignment.")
@@ -158,9 +158,9 @@ class ProtImodFiducialModel(ProtImodBase):
 
         firstItem = ts.getFirstItem()
 
-        fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -172,13 +172,13 @@ class ProtImodFiducialModel(ProtImodBase):
             'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
-            'fiducialRadius': fiducialRadiusPixel,
+            'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
-            'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
-            'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
-            'maxRescueDistance': 0.2 * fiducialRadiusPixel,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'minDiamForParamScaling': 12.5,
             'deletionCriterionMinAndSD': '0.3,2.0'
         }
@@ -227,9 +227,9 @@ class ProtImodFiducialModel(ProtImodBase):
 
         firstItem = ts.getFirstItem()
 
-        fiducialRadiusPixel = self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialRadius.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -245,7 +245,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
             'minViewsForTiltalign': 4,
-            'beadDiameter': fiducialRadiusPixel,
+            'beadDiameter': fiducialDiameterPixel,
             'fillGaps': 1,
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
@@ -260,11 +260,11 @@ class ProtImodFiducialModel(ProtImodBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 0.75 * fiducialRadiusPixel,
+            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 0.2 * fiducialRadiusPixel,
+            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 0.2 * fiducialRadiusPixel,
+            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
             'deletionCriterionMinAndSD': '0.3,2.0',
             'minDiamForParamScaling': 12.5
@@ -458,7 +458,7 @@ TiltDefaultGrouping	7
 MagDefaultGrouping	5
 RotDefaultGrouping	1
 PixelSize   %(samplingRate)f
-BeadDiameter	%(fiducialRadius).2f
+BeadDiameter	%(fiducialDiameter).2f
 FillGaps
 MaxGapSize	5
 RoundsOfTracking	2
@@ -508,7 +508,8 @@ $if (-e ./savework) ./savework
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
 
-    def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
+    @staticmethod
+    def generateTaSolutionText(tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
         """ This method generates a text file containing the TA solution from the tiltalign output log. """
 
         searchingPassword = "deltilt"
