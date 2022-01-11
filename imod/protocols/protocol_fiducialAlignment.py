@@ -423,12 +423,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
+        tmpFileName = os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))
+        if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
             tltFilePath = os.path.join(
                 extraPrefix,
                 firstItem.parseFileName(suffix="_interpolated", extension=".tlt")
             )
-
             tltList = utils.formatAngleList(tltFilePath)
 
             transformationMatricesFilePath = os.path.join(
@@ -473,6 +473,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputSetOfTiltSeries.write()
 
             self._store()
+        else:
+              raise Exception("Error (computeOutputStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName) 
 
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -484,7 +486,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
         firstItem = tsIn.getFirstItem()
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))):
+        tmpFileName = os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))
+        if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
             self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             paramsAlignment = {
@@ -499,7 +502,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
-
+            print("calculateRotationAngleFromTM")
+            print("mat list", self.outputSetOfTiltSeries)
+            print("index, type, len", self._outputTsIdList, type(self._outputTsIdList), len(self.outputSetOfTiltSeries))
+            print("index", self._outputTsIdList, len(self.outputSetOfTiltSeries))
             rotationAngleAvg = utils.calculateRotationAngleFromTM(
                 self.outputSetOfTiltSeries[self._outputTsIdList.index(tsId) + 1])
 
@@ -548,6 +554,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputInterpolatedSetOfTiltSeries.updateDim()
             self.outputInterpolatedSetOfTiltSeries.write()
             self._store()
+        else:
+              raise Exception("Error (computeOutputInterpolatedStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName) 
 
     @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
