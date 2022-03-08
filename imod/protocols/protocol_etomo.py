@@ -211,7 +211,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
             self.convertInputStep(ts)
 
         if ts is not None:
-            tsId = ts.getTsId()
             extraPrefix = self._getExtraPath(tsId)
             args = '--fg '
             args += ts.getFirstItem().parseFileName(extension=".edf")
