@@ -204,9 +204,13 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                             })
 
     def runEtomo(self, ts):
-        self.convertInputStep(ts)
+        tsId = ts.getTsId()
+        edfFilePath = self._getExtraPath(os.path.join(tsId, ts.getFirstItem().parseFileName(extension=".edf")))
+
+        if not os.path.exists(edfFilePath):
+            self.convertInputStep(ts)
+
         if ts is not None:
-            tsId = ts.getTsId()
             extraPrefix = self._getExtraPath(tsId)
             args = '--fg '
             args += ts.getFirstItem().parseFileName(extension=".edf")
