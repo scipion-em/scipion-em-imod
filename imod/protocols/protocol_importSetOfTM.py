@@ -134,7 +134,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                 else:
                     path.createLink(tmFilePath, outputTransformFile)
-                path.createLink(tmFilePath.replace('.xf', '.tlt'), outputTltFile)
+                tltFile = tmFilePath.replace('.xf', '.tlt')
+                if os.path.exists(tltFile):
+                    path.createLink(tltFile, outputTltFile)
 
     def assignTransformationMatricesStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -145,6 +147,10 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
         outputTltFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
 
+        if not os.path.exists(outputTltFile):
+            outputTltFile = None
+
+
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         newTs = TiltSeries(tsId=tsId)
@@ -153,7 +159,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         self.outputSetOfTiltSeries.append(newTs)
 
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
-        angles = getAnglesFromTlt(outputTltFile)
+        angles = getAnglesFromTlt(outputTltFile) if outputTltFile is not None else None
 
         for index, tiltImage in enumerate(ts):
             newTi = TiltImage()
@@ -176,7 +182,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                 transform.setMatrix(alignmentMatrix[:, :, index])
                 newTi.setTransform(transform)
 
-            newTi.setTiltAngle(angles[index])
+            if angles is not None:
+                newTi.setTiltAngle(angles[index])
 
             newTs.append(newTi)
 
