@@ -39,6 +39,12 @@ _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
+def getImodEnv():
+    """ This function allows to call imod outside of this plugin. """
+
+    return Plugin.getHome("IMOD-linux.sh && ")
+
+
 class Plugin(pwem.Plugin):
     _homeVar = IMOD_HOME
     _validationMsg = None
@@ -53,7 +59,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _getIMODFolder(cls, version, *paths):
-        return  os.path.join(cls._getEMFolder(version, "IMOD"), *paths)
+        return os.path.join(cls._getEMFolder(version, "IMOD"), *paths)
 
     @classmethod
     def _getProgram(cls, program):
@@ -70,7 +76,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getEnviron(cls):
-        env=pwem.pwutils.Environ(os.environ)
+        env = pwem.pwutils.Environ(os.environ)
         if 'IMOD_DIR' in env:
             del env['IMOD_DIR']
         if 'IMOD_PATH' in env:
@@ -84,7 +90,6 @@ class Plugin(pwem.Plugin):
         """
 
         if not cls._validationMsg:
-
             etomo = cls._getProgram(ETOMO_CMD)
 
             cls._validationMsg = [
@@ -104,7 +109,6 @@ class Plugin(pwem.Plugin):
         IMOD_INSTALLED = 'imod_%s_installed' % DEFAULT_VERSION
 
         if 'linux' in OS.getPlatform().lower():
-
             # Add jpg lib
             jpeg = env.addLibrary(
                 'jpeg',
@@ -119,7 +123,6 @@ class Plugin(pwem.Plugin):
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
             installationCmd += 'sh imod_%s_RHEL7-64_CUDA10.1.sh -dir . -yes -skip && ' % DEFAULT_VERSION
-
 
             # Create installation finished flag file
             installationCmd += 'touch %s' % IMOD_INSTALLED
@@ -168,5 +171,6 @@ class Plugin(pwem.Plugin):
 # Here register happens very early. Earlier than done in pwem therefore this filehandler will be the default one.
 # We can add .mrc and .mrcs but don't want to overlap with pwem ones.
 from .file_handlers import *
+
 register = FileTreeProvider.registerFileHandler
 register(ImodHandler(), '.ali', '.st', '.rec')
