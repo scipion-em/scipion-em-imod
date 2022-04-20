@@ -58,7 +58,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       help='Input set of tomograms from which gold beads will be picked.')
 
         form.addParam('beadDiameter',
-                      params.IntParam,
+                      params.FloatParam,
                       label='Fiducial diameter (pixels)',
                       default='10',
                       help="Diameter of beads in pixels.")

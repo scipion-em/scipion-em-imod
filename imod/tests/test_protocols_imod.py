@@ -594,7 +594,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
         tolerance = 5
-        expectedSize = 15
+        expectedSize = 52
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
