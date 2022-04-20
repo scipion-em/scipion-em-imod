@@ -594,8 +594,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(os.path.join(location, "BB" + tomoId + ".mod")))
 
     def test_goldBeadPeaker3DOutputCoordinates3DSize(self):
-        tolerance = 1
-        expectedSize = 52
+        tolerance = 5
+        expectedSize = 15
 
         self.assertTrue(
             abs(self.protGoldBeadPicker3D.outputSetOfCoordinates3D.getSize() - expectedSize) <= tolerance)
