@@ -158,7 +158,7 @@ class ProtImodTSNormalization(ProtImodBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId(), False)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId(), generateAngleFile=False)
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
