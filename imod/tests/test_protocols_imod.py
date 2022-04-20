@@ -34,7 +34,6 @@ import tomo
 from imod.protocols import *
 
 
-
 class TestImodBase(BaseTest):
     @classmethod
     def setUpClass(cls):
@@ -198,7 +197,7 @@ class TestImodBase(BaseTest):
         return cls.protTomoNormalization
 
     @classmethod
-    def _runGoldBeadPeaker3D(cls, inputSetOfTomograms, beadDiameter, beadsColor, minRelativeStrength, minSpacing):
+    def _runGoldBeadPiker3D(cls, inputSetOfTomograms, beadDiameter, beadsColor, minRelativeStrength, minSpacing):
         cls.protGoldBeadPicker3d = cls.newProtocol(ProtImodGoldBeadPicker3d,
                                                    inputSetOfTomograms=inputSetOfTomograms,
                                                    beadDiameter=beadDiameter,
@@ -394,11 +393,11 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                       scaleMin=0)
 
         cls.protGoldBeadPicker3D = \
-            cls._runGoldBeadPeaker3D(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
-                                     beadDiameter=10,
-                                     beadsColor=0,
-                                     minRelativeStrength=0.05,
-                                     minSpacing=0.9)
+            cls._runGoldBeadPiker3D(inputSetOfTomograms=cls.protTomoReconstruction.outputSetOfTomograms,
+                                    beadDiameter=10,
+                                    beadsColor=0,
+                                    minRelativeStrength=0.05,
+                                    minSpacing=0.9)
 
         cls.protTomoProjection = \
             cls._runTomoProjection(inputSetOfTomograms=cls.protTomoNormalization.outputSetOfTomograms,
