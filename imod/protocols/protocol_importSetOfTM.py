@@ -30,7 +30,8 @@ from pyworkflow import BETA
 from pyworkflow.utils import path
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-from tomo.objects import TiltSeries, TiltImage
+from tomo.convert import getAnglesFromTlt
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from pwem.emlib.image import ImageHandler
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
@@ -94,6 +95,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         path.makePath(extraPrefix)
 
         outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+        outputTltFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
 
         for tmFilePath, _ in self.iterFiles():
             tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
@@ -132,6 +134,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                 else:
                     path.createLink(tmFilePath, outputTransformFile)
+                tltFile = tmFilePath.replace('.xf', '.tlt')
+                if os.path.exists(tltFile):
+                    path.createLink(tltFile, outputTltFile)
 
     def assignTransformationMatricesStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -140,6 +145,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
 
         outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+        outputTltFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".tlt"))
+
+        if not os.path.exists(outputTltFile):
+            outputTltFile = None
+
 
         self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -149,6 +159,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         self.outputSetOfTiltSeries.append(newTs)
 
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
+        angles = getAnglesFromTlt(outputTltFile) if outputTltFile is not None else None
 
         for index, tiltImage in enumerate(ts):
             newTi = TiltImage()
@@ -171,6 +182,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                 transform.setMatrix(alignmentMatrix[:, :, index])
                 newTi.setTransform(transform)
 
+            if angles is not None:
+                newTi.setTiltAngle(angles[index])
+
             newTs.append(newTi)
 
         ih = ImageHandler()
@@ -181,6 +195,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         self.outputSetOfTiltSeries.update(newTs)
         self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.setStreamState(SetOfTiltSeries.STREAM_CLOSED)
         self.outputSetOfTiltSeries.write()
 
         self._store()
