@@ -126,7 +126,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
+            self._insertFunctionStep(self.convertInputStep, tsObjId)
             self._insertFunctionStep(self.generateTrackComStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
             self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
