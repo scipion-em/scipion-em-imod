@@ -227,7 +227,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId, True, True)
+            self._insertFunctionStep(self.convertInputStep, tsObjId)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
             self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
@@ -492,7 +492,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
-                'output': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_interpolated")),
+                'output': os.path.join(extraPrefix, firstItem.parseFileName()),
                 'xform': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf")),
                 'bin': int(self.binning.get()),
                 'imagebinned': 1.0}
@@ -539,7 +539,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName(suffix="_interpolated")))
+                newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName()))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
@@ -569,8 +569,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         # Move interpolated tilt-series to tmp folder and generate a new one with the gold beads erased back in the
         # extra folder
-        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')),
-                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix='_interpolated')))
+        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()))
 
         # Generate interpolated model
         paramsImodtrans = {
@@ -590,8 +590,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         # Erase gold beads
         paramsCcderaser = {
-            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName(suffix='_interpolated')),
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix='_interpolated')),
+            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
             'modelFile': os.path.join(extraPrefix,
                                       firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
             'betterRadius': self.betterRadius.get(),
