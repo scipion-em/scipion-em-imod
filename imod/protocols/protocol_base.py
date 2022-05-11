@@ -251,6 +251,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputSetOfCoordinates3D.setSamplingRate(outputSet.getSamplingRate())
             outputSetOfCoordinates3D.setPrecedents(outputSet)
+            outputSetOfCoordinates3D.setBoxSize(32)
 
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
