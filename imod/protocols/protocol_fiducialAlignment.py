@@ -867,9 +867,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
-            summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize(),
-                              self.outputSetOfCoordinates3D.getSize()))
+            summary.append("Fiducial 3D coordinates calculated: %d."
+                           % (self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             summary.append("Failed tilt-series: %d."
@@ -897,9 +896,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
-            methods.append("%d fiducial 3D coordinates have been calculated for %d Tilt-series."
-                           % (self.outputSetOfCoordinates3D.getSize(),
-                              self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize()))
+            methods.append("%d fiducial 3D coordinates have been calculated."
+                           % (self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
