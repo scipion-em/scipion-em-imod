@@ -867,9 +867,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
         if hasattr(self, 'outputSetOfCoordinates3D'):
-            summary.append("Fiducial 3D coordinates calculated for %d Tilt-series: %d."
-                           % (self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=False).getSize(),
-                              self.outputSetOfCoordinates3D.getSize()))
+            summary.append("Fiducial 3D coordinates calculated: %d."
+                           % (self.outputSetOfCoordinates3D.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             summary.append("Failed tilt-series: %d."
