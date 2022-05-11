@@ -222,18 +222,23 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _insertAllSteps(self):
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
 
-        self._failedTs = []
-        self._outputTsIdList = [ts.getTsId() for ts in self.inputSetOfTiltSeries.get()]
+        tsIds = self.inputSetOfLandmarkModels.get().aggregate(["COUNT"], "_tsId", ["_tsId"])
+        tsIds = set([d['_tsId'] for d in tsIds])
 
-        for ts in self.inputSetOfTiltSeries.get():
-            tsObjId = ts.getObjId()
+        tsIdsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get() if ts.getTsId() in tsIds}
+
+        self._failedTs = []
+
+        for lm in self.inputSetOfLandmarkModels.get():
+            lmTsId = lm.getTsId()
+            tsObjId = tsIdsDict[lmTsId].getObjId()
             self._insertFunctionStep(self.convertInputStep, tsObjId)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
             self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
 
             if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsObjId)
+                self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsObjId, tsIdsDict)
 
             if self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
@@ -476,7 +481,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         else:
               raise Exception("Error (computeOutputStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName) 
 
-    def computeOutputInterpolatedStackStep(self, tsObjId):
+    def computeOutputInterpolatedStackStep(self, tsObjId, tsIdsDict):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
 
@@ -502,12 +507,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
-            print("calculateRotationAngleFromTM")
-            print("mat list", self.outputSetOfTiltSeries)
-            print("index, type, len", self._outputTsIdList, type(self._outputTsIdList), len(self.outputSetOfTiltSeries))
-            print("index", self._outputTsIdList, len(self.outputSetOfTiltSeries))
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(
-                self.outputSetOfTiltSeries[self._outputTsIdList.index(tsId) + 1])
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(tsIdsDict[tsId])
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
