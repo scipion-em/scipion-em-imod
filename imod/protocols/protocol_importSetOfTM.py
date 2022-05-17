@@ -27,6 +27,7 @@
 import os
 import numpy as np
 from pyworkflow import BETA
+from pyworkflow.object import Set
 from pyworkflow.utils import path
 import pyworkflow.protocol.params as params
 import pwem.objects as data
@@ -82,6 +83,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
             self._insertFunctionStep(self.assignTransformationMatricesStep, ts.getObjId())
+
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def generateTransformFileStep(self, tsObjId):
@@ -181,6 +184,12 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         self.outputSetOfTiltSeries.update(newTs)
         self.outputSetOfTiltSeries.updateDim()
+        self.outputSetOfTiltSeries.write()
+
+        self._store()
+
+    def closeOutputSetsStep(self):
+        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         self.outputSetOfTiltSeries.write()
 
         self._store()
