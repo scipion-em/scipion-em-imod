@@ -39,6 +39,7 @@ from pwem.emlib.image import ImageHandler
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
 
+
 class ProtImodFiducialAlignment(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
@@ -225,7 +226,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
         tsIds = self.inputSetOfLandmarkModels.get().aggregate(["COUNT"], "_tsId", ["_tsId"])
         tsIds = set([d['_tsId'] for d in tsIds])
 
-        tsIdsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get() if ts.getTsId() in tsIds}
+        tsIdsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get() if
+                     ts.getTsId() in tsIds}
 
         self._failedTs = []
 
@@ -479,7 +481,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             self._store()
         else:
-              raise Exception("Error (computeOutputStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName) 
+            raise Exception(
+                "Error (computeOutputStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName)
 
     def computeOutputInterpolatedStackStep(self, tsObjId, tsIdsDict):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -507,14 +510,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(tsIdsDict[tsId])
+
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.outputSetOfTiltSeries.getTiltSeriesFromTsId(tsId))
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
             if rotationAngleAvg > 45 or rotationAngleAvg < -45:
                 paramsAlignment.update({
                     'size': "%d,%d" %
-                            (firstItem.getYDim()/int(self.binning.get()), firstItem.getXDim()/int(self.binning.get()))
+                            (firstItem.getYDim() / int(self.binning.get()),
+                             firstItem.getXDim() / int(self.binning.get()))
                 })
 
                 argsAlignment += " -size %(size)s "
@@ -555,7 +560,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputInterpolatedSetOfTiltSeries.write()
             self._store()
         else:
-              raise Exception("Error (computeOutputInterpolatedStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName) 
+            raise Exception(
+                "Error (computeOutputInterpolatedStackStep): \n Imod output file %s does not exist ot it is empty" % tmpFileName)
 
     @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
@@ -697,10 +703,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             for element in coordList:
                 newCoord3D = tomoObj.TiltSeriesCoordinate()
                 newCoord3D.setTsId(ts.getTsId())
-                newCoord3D.setPosition(element[0]-(XDim/2),
-                                element[1]-(YDim/2),
-                                element[2],
-                                sampling_rate=ts.getSamplingRate())
+                newCoord3D.setPosition(element[0] - (XDim / 2),
+                                       element[1] - (YDim / 2),
+                                       element[2],
+                                       sampling_rate=ts.getSamplingRate())
 
                 outputSetOfCoordinates3D.append(newCoord3D)
             outputSetOfCoordinates3D.write()
