@@ -257,6 +257,25 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.tiltSeriesCoordinates
 
+    def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
+        if hasattr(self, "outputSetOfCoordinates3D"):
+            self.outputSetOfCoordinates3D.enableAppend()
+
+        else:
+            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputSet,
+                                                                      suffix='Fiducials3D')
+
+            outputSetOfCoordinates3D.setSamplingRate(outputSet.getSamplingRate())
+            outputSetOfCoordinates3D.setPrecedents(outputSet)
+            outputSetOfCoordinates3D.setBoxSize(32)
+
+            outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+            self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
+
+        return self.outputSetOfCoordinates3D
+
     def getOutputSetOfTomograms(self, inputSet, binning=1):
         if hasattr(self, "outputSetOfTomograms"):
             self.outputSetOfTomograms.enableAppend()
