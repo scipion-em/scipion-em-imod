@@ -695,8 +695,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if os.path.exists(coordFilePath):
 
-            outputSetOfCoordinates3D = \
-                self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
+            self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
 
             coordList = utils.format3DCoordinatesList(coordFilePath)
 
@@ -708,8 +707,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                        element[2],
                                        sampling_rate=ts.getSamplingRate())
 
-                outputSetOfCoordinates3D.append(newCoord3D)
-            outputSetOfCoordinates3D.write()
+                self.tiltSeriesCoordinates.append(newCoord3D)
+            self.tiltSeriesCoordinates.write()
             self._store()
 
     def createOutputFailedSet(self, tsObjId):
@@ -750,7 +749,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputSetOfCoordinates3D"):
+        if hasattr(self, "tiltSeriesCoordinates"):
             self.getOutputSetOfTiltSeriesCoordinates().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
@@ -868,9 +867,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
             summary.append("Interpolated Tilt-Series calculated: %d."
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
-        if hasattr(self, 'outputSetOfCoordinates3D'):
+        if hasattr(self, 'tiltSeriesCoordinates'):
             summary.append("Fiducial 3D coordinates calculated: %d."
-                           % (self.outputSetOfCoordinates3D.getSize()))
+                           % (self.tiltSeriesCoordinates.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             summary.append("Failed tilt-series: %d."
@@ -897,9 +896,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
             methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
                            % (self.outputInterpolatedSetOfTiltSeries.getSize()))
 
-        if hasattr(self, 'outputSetOfCoordinates3D'):
+        if hasattr(self, 'tiltSeriesCoordinates'):
             methods.append("%d fiducial 3D coordinates have been calculated."
-                           % (self.outputSetOfCoordinates3D.getSize()))
+                           % (self.tiltSeriesCoordinates.getSize()))
 
         if hasattr(self, 'outputFailedSetOfTiltSeries'):
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
