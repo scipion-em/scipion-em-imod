@@ -32,7 +32,8 @@ from pyworkflow.utils import path
 
 from tomo.protocols import ProtTomoBase
 from tomo.protocols.protocol_base import ProtTomoImportFiles
-from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries, CTFTomoSeries, CTFTomo
+from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries, CTFTomoSeries, CTFTomo, \
+    SetOfTiltSeriesCoordinates
 
 from imod import utils
 from imod import Plugin
@@ -241,24 +242,20 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputFiducialModelGaps
 
-    def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
-        if hasattr(self, "outputSetOfCoordinates3D"):
-            self.outputSetOfCoordinates3D.enableAppend()
+    def getOutputSetOfTiltSeriesCoordinates(self, inputSet=None, tiltSeries=None):
+        if hasattr(self, "tiltSeriesCoordinates"):
+            self.tiltSeriesCoordinates.enableAppend()
 
         else:
-            outputSetOfCoordinates3D = self._createSetOfCoordinates3D(volSet=outputSet,
-                                                                      suffix='Fiducials3D')
+            outputSetOfCoordinates3D = SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='Fiducials3D')
 
-            outputSetOfCoordinates3D.setSamplingRate(outputSet.getSamplingRate())
-            outputSetOfCoordinates3D.setPrecedents(outputSet)
-            outputSetOfCoordinates3D.setBoxSize(32)
-
+            outputSetOfCoordinates3D.setTiltSeries(tiltSeries)
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(outputSetOfCoordinates3D=outputSetOfCoordinates3D)
+            self._defineOutputs(tiltSeriesCoordinates=outputSetOfCoordinates3D)
             self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
 
-        return self.outputSetOfCoordinates3D
+        return self.tiltSeriesCoordinates
 
     def getOutputSetOfTomograms(self, inputSet, binning=1):
         if hasattr(self, "outputSetOfTomograms"):

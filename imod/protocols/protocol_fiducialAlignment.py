@@ -616,6 +616,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
+        XDim, YDim, ZDim = firstItem.getDimensions()
 
         # Create the output set of landmark models with no gaps
         if os.path.exists(
@@ -684,30 +685,24 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.outputFiducialModelNoGaps.write()
 
         # Create the output set of 3D coordinates
-        if os.path.exists(
-                os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".xyz"))):
+        coordFilePath = os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xyz"))
+
+        if os.path.exists(coordFilePath):
 
             outputSetOfCoordinates3D = \
-                self.getOutputSetOfCoordinates3Ds(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
-
-            coordFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_fid", extension=".xyz")
-            )
+                self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
 
             coordList = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
-                newCoord3D = tomoObj.Coordinate3D()
-                newCoord3D.setVolume(ts)
-                newCoord3D.setX(element[0], constants.BOTTOM_LEFT_CORNER)
-                newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
-                newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
+                newCoord3D = tomoObj.TiltSeriesCoordinate()
+                newCoord3D.setTsId(ts.getTsId())
+                newCoord3D.setPosition(element[0]-(XDim/2),
+                                element[1]-(YDim/2),
+                                element[2],
+                                sampling_rate=ts.getSamplingRate())
 
-                newCoord3D.setVolId(tsObjId)
-                newCoord3D.setTomoId(tsId)
                 outputSetOfCoordinates3D.append(newCoord3D)
-                outputSetOfCoordinates3D.update(newCoord3D)
             outputSetOfCoordinates3D.write()
             self._store()
 
@@ -750,7 +745,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if hasattr(self, "outputFiducialModelNoGaps"):
             self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputSetOfCoordinates3D"):
-            self.getOutputSetOfCoordinates3Ds().setStreamState(Set.STREAM_CLOSED)
+            self.getOutputSetOfTiltSeriesCoordinates().setStreamState(Set.STREAM_CLOSED)
         if hasattr(self, "outputFailedSetOfTiltSeries"):
             self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
