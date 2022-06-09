@@ -199,12 +199,17 @@ def format3DCoordinatesList(coordFilePath):
     with open(coordFilePath) as f:
         coorText = f.read().splitlines()
 
-        for line in coorText:
+        for i, line in enumerate(coorText):
             if line != '':
                 vector = line.replace('-', ' -').split()
+
+                if i == 0:
+                    xDim = int(vector[-2])
+                    yDim = int(vector[-1])
+
                 coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
 
-    return coorList
+    return coorList, xDim, yDim
 
 
 def getDefocusFileFlag(defocusFilePath):
