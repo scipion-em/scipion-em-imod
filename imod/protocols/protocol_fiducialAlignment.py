@@ -31,10 +31,8 @@ from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.objects import Transform
-import tomo.objects as tomoObj
 from pyworkflow.object import Set
-from tomo.objects import LandmarkModel
-import tomo.constants as constants
+from tomo.objects import LandmarkModel, SetOfTiltSeries, TiltImage, TiltSeries, TiltSeriesCoordinate
 from pwem.emlib.image import ImageHandler
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
@@ -53,6 +51,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     _label = 'Fiducial alignment'
     _devStatus = BETA
+    _possibleOutputs = {"outputSetOfTiltSeries": SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -66,7 +65,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         # TODO: Allow for a different set of tilt-series input source than the one from the landmark model. This is not
         # TODO: possible due to a change of data type when applying the transformation with scipion applyTransform
-        # TODO: mthod due to in a change in the output datatype (always float) which triggers the following error in
+        # TODO: method due to in a change in the output datatype (always float) which triggers the following error in
         # TODO: the imod tiltalign program:
         # TODO: ERROR: TILTALIGN - TWO POINTS (#    2 AND    3) ON VIEW    2 IN CONTOUR    1 OF OBJECT   1
 
@@ -446,12 +445,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
             self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             self.outputSetOfTiltSeries.append(newTs)
 
             for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
+                newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
@@ -526,7 +525,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(tsIn)
             self.outputInterpolatedSetOfTiltSeries.append(newTs)
 
@@ -541,7 +540,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
 
             for index, tiltImage in enumerate(tsIn):
-                newTi = tomoObj.TiltImage()
+                newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName()))
@@ -695,12 +694,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if os.path.exists(coordFilePath):
 
-            self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries)
+            self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get())
 
             coordList = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
-                newCoord3D = tomoObj.TiltSeriesCoordinate()
+                newCoord3D = TiltSeriesCoordinate()
                 newCoord3D.setTsId(ts.getTsId())
                 newCoord3D.setPosition(element[0] - (XDim / 2),
                                        element[1] - (YDim / 2),
@@ -719,12 +718,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
-            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             self.outputFailedSetOfTiltSeries.append(newTs)
 
             for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
+                newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
