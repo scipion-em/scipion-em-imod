@@ -696,13 +696,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get())
 
-            coordList = utils.format3DCoordinatesList(coordFilePath)
+            coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
                 newCoord3D = TiltSeriesCoordinate()
                 newCoord3D.setTsId(ts.getTsId())
-                newCoord3D.setPosition(element[0] - (XDim / 2),
-                                       element[1] - (YDim / 2),
+                newCoord3D.setPosition(element[0] - (xDim / 2),
+                                       element[1] - (yDim / 2),
                                        element[2],
                                        sampling_rate=ts.getSamplingRate())
 
