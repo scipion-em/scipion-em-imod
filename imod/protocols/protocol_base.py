@@ -242,18 +242,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.outputFiducialModelGaps
 
-    def getOutputSetOfTiltSeriesCoordinates(self, inputSet=None, tiltSeries=None):
+    def getOutputSetOfTiltSeriesCoordinates(self, setOfTiltSeries=None):
         if hasattr(self, "tiltSeriesCoordinates"):
             self.tiltSeriesCoordinates.enableAppend()
 
         else:
             outputSetOfCoordinates3D = SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='Fiducials3D')
 
-            outputSetOfCoordinates3D.setTiltSeries(tiltSeries)
+            outputSetOfCoordinates3D.setSetOfTiltSeries(setOfTiltSeries)
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(tiltSeriesCoordinates=outputSetOfCoordinates3D)
-            self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
+            self._defineSourceRelation(setOfTiltSeries, outputSetOfCoordinates3D)
 
         return self.tiltSeriesCoordinates
 
