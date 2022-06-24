@@ -64,13 +64,6 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                       label='Input set of Tilt-Series',
                       help='Input set of tilt-series to be processed with etomo.')
 
-        form.addParam('excludeList',
-                      params.StringParam,
-                      default='',
-                      label='Exclusion list',
-                      help='Provide tilt images IDs (usually starting at 1) that you want to exclude from the '
-                           'processing separated by blank spaces.')
-
         form.addParam('markersDiameter',
                       params.FloatParam,
                       default=10,
@@ -118,49 +111,12 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
         outputTsFileName = self.getFilePath(ts, extension=".st")
 
-        """Apply transformation matrices and remove excluded views"""
-        if self.excludeList.get() == '':
+        """Apply the transformation form the input tilt-series"""
+        ts.applyTransform(outputTsFileName)
 
-            """Apply the transformation form the input tilt-series"""
-            ts.applyTransform(outputTsFileName)
-
-            """Generate angle file"""
-            angleFilePath = self.getFilePath(ts, extension=".rawtlt")
-            ts.generateTltFile(angleFilePath)
-
-        else:
-            interpolatedTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-            angleFilePath = self.getFilePath(ts, extension=".rawtlt")
-
-            """Apply the transformation form the input tilt-series and generate a new ts object"""
-            ts.applyTransform(interpolatedTsFileName)
-
-            interpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            interpolatedSetOfTiltSeries.copyInfo(ts)
-            interpolatedSetOfTiltSeries.setDim(ts.getDim())
-
-            interpolatedTs = tomoObj.TiltSeries(tsId=tsId)
-            interpolatedTs.copyInfo(ts)
-
-            interpolatedSetOfTiltSeries.append(interpolatedTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(index + 1, interpolatedTsFileName)
-                interpolatedTs.append(newTi)
-            interpolatedTs.write()
-
-            """Write a new stack discarding excluded tilts"""
-            excludeList = [int(i) for i in self.excludeList.get().split()]
-            tiList = [ti.clone() for ti in interpolatedTs]
-            tiList.sort(key=lambda ti: ti.getTiltAngle())
-
-            writeTiStack(tiList,
-                         outputStackFn=outputTsFileName,
-                         outputTltFn=angleFilePath,
-                         excludeList=excludeList)
+        """Generate angle file"""
+        angleFilePath = self.getFilePath(ts, extension=".rawtlt")
+        ts.generateTltFile(angleFilePath)
 
         """Generate etomo config file"""
         args = '-name %s ' % firstItem.parseFileName(extension="")
@@ -248,14 +204,22 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
 
                 ih = ImageHandler()
 
-                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
+                # Getting the excluded views in order to disable the
+                # prealigned tilt-series
+                xcorrFn = self._getExtraPath(tsId, 'xcorr.com')
+                excludedViewList = self.getExcludedViewList(xcorrFn,
+                                                            reservedWord='SkipViews')
+
+                for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                     newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, prealiFilePath)
-                    index += 1
-                    xPreali, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
+                    sliceIndex = newTi.getIndex()
+                    newTi.setLocation(sliceIndex, prealiFilePath)
+                    xPreali, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
                     newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
+                    if sliceIndex in excludedViewList:
+                        newTi.setEnabled(False)
                     newTs.append(newTi)
 
                 xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
@@ -294,15 +258,24 @@ class ProtImodEtomo(EMProtocol, ProtTomoBase):
                 else:
                     tltList = None
 
-                for index, tiltImage in enumerate(ts.iterItems(iterate=False)):
+                # Getting the excluded views in order to disable in the
+                # aligned tiltserie
+                alignFn = self._getExtraPath(tsId, 'align.com')
+                excludedViewList = self.getExcludedViewList(alignFn,
+                                                            reservedWord='ExcludeList')
+
+                for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                     newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, aligFilePath)
+                    sliceIndex = newTi.getIndex()
+                    newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
-                        newTi.setTiltAngle(float(tltList[index]))
-                    xAli, _, _, _ = ih.getDimensions(newTi.getFileName()+":mrc")
+                        newTi.setTiltAngle(float(tltList[sliceIndex]))
+                    xAli, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
                     newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
+                    if sliceIndex in excludedViewList:
+                        newTi.setEnabled(False)
                     newTs.append(newTi)
 
                 xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
@@ -583,6 +556,19 @@ ProcessTrack.TomogramCombination=Not started
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
         return round(outputDim / originalDim)
+
+    def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
+        with open(fn, 'r') as f:
+            data = f.readlines()
+        excludedViewList = []
+        for line in data:
+            if reservedWord in line:
+                excludedViewList = line.strip().replace('\t', ' ').replace(',', ' ')
+                excludedViewList = excludedViewList.split(' ')[1:]
+                excludedViewList = [int(sliceIndex) for sliceIndex in excludedViewList]
+                break
+        return excludedViewList
+
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
