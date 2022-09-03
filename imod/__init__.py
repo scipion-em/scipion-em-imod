@@ -31,7 +31,7 @@ import pwem
 from pyworkflow.gui import FileTreeProvider
 
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
-from distutils.spawn import find_executable
+from shutil import which
 from pyworkflow.gui.project.utils import OS
 
 __version__ = '3.0.10'
@@ -93,7 +93,7 @@ class Plugin(pwem.Plugin):
             etomo = cls._getProgram(ETOMO_CMD)
 
             cls._validationMsg = [
-                "imod's %s command not found in path, please install it." % etomo] if not find_executable(
+                "imod's %s command not found in path, please install it." % etomo] if not which(
                 ETOMO_CMD) and not os.path.exists(etomo) else []
 
         return cls._validationMsg
