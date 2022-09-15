@@ -444,10 +444,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
 
-            self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            self.outputSetOfTiltSeries.append(newTs)
+            output.append(newTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = TiltImage()
@@ -475,8 +475,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs.write(properties=False)
 
-            self.outputSetOfTiltSeries.update(newTs)
-            self.outputSetOfTiltSeries.write()
+            output.update(newTs)
+            output.write()
 
             self._store()
         else:
@@ -495,7 +495,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         # Check that previous steps have been completed satisfactorily
         tmpFileName = os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xf"))
         if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-            self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             paramsAlignment = {
                 'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
@@ -510,7 +510,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-bin %(bin)d " \
                             "-imagebinned %(imagebinned)s "
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.outputSetOfTiltSeries.getTiltSeriesFromTsId(tsId))
+            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
 
             # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
             # the final sample disposition.
@@ -527,7 +527,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(tsIn)
-            self.outputInterpolatedSetOfTiltSeries.append(newTs)
+            output.append(newTs)
 
             tltFilePath = os.path.join(
                 extraPrefix,
@@ -554,9 +554,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            self.outputInterpolatedSetOfTiltSeries.update(newTs)
-            self.outputInterpolatedSetOfTiltSeries.updateDim()
-            self.outputInterpolatedSetOfTiltSeries.write()
+            output.update(newTs)
+            output.updateDim()
+            output.write()
             self._store()
         else:
             raise Exception(
@@ -627,9 +627,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if os.path.exists(
                 os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_noGaps_fid", extension=".txt"))):
 
-            self.getOutputFiducialModelNoGaps()
+            output = self.getOutputFiducialModelNoGaps()
 
-            self.outputFiducialModelNoGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             fiducialNoGapFilePath = os.path.join(
                 extraPrefix,
@@ -685,16 +685,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                                     xResid='0',
                                                     yResid='0')
 
-            self.outputFiducialModelNoGaps.append(landmarkModelNoGaps)
-            self.outputFiducialModelNoGaps.update(landmarkModelNoGaps)
-            self.outputFiducialModelNoGaps.write()
+            output.append(landmarkModelNoGaps)
+            output.update(landmarkModelNoGaps)
+            output.write()
 
         # Create the output set of 3D coordinates
         coordFilePath = os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid", extension=".xyz"))
 
         if os.path.exists(coordFilePath):
 
-            self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get())
+            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get())
 
             coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
@@ -706,21 +706,21 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                        element[2],
                                        sampling_rate=ts.getSamplingRate())
 
-                self.tiltSeriesCoordinates.append(newCoord3D)
-            self.tiltSeriesCoordinates.write()
+                output.append(newCoord3D)
+            output.write()
             self._store()
 
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
-            self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            self.outputFailedSetOfTiltSeries.append(newTs)
+            output.append(newTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = TiltImage()
@@ -736,22 +736,22 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            self.outputFailedSetOfTiltSeries.update(newTs)
-            self.outputFailedSetOfTiltSeries.updateDim()
-            self.outputFailedSetOfTiltSeries.write()
+            output.update(newTs)
+            output.updateDim()
+            output.write()
             self._store()
 
     def createOutputStep(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputFiducialModelNoGaps"):
-            self.getOutputFiducialModelNoGaps().setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "tiltSeriesCoordinates"):
-            self.getOutputSetOfTiltSeriesCoordinates().setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        if self.TiltSeries:
+            self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        if self.InterpolatedTiltSeries:
+            self.InterpolatedTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        if self.FiducialModelNoGaps:
+            self.FiducialModelNoGaps.setStreamState(Set.STREAM_CLOSED)
+        if self.TiltSeriesCoordinates:
+            self.TiltSeriesCoordinates.setStreamState(Set.STREAM_CLOSED)
+        if self.FailedTiltSeries:
+            self.FailedTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -854,25 +854,25 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _summary(self):
         summary = []
 
-        if hasattr(self, 'outputFiducialModelNoGaps'):
+        if self.FiducialModelNoGaps:
             summary.append("Fiducial models generated with no gaps: %d."
-                           % (self.outputFiducialModelNoGaps.getSize()))
+                           % (self.FiducialModelNoGaps.getSize()))
 
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Transformation matrices updated from the input Tilt-Series: %d."
-                           % (self.outputSetOfTiltSeries.getSize()))
+                           % (self.TiltSeries.getSize()))
 
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             summary.append("Interpolated Tilt-Series calculated: %d."
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           % (self.InterpolatedTiltSeries.getSize()))
 
-        if hasattr(self, 'tiltSeriesCoordinates'):
+        if self.TiltSeriesCoordinates:
             summary.append("Fiducial 3D coordinates calculated: %d."
-                           % (self.tiltSeriesCoordinates.getSize()))
+                           % (self.TiltSeriesCoordinates.getSize()))
 
-        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+        if self.FailedTiltSeries:
             summary.append("Failed tilt-series: %d."
-                           % (self.outputFailedSetOfTiltSeries.getSize()))
+                           % (self.FailedTiltSeries.getSize()))
 
         if not summary:
             summary.append("Output classes not ready yet.")
@@ -881,28 +881,26 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _methods(self):
         methods = []
 
-        if hasattr(self, 'outputFiducialModelNoGaps'):
+        if self.FiducialModelNoGaps:
             methods.append("The fiducial model (with no gaps) has been computed for %d "
                            "Tilt-series using the IMOD procedure."
-                           % (self.outputFiducialModelNoGaps.getSize()))
+                           % (self.FiducialModelNoGaps.getSize()))
 
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("The transformation matrices has been computed for %d "
                            "Tilt-series using the IMOD procedure."
-                           % (self.outputSetOfTiltSeries.getSize()))
+                           % (self.TiltSeries.getSize()))
 
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             methods.append("%d Tilt-Series have been interpolated using the IMOD procedure."
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           % (self.InterpolatedTiltSeries.getSize()))
 
-        if hasattr(self, 'tiltSeriesCoordinates'):
+        if self.TiltSeriesCoordinates:
             methods.append("%d fiducial 3D coordinates have been calculated."
-                           % (self.tiltSeriesCoordinates.getSize()))
+                           % (self.TiltSeriesCoordinates.getSize()))
 
-        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+        if self.FailedTiltSeries:
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
-                           % (self.outputFailedSetOfTiltSeries.getSize()))
+                           % (self.FailedTiltSeries.getSize()))
 
-        if not methods:
-            methods.append("Output classes not ready yet.")
         return methods

@@ -34,7 +34,7 @@ import pwem.objects as data
 from tomo.objects import TiltSeries, TiltImage
 from pwem.emlib.image import ImageHandler
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodImportTransformationMatrix(ProtImodBase):
@@ -144,12 +144,12 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
 
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
 
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
 
@@ -182,15 +182,17 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.updateDim()
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
 
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+
+        output = getattr(self, OUTPUT_TILTSERIES_NAME)
+        output.setStreamState(Set.STREAM_CLOSED)
+        output.write()
 
         self._store()
 
@@ -236,19 +238,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Input Tilt-Series: %d.\nTransformation matrices assigned: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
-        else:
-            summary.append("Output classes not ready yet.")
+                              self.TiltSeries.getSize()))
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("The transformation matrix has been assigned to %d Tilt-series from the input set.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
+                           % self.TiltSeries.getSize())
         return methods

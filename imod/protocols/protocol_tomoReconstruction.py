@@ -231,7 +231,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
@@ -249,14 +249,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
         acquisition.setStep(self.getAngleStepFromSeries(ts))
         newTomogram.setAcquisition(acquisition)
 
-        self.outputSetOfTomograms.append(newTomogram)
-        self.outputSetOfTomograms.update(newTomogram)
-        self.outputSetOfTomograms.write()
+        output.append(newTomogram)
+        output.update(newTomogram)
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTomograms.write()
+        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
+        self.Tomograms.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -275,20 +275,20 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTomograms'):
+        if self.Tomograms:
             summary.append("Input Tilt-Series: %d.\nTomograms reconstructed: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTomograms.getSize()))
+                              self.Tomograms.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTomograms'):
+        if self.Tomograms:
             methods.append("The reconstruction has been computed for %d "
                            "Tilt-series using the IMOD procedure.\n"
-                           % (self.outputSetOfTomograms.getSize()))
+                           % (self.Tomograms.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

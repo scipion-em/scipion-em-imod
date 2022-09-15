@@ -340,9 +340,9 @@ class ProtImodFiducialModel(ProtImodBase):
         if os.path.exists(
                 os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
 
-            self.getOutputFiducialModelGaps()
+            output = self.getOutputFiducialModelGaps()
 
-            self.outputFiducialModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             landmarkModelGapsFilePath = os.path.join(
                 extraPrefix,
@@ -384,21 +384,21 @@ class ProtImodFiducialModel(ProtImodBase):
                                               xResid=0,
                                               yResid=0)
 
-            self.outputFiducialModelGaps.append(landmarkModelGaps)
-            self.outputFiducialModelGaps.update(landmarkModelGaps)
-            self.outputFiducialModelGaps.write()
+            output.append(landmarkModelGaps)
+            output.update(landmarkModelGaps)
+            output.write()
 
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
         if tsObjId in self._failedTs:
-            self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             ts = self.inputSetOfTiltSeries.get()[tsObjId]
             tsId = ts.getTsId()
 
             newTs = tomoObj.TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
-            self.outputFailedSetOfTiltSeries.append(newTs)
+            output.append(newTs)
 
             for index, tiltImage in enumerate(ts):
                 newTi = tomoObj.TiltImage()
@@ -412,16 +412,16 @@ class ProtImodFiducialModel(ProtImodBase):
             newTs.setDim((x, y, z))
             newTs.write(properties=False)
 
-            self.outputFailedSetOfTiltSeries.update(newTs)
-            self.outputFailedSetOfTiltSeries.updateDim()
-            self.outputFailedSetOfTiltSeries.write()
+            output.update(newTs)
+            output.updateDim()
+            output.write()
             self._store()
 
     def createOutputStep(self):
-        if hasattr(self, "outputFiducialModelGaps"):
-            self.outputFiducialModelGaps.setStreamState(Set.STREAM_CLOSED)
-        if hasattr(self, "outputFailedSetOfTiltSeries"):
-            self.outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        if self.FiducialModelGaps:
+            self.FiducialModelGaps.setStreamState(Set.STREAM_CLOSED)
+        if self.FailedTiltSeries:
+            self.FailedTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
 
@@ -562,30 +562,30 @@ $if (-e ./savework) ./savework
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputFiducialModelGaps'):
+        if self.FiducialModelGaps:
             summary.append("Input Tilt-Series: %d.\nFiducial models generated presenting gaps: %d."
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputFiducialModelGaps.getSize()))
+                              self.FiducialModelGaps.getSize()))
 
-        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+        if self.FailedTiltSeries:
             summary.append("Failed tilt-series: %d."
-                           % (self.outputFailedSetOfTiltSeries.getSize()))
+                           % (self.FailedTiltSeries.getSize()))
 
         if not summary:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputFiducialModelGaps'):
+        if self.FiducialModelGaps:
             methods.append("The fiducial model (presenting gaps) has been computed for %d "
                            "Tilt-series using the IMOD procedure."
-                           % (self.outputFiducialModelGaps.getSize()))
+                           % (self.FiducialModelGaps.getSize()))
 
-        if hasattr(self, 'outputFailedSetOfTiltSeries'):
+        if self.FailedTiltSeries:
             methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
-                           % (self.outputFailedSetOfTiltSeries.getSize()))
+                           % (self.FailedTiltSeries.getSize()))
 
         if not methods:
-            methods.append("Output classes not ready yet.")
+            methods.append("Output not ready yet.")
         return methods

@@ -25,6 +25,8 @@
 # **************************************************************************
 
 import os
+
+from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME
 from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.utils.path as path
@@ -186,13 +188,13 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
     # --------------------------- UTILS functions ----------------------------
     def getOutputSetOfXraysErasedTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
+        if self.TiltSeries:
+            self.TiltSeries.enableAppend()
         else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
+            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputSetOfTiltSeries})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
+        return self.TiltSeries

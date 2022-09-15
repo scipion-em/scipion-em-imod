@@ -118,17 +118,23 @@ class ProtImodCtfCorrection(ProtImodBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+        self.debug("Generating defocus file for %s (OBjId), %s (TsId)"% (tsObjId, tsId))
 
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
+        # Compose the defocus file path
+        defocusFilePath = self.getDefocusFileName(ts)
 
         """Generate defocus file"""
-        defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
+
+    def getDefocusFileName(self, ts):
+        """ Returns the path of the defocus filename based on the tilt series and creates the folder/s"""
+
+        tmpPrefix = self._getTmpPath(ts.getTsId())
+        path.makePath(tmpPrefix)
+        defocusFn = ts.getFirstItem().parseFileName(extension=".defocus")
+        defocusFilePath = os.path.join(tmpPrefix, defocusFn)
+        return defocusFilePath
 
     def ctfCorrection(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -141,7 +147,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
+            'defocusFile': self.getDefocusFileName(ts),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
             'defocusTol': self.defocusTol.get(),
@@ -171,7 +177,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output =self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -179,7 +185,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -190,13 +196,13 @@ class ProtImodCtfCorrection(ProtImodBase):
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.TiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -217,19 +223,20 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
                            % (self.inputSetOfCtfTomoSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
+                              self.TiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("%d Tilt-series have been CTF corrected using the IMOD ctfphaseflip software.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
+                           % (self.TiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
+

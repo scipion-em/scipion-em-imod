@@ -182,7 +182,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         alignmentMatrix = utils.formatTransformationMatrix(
             os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
@@ -190,7 +190,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
 
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -220,13 +220,13 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.write()
 
         self._store()
 
     def computeInterpolatedStackStep(self, tsObjId):
-        self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -251,7 +251,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputInterpolatedSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -270,49 +270,43 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputInterpolatedSetOfTiltSeries.update(newTs)
-        self.outputInterpolatedSetOfTiltSeries.updateDim()
-        self.outputInterpolatedSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.TiltSeries.write()
         if self.computeAlignment.get() == 0:
-            self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-            self.outputInterpolatedSetOfTiltSeries.write()
+            self.InterpolatedTiltSeries.setStreamState(Set.STREAM_CLOSED)
+            self.InterpolatedTiltSeries.write()
 
         self._store()
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
-        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
-                           "Interpolated Tilt-Series: %d.\n"
-                           % (self.outputSetOfTiltSeries.getSize(),
-                              self.outputSetOfTiltSeries.getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+                              self.TiltSeries.getSize()))
+            if self.InterpolatedTiltSeries:
+                summary.append("Interpolated Tilt-Series: %d."
+                           % self.InterpolatedTiltSeries.getSize())
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
-        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure.\n"
-                           "Also, interpolation has been completed for %d Tilt-series.\n"
-                           % (self.outputSetOfTiltSeries.getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           "Tilt-series using the IMOD procedure."
+                           % (self.TiltSeries.getSize()))
+            if self.InterpolatedTiltSeries:
+                methods.append("Also, interpolation has been completed for %d Tilt-series."
+                           % self.InterpolatedTiltSeries.getSize())
         else:
-            methods.append("Output classes not ready yet.")
+            methods.append("Output not ready yet.")
         return methods

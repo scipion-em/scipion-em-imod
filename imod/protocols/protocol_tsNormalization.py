@@ -164,7 +164,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # --------------------------- STEPS functions ----------------------------
     def generateOutputStackStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -207,7 +207,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -228,14 +228,14 @@ class ProtImodTSNormalization(ProtImodBase):
         newTs.setDim((x, y, z))
 
         newTs.write(properties=False)
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.updateDim()
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.TiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -265,19 +265,19 @@ class ProtImodTSNormalization(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
+                              self.TiltSeries.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("%d tilt-series have been normalized using the IMOD newstack program.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
+                           % (self.TiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods
