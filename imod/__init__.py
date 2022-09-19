@@ -30,11 +30,11 @@ import os
 import pwem
 from pyworkflow.gui import FileTreeProvider
 
-from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION
+from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 from shutil import which
 from pyworkflow.gui.project.utils import OS
 
-__version__ = '3.0.10'
+__version__ = '3.0.11'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -106,37 +106,47 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        IMOD_INSTALLED = 'imod_%s_installed' % DEFAULT_VERSION
 
+        for version in VERSIONS:
+            cls.installImod(env,version, version==DEFAULT_VERSION)
+
+    @classmethod
+    def installImod(cls, env, version, default):
+        IMOD_INSTALLED = 'imod_%s_installed' % version
         if 'linux' in OS.getPlatform().lower():
-            # Add jpg lib
-            jpeg = env.addLibrary(
-                'jpeg',
-                tar='libjpeg-turbo-1.3.1.tgz',
-                flags=['--without-simd'],
-                default=False)
+            # Add jpg lib, once
+            JPEG_NAME = 'jpeg'
+
+            if not env.hasTarget(JPEG_NAME):
+                jpeg = env.addLibrary(
+                    JPEG_NAME,
+                    tar='libjpeg-turbo-1.3.1.tgz',
+                    flags=['--without-simd'],
+                    default=False)
+            else:
+                jpeg = env.getTarget(JPEG_NAME)
 
             # Download .sh
             # https://bio3d.colorado.edu/imod/AMD64-RHEL5/imod_4.11.7_RHEL7-64_CUDA10.1.sh
             installationCmd = 'wget --continue http://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
-                              'imod_%s_RHEL7-64_CUDA10.1.sh --no-check-certificate && ' % DEFAULT_VERSION
+                              'imod_%s_RHEL7-64_CUDA10.1.sh --no-check-certificate && ' % version
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
-            installationCmd += 'sh imod_%s_RHEL7-64_CUDA10.1.sh -dir . -yes -skip && ' % DEFAULT_VERSION
+            installationCmd += 'sh imod_%s_RHEL7-64_CUDA10.1.sh -dir . -yes -skip && ' % version
 
             # Create installation finished flag file
             installationCmd += 'touch %s' % IMOD_INSTALLED
 
             env.addPackage('imod',
                            deps=[jpeg],
-                           version=DEFAULT_VERSION,
+                           version=version,
                            tar='void.tgz',
                            createBuildDir=True,
-                           buildDir=cls._getEMFolder(DEFAULT_VERSION),
+                           buildDir=cls._getEMFolder(version),
                            neededProgs=cls.getDependencies(),
                            libChecks="libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
-                           default=True)
+                           default=default)
 
     @classmethod
     def runImod(cls, protocol, program, args, cwd=None):

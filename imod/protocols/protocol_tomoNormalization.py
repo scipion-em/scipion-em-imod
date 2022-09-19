@@ -231,7 +231,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
+        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
@@ -254,14 +254,14 @@ class ProtImodTomoNormalization(ProtImodBase):
         else:
             newTomogram.copyAttributes(tomo, '_origin')
 
-        self.outputSetOfTomograms.append(newTomogram)
-        self.outputSetOfTomograms.update(newTomogram)
-        self.outputSetOfTomograms.write()
+        output.append(newTomogram)
+        output.update(newTomogram)
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTomograms.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTomograms.write()
+        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
+        self.Tomograms.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -279,19 +279,19 @@ class ProtImodTomoNormalization(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTomograms'):
+        if self.Tomograms:
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTomograms.get().getSize(),
-                              self.outputSetOfTomograms.getSize()))
+                              self.Tomograms.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTomograms'):
+        if self.Tomograms:
             methods.append("%d tomograms have been normalized using the IMOD newstack program.\n"
-                           % (self.outputSetOfTomograms.getSize()))
+                           % (self.Tomograms.getSize()))
         else:
-            methods.append("Output classes not ready yet.")
+            methods.append("Output not ready yet.")
         return methods

@@ -110,7 +110,7 @@ class ProtImodExcludeViews(ProtImodBase):
             Plugin.runImod(self, 'excludeviews', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -119,7 +119,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         position = self.checkPositionTiltSeriesInList(tsId)
 
@@ -140,14 +140,14 @@ class ProtImodExcludeViews(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.updateDim()
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.TiltSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -178,10 +178,10 @@ class ProtImodExcludeViews(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries):
+            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
                 summary.append("Tilt-series ID: %s.   Size: %d ----> %d."
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),
@@ -193,10 +193,10 @@ class ProtImodExcludeViews(ProtImodBase):
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.outputSetOfTiltSeries):
+            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
                 methods.append("Tilt-series ID: %s.   Size: %d ----> %d."
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),

@@ -31,6 +31,8 @@ import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
+from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, \
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME
 from imod.viewers.views_tkinter_tree import ImodGenericViewer, ImodSetView, \
     ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView
 import pyworkflow.protocol.params as params
@@ -142,12 +144,12 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
         self.defineOutputsSetNames()
 
     def defineOutputsSetNames(self, **kwargs):
-        self.outputSetName = {'savedTsPreAli': 'outputPrealignedSetOfTiltSeries',
-                              'savedTsAli': 'outputAlignedSetOfTiltSeries',
-                              'saved3DCoord': 'outputSetOfCoordinates3D',
-                              'savedFiducials': 'outputSetOfLandmarkModelsNoGaps',
-                              'savedReconsTomo': 'outputSetOfFullTomograms',
-                              'savedPostProcessTomo': 'outputSetOfPostProcessTomograms'}
+        self.outputSetName = {'savedTsPreAli': 'PrealignedTiltSeries',
+                              'savedTsAli': OUTPUT_TILTSERIES_NAME,
+                              'saved3DCoord': OUTPUT_TILTSERIES_NAME,
+                              'savedFiducials': OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                              'savedReconsTomo': 'FullTomograms',
+                              'savedPostProcessTomo': 'PostProcessTomograms'}
 
     def _getVisualizeDict(self):
         return {'savedTsPreAli': self._showOutputSet,
@@ -164,11 +166,11 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
             if hasattr(self.protocol, outputName):
                 outputSet = getattr(self.protocol, outputName)
                 if param == 'savedTsPreAli' or param == 'savedTsAli':
-                    ImodSetView(outputSet)
+                    ImodSetView(outputSet).show()
                 elif param == 'savedFiducials':
-                    ImodSetOfLandmarkModelsView(outputSet)
+                    ImodSetOfLandmarkModelsView(outputSet).show()
                 elif param == 'savedReconsTomo' or param == 'savedPostProcessTomo':
-                    ImodSetOfTomogramsView(outputSet)
+                    ImodSetOfTomogramsView(outputSet).show()
                 elif param == 'saved3DCoord':
                     dataviewer = DataViewer(protocol=self.protocol,
                                             project=self.protocol.getProject())

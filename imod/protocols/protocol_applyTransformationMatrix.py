@@ -33,7 +33,7 @@ from pyworkflow.object import Set
 from tomo.objects import TiltSeries, TiltImage
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TS_INTERPOLATED_NAME
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -113,7 +113,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
-        self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -122,7 +122,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputInterpolatedSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
@@ -142,14 +142,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputInterpolatedSetOfTiltSeries.update(newTs)
-        self.outputInterpolatedSetOfTiltSeries.updateDim()
-        self.outputInterpolatedSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputInterpolatedSetOfTiltSeries.write()
+        self.InterpolatedTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.InterpolatedTiltSeries.write()
         self._store()
 
     # --------------------------- INFO functions ----------------------------
@@ -166,20 +166,20 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+                              self.InterpolatedTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             methods.append("The interpolation has been computed for %d "
                            "Tilt-series using the IMOD newstack program.\n"
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           % (self.InterpolatedTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

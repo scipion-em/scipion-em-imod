@@ -33,7 +33,7 @@ import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from imod import Plugin
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -49,7 +49,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     defocusUTolerance = 20
     defocusVTolerance = 20
     _interactiveMode = False
-    OUTPUT_PREFIX = 'outputSetOfCTFTomoSeries'
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -286,8 +285,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         for item in self.inputSet.get():
             self._insertFunctionStep(self.convertInputStep, item.getObjId())
             self._insertFunctionStep(self.ctfEstimation, item.getObjId())
-            self._insertFunctionStep(self.createOutputStep, item.getObjId(),
-                                     self.OUTPUT_PREFIX)
+            self._insertFunctionStep(self.createOutputStep, item.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
@@ -394,25 +392,23 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
-    def createOutputStep(self, tsObjId, outputSetName):
+    def createOutputStep(self, tsObjId):
         ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
-        self.outputSetName = outputSetName
 
         extraPrefix = self._getExtraPath(tsId)
 
         defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
-            self.getOutputSetOfCTFTomoSeries(self.outputSetName)
+            output = self.getOutputSetOfCTFTomoSeries(OUTPUT_CTF_SERIE)
 
-            self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath)
+            self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
 
     def closeOutputSetsStep(self):
-        output = getattr(self, self.outputSetName)
-        if output is not None:
-            output.setStreamState(Set.STREAM_CLOSED)
-            output.write()
+
+        self.CTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
+        self.CTFTomoSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
@@ -437,19 +433,19 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+        if self.CTFTomoSeries:
             summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
                            % (self._getSetOfTiltSeries().getSize(),
-                              self.outputSetOfCTFTomoSeries.getSize()))
+                              self.CTFTomoSeries.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+        if self.CTFTomoSeries:
             methods.append("%d Tilt-series CTF have been estimated using the IMOD ctfplotter software.\n"
-                           % (self.outputSetOfCTFTomoSeries.getSize()))
+                           % (self.CTFTomoSeries.getSize()))
         else:
-            methods.append("Output classes not ready yet.")
+            methods.append("Output not ready yet.")
         return methods

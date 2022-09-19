@@ -32,7 +32,7 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
 
 
 class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
@@ -63,7 +63,6 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
-        self.outputSetName = 'outputSetOfCTFTomoSeries'
 
         self._insertFunctionStep(self.importSetOfCtfTomoSeries)
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -73,7 +72,7 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
 
-        self.getOutputSetOfCTFTomoSeries(self.outputSetName)
+        output = self.getOutputSetOfCTFTomoSeries(OUTPUT_CTF_SERIE)
 
         for ts in inputSetOfTiltSeries:
             tsFileName = ts.getFirstItem().parseFileName(extension='')
@@ -84,13 +83,13 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
                 if tsFileName == defocusFileName:
 
-                    print("Parsing file: " + defocusFilePath)
+                    self.info("Parsing file: " + defocusFilePath)
 
-                    self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath)
+                    self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
 
     def closeOutputSetsStep(self):
-        self.outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfCTFTomoSeries.write()
+        self.CTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
+        self.CTFTomoSeries.write()
         self._store()
 
     # --------------------------- UTILS functions ---------------------------
@@ -100,20 +99,17 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfCTFTomoSeries'):
+        if self.CTFTomoSeries:
             summary.append("Imported CTF tomo series: %d.\n"
-                           % (self.outputSetOfCTFTomoSeries.getSize()))
-        else:
-            summary.append("Output classes not ready yet.")
+                           % (self.CTFTomoSeries.getSize()))
+
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfCTFTomoSeries'):
-            methods.append("%d CTF tomo series have been imported into the scipion framework.\n"
-                           % (self.outputSetOfCTFTomoSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
+        if self.CTFTomoSeries:
+            methods.append("%d CTF tomo series have been imported into this project.\n"
+                           % self.CTFTomoSeries.getSize())
         return methods
 
     def _validate(self):

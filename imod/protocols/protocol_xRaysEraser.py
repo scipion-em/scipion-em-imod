@@ -34,7 +34,7 @@ from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -47,10 +47,11 @@ class ProtImodXraysEraser(ProtImodBase):
     _label = 'X-rays eraser'
     _devStatus = BETA
 
-    def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
+    # def __init__(self, **kwargs):
+    #     EMProtocol.__init__(self, **kwargs)
+    #
 
-        # -------------------------- DEFINE param functions -----------------------
+    # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
         form.addSection('Input')
@@ -151,7 +152,7 @@ class ProtImodXraysEraser(ProtImodBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -159,7 +160,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -170,22 +171,23 @@ class ProtImodXraysEraser(ProtImodBase):
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.write()
         self._store()
 
     def closeOutputStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
+
+        getattr(self, OUTPUT_TILTSERIES_NAME).setStreamState(Set.STREAM_CLOSED)
         self._store()
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             summary.append("Input Tilt-Series: %d.\nX-rays erased output tilt series: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
+                              self.TiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
 
@@ -193,13 +195,10 @@ class ProtImodXraysEraser(ProtImodBase):
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("The x-rays artifacts have been erased for %d "
                            "Tilt-series using the IMOD program ccderaser.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
-
-        else:
-            methods.append("Output classes not ready yet.")
+                           % (self.TiltSeries.getSize()))
 
         return methods
 

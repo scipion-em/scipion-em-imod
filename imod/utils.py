@@ -26,7 +26,8 @@
 """
 This module contains utils functions for IMOD protocols
 """
-
+import logging
+logger = logging.getLogger(__name__)
 import csv
 import math
 import numpy as np
@@ -201,8 +202,11 @@ def format3DCoordinatesList(coordFilePath):
 
         for i, line in enumerate(coorText):
             if line != '':
+
+                logger.debug("Fiducial coordinate line is: %s" % line)
                 vector = line.replace('-', ' -').split()
 
+                logger.debug("Fiducial vector is: %s" % vector)
                 if i == 0:
                     xDim = int(vector[-2])
                     yDim = int(vector[-1])
@@ -546,13 +550,19 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
     tiltSeries = ctfTomoSeries.getTiltSeries()
 
+    logger.info("Trying to generate defocus file at %s" % defocusFilePath)
+
     # Check if there is CTF estimation information as list
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
+
+        logger.debug("Defocus file generated form a list.")
 
         flag = ctfTomoSeries.getIMODDefocusFileFlag()
 
         if flag == 0:
             # Plain estimation
+
+            logger.debug("Flag 0: Plain estimation.")
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
@@ -589,6 +599,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
         elif flag == 1:
             # Astigmatism estimation
+            logger.debug("Flag 1: Astigmatism estimtion.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -623,6 +634,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
         elif flag == 4:
             # Phase-shift estimation
+            logger.debug("Flag 4: Phase shift estimation.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             phaseShiftDict = generatePhaseShiftDictionary(ctfTomoSeries)
@@ -655,6 +667,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
         elif flag == 5:
             # Astigmatism and phase shift estimation
+            logger.debug("Flag 5: Astigmatism and phase shift.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -691,6 +704,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
         elif flag == 37:
             # Astigmatism, phase shift and cut-on frequency estimation
+            logger.debug("Flag 37: Astigmatism, phase shift and cut-on frequency estimation.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -733,6 +747,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
     else:
         # There is no information available as list (not an IMOD CTF estimation)
+
+        logger.debug("Defocus file generated form a defocus attributes.")
 
         with open(defocusFilePath, 'w') as f:
             lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]

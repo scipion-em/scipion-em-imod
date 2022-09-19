@@ -34,7 +34,7 @@ import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -151,12 +151,12 @@ class ProtImodDoseFilter(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
 
-        self.outputSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -168,14 +168,14 @@ class ProtImodDoseFilter(ProtImodBase):
 
         newTs.write(properties=False)
 
-        self.outputSetOfTiltSeries.update(newTs)
-        self.outputSetOfTiltSeries.write()
+        output.update(newTs)
+        output.write()
 
         self._store()
 
     def closeOutputSetsStep(self):
-        self.outputSetOfTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.outputSetOfTiltSeries.write()
+        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.TiltSeries.write()
         self._store()
 
     # --------------------------- INFO functions ----------------------------
@@ -192,32 +192,24 @@ class ProtImodDoseFilter(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputSetOfTiltSeries.getSize()))
-        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
-                           "Interpolated Tilt-Series: %d.\n"
-                           % (self.outputSetOfTiltSeries.getSize(),
-                              self.outputSetOfTiltSeries.getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
-        else:
-            summary.append("Output classes not ready yet.")
+
+        summary.append("%d input Tilt-Series." % self.inputSetOfTiltSeries.get().getSize())
+
+        if self.TiltSeries:
+            summary.append("%d transformation matrices calculated." % self.TiltSeries.getSize())
+
+        if self.InterpolatedTiltSeries:
+            summary.append("%d interpolated Tilt-Series." % self.InterpolatedTiltSeries.getSize())
+
         return summary
 
     def _methods(self):
         methods = []
-        if not hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.TiltSeries:
             methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure.\n"
-                           % (self.outputSetOfTiltSeries.getSize()))
-        elif hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
-            methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure.\n"
-                           "Also, interpolation has been completed for %d Tilt-series.\n"
-                           % (self.outputSetOfTiltSeries.getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
+                           "Tilt-series using the IMOD procedure."
+                           % self.TiltSeries.getSize())
+        if self.InterpolatedTiltSeries:
+            methods.append("Also, interpolation has been completed for %d Tilt-series."
+                           % self.InterpolatedTiltSeries.getSize())
         return methods
