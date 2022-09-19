@@ -59,7 +59,7 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_PREALIGNED = 'Prealigned'
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
-    COL_LANDMODEL_NO_GAPS = 'Landmark models no gaps'
+    COL_LANDMODEL_NO_GAPS = 'Fiducial models w/o gaps'
     COL_RECONST_TOMOGRAM = 'Full tomograms'
     COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
 
