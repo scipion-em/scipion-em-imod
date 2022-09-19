@@ -29,16 +29,13 @@
 import os
 
 import pyworkflow as pw
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, ProtImodBase, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME
+from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, ProtImodBase, \
+    OUTPUT_TS_COORDINATES_NAME
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
 import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
-from tomo.convert import writeTiStack
-import tomo.constants as constants
+
 from imod import Plugin
 from imod import utils
 from pwem.emlib.image import ImageHandler
@@ -306,7 +303,7 @@ class ProtImodEtomo(ProtImodBase):
                     if setOfTSCoords is None:
                         setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='LandmarkModel')
                         setOfTSCoords.setSetOfTiltSeries(outputAliSetOfTiltSeries)
-                        self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:setOfTSCoords})
+                        self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME:setOfTSCoords})
                         self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                    setOfTSCoords)
                     else:
@@ -323,7 +320,7 @@ class ProtImodEtomo(ProtImodBase):
                         newCoord3D.setZ(element[2])
 
                         setOfTSCoords.append(newCoord3D)
-                        # setOfTSCoords.update(newCoord3D)
+                        setOfTSCoords.update(newCoord3D)
 
                     setOfTSCoords.write()
                     self._store(setOfTSCoords)
@@ -345,7 +342,7 @@ class ProtImodEtomo(ProtImodBase):
 
                 Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
 
-                outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps()
+                outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps(outputPrealiSetOfTiltSeries)
 
                 fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 

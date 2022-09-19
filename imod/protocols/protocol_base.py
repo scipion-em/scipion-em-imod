@@ -234,21 +234,28 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return self.FailedTiltSeries
 
-    def getOutputFiducialModelNoGaps(self):
+    def getOutputFiducialModelNoGaps(self, tiltSeries=None):
         
         if self.FiducialModelNoGaps:
             self.FiducialModelNoGaps.enableAppend()
 
         else:
+
+            if tiltSeries is None:
+                tiltSeriesPointer = self.inputSetOfTiltSeries
+                tiltSeries = tiltSeriesPointer.get()
+            else:
+                tiltSeriesPointer = tiltSeries
+
             outputFiducialModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
 
-            outputFiducialModelNoGaps.copyInfo(self.inputSetOfTiltSeries.get())
-            outputFiducialModelNoGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
+            outputFiducialModelNoGaps.copyInfo(tiltSeries)
+            outputFiducialModelNoGaps.setSetOfTiltSeries(tiltSeriesPointer)
 
             outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME:outputFiducialModelNoGaps})
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelNoGaps)
+            self._defineSourceRelation(tiltSeriesPointer, outputFiducialModelNoGaps)
 
         return self.FiducialModelNoGaps
 
