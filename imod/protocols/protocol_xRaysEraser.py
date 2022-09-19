@@ -34,22 +34,24 @@ from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 import imod.utils as utils
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
-class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
+class ProtImodXraysEraser(ProtImodBase):
     """
     Erase X-rays from aligned tilt-series based on the IMOD procedure.
     More info:
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
     """
 
-    _label = 'x-rays eraser'
+    _label = 'X-rays eraser'
     _devStatus = BETA
 
-    def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
+    # def __init__(self, **kwargs):
+    #     EMProtocol.__init__(self, **kwargs)
+    #
 
-        # -------------------------- DEFINE param functions -----------------------
+    # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
         form.addSection('Input')
@@ -98,22 +100,10 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('convertInputStep', ts.getObjId())
-            self._insertFunctionStep('eraseXraysStep', ts.getObjId())
-            self._insertFunctionStep('createOutputStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputStep')
-
-    def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(extraPrefix)
-        path.makePath(tmpPrefix)
-
-        """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
-        ts.applyTransform(outputTsFileName)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId(), generateAngleFile=False)
+            self._insertFunctionStep(self.eraseXraysStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputStep)
 
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -162,7 +152,7 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
-        outputXraysErasedSetOfTiltSeries = self.getOutputSetOfXraysErasedTiltSeries()
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -170,34 +160,45 @@ class ProtImodXraysEraser(EMProtocol, ProtTomoBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputXraysErasedSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
+            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+            newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
             newTs.append(newTi)
 
         newTs.write(properties=False)
-        outputXraysErasedSetOfTiltSeries.update(newTs)
-        outputXraysErasedSetOfTiltSeries.write()
+        output.update(newTs)
+        output.write()
         self._store()
 
     def closeOutputStep(self):
-        self.getOutputSetOfXraysErasedTiltSeries().setStreamState(Set.STREAM_CLOSED)
 
+
+        getattr(self, OUTPUT_TILTSERIES_NAME).setStreamState(Set.STREAM_CLOSED)
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputSetOfXraysErasedTiltSeries(self):
-        if hasattr(self, "outputSetOfTiltSeries"):
-            self.outputSetOfTiltSeries.enableAppend()
+    # --------------------------- INFO functions ----------------------------
+    def _summary(self):
+        summary = []
+        if self.TiltSeries:
+            summary.append("Input Tilt-Series: %d.\nX-rays erased output tilt series: %d.\n"
+                           % (self.inputSetOfTiltSeries.get().getSize(),
+                              self.TiltSeries.getSize()))
         else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputSetOfTiltSeries=outputSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
-        return self.outputSetOfTiltSeries
+            summary.append("Output classes not ready yet.")
+
+        return summary
+
+    def _methods(self):
+        methods = []
+        if self.TiltSeries:
+            methods.append("The x-rays artifacts have been erased for %d "
+                           "Tilt-series using the IMOD program ccderaser.\n"
+                           % (self.TiltSeries.getSize()))
+
+        return methods
+

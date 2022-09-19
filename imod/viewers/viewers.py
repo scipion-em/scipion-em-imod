@@ -25,15 +25,22 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
-from imod.viewers.views_tkinter_tree import ImodGenericViewer
+from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, \
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME
+from imod.viewers.views_tkinter_tree import ImodGenericViewer, ImodSetView, \
+    ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView
 import pyworkflow.protocol.params as params
 
 import tomo.objects
 import imod.protocols
 from imod import Plugin
+from pwem.viewers import DataViewer
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -71,21 +78,24 @@ class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
     def __init__(self, obj, **kwargs):
-        # Remove :mrc if present
-        if isinstance(obj, tomo.objects.LandmarkModel):
-            tsId = os.path.basename(obj.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                           "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(obj.getModelName())[0],
-                                "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(obj.getModelName())[0],
-                                            "%s.preali" % tsId)
-            else:
-                prealiTSPath = ""
+        # Accept file paths
+        if isinstance(obj, str):
+            fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
-            fn = Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + obj.getModelName() + " ; "
+        elif isinstance(obj, tomo.objects.LandmarkModel):
+            if obj.getTiltSeries().getFirstItem().hasTransform():
+                # Input and output extensions must match if we want to apply the transform with Xmipp
+                _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+
+                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated." + extension)
+                obj.getTiltSeries().applyTransform(outputTSInterpolatedPath)
+
+                fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSInterpolatedPath + " " + \
+                      obj.getModelName() + " ; "
+
+            else:
+                fn = Plugin.getImodCmd('3dmod') + " -m " + obj.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + obj.getModelName() + " ; "
 
         else:
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
@@ -104,53 +114,72 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
         form.addSection(label='Visualization')
 
         group = form.addGroup('Tilt Series Alignment')
-        group.addParam('saveTsPreAli', params.LabelParam,
-                       label="Register pre-aligned tilt-series (.preali)",
+        group.addParam('savedTsPreAli', params.LabelParam,
+                       label="Pre-aligned tilt-series",
                        help="Through this option the intermediate pre-aligned "
-                            "tilt-series can be registered as an output of "
-                            "this protocol.")
-        group.addParam('saveTsAli', params.LabelParam,
-                       label="Register aligned tilt-series (.ali)",
+                            "tilt-series can be shown.")
+        group.addParam('savedTsAli', params.LabelParam,
+                       label="Aligned tilt-series",
                        help="Through this option the intermediate aligned "
-                            "tilt-series can be registered as an output of "
-                            "this protocol.")
-        group.addParam('saveTsOriginal', params.LabelParam,
-                       label="Register original tilt-series (+ alignment info)",
-                       help="Through this option the original tilt-series can "
-                            "be registered as an output of this protocol. The "
-                            "obtained alignment parameters will be stored as "
-                            "metadata. ")
-        group.addParam('saveFiducials', params.LabelParam,
-                       label="Register fiducials model",
+                            "tilt-series can be shown.")
+        group.addParam('saved3DCoord', params.LabelParam,
+                       label="3D Coordinates",
+                       help="Through this option the 3D coordinates can "
+                            "be shown.")
+        group.addParam('savedFiducials', params.LabelParam,
+                       label="Landmark models no gaps",
                        help="Through this option the obtained fiducial model "
-                            "can be registered as an output of this protocol. "
-                            "The obtained alignment parameters will be stored "
-                            "as metadata. ")
+                            "can be shown.")
 
         group = form.addGroup('Tomogram')
-        group.addParam('saveReconsTomo', params.LabelParam,
-                       label="Register reconstructed tomogram (_full.rec)",
+        group.addParam('savedReconsTomo', params.LabelParam,
+                       label="Reconstructed full tomogram",
                        help="Through this option the final reconstructed "
-                            "tomogram can be registered as an output of "
-                            "this protocol.")
+                            "tomogram can be shown.")
+        group.addParam('savedPostProcessTomo', params.LabelParam,
+                       label="Postprocess tomogram",
+                       help="Through this option the postprocess "
+                            "tomogram can be shown.")
 
-        form.addParam('doShowResHistogram', params.LabelParam,
-                      label="Show resolution histogram")
+        self.defineOutputsSetNames()
+
+    def defineOutputsSetNames(self, **kwargs):
+        self.outputSetName = {'savedTsPreAli': 'PrealignedTiltSeries',
+                              'savedTsAli': OUTPUT_TILTSERIES_NAME,
+                              'saved3DCoord': OUTPUT_TILTSERIES_NAME,
+                              'savedFiducials': OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                              'savedReconsTomo': 'FullTomograms',
+                              'savedPostProcessTomo': 'PostProcessTomograms'}
 
     def _getVisualizeDict(self):
-        return {'saveTsPreAli': self._registerOutput,
-                'saveTsAli': self._registerOutput,
-                'saveTsOriginal': self._notImplemented,
-                'saveFiducials': self._notImplemented,
-                'saveReconsTomo': self._registerOutput,
+        return {'savedTsPreAli': self._showOutputSet,
+                'savedTsAli': self._showOutputSet,
+                'saved3DCoord': self._showOutputSet,
+                'savedFiducials': self._showOutputSet,
+                'savedReconsTomo': self._showOutputSet,
+                'savedPostProcessTomo': self._showOutputSet,
                 }
 
-    def _registerOutput(self, param=None):
+    def _showOutputSet(self, param=None):
         try:
-            self.protocol.registerOutput(param)
-            return [self.infoMessage('Output registered successfully. ')]
-        except Exception as e:
-            return [self.errorMessage(str(e))]
+            outputName = self.outputSetName.get(param)
+            if hasattr(self.protocol, outputName):
+                outputSet = getattr(self.protocol, outputName)
+                if param == 'savedTsPreAli' or param == 'savedTsAli':
+                    ImodSetView(outputSet).show()
+                elif param == 'savedFiducials':
+                    ImodSetOfLandmarkModelsView(outputSet).show()
+                elif param == 'savedReconsTomo' or param == 'savedPostProcessTomo':
+                    ImodSetOfTomogramsView(outputSet).show()
+                elif param == 'saved3DCoord':
+                    dataviewer = DataViewer(protocol=self.protocol,
+                                            project=self.protocol.getProject())
+                    dataviewer._visualize(outputSet)[0].show()
+            else:
+                self._notGenerated()
 
-    def _notImplemented(self, param=None):
-        return [self.errorMessage('Output not implemented yet. ')]
+        except Exception as e:
+            return [self.errorMessage(str(e), "Error displaying the output")]
+
+    def _notGenerated(self, param=None):
+       return [self.infoMessage('Output not generated yet. ', 'Info').show()]

@@ -24,6 +24,9 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+
+
+import tempfile
 import threading
 import tkinter
 from tkinter import *
@@ -56,14 +59,14 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_PREALIGNED = 'Prealigned'
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
-    COL_LANDMODEL_NO_GAPS = 'Landmark models no gaps'
+    COL_LANDMODEL_NO_GAPS = 'Fiducial models w/o gaps'
     COL_RECONST_TOMOGRAM = 'Full tomograms'
     COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
 
     ORDER_DICT = {COL_TS: 'id'}
 
     def __init__(self, protocol, objs, isInteractive=False):
-        self.title = 'TiltSeries display'
+        self.title = 'Imod set viewer'
         if isinstance(objs, tomo.objects.SetOfTomograms):
             self.COL_TS = 'Tomograms'
             self.title = 'Tomograms display'
@@ -88,6 +91,9 @@ class ImodGenericTreeProvider(TreeProvider):
         for obj in self.objs.iterItems(orderBy=orderBy, direction=direction):
             if isinstance(obj, tomo.objects.TiltSeries):
                 item = obj.clone(ignoreAttrs=('_mapperPath',))
+            elif isinstance(obj, tomo.objects.LandmarkModel):
+                self.objs.completeLandmarkModel(obj)
+                item = obj.clone()
             else:
                 item = obj.clone()
             item._allowsSelection = True
@@ -349,42 +355,55 @@ class ImodListDialog(ListDialog):
 class ImodSetView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, set, **kwargs):
+    def __init__(self, set):
         fn = ""
         for item in set:
             # Remove :mrc if present
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-        self.show()
+
 
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
     """ Wrapper to visualize set of tomograms with 3dmod """
 
-    def __init__(self, set, **kwargs):
+    def __init__(self, set):
         fn = " -s 0,0 "
         for item in set:
             fn += " " + item.getLocation()[1]
         pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-        self.show()
 
 
 class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
     """ Wrapper to visualize landmark models with 3dmod """
 
-    def __init__(self, set, **kwargs):
-        fn = ""
-        for item in set:
-            tsId = os.path.basename(item.getFileName()).split('_')[0]
-            if os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s_preali.st" % tsId)
-            elif os.path.exists(os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)):
-                prealiTSPath = os.path.join(os.path.split(item.getModelName())[0], "%s.preali" % tsId)
+    def __init__(self, lmmSet):
+        """
+        View to display Land mark model using the imod viewer
+        :param lmmSet:
+        :param kwargs:
+        """
+        super().__init__("")
+        self.set = lmmSet
+
+    def show(self):
+
+        self._cmd = ""
+        for index, item in enumerate(self.set):
+            itemComplete = self.set.completeLandmarkModel(item)
+
+            if itemComplete.getTiltSeries().getFirstItem().hasTransform():
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated_%d.mrc" % index)
+                itemComplete.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
+
+                self._cmd += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
+                      itemComplete.getModelName() + " ; "
+
             else:
-                prealiTSPath = ""
-            fn += Plugin.getImodCmd('3dmod') + " -m " + prealiTSPath + " " + item.getModelName() + " ; "
-        pwviewer.CommandView.__init__(self, fn)
-        self.show()
+                self._cmd += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
+                      " " + itemComplete.getModelName() + " ; "
+
+        super().show()
 
 
 class ImodGenericViewer(pwviewer.View):

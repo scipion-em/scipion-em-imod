@@ -25,27 +25,25 @@
 # **************************************************************************
 
 import os
-import math
 import imod.utils as utils
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from pwem.protocols import EMProtocol
-import tomo.objects as tomoObj
-from tomo.protocols import ProtTomoBase
+from tomo.objects import TiltSeries, TiltImage
 from imod import Plugin
 from pwem.emlib.image import ImageHandler
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TS_INTERPOLATED_NAME
 
 
-class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
+class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
-    _label = 'apply transformation'
+    _label = 'Apply transformation'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -66,9 +64,10 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep('generateTransformFileStep', ts.getObjId())
-            self._insertFunctionStep('generateOutputStackStep', ts.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
+            self._insertFunctionStep(self.computeAlignmentStep, ts.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def generateTransformFileStep(self, tsObjId):
@@ -76,11 +75,9 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
-        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension="_fid.xf")))
 
-    def generateOutputStackStep(self, tsObjId):
-        outputInterpolatedSetOfTiltSeries = self.getOutputInterpolatedSetOfTiltSeries()
-
+    def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -91,7 +88,7 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
         paramsAlignment = {
             'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".prexg")),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension="_fid.xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
@@ -115,16 +112,25 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
+    def generateOutputStackStep(self, tsObjId):
+        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+
+        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+
+        newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        outputInterpolatedSetOfTiltSeries.append(newTs)
+        output.append(newTs)
 
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True)
+            newTi = TiltImage()
+            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+            newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
@@ -136,30 +142,15 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
         newTs.write(properties=False)
 
-        outputInterpolatedSetOfTiltSeries.update(newTs)
-        outputInterpolatedSetOfTiltSeries.updateDim()
-        outputInterpolatedSetOfTiltSeries.write()
+        output.update(newTs)
+        output.updateDim()
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputInterpolatedSetOfTiltSeries().setStreamState(Set.STREAM_CLOSED)
-
+        self.InterpolatedTiltSeries.setStreamState(Set.STREAM_CLOSED)
+        self.InterpolatedTiltSeries.write()
         self._store()
-
-    # --------------------------- UTILS functions ----------------------------
-    def getOutputInterpolatedSetOfTiltSeries(self):
-        if not hasattr(self, "outputInterpolatedSetOfTiltSeries"):
-            outputInterpolatedSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Interpolated')
-            outputInterpolatedSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputInterpolatedSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTiltSeries.get().getSamplingRate()
-                samplingRate *= self.binning.get()
-                outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
-            outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputInterpolatedSetOfTiltSeries=outputInterpolatedSetOfTiltSeries)
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
-        return self.outputInterpolatedSetOfTiltSeries
 
     # --------------------------- INFO functions ----------------------------
     def _validate(self):
@@ -175,20 +166,20 @@ class ProtImodApplyTransformationMatrix(EMProtocol, ProtTomoBase):
 
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.outputInterpolatedSetOfTiltSeries.getSize()))
+                              self.InterpolatedTiltSeries.getSize()))
         else:
             summary.append("Output classes not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputInterpolatedSetOfTiltSeries'):
+        if self.InterpolatedTiltSeries:
             methods.append("The interpolation has been computed for %d "
                            "Tilt-series using the IMOD newstack program.\n"
-                           % (self.outputInterpolatedSetOfTiltSeries.getSize()))
+                           % (self.InterpolatedTiltSeries.getSize()))
         else:
             methods.append("Output classes not ready yet.")
         return methods

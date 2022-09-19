@@ -29,20 +29,22 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.protocols import EMProtocol
+from pwem.objects import Transform
+from pwem.emlib.image import ImageHandler
 from tomo.objects import Tomogram
-from tomo.protocols import ProtTomoBase
 from imod import Plugin
+from imod.protocols.protocol_base import ProtImodBase
 
 
-class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
+class ProtImodTomoNormalization(ProtImodBase):
     """
     Normalize input tomogram and change its storing formatting.
     More info:
-        https://bio3D.colorado.edu/imod/doc/etomoTutorial.html
+        https://bio3D.colorado.edu/imod/doc/newstack.html
+        https://bio3D.colorado.edu/imod/doc/binvol.html
     """
 
-    _label = 'tomo normalization'
+    _label = 'Tomo normalization'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -159,8 +161,8 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     # -------------------------- INSERT steps functions ---------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep('generateOutputStackStep', tomo.getObjId())
-        self._insertFunctionStep('closeOutputSetsStep')
+            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ----------------------------
     def generateOutputStackStep(self, tsObjId):
@@ -229,43 +231,40 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        outputNormalizedSetOfTomograms = self.getOutputNormalizedSetOfTomograms()
+        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
-        newTomogram.copyAttributes(tomo, '_origin')
+        newTomogram.setTsId(tomo.getTsId())
 
         if not runNewstack and self.binning.get() == 1:
             newTomogram.setLocation(location)
         else:
-            newTomogram.setLocation(os.path.join(extraPrefix, os.path.basename(location)))
-        if self.binning > 1:
-            newTomogram.setSamplingRate(tomo.getSamplingRate() * int(self.binning.get()))
-        outputNormalizedSetOfTomograms.append(newTomogram)
-        outputNormalizedSetOfTomograms.update(newTomogram)
-        outputNormalizedSetOfTomograms.write()
+            location = os.path.join(extraPrefix, os.path.basename(location))
+            newTomogram.setLocation(location)
+
+        if self.binning.get() > 1:
+            sr = tomo.getSamplingRate() * int(self.binning.get())
+
+            newTomogram.setSamplingRate(sr)
+
+            # Set default tomogram origin
+            newTomogram.setOrigin(tomo.getOrigin(force=True))
+
+        else:
+            newTomogram.copyAttributes(tomo, '_origin')
+
+        output.append(newTomogram)
+        output.update(newTomogram)
+        output.write()
         self._store()
 
     def closeOutputSetsStep(self):
-        self.getOutputNormalizedSetOfTomograms().setStreamState(Set.STREAM_CLOSED)
-
+        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
+        self.Tomograms.write()
         self._store()
 
     # --------------------------- UTILS functions ----------------------------
-    def getOutputNormalizedSetOfTomograms(self):
-        if hasattr(self, "outputNormalizedSetOfTomograms"):
-            self.outputNormalizedSetOfTomograms.enableAppend()
-        else:
-            outputNormalizedSetOfTomograms = self._createSetOfTomograms(suffix='Normalized')
-            outputNormalizedSetOfTomograms.copyInfo(self.inputSetOfTomograms.get())
-            if self.binning > 1:
-                samplingRate = self.inputSetOfTomograms.get().getSamplingRate()
-                outputNormalizedSetOfTomograms.setSamplingRate(samplingRate * self.binning.get())
-            outputNormalizedSetOfTomograms.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(outputNormalizedSetOfTomograms=outputNormalizedSetOfTomograms)
-            self._defineSourceRelation(self.inputSetOfTomograms, outputNormalizedSetOfTomograms)
-        return self.outputNormalizedSetOfTomograms
-
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -280,19 +279,19 @@ class ProtImodTomoNormalization(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if hasattr(self, 'outputNormalizedSetOfTomograms'):
+        if self.Tomograms:
             summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
                            % (self.inputSetOfTomograms.get().getSize(),
-                              self.outputNormalizedSetOfTomograms.getSize()))
+                              self.Tomograms.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Output not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if hasattr(self, 'outputNormalizedSetOfTomograms'):
+        if self.Tomograms:
             methods.append("%d tomograms have been normalized using the IMOD newstack program.\n"
-                           % (self.outputNormalizedSetOfTomograms.getSize()))
+                           % (self.Tomograms.getSize()))
         else:
-            methods.append("Output classes not ready yet.")
+            methods.append("Output not ready yet.")
         return methods
