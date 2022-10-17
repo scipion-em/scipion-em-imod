@@ -23,8 +23,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME, \
-    OUTPUT_TS_INTERPOLATED_NAME, OUTPUT_FIDUCIAL_GAPS_NAME, OUTPUT_COORDINATES_3D_NAME
 from pyworkflow.tests import *
 from pyworkflow.utils import path
 

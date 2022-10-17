@@ -177,10 +177,7 @@ class Plugin(pwem.Plugin):
         return cmd
 
 
-# register file handlers to preview info in the Filebrowser....
-# Here register happens very early. Earlier than done in pwem therefore this filehandler will be the default one.
-# We can add .mrc and .mrcs but don't want to overlap with pwem ones.
 from .file_handlers import *
 
 register = FileTreeProvider.registerFileHandler
-register(ImodHandler(), '.ali', '.st', '.rec')
+register(ImodHandler(), '.ali', '.st', '.rec', '.mrc', '.mrcs')
