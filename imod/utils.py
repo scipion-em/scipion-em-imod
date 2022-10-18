@@ -925,17 +925,20 @@ def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
 
 
 def readExcludeViewsFile(excludeViewsFilePath):
-    """ Thie method retrieves from a input exclude views file path a matrix with two columns containing the tsId of
-    tilt-series from which exlude the views in the first column and in the second a string with the pattern of the
-    excluded views"""
+    """ This method retrieves from an input exclude views file path a dictionary where the key is the tsId and the
+    value, the views to exclude"""
 
-    excludedViews = []
+    excludedViews = {}
 
+    logger.info("Reading excluded views from %s" % excludeViewsFilePath)
     with open(excludeViewsFilePath, 'r') as f:
         lines = f.read().splitlines()
 
         for line in lines:
             vector = line.split()
-            excludedViews.append(vector)
+            tsId = vector[0]
+            views = vector[1]
+            logger.info("For %s found this excluded views: %s." % (tsId, views))
+            excludedViews[tsId] =views
 
     return excludedViews

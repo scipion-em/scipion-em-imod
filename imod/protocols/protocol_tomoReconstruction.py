@@ -164,13 +164,15 @@ class ProtImodTomoReconstruction(ProtImodBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
+        firstItem = ts.getFirstItem()
+
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsTilt = {
-            'InputProjections': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'OutputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".rec")),
-            'TiltFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'InputProjections': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'OutputFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
+            'TiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
@@ -204,19 +206,19 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-        paramsNewstack = {
-            'input':  os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".rec")),
-            'output':  os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")),
-        }
-
-        argsNewstack = "-input %(input)s " \
-                       "-output %(output)s"
-
-        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+        # paramsNewstack = {
+        #     'input':  os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
+        #     'output':  os.path.join(tmpPrefix, firstItem.parseFileName(suffix="_flipped", extension=".mrc")),
+        # }
+        #
+        # argsNewstack = "-input %(input)s " \
+        #                "-output %(output)s"
+        #
+        # Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         paramsTrimVol = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(suffix="_flipped", extension=".mrc")),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")),
+            'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
             'rotation': "-yz "
         }
 
@@ -229,12 +231,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
+        firstItem = ts.getFirstItem()
+
         extraPrefix = self._getExtraPath(tsId)
 
         output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
         newTomogram = Tomogram()
-        newTomogram.setLocation(os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".mrc")))
+        newTomogram.setLocation(os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")))
         newTomogram.setTsId(tsId)
 
         newTomogram.setSamplingRate(ts.getSamplingRate())
@@ -244,7 +248,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         # Set tomogram acquisition
         acquisition = TomoAcquisition()
-        acquisition.setAngleMin(ts.getFirstItem().getTiltAngle())
+        acquisition.setAngleMin(firstItem.getTiltAngle())
         acquisition.setAngleMax(ts[ts.getSize()].getTiltAngle())
         acquisition.setStep(self.getAngleStepFromSeries(ts))
         newTomogram.setAcquisition(acquisition)
