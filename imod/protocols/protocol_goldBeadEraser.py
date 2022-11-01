@@ -151,6 +151,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                         "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
                         "-BetterRadius %(betterRadius)d " \
+                        "-ExpandCircleIterations 3 " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
                         "-MergePatches 1 " \
