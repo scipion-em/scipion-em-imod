@@ -70,7 +70,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=1,
+                      default=0,
                       label='Generate interpolated tilt-series',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -245,7 +245,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
+                        "-imagebinned %(imagebinned)s " \
+                        "-antialias -1 " \
+                        "-float 2 "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 

@@ -61,7 +61,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         form.addParam('tomoThickness',
                       params.FloatParam,
-                      default=100,
+                      default=1000,
                       label='Tomogram thickness (voxels)',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -182,6 +182,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
+                   "-LOG 0.0 " \
                    "-TILTFILE %(TiltFile)s " \
                    "-THICKNESS %(Thickness)d " \
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
@@ -219,7 +220,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
-            'rotation': "-yz "
+            'rotation': "-rx "
         }
 
         argsTrimvol = "%(input)s " \

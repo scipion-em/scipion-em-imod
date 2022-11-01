@@ -227,6 +227,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             argsBinvol = "-input %(input)s " \
                          "-output %(output)s " \
+                         "-antialias -1 " \
                          "-binning %(binning)d "
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)

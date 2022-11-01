@@ -123,7 +123,7 @@ header('STEP 1: PREALIGNMENT FILE GENERATION')
 run('xftoxg',
     '-input %(name)s.prexf -nfit 0 -goutput %(name)s.prexg')
 run('newstack',
-    '-input %(input)s -output %(name)s.preali -mode 0 -xform %(name)s.prexg -float 2')
+    '-input %(input)s -output %(name)s.preali -mode 0 -xform %(name)s.prexg -float 2 -antialias -1')
 
 if args.raptor:
     print("Using RAPTOR to align the tilt-series")
@@ -159,10 +159,10 @@ run('newstack',
 header('ALIGNMENT DONE.')
 
 header('STEP3: Starting RECONSTRUCTION')
-run('newstack', '-bin %(binFactor)s %(name)s.ali %(name)s.ali')
+run('newstack', '-bin %(binFactor)s -antialias -1 %(name)s.ali %(name)s.ali')
 run(os.path.join(TOMO3D_BIN, 'tomo3d'),
     '-o %(tomoName)s -t 8 -z %(zWidth)s -a %(name)s.tlt -i %(name)s.ali -S -l 30')
-run('trimvol', '-yz %(tomoName)s %(tomoName)s')
+run('trimvol', '-rx %(tomoName)s %(tomoName)s')
 
 # Some clean up
 run('rm', '*~')

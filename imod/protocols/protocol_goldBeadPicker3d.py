@@ -60,7 +60,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         form.addParam('beadDiameter',
                       params.FloatParam,
                       label='Fiducial diameter (pixels)',
-                      default='10',
+                      default='18',
                       help="Diameter of beads in pixels.")
 
         form.addParam('beadsColor',

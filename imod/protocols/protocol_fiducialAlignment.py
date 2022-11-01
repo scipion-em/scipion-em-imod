@@ -88,7 +88,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('twoSurfaces',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=0,
+                      default=1,
                       label='Find on two surfaces',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
@@ -209,7 +209,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         groupEraseGoldBeads.addParam('betterRadius',
                                      params.IntParam,
-                                     default=10,
+                                     default=18,
                                      label='Bead diameter (pixels)',
                                      help="For circle objects, this entry specifies a radius to use for points without "
                                           "an individual point size instead of the object's default sphere radius. "
@@ -508,6 +508,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-output %(output)s " \
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
+                            "-antialias -1 " \
                             "-imagebinned %(imagebinned)s "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
@@ -610,7 +611,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-BetterRadius %(betterRadius)d " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
-                        "-MergePatches " \
+                        "-MergePatches 1 " \
                         "-ExcludeAdjacent"
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)

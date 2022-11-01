@@ -73,7 +73,7 @@ class ProtImodFiducialModel(ProtImodBase):
         form.addParam('fiducialDiameter',
                       params.FloatParam,
                       label='Fiducial diameter (nm)',
-                      default='4.95',
+                      default='10',
                       important=True,
                       help="Fiducials diameter to be tracked for alignment.")
 
@@ -103,7 +103,7 @@ class ProtImodFiducialModel(ProtImodBase):
         groupGlobalVariables.addParam('refineSobelFilter',
                                       params.EnumParam,
                                       choices=['Yes', 'No'],
-                                      default=1,
+                                      default=0,
                                       label='Refine center with Sobel filter',
                                       expertLevel=params.LEVEL_ADVANCED,
                                       display=params.EnumParam.DISPLAY_HLIST,
@@ -111,7 +111,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         groupGlobalVariables.addParam('scalableSigmaForSobelFilter',
                                       params.FloatParam,
-                                      default=0.5,
+                                      default=0.12,
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
@@ -205,7 +205,8 @@ class ProtImodFiducialModel(ProtImodBase):
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
                           "-TargetNumberOfBeads %(targetNumberOfBeads)d " \
-                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f"
+                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f " \
+                          "-AdjustSizes "
 
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
@@ -448,6 +449,7 @@ class ProtImodFiducialModel(ProtImodBase):
 # "SeparateGroup view_list" with the list of views, one line per group
 #
 $beadtrack -StandardInput
+LowPassCutoffInverseNm  0.4
 ImageFile	%(imageFile)s
 ImagesAreBinned	1
 InputSeedModel	%(inputSeedModel)s
