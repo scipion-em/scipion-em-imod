@@ -70,7 +70,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=0,
+                      default=1,
                       label='Generate interpolated tilt-series',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
