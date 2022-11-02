@@ -172,6 +172,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'goutput': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
         }
         argsXftoxg = "-input %(input)s " \
+                     "-NumberToFit 0 " \
                      "-goutput %(goutput)s"
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
