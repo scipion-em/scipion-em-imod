@@ -54,7 +54,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tilt-series',
+                      label='Input set of tomograms',
                       help='Input set of tomograms from which gold beads will be picked.')
 
         form.addParam('beadDiameter',
@@ -140,7 +140,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                           "-OutputFile %(outputFile)s " \
                           "-BeadSize %(beadSize)d " \
                           "-MinRelativeStrength %(minRelativeStrength)f " \
-                          "-MinSpacing %(minSpacing)d "
+                          "-MinSpacing %(minSpacing)f "
 
         if self.beadsColor.get() == 1:
             argsFindbeads3d += "-LightBeads "
