@@ -150,7 +150,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         argsCcderaser = "-InputFile %(inputFile)s " \
                         "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
-                        "-BetterRadius %(betterRadius)d " \
+                        "-BetterRadius %(betterRadius)f " \
                         "-ExpandCircleIterations 3 " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \

@@ -610,7 +610,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsCcderaser = "-InputFile %(inputFile)s " \
                         "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
-                        "-BetterRadius %(betterRadius)d " \
+                        "-BetterRadius %(betterRadius)f " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
                         "-MergePatches 1 " \
