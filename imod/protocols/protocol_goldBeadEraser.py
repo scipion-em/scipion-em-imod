@@ -69,7 +69,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       label='Input set of landmark models',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
-        form.addParam('betterRadius',
+        form.addParam('betterRadius',  # actually a diameter
                       params.IntParam,
                       default=18,
                       label='Bead diameter (pixels)',
@@ -142,7 +142,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
-            'betterRadius': self.betterRadius.get(),
+            'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
         }

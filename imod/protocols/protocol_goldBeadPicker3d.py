@@ -191,6 +191,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 output.append(newCoord3D)
                 output.update(newCoord3D)
 
+            output.setBoxSize(self.beadDiameter.get())
             output.write()
 
         self._store()
