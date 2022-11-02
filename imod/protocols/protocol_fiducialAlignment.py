@@ -278,6 +278,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'modelFile': lm.getModelName(),
             'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
             'imagesAreBinned': 1,
+            'unbinnedPixelSize': ts.getSamplingRate() / 10,
             'outputModelFile': os.path.join(extraPrefix,
                                             firstItem.parseFileName(suffix="_fidxyz", extension=".mod")),
             'outputResidualFile': os.path.join(extraPrefix,
@@ -340,6 +341,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsTiltAlign = "-ModelFile %(modelFile)s " \
                         "-ImageFile %(imageFile)s " \
                         "-ImagesAreBinned %(imagesAreBinned)d " \
+                        "-UnbinnedPixelSize %(unbinnedPixelSize)f " \
                         "-OutputModelFile %(outputModelFile)s " \
                         "-OutputResidualFile %(outputResidualFile)s " \
                         "-OutputFidXYZFile %(outputFidXYZFile)s " \
