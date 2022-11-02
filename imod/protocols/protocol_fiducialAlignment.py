@@ -207,7 +207,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupEraseGoldBeads = form.addGroup('Gold bead eraser',
                                             condition='eraseGoldBeads==0')
 
-        groupEraseGoldBeads.addParam('betterRadius',
+        groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
                                      params.IntParam,
                                      default=18,
                                      label='Bead diameter (pixels)',
@@ -602,7 +602,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
             'modelFile': os.path.join(extraPrefix,
                                       firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-            'betterRadius': self.betterRadius.get(),
+            'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
         }
