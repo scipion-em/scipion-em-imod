@@ -267,7 +267,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'densityRelaxationPostFit': 0.9,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.3,2.0',
+            'deletionCriterionMinAndSD': '0.237,2.0',
             'minDiamForParamScaling': 12.5
         }
 
