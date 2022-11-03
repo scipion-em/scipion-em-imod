@@ -97,6 +97,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
+                        "-antialias -1 " \
                         "-imagebinned %(imagebinned)s "
 
         rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)

@@ -67,7 +67,7 @@ class ProtImodXraysEraser(ProtImodBase):
                       default=8.0,
                       label='Peak criterion',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 10 '
+                      help='Criterion # of SDs above local mean for erasing peak based on intensity (the default is 8 '
                            'SDs)')
 
         form.addParam('diffCriterion',
@@ -76,14 +76,14 @@ class ProtImodXraysEraser(ProtImodBase):
                       label='Difference criterion',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Criterion # of SDs above mean pixel-to-pixel difference for erasing a peak based on '
-                           'differences (the default is 10 SDs).')
+                           'differences (the default is 6 SDs).')
 
         form.addParam('maximumRadius',
                       params.FloatParam,
                       default=4.2,
                       label='Maximum radius (pixels)',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help='Maximum radius of peak area to erase (the default is 2.1 pixels).')
+                      help='Maximum radius of peak area to erase (the default is 4.2 pixels).')
 
         form.addParam('bigDiffCriterion',
                       params.IntParam,
@@ -176,8 +176,6 @@ class ProtImodXraysEraser(ProtImodBase):
         self._store()
 
     def closeOutputStep(self):
-
-
         getattr(self, OUTPUT_TILTSERIES_NAME).setStreamState(Set.STREAM_CLOSED)
         self._store()
 

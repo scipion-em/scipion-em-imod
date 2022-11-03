@@ -182,6 +182,7 @@ class ProtImodTSNormalization(ProtImodBase):
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s " \
                        "-bin %(bin)d " \
+                       "-antialias -1 " \
                        "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:

@@ -61,7 +61,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         form.addParam('tomoThickness',
                       params.FloatParam,
-                      default=100,
+                      default=1000,
                       label='Tomogram thickness (voxels)',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -176,8 +176,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
-            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get()),
-            'Offset': str(self.angleOffset.get()) + " " + str(self.tiltAxisOffset.get()),
+            'Shift': str(self.tomoShiftX.get()) + "," + str(self.tomoShiftZ.get()),
+            'Offset': str(self.angleOffset.get()) + "," + str(self.tiltAxisOffset.get()),
         }
 
         argsTilt = "-InputProjections %(InputProjections)s " \
@@ -187,7 +187,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
                    "-SHIFT %(Shift)s " \
-                   "-OFFSET %(Offset)s "
+                   "-OFFSET %(Offset)s " \
+                   "-MODE 1 " \
+                   "-PERPENDICULAR " \
+                   "-AdjustOrigin "
 
         if self.fakeInteractionsSIRT.get() != 0:
             paramsTilt.update({
@@ -225,12 +228,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
-            'rotation': "-yz "
+            'options': "-rx "
         }
 
-        argsTrimvol = "%(input)s " \
-                      "%(output)s " \
-                      "%(rotation)s "
+        argsTrimvol = "%(options)s " \
+                      "%(input)s " \
+                      "%(output)s "
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 

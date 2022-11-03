@@ -115,6 +115,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 argsAlignment = "-input %(input)s " \
                                 "-output %(output)s " \
                                 "-xform %(xform)s " \
+                                "-taper 1,1 "
 
                 rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
 

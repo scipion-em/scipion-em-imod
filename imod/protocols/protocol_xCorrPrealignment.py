@@ -172,6 +172,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'goutput': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
         }
         argsXftoxg = "-input %(input)s " \
+                     "-NumberToFit 0 " \
                      "-goutput %(goutput)s"
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
@@ -245,7 +246,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                         "-output %(output)s " \
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
-                        "-imagebinned %(imagebinned)s"
+                        "-imagebinned %(imagebinned)s " \
+                        "-antialias -1 " \
+                        "-float 2 "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 

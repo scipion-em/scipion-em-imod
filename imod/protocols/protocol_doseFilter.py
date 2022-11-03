@@ -111,7 +111,7 @@ class ProtImodDoseFilter(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         paramsMtffilter = {
-            'input':firstItem.getFileName(),
+            'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'voltage': ts.getAcquisition().getVoltage(),
         }
@@ -121,13 +121,13 @@ class ProtImodDoseFilter(ProtImodBase):
                         "-Voltage %(voltage)d "
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            outputDefocusFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
+            outputDoseFilePath = os.path.join(extraPrefix, firstItem.parseFileName(extension=".dose"))
 
-            utils.generateDoseFileFromDoseTS(ts, outputDefocusFilePath)
+            utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
 
             paramsMtffilter.update({
-                'typeOfDoseFile': 1,
-                'doseWeightingFile': outputDefocusFilePath,
+                'typeOfDoseFile': 2,
+                'doseWeightingFile': outputDoseFilePath,
             })
 
             argsMtffilter += "-TypeOfDoseFile %(typeOfDoseFile)d " \

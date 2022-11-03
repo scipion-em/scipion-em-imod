@@ -310,7 +310,7 @@ class ProtImodTomoNormalization(ProtImodBase):
     def _methods(self):
         methods = []
         if self.Tomograms:
-            methods.append("%d tomograms have been normalized using the IMOD newstack program.\n"
+            methods.append("%d tomograms have been normalized using the IMOD binvol program.\n"
                            % (self.Tomograms.getSize()))
         else:
             methods.append("Output not ready yet.")

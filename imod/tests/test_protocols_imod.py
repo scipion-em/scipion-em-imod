@@ -311,7 +311,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                     amplitudeContrast=0.1,
                                                     samplingRate=20.2,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3,
+                                                    dosePerFrame=3.0,
                                                     minAngle=-55,
                                                     maxAngle=65.0,
                                                     stepAngle=2.0)
@@ -330,7 +330,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.protDoseFilter = cls._runDoseFilter(inputSoTS=cls.protXRaysEraser.TiltSeries,
                                                 initialDose=0,
                                                 inputDoseType=1,
-                                                fixedImageDose=0.2)
+                                                fixedImageDose=2.0)
 
         cls.protExcludeViews = cls._runExcludeViews(inputSoTS=cls.protXRaysEraser.TiltSeries,
                                                     excludeViewsFile=cls.excludeViewsFile)
@@ -650,11 +650,11 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                     anglesFrom=0,
                                                     voltage=300,
                                                     magnification=50000,
-                                                    sphericalAberration=0.0,
+                                                    sphericalAberration=2.7,
                                                     amplitudeContrast=0.07,
                                                     samplingRate=6.73981,
                                                     doseInitial=0,
-                                                    dosePerFrame=0.3)
+                                                    dosePerFrame=3.0)
 
         cls.protImportSetOfCtfSeries = \
             cls._runImportSetOfCtfSeries(filesPath=os.path.split(cls.inputCtfFile)[0],
