@@ -155,7 +155,7 @@ run('xfproduct',
 run('cp',
     '%(name)s_fid.xf %(name)s.xf')
 run('newstack',
-    '-input %(input)s -output %(name)s.ali -offset 0,0 -xform %(name)s.xf -origin -taper 1,0')
+    '-input %(input)s -output %(name)s.ali -offset 0,0 -xform %(name)s.xf -origin -taper 1,1')
 header('ALIGNMENT DONE.')
 
 header('STEP3: Starting RECONSTRUCTION')

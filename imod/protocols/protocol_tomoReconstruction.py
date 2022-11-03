@@ -176,19 +176,21 @@ class ProtImodTomoReconstruction(ProtImodBase):
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
-            'Shift': str(self.tomoShiftX.get()) + " " + str(self.tomoShiftZ.get()),
-            'Offset': str(self.angleOffset.get()) + " " + str(self.tiltAxisOffset.get()),
+            'Shift': str(self.tomoShiftX.get()) + "," + str(self.tomoShiftZ.get()),
+            'Offset': str(self.angleOffset.get()) + "," + str(self.tiltAxisOffset.get()),
         }
 
         argsTilt = "-InputProjections %(InputProjections)s " \
                    "-OutputFile %(OutputFile)s " \
-                   "-LOG 0.0 " \
                    "-TILTFILE %(TiltFile)s " \
                    "-THICKNESS %(Thickness)d " \
                    "-FalloffIsTrueSigma %(FalloffIsTrueSigma)d " \
                    "-RADIAL %(Radial)s " \
                    "-SHIFT %(Shift)s " \
-                   "-OFFSET %(Offset)s "
+                   "-OFFSET %(Offset)s " \
+                   "-MODE 1 " \
+                   "-PERPENDICULAR " \
+                   "-AdjustOrigin "
 
         if self.fakeInteractionsSIRT.get() != 0:
             paramsTilt.update({
@@ -220,12 +222,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
-            'rotation': "-rx "
+            'options': "-rx "
         }
 
-        argsTrimvol = "%(input)s " \
-                      "%(output)s " \
-                      "%(rotation)s "
+        argsTrimvol = "%(options)s " \
+                      "%(input)s " \
+                      "%(output)s "
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 

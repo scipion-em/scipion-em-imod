@@ -160,7 +160,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -180,7 +180,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': '0.3,2.0'
+            'deletionCriterionMinAndSD': '0.237,2.0'
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -230,7 +230,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -449,7 +449,7 @@ class ProtImodFiducialModel(ProtImodBase):
 # "SeparateGroup view_list" with the list of views, one line per group
 #
 $beadtrack -StandardInput
-LowPassCutoffInverseNm  0.4
+LowPassCutoffInverseNm  0.3
 ImageFile	%(imageFile)s
 ImagesAreBinned	1
 InputSeedModel	%(inputSeedModel)s
