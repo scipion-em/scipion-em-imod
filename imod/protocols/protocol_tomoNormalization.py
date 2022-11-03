@@ -78,7 +78,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                            '-Mode 3: sections shifted to a common mean without scaling\n'
                            '-Mode 4: sections shifted to a common mean and then rescale the resulting minimum and '
                            'maximum densities to the Min and Max values specified')
-
         form.addParam('modeToOutput',
                       params.EnumParam,
                       choices=['default', '4-bit', 'byte', 'signed 16-bit', 'unsigned 16-bit', '32-bit float'],
@@ -115,6 +114,25 @@ class ProtImodTomoNormalization(ProtImodBase):
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')
+
+        form.addParam('antialias',
+                      params.EnumParam,
+                      choices=['None', 'Blackman', 'Triangle', 'Mitchell', 'Lanczos 2', 'Lanczos 3'],
+                      default=5,
+                      label='Antialias',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of antialiasing filter to use when reducing images.\n'
+                           'The available types of filters are:\n\n'
+                           'None\n'
+                           'Blackman - fast but not as good at antialiasing as slower filters\n'
+                           'Triangle - fast but smooths more than Blackman\n'
+                           'Mitchell - good at antialiasing, smooths a bit\n'
+                           'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
+                           'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
+                           'The default is Lanczos 3 as of IMOD 4.7.  Although many people consider Lanczos 2 the best '
+                           'compromise among the various factors, that sentiment may be based on images of natural scenes '
+                           'where there are sharp edges.')
+
 
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
@@ -223,12 +241,13 @@ class ProtImodTomoNormalization(ProtImodBase):
                 'input': inputTomoPath,
                 'output': os.path.join(extraPrefix, os.path.basename(location)),
                 'binning': self.binning.get(),
+                'antialias': self.antialias.get()
             }
 
             argsBinvol = "-input %(input)s " \
                          "-output %(output)s " \
-                         "-antialias -1 " \
-                         "-binning %(binning)d "
+                         "-binning %(binning)d "\
+                         "-antialias %(antialias)d "
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 

@@ -111,6 +111,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
             argsAlignment += "-size %(size)s "
 
+        excludedViews = ts.getExcludedViewsIndex(caster=str, indexOffset=-1)
+        if len(excludedViews):
+            argsAlignment += "-exclude %s " % ",".join(excludedViews)
+
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
@@ -128,19 +132,21 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
-        for index, tiltImage in enumerate(ts):
-            newTi = TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-            if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
-            newTs.append(newTi)
+        index=1
+        for tiltImage in ts:
+            if tiltImage.isEnabled():
+                newTi = TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+                index+=1
+                if self.binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                newTs.append(newTi)
 
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
-
         newTs.write(properties=False)
 
         output.update(newTs)
