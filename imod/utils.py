@@ -896,17 +896,17 @@ def calculateRotationAngleFromTM(ts):
 
 def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
     """ This method generates a file containing the dose information of a tilt series in the specified location from
-    the dose per tilt information. The format file consist in a single column with one dose value per line that must
-    coincide with each image from the tilt-series"""
+    the accumulated dose and dose per tilt. The format is two columns per each tilt image:
+     the prior accumulated dose and the image dose
+     """
 
-    ind = np.argsort([ti.getIndex() for ti in ts])
-    tiList = [ti for ti in ts]
+    doseInfoList = []
 
-    doseInfoList = [tiList[i].getAcquisition().getDosePerFrame() for i in ind]
+    for ti in ts:
+        acq = ti.getAcquisition()
+        doseInfoList.append((acq.getAccumDose()-acq.getDosePerFrame(), acq.getDosePerFrame()))
 
-    with open(doseFileOutputPath, 'w') as f:
-        for dose in doseInfoList:
-            f.writelines("%f\n" % dose)
+    np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
 
 
 def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):

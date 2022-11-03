@@ -73,7 +73,7 @@ class ProtImodFiducialModel(ProtImodBase):
         form.addParam('fiducialDiameter',
                       params.FloatParam,
                       label='Fiducial diameter (nm)',
-                      default='4.95',
+                      default='10',
                       important=True,
                       help="Fiducials diameter to be tracked for alignment.")
 
@@ -103,7 +103,7 @@ class ProtImodFiducialModel(ProtImodBase):
         groupGlobalVariables.addParam('refineSobelFilter',
                                       params.EnumParam,
                                       choices=['Yes', 'No'],
-                                      default=1,
+                                      default=0,
                                       label='Refine center with Sobel filter',
                                       expertLevel=params.LEVEL_ADVANCED,
                                       display=params.EnumParam.DISPLAY_HLIST,
@@ -111,7 +111,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         groupGlobalVariables.addParam('scalableSigmaForSobelFilter',
                                       params.FloatParam,
-                                      default=0.5,
+                                      default=0.12,
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
@@ -160,7 +160,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -180,7 +180,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': '0.3,2.0'
+            'deletionCriterionMinAndSD': '0.237,2.0'
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -205,7 +205,8 @@ class ProtImodFiducialModel(ProtImodBase):
                           "-MinSpacing %(minSpacing)f " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
                           "-TargetNumberOfBeads %(targetNumberOfBeads)d " \
-                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f"
+                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f " \
+                          "-AdjustSizes "
 
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces"
@@ -229,7 +230,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-        boxSizeXandY = int(3.3 * self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10))
+        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
 
         # Make boxSizeXandY parameter even due to computational efficiency
         if boxSizeXandY % 2 == 1:
@@ -266,7 +267,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'densityRelaxationPostFit': 0.9,
             'maxRescueDistance': 0.2 * fiducialDiameterPixel,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.3,2.0',
+            'deletionCriterionMinAndSD': '0.237,2.0',
             'minDiamForParamScaling': 12.5
         }
 
@@ -448,6 +449,7 @@ class ProtImodFiducialModel(ProtImodBase):
 # "SeparateGroup view_list" with the list of views, one line per group
 #
 $beadtrack -StandardInput
+LowPassCutoffInverseNm  0.3
 ImageFile	%(imageFile)s
 ImagesAreBinned	1
 InputSeedModel	%(inputSeedModel)s

@@ -88,7 +88,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('twoSurfaces',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      default=0,
+                      default=1,
                       label='Find on two surfaces',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
@@ -207,9 +207,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupEraseGoldBeads = form.addGroup('Gold bead eraser',
                                             condition='eraseGoldBeads==0')
 
-        groupEraseGoldBeads.addParam('betterRadius',
+        groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
                                      params.IntParam,
-                                     default=10,
+                                     default=18,
                                      label='Bead diameter (pixels)',
                                      help="For circle objects, this entry specifies a radius to use for points without "
                                           "an individual point size instead of the object's default sphere radius. "
@@ -278,6 +278,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'modelFile': lm.getModelName(),
             'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
             'imagesAreBinned': 1,
+            'unbinnedPixelSize': ts.getSamplingRate() / 10,
             'outputModelFile': os.path.join(extraPrefix,
                                             firstItem.parseFileName(suffix="_fidxyz", extension=".mod")),
             'outputResidualFile': os.path.join(extraPrefix,
@@ -340,6 +341,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsTiltAlign = "-ModelFile %(modelFile)s " \
                         "-ImageFile %(imageFile)s " \
                         "-ImagesAreBinned %(imagesAreBinned)d " \
+                        "-UnbinnedPixelSize %(unbinnedPixelSize)f " \
                         "-OutputModelFile %(outputModelFile)s " \
                         "-OutputResidualFile %(outputResidualFile)s " \
                         "-OutputFidXYZFile %(outputFidXYZFile)s " \
@@ -508,7 +510,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-output %(output)s " \
                             "-xform %(xform)s " \
                             "-bin %(bin)d " \
-                            "-imagebinned %(imagebinned)s "
+                            "-antialias -1 " \
+                            "-imagebinned %(imagebinned)s " \
+                            "-taper 1,1 "
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
 
@@ -599,7 +603,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
             'modelFile': os.path.join(extraPrefix,
                                       firstItem.parseFileName(suffix="_noGaps_ali", extension=".fid")),
-            'betterRadius': self.betterRadius.get(),
+            'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
         }
@@ -607,10 +611,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsCcderaser = "-InputFile %(inputFile)s " \
                         "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
-                        "-BetterRadius %(betterRadius)d " \
+                        "-BetterRadius %(betterRadius)f " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
-                        "-MergePatches " \
+                        "-MergePatches 1 " \
                         "-ExcludeAdjacent"
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)

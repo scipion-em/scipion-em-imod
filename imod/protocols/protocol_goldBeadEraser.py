@@ -69,9 +69,9 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       label='Input set of landmark models',
                       help='Input set of landmark models containing the location of the gold beads through the series')
 
-        form.addParam('betterRadius',
+        form.addParam('betterRadius',  # actually a diameter
                       params.IntParam,
-                      default=10,
+                      default=18,
                       label='Bead diameter (pixels)',
                       help="For circle objects, this entry specifies a radius to use for points without an individual "
                            "point size instead of the object's default sphere radius.  This entry is floating point "
@@ -142,7 +142,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
-            'betterRadius': self.betterRadius.get(),
+            'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
         }
@@ -150,10 +150,11 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         argsCcderaser = "-InputFile %(inputFile)s " \
                         "-OutputFile %(outputFile)s " \
                         "-ModelFile %(modelFile)s " \
-                        "-BetterRadius %(betterRadius)d " \
+                        "-BetterRadius %(betterRadius)f " \
+                        "-ExpandCircleIterations 3 " \
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
-                        "-MergePatches " \
+                        "-MergePatches 1 " \
                         "-ExcludeAdjacent"
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
