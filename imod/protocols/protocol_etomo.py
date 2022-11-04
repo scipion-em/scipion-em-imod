@@ -133,7 +133,7 @@ class ProtImodEtomo(ProtImodBase):
 
         args += '-pixel %0.3f ' % pixelSizeNm
         args += '-rotation %0.3f ' % ts.getAcquisition().getTiltAxisAngle()
-        args += '-userawtlt '
+        args += '-userawtlt -fei 1 -change "%s/SystemTemplate/cryoSample.adoc" ' % Plugin.getHome()
 
         # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
         # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
@@ -162,7 +162,8 @@ class ProtImodEtomo(ProtImodBase):
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
-                                'rotationAngle': ts.getAcquisition().getTiltAxisAngle()
+                                'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
+                                'imodDir': Plugin.getHome()
                             })
 
     def runEtomo(self, ts):
@@ -511,6 +512,7 @@ Setup.MagGradientFile=
 Setup.RevisionNumber=1.12
 Setup.Track.B.SeedModel.Transfer=true
 Setup.Track.A.Raptor.UseRawStack=false
+Setup.Orig.SystemTemplate=%(imodDir)s/SystemTemplate/cryoSample.adoc
 Setup.PixelSize=%(pixelSize)f
 ReconstructionState.B.AdjustOrigin=true
 ReconstructionState.Combine.ScriptsCreated=no result
