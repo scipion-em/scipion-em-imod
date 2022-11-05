@@ -102,18 +102,10 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     def _summary(self):
         summary = []
         if self.CTFTomoSeries:
-            summary.append("Imported CTF tomo series: %d.\n"
+            summary.append("Imported CTF tomo series: %d"
                            % (self.CTFTomoSeries.getSize()))
 
         return summary
-
-    def _methods(self):
-        methods = []
-        if self.CTFTomoSeries:
-            methods.append("%d CTF tomo series have been imported "
-                           "into this project.\n"
-                           % self.CTFTomoSeries.getSize())
-        return methods
 
     def _validate(self):
         errorMsg = []

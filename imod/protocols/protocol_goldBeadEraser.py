@@ -60,7 +60,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('inputSetOfLandmarkModels',
                       params.PointerParam,
@@ -68,12 +68,12 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       important=True,
                       label='Input set of landmark models',
                       help='Input set of landmark models containing the '
-                           'location of the gold beads through the series')
+                           'location of the gold beads through the series.')
 
         form.addParam('betterRadius',  # actually a diameter
                       params.IntParam,
                       default=18,
-                      label='Bead diameter (pixels)',
+                      label='Bead diameter (px)',
                       help="For circle objects, this entry specifies a "
                            "radius to use for points without an individual "
                            "point size instead of the object's default sphere "

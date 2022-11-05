@@ -172,8 +172,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             if not ts.getFirstItem().hasTransform():
                 validateMsgs.append("Some tilt-series from the input set "
-                                    "of tilt-series is missing from a "
-                                    "transformation matrix.")
+                                    "are missing a transformation matrix.")
                 break
 
         return validateMsgs
@@ -181,19 +180,17 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.InterpolatedTiltSeries:
-            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
+            summary.append("Input tilt-series: %d\nInterpolations applied: %d\n"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.InterpolatedTiltSeries.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.InterpolatedTiltSeries:
             methods.append("The interpolation has been computed for %d "
-                           "Tilt-series using the IMOD newstack program.\n"
+                           "tilt-series using the IMOD *newstack* command.\n"
                            % (self.InterpolatedTiltSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
         return methods

@@ -59,13 +59,13 @@ class ProtImodFiducialModel(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('twoSurfaces',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Find on two surfaces',
+                      label='Find beads on two surfaces?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side "
                            "of the sample are located.")
@@ -109,7 +109,7 @@ class ProtImodFiducialModel(ProtImodBase):
                                       params.EnumParam,
                                       choices=['Yes', 'No'],
                                       default=0,
-                                      label='Refine center with Sobel filter',
+                                      label='Refine center with Sobel filter?',
                                       expertLevel=params.LEVEL_ADVANCED,
                                       display=params.EnumParam.DISPLAY_HLIST,
                                       help='Use edge-detecting Sobel filter '
@@ -597,32 +597,30 @@ $if (-e ./savework) ./savework
     def _summary(self):
         summary = []
         if self.FiducialModelGaps:
-            summary.append("Input Tilt-Series: %d.\nFiducial models "
-                           "generated presenting gaps: %d."
+            summary.append("Input tilt-series: %d\nFiducial models "
+                           "(with gaps) generated: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:
-            summary.append("Failed tilt-series: %d."
+            summary.append("Failed tilt-series: %d"
                            % (self.FailedTiltSeries.getSize()))
 
         if not summary:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.FiducialModelGaps:
-            methods.append("The fiducial model (presenting gaps) has "
+            methods.append("The fiducial model (with gaps) has "
                            "been computed for %d "
-                           "Tilt-series using the IMOD procedure."
+                           "tilt-series using the IMOD *beadtrack* command."
                            % (self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:
-            methods.append("%d tilt-series have failed during the fiducial "
-                           "alignment protocol execution."
+            methods.append("%d tilt-series have failed during the "
+                           "protocol execution."
                            % (self.FailedTiltSeries.getSize()))
 
-        if not methods:
-            methods.append("Output not ready yet.")
         return methods

@@ -60,7 +60,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         form.addParam('beadDiameter',
                       params.FloatParam,
-                      label='Fiducial diameter (pixels)',
+                      label='Fiducials diameter (px)',
                       default='18',
                       help="Diameter of beads in pixels.")
 
@@ -98,7 +98,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'the bead size. When two peaks are closer '
                            'than this distance apart, the weaker one is '
                            'eliminated unless the -both option is entered. '
-                           'The default is 0.9.  A value less than 1 is '
+                           'The default is 0.9. A value less than 1 is '
                            'helpful for picking both beads in a pair.')
 
         form.addParallelSection(threads=4, mpi=1)

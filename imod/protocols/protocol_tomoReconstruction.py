@@ -163,7 +163,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
                        expertLevel=params.LEVEL_ADVANCED,
                        label="Choose GPU IDs",
                        help="GPU ID. To pick the best available one set 0. "
-                            "For a specific GPU set its number ID.")
+                            "For a specific GPU set its number ID "
+                            "(starting from 1).")
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -304,19 +305,17 @@ class ProtImodTomoReconstruction(ProtImodBase):
     def _summary(self):
         summary = []
         if self.Tomograms:
-            summary.append("Input Tilt-Series: %d.\nTomograms reconstructed: %d"
+            summary.append("Input tilt-series: %d\nTomograms reconstructed: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.Tomograms.getSize()))
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.Tomograms:
             methods.append("The reconstruction has been computed for %d "
-                           "Tilt-series using the IMOD procedure.\n"
+                           "tilt-series using the IMOD *tilt* command.\n"
                            % (self.Tomograms.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
         return methods

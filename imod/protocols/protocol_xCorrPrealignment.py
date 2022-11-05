@@ -40,7 +40,7 @@ from imod.protocols.protocol_base import ProtImodBase
 
 class ProtImodXcorrPrealignment(ProtImodBase):
     """
-    Tilt-series' cross correlation alignment based on the IMOD procedure.
+    Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
     """
@@ -56,13 +56,13 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('cumulativeCorr',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Use cumulative correlation',
+                      label='Use cumulative correlation?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Use this option to add up previously aligned '
                            'pictures to get the reference for the next '
@@ -73,7 +73,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series',
+                      label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series '
@@ -315,26 +315,21 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices "
-                           "calculated: %d\n"
+            summary.append("Input tilt-series: %d\nTransformation matrices "
+                           "calculated: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
             if self.InterpolatedTiltSeries:
-                summary.append("Interpolated Tilt-Series: %d"
+                summary.append("Interpolated tilt-series: %d"
                                % self.InterpolatedTiltSeries.getSize())
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.TiltSeries:
             methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure."
+                           "tilt-series using the IMOD *tiltxcorr* command."
                            % (self.TiltSeries.getSize()))
-            if self.InterpolatedTiltSeries:
-                methods.append("Also, interpolation has been completed for %d Tilt-series"
-                               % self.InterpolatedTiltSeries.getSize())
-        else:
-            methods.append("Output not ready yet.")
         return methods

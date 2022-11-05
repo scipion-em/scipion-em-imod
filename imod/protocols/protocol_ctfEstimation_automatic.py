@@ -56,7 +56,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
                       label='Input set of tilt-series',
-                      help='This should be a raw stack, not an aligned stack, '
+                      help='This should be a *raw stack*, not an aligned stack, '
                            'because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and '
                            'the noise power spectra would no longer match.')
@@ -79,15 +79,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       params.EnumParam,
                       choices=['Value', 'List'],
                       default=0,
-                      label='Input expected defocus as',
+                      label='Input expected defocus as:',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Run the protocol through the interactive GUI. '
-                           'If run in auto mode defocus values are saved '
-                           'to file and exit after autofitting. The program '
+                      help='Run the protocol through the interactive GUI.\n\n'
+                           'If run in auto mode, defocus values are saved '
+                           'to a file after autofitting. The program '
                            'will not ask for confirmation before removing '
-                           'existing entries in the defocus table. If run '
-                           'in interactive mode defocus values'
+                           'existing entries in the defocus table.\nIf run '
+                           'in interactive mode, defocus values'
                            'MUST BE SAVED manually by the user.')
 
         form.addParam('expectedDefocusValue',
@@ -107,9 +107,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       condition="expectedDefocusOrigin == 1",
                       help='File containing a list of expected defoci in '
                            'nanometes for each tilt-series of the set. '
-                           'This file must contain two columns. The first '
+                           'This file must contain two columns: the first '
                            'column must be the filename of the '
-                           'tilt-series and the second the expected defocus.')
+                           'tilt-series, the second the expected defocus.')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -129,17 +129,17 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         form.addParam('tileSize',
                       params.IntParam,
-                      label='Tile size (pixels)',
+                      label='Tile size (px)',
                       default=256,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="The tile size each strip will be tessellated "
                            "into. The size is in pixels and the tiles are "
-                           "square.  Each view is first divided into strips "
+                           "square. Each view is first divided into strips "
                            "that are considered to have constant defocus.")
 
         groupAngleRange = form.addGroup('Autorefinement angle settings',
                                         help='This entry sets the range of '
-                                             'angles in each fit and the step '
+                                             'angles for each fit and the step '
                                              'size between angles for the '
                                              'initial autofitting of the whole '
                                              'tilt-series.')
@@ -158,7 +158,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                  condition="angleStep != 0",
                                  default=16,
                                  label='Angle range',
-                                 help='Size of the angle range in which the '
+                                 help='Size of the angle range for which the '
                                       'CTF is estimated.')
 
         groupFrequencyRange = form.addGroup('Autorefinement frequency range',
@@ -173,14 +173,13 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.FloatParam,
                                      default=0.0,
                                      label='Start',
-                                     help='Starting frequency. "X1 starts". '
-                                          '"X2 ends".')
+                                     help='Starting frequency (X1 starts)')
 
         groupFrequencyRange.addParam('endFreq',
                                      params.FloatParam,
                                      default=0.0,
                                      label='End',
-                                     help='Ending frequency.')
+                                     help='Ending frequency (X2 ends)')
 
         form.addParam('extraZerosToFit',
                       params.FloatParam,
@@ -189,7 +188,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="By default, the ending frequency of the fitting "
                            "range is set to the expected location of "
-                           "the second zero.  With this entry, the range will "
+                           "the second zero. With this entry, the range will "
                            "be extended by the given multiple of the interval "
                            "between first and seconds zeros. For example, "
                            "entries of 1 and 2 will fit approximately to the "
@@ -202,7 +201,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Skip astigmatic phase views',
+                      label='Skip astigmatic phase views?',
                       expertLevel=params.LEVEL_ADVANCED,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Skip or break views only when finding astigmatism '
@@ -215,7 +214,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                   params.EnumParam,
                                   choices=['Yes', 'No'],
                                   default=1,
-                                  label='Search astigmatism',
+                                  label='Search astigmatism?',
                                   display=params.EnumParam.DISPLAY_HLIST,
                                   help='Search for astigmatism when fitting.')
 
@@ -258,7 +257,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                  params.EnumParam,
                                  choices=['Yes', 'No'],
                                  default=1,
-                                 label='Search phase shift',
+                                 label='Search phase shift?',
                                  display=params.EnumParam.DISPLAY_HLIST,
                                  help='Search for phase shift when fitting.')
 
@@ -276,7 +275,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                 params.EnumParam,
                                 choices=['Yes', 'No'],
                                 default=1,
-                                label='Search cut-on frequency',
+                                label='Search cut-on frequency?',
                                 display=params.EnumParam.DISPLAY_HLIST,
                                 help='Search for cut-on frequency when '
                                      'finding phase shift.')
@@ -465,27 +464,25 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                     if tsId in defocusTuple[0]:
                         " Look for the filename that contains the tsId "
                         return float(defocusTuple[1])
-                raise Exception("ERROR: tilt-series with tsId %s has not "
-                                "been found in %s" %
+                raise Exception("ERROR: tilt-series with tsId %s not "
+                                "found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.CTFTomoSeries:
-            summary.append("Input Tilt-Series: %d.\nnumber of CTF estimated: %d.\n"
+            summary.append("Input tilt-series: %d\nNumber of CTF estimated: %d"
                            % (self._getSetOfTiltSeries().getSize(),
                               self.CTFTomoSeries.getSize()))
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.CTFTomoSeries:
-            methods.append("%d Tilt-series CTF have been estimated """
-                           "using the IMOD ctfplotter software.\n"
+            methods.append("%d tilt-series CTF have been estimated """
+                           "using the IMOD *ctfplotter* command."
                            % (self.CTFTomoSeries.getSize()))
-        else:
-            methods.append("Output not ready yet.")
         return methods

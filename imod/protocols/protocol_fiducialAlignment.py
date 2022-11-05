@@ -92,7 +92,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Find on two surfaces',
+                      label='Find beads on two surfaces?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of "
                            "the sample are located.\nIMPORTANT: It is highly "
@@ -109,7 +109,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series',
+                      label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series '
@@ -215,7 +215,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Erase gold beads',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Remove the gold beads detected during fiducial '
-                           'alignment with ccderaser program. This option '
+                           'alignment with *ccderaser* program. This option '
                            'will generate an interpolated tilt series with '
                            'the gold beads erased and interpolated with '
                            'the calculated transformation matrices form '
@@ -522,7 +522,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         else:
             raise Exception(
                 "Error (computeOutputStackStep): \n Imod output file "
-                "%s does not exist ot it is empty" % tmpFileName)
+                "%s does not exist or it is empty" % tmpFileName)
 
     def computeOutputInterpolatedStackStep(self, tsObjId, tsIdsDict):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -608,7 +608,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         else:
             raise Exception(
                 "Error (computeOutputInterpolatedStackStep): \n "
-                "Imod output file %s does not exist ot it is empty" % tmpFileName)
+                "Imod output file %s does not exist or it is empty" % tmpFileName)
 
     @tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
@@ -917,56 +917,36 @@ class ProtImodFiducialAlignment(ProtImodBase):
         summary = []
 
         if self.FiducialModelNoGaps:
-            summary.append("Fiducial models generated with no gaps: %d."
+            summary.append("Fiducial models generated with no gaps: %d"
                            % (self.FiducialModelNoGaps.getSize()))
 
         if self.TiltSeries:
             summary.append("Transformation matrices updated from the "
-                           "input Tilt-Series: %d."
+                           "input tilt-series: %d"
                            % (self.TiltSeries.getSize()))
 
         if self.InterpolatedTiltSeries:
-            summary.append("Interpolated Tilt-Series calculated: %d."
+            summary.append("Interpolated tilt-series calculated: %d"
                            % (self.InterpolatedTiltSeries.getSize()))
 
         if self.TiltSeriesCoordinates:
-            summary.append("Fiducial 3D coordinates calculated: %d."
+            summary.append("Fiducial 3D coordinates calculated: %d"
                            % (self.TiltSeriesCoordinates.getSize()))
 
         if self.FailedTiltSeries:
-            summary.append("Failed tilt-series: %d."
+            summary.append("Failed tilt-series: %d"
                            % (self.FailedTiltSeries.getSize()))
 
         if not summary:
-            summary.append("Output classes not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
 
-        if self.FiducialModelNoGaps:
-            methods.append("The fiducial model (with no gaps) has been "
-                           "computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.FiducialModelNoGaps.getSize()))
-
-        if self.TiltSeries:
-            methods.append("The transformation matrices has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
-                           % (self.TiltSeries.getSize()))
-
-        if self.InterpolatedTiltSeries:
-            methods.append("%d Tilt-Series have been interpolated using "
-                           "the IMOD procedure."
-                           % (self.InterpolatedTiltSeries.getSize()))
-
         if self.TiltSeriesCoordinates:
-            methods.append("%d fiducial 3D coordinates have been calculated."
-                           % (self.TiltSeriesCoordinates.getSize()))
-
-        if self.FailedTiltSeries:
-            methods.append("%d tilt-series have failed during the fiducial "
-                           "alignment protocol execution."
-                           % (self.FailedTiltSeries.getSize()))
+            methods.append("Solved fiducials alignment for %d "
+                           "tilt-series using IMOD *tiltalign* command."
+                           % (self.FiducialModelNoGaps.getSize()))
 
         return methods

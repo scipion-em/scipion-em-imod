@@ -41,7 +41,7 @@ FIXED_DOSE = 1
 
 class ProtImodDoseFilter(ProtImodBase):
     """
-    Tilt-series' dose filtering based on the IMOD procedure.
+    Tilt-series dose filtering based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/mtffilter.html
     """
@@ -57,42 +57,38 @@ class ProtImodDoseFilter(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series to be filtered.')
+                      label='Input set of tilt-series')
 
         form.addParam('initialDose',
                       params.FloatParam,
                       default=0.0,
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='Initial dose (e/sq A)',
+                      label='Initial dose (e/sq. Å)',
                       help='Dose applied before any of the images in the '
                            'input file were taken; this value will be '
-                           'added to all the prior dose values, however they '
-                           'were obtained.')
+                           'added to all the dose values.')
 
-        # TODO: add more options for inputting the dose information.
+        # TODO: add more options for inputting the dose information
         form.addParam('inputDoseType',
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
                       default=SCIPION_IMPORT,
                       label='Input dose source',
                       display=params.EnumParam.DISPLAY_COMBO,
-                      help='This option indicates what kind of source is '
-                           'being provided with the dose information:\n'
-                           '- Scipion import: Use the dose obtained when '
-                           'importing the tilt-series into Scipion. To use '
-                           'this option you must have imported the tilt-series'
-                           ' into scipion using an .mdoc file.\n'
-                           '- Fixed dose: use the same dose value for '
-                           'every tilt-series when performing the '
-                           'correction.\n')
+                      help='Where to find the dose information:\n'
+                           '- Scipion import: use the dose provided '
+                           'during import of the tilt-series\n'
+                           '- Fixed dose: manually input fixed dose '
+                           'for each image of the input file, '
+                           'in electrons/square Ångstrom.')
 
         form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=FIXED_DOSE,
-                      label='Fixes dose (e/sq Å)',
+                      label='Fixed dose (e/sq Å)',
                       condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, '
-                           'in electrons/square Angstrom.')
+                           'in electrons/square Ångstrom.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -197,7 +193,7 @@ class ProtImodDoseFilter(ProtImodBase):
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append("%s has no dose information stored "
                                         "in Scipion Metadata. To solve this, import "
-                                        "the tilt-series using the mdoc option." %
+                                        "tilt-series using the mdoc option." %
                                         ts.getTsId())
 
         return validateMsgs
@@ -216,6 +212,6 @@ class ProtImodDoseFilter(ProtImodBase):
         methods = []
         if self.TiltSeries:
             methods.append("The dose-weighting has been applied to %d "
-                           "tilt-series using the IMOD mtffilter command."
+                           "tilt-series using the IMOD *mtffilter* command."
                            % self.TiltSeries.getSize())
         return methods

@@ -59,9 +59,9 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         form.addParam('inputSetOfCtfTomoSeries',
                       params.PointerParam,
-                      label="input tilt-series CTF estimation",
+                      label="Input CTF estimation",
                       pointerClass='SetOfCTFTomoSeries',
-                      help='Select the CTF estimation from the set '
+                      help='Select the CTF estimation for the set '
                            'of tilt-series.')
 
         form.addParam('defocusTol',
@@ -70,8 +70,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                       default=200,
                       important=True,
                       help='The value introduced must be the same used for '
-                           'CTF estimation in case ti has been '
-                           'performed with IMOD. \n\n'
+                           'CTF estimation with IMOD.\n\n'
                            'Defocus tolerance in nanometers defining the '
                            'center strips. The center strips are taken '
                            'from the central region of a view that has defocus '
@@ -84,7 +83,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         form.addParam('interpolationWidth',
                       params.IntParam,
-                      label='Interpolation Width (pixels)',
+                      label='Interpolation width (px)',
                       default='15',
                       important=True,
                       help="The distance in pixels between the center lines "
@@ -95,7 +94,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                            "values. The final value for that pixel is a "
                            "linear interpolation of the 2 corrected "
                            "values. If a value of 1 is entered, there is "
-                           "no such interpolation.  For a value greater "
+                           "no such interpolation. For a value greater "
                            "than one, the entered value will be used "
                            "whenever the strip width is less than 256 "
                            "(i.e., at high tilt), and the value will be "
@@ -122,7 +121,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                        expertLevel=params.LEVEL_ADVANCED,
                        label="Choose GPU IDs",
                        help="GPU ID. To pick the best available one set 0. "
-                            "For a specific GPU set its number ID.")
+                            "For a specific GPU set its number ID "
+                            "(starting from 1).")
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -238,8 +238,8 @@ class ProtImodCtfCorrection(ProtImodBase):
         validateMsgs = []
 
         if self.inputSetOfTiltSeries.get().getSize() != self.inputSetOfCtfTomoSeries.get().getSize():
-            validateMsgs.append("Input set of tilt-series and input set of "
-                                "CTF tomo estimations must contain the "
+            validateMsgs.append("Input tilt-series and CTF tomo "
+                                "estimations must contain the "
                                 "same number of elements.")
 
         return validateMsgs
@@ -247,19 +247,17 @@ class ProtImodCtfCorrection(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nCTF corrections applied: %d.\n"
+            summary.append("Input tilt-series: %d\nCTF corrections applied: %d"
                            % (self.inputSetOfCtfTomoSeries.get().getSize(),
                               self.TiltSeries.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("%d Tilt-series have been CTF corrected "
-                           "using the IMOD ctfphaseflip software.\n"
+            methods.append("%d tilt-series have been CTF corrected "
+                           "using the IMOD *ctfphaseflip* program."
                            % (self.TiltSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
         return methods

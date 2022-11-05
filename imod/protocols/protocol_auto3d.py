@@ -48,7 +48,7 @@ class ProtImodAuto3D(ProtTomoReconstruct):
         form.addParam('inputTiltSeries', params.PointerParam,
                       pointerClass='TiltSeries,SetOfTiltSeries',
                       important=True,
-                      label='Input Tilt-Series',
+                      label='Input tilt-series',
                       help='Provide either a single TiltSeries or a '
                            'SetOfTiltSeries that will be used for the quick '
                            'reconstruction of Tomograms.')
@@ -118,7 +118,7 @@ class ProtImodAuto3D(ProtTomoReconstruct):
         if os.path.exists(tomoPath):
             pwutils.moveFile(tomoPath, self._getPath(tomoName))
         else:
-            print("ERROR: The expected tomogram for Tilt-Series %s "
+            print("ERROR: The expected tomogram for tilt-series %s "
                   "was not properly generated. " % tsId)
 
         if not pwutils.envVarOn('SCIPION_DEBUG_NOCLEAN'):

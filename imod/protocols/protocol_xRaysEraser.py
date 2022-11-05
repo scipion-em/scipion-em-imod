@@ -58,7 +58,7 @@ class ProtImodXraysEraser(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('peakCriterion',
                       params.FloatParam,
@@ -193,12 +193,12 @@ class ProtImodXraysEraser(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nX-rays erased output "
+            summary.append("Input tilt-series: %d\nX-rays erased output "
                            "tilt series: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Outputs are not ready yet.")
 
         return summary
 
@@ -206,7 +206,7 @@ class ProtImodXraysEraser(ProtImodBase):
         methods = []
         if self.TiltSeries:
             methods.append("The x-rays artifacts have been erased for %d "
-                           "Tilt-series using the IMOD program ccderaser.\n"
+                           "tilt-series using the IMOD *ccderaser* command.\n"
                            % (self.TiltSeries.getSize()))
 
         return methods

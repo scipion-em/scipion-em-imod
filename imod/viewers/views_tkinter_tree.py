@@ -59,8 +59,8 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
     COL_LANDMODEL_NO_GAPS = 'Fiducial models w/o gaps'
-    COL_RECONST_TOMOGRAM = 'Full tomograms'
-    COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
+    COL_RECONST_TOMOGRAM = 'Raw tomograms'
+    COL_PREPROCESS_RECONST_TOMOGRAM = 'Post-processed tomograms'
 
     ORDER_DICT = {COL_TS: 'id'}
 

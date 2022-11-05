@@ -115,31 +115,19 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 
         group = form.addGroup('Tilt Series Alignment')
         group.addParam('savedTsPreAli', params.LabelParam,
-                       label="Pre-aligned tilt-series",
-                       help="Through this option the intermediate pre-aligned "
-                            "tilt-series can be shown.")
+                       label="Pre-aligned tilt-series")
         group.addParam('savedTsAli', params.LabelParam,
-                       label="Aligned tilt-series",
-                       help="Through this option the intermediate aligned "
-                            "tilt-series can be shown.")
+                       label="Aligned tilt-series")
         group.addParam('saved3DCoord', params.LabelParam,
-                       label="3D Coordinates",
-                       help="Through this option the 3D coordinates can "
-                            "be shown.")
+                       label="3D Coordinates")
         group.addParam('savedFiducials', params.LabelParam,
-                       label="Landmark models no gaps",
-                       help="Through this option the obtained fiducial model "
-                            "can be shown.")
+                       label="Landmark models no gaps")
 
         group = form.addGroup('Tomogram')
         group.addParam('savedReconsTomo', params.LabelParam,
-                       label="Reconstructed full tomogram",
-                       help="Through this option the final reconstructed "
-                            "tomogram can be shown.")
+                       label="Reconstructed raw tomogram")
         group.addParam('savedPostProcessTomo', params.LabelParam,
-                       label="Postprocess tomogram",
-                       help="Through this option the postprocess "
-                            "tomogram can be shown.")
+                       label="Post-processed tomogram")
 
         self.defineOutputsSetNames()
 
@@ -182,4 +170,4 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
             return [self.errorMessage(str(e), "Error displaying the output")]
 
     def _notGenerated(self, param=None):
-        return [self.infoMessage('Output not generated yet. ', 'Info').show()]
+        return [self.infoMessage('Outputs are not generated yet.', 'Info').show()]

@@ -41,7 +41,7 @@ from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 class ProtImodImportTransformationMatrix(ProtImodBase):
     """
-    Import the transformation matrices assigned to an input set of tilt-series.
+    Import the transformation matrices assigned to an input set of tilt-series
     """
 
     _label = 'Import transformation matrix'
@@ -63,7 +63,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                       important=True,
                       help='Set of tilt-series on which transformation matrices '
                            'will be assigned.',
-                      label='Assign transformation set of tilt-series')
+                      label='Input set of tilt-series')
 
         groupMatchBinning = form.addGroup('Match binning')
 
@@ -79,7 +79,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                                    params.IntParam,
                                    default=1,
                                    label='Tilt-series binning',
-                                   help='Binning of the tilt-series to which the ')
+                                   help='Binning of the tilt-series.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -251,16 +251,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices "
-                           "assigned: %d.\n"
+            summary.append("Input tilt-series: %d\nTransformation matrices "
+                           "assigned: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
         return summary
-
-    def _methods(self):
-        methods = []
-        if self.TiltSeries:
-            methods.append("The transformation matrix has been assigned to %d "
-                           "Tilt-series from the input set.\n"
-                           % self.TiltSeries.getSize())
-        return methods

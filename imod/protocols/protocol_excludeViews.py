@@ -210,26 +210,11 @@ class ProtImodExcludeViews(ProtImodBase):
             summary.append("Excluded views:\n")
 
             for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
-                summary.append("Tilt-series ID: %s. Size: %d ----> %d."
+                summary.append("Tilt-series: %s; Size: %d ---> %d"
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),
                                   tsOut.getSize()))
         else:
-            summary.append("Output classes not ready yet.")
+            summary.append("Outputs are not ready yet.")
 
         return summary
-
-    def _methods(self):
-        methods = []
-        if self.TiltSeries:
-            methods.append("Excluded views:\n")
-
-            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
-                methods.append("Tilt-series ID: %s. Size: %d ----> %d."
-                               % (tsIn.getTsId(),
-                                  tsIn.getSize(),
-                                  tsOut.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
-
-        return methods

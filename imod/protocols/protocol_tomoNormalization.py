@@ -100,7 +100,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                       choices=['Yes', 'No'],
                       condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
                       default=1,
-                      label='Set scaling range values',
+                      label='Set scaling range values?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
@@ -127,7 +127,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                       choices=['None', 'Blackman', 'Triangle', 'Mitchell',
                                'Lanczos 2', 'Lanczos 3'],
                       default=5,
-                      label='Antialias',
+                      label='Antialias method:',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Type of antialiasing filter to use when reducing images.\n'
                            'The available types of filters are:\n\n'
@@ -155,7 +155,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                              params.EnumParam,
                              choices=['Yes', 'No'],
                              default=1,
-                             label='Set mean and SD',
+                             label='Set mean and SD?',
                              important=True,
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
@@ -313,19 +313,17 @@ class ProtImodTomoNormalization(ProtImodBase):
     def _summary(self):
         summary = []
         if self.Tomograms:
-            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d"
+            summary.append("Input tilt-series: %d\nInterpolations applied: %d"
                            % (self.inputSetOfTomograms.get().getSize(),
                               self.Tomograms.getSize()))
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.Tomograms:
             methods.append("%d tomograms have been normalized using the """
-                           "IMOD binvol program.\n"
+                           "IMOD *binvol* command.\n"
                            % (self.Tomograms.getSize()))
-        else:
-            methods.append("Output not ready yet.")
         return methods

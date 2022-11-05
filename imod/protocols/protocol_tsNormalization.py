@@ -99,7 +99,7 @@ class ProtImodTSNormalization(ProtImodBase):
                       choices=['Yes', 'No'],
                       condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
                       default=1,
-                      label='Set scaling range values',
+                      label='Set scaling range values?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
@@ -133,7 +133,7 @@ class ProtImodTSNormalization(ProtImodBase):
                              params.EnumParam,
                              choices=['Yes', 'No'],
                              default=1,
-                             label='Set mean and SD',
+                             label='Set mean and SD?',
                              important=True,
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
@@ -280,19 +280,17 @@ class ProtImodTSNormalization(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d"
+            summary.append("Input tilt-series: %d\nInterpolations applied: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.TiltSeries:
             methods.append("%d tilt-series have been normalized using the IMOD "
-                           "newstack program.\n"
+                           "*newstack* command.\n"
                            % (self.TiltSeries.getSize()))
-        else:
-            methods.append("Output classes not ready yet.")
         return methods

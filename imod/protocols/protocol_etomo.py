@@ -66,8 +66,8 @@ class ProtImodEtomo(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of Tilt-Series',
-                      help='Input set of tilt-series to be processed with etomo.')
+                      label='Input set of tilt-series',
+                      help='Input set of tilt-series to be processed with eTomo.')
 
         form.addParam('markersDiameter',
                       params.FloatParam,
@@ -579,60 +579,30 @@ ProcessTrack.TomogramCombination=Not started
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = ["The following outputs have been generated from the "
-                   "operations performed over the input tilt-series:"]
+                   "operations performed on the input tilt-series:"]
 
         if self.PrealignedTiltSeries:
-            summary.append("- Tilt-series prealignment.")
+            summary.append("- Pre-aligned tilt-series")
 
         if self.TiltSeries:
-            summary.append("- Tilt-series alignment.")
+            summary.append("- Aligned tilt-series")
 
         if self.Coordinates3D:
-            summary.append("- Landmark 3D coordinates have been extracted.")
+            summary.append("- Landmark 3D coordinates")
 
         if self.FiducialModelGaps:
-            summary.append("- Landmark model with gaps has been generated.")
+            summary.append("- Landmark model with gaps")
 
         if self.FiducialModelNoGaps:
-            summary.append("- Landmark model without gaps has been generated.")
+            summary.append("- Landmark model without gaps")
 
         if self.FullTomograms:
-            summary.append("- Full raw reconstructed tomogram.")
+            summary.append("- Raw reconstructed tomogram")
 
         if self.PostProcessedTomograms:
-            summary.append("- Post processed reconstructed tomogram.")
+            summary.append("- Post-processed tomogram")
 
-        if summary == ["The following operations has been performed over the input tilt-series:"]:
-            summary = ["Output classes not ready yet."]
+        if len(summary) == 1:
+            summary = ["Outputs are not ready yet"]
 
         return summary
-
-    def _methods(self):
-        methods = ["The following outputs have been generated from the "
-                   "operations performed over the input tilt-series:"]
-
-        if self.PrealignedTiltSeries:
-            methods.append("- Tilt-series prealignment.")
-
-        if self.TiltSeries:
-            methods.append("- Tilt-series alignment.")
-
-        if self.Coordinates3D:
-            methods.append("- Landmark 3D coordinates have been extracted.")
-
-        if self.FiducialModelGaps:
-            methods.append("- Landmark model with gaps has been generated.")
-
-        if self.FiducialModelNoGaps:
-            methods.append("- Landmark model without gaps has been generated.")
-
-        if self.FullTomograms:
-            methods.append("- Full raw reconstructed tomogram.")
-
-        if self.PostProcessTomograms:
-            methods.append("- Post processed reconstructed tomogram.")
-
-        if methods == ["The following operations has been performed over the input tilt-series:"]:
-            methods = ["Output classes not ready yet."]
-
-        return methods
