@@ -259,7 +259,7 @@ class ImodGenericTreeProvider(TreeProvider):
                 def createViewer(viewerClass, obj):
                     proj = self.protocol.getProject()
                     item = self.objs[obj.getObjId()]  # to load mapper
-                    return lambda : viewerClass(project=proj).visualize(item)
+                    return lambda : viewerClass(project=proj, protocol=self.protocol).visualize(item)
                 actions.append(('Open with %s' % viewerClass.__name__,
                                 createViewer(viewerClass, obj)))
         return actions

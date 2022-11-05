@@ -27,12 +27,15 @@
 This module contains utils functions for IMOD protocols
 """
 import logging
+import os
+
 logger = logging.getLogger(__name__)
 import csv
 import math
 import numpy as np
 import pyworkflow.object as pwobj
-
+import pyworkflow.utils as pwutils
+from imod import Plugin
 
 def formatTransformFile(ts, transformFilePath):
     """ This method takes a tilt series and the output transformation file path and creates an IMOD-based transform
@@ -156,10 +159,37 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
     outputLines = []
 
     for vector in infoTable:
-        outputLines.append("\t%s\t%s\t%s\n" % (vector[0], vector[1], vector[2]))
+        outputLines.append("\t%s\t%s\t%s\t%s\n" % (vector[3], vector[0],
+                                                   vector[1], vector[2]))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
+
+
+def generateIMODFidFile(protocol, landmarkModel):
+    fiducialTextFile = pwutils.replaceExt(landmarkModel.getFileName(), "txt")
+    generateIMODFiducialTextFile(landmarkModel, fiducialTextFile)
+
+    fiducialModelGapPath = pwutils.replaceExt(landmarkModel.getFileName(), "fid")
+
+    if not os.path.exists(fiducialModelGapPath):
+        paramsPoint2Model = {
+            'inputFile': fiducialTextFile,
+            'outputFile': fiducialModelGapPath,
+            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName()
+        }
+
+        # -sp <value> parameter: generate sphere with radius <value>
+        argsPoint2Model = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s " \
+                          "-image %(image)s " \
+                          "-zc -ci 5"
+
+        protocol.setStepsExecutor()
+        Plugin.runImod(protocol, 'point2model',
+                            argsPoint2Model % paramsPoint2Model)
+
+    return fiducialModelGapPath
 
 
 def formatAngleFile(inputTs, angleFilePath):
