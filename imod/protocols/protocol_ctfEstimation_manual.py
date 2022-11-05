@@ -7,7 +7,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -29,6 +29,7 @@ import os
 
 from pyworkflow import BETA
 from tomo.objects import SetOfCTFTomoSeries
+
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
 
 
@@ -88,5 +89,6 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def getFilePath(self, ts, suffix="", extension=""):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        return os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix=suffix,
-                                                                         extension=extension))
+        return os.path.join(extraPrefix,
+                            ts.getFirstItem().parseFileName(suffix=suffix,
+                                                            extension=extension))

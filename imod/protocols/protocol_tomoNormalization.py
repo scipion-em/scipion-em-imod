@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,18 +22,18 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
+
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.objects import Transform
-from pwem.emlib.image import ImageHandler
 from tomo.objects import Tomogram
-from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
+
+from .. import Plugin
+from .protocol_base import ProtImodBase
 
 
 class ProtImodTomoNormalization(ProtImodBase):
@@ -61,8 +61,9 @@ class ProtImodTomoNormalization(ProtImodBase):
                       default=1.0,
                       label='Binning',
                       important=True,
-                      help='Binning to be applied to the normalized tomograms in IMOD convention. Volumes will be '
-                           'binned by the given factor. Must be an integer bigger than 1')
+                      help='Binning to be applied to the normalized tomograms '
+                           'in IMOD convention. Volumes will be binned by the '
+                           'given factor. Must be an integer bigger than 1')
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -76,18 +77,23 @@ class ProtImodTomoNormalization(ProtImodBase):
                            '-Mode 1: sections fill the data range\n'
                            '-Mode 2: sections scaled to common mean and standard deviation.\n'
                            '-Mode 3: sections shifted to a common mean without scaling\n'
-                           '-Mode 4: sections shifted to a common mean and then rescale the resulting minimum and '
-                           'maximum densities to the Min and Max values specified')
+                           '-Mode 4: sections shifted to a common mean and then '
+                           'rescale the resulting minimum and maximum densities '
+                           'to the Min and Max values specified')
         form.addParam('modeToOutput',
                       params.EnumParam,
-                      choices=['default', '4-bit', 'byte', 'signed 16-bit', 'unsigned 16-bit', '32-bit float'],
+                      choices=['default', '4-bit', 'byte', 'signed 16-bit',
+                               'unsigned 16-bit', '32-bit float'],
                       default=0,
                       label='Storage data type',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Apply one density scaling to all sections to map current min and max to the given Min and '
-                           'Max. The storage mode of the output file. The default is the mode of the first input file, '
-                           'except for a 4-bit input file, where the default is to output as bytes')
+                      help='Apply one density scaling to all sections to map '
+                           'current min and max to the given Min and Max. The '
+                           'storage mode of the output file. The default is '
+                           'the mode of the first input file, except for a '
+                           '4-bit input file, where the default is to output '
+                           'as bytes')
 
         form.addParam('scaleRangeToggle',
                       params.EnumParam,
@@ -97,8 +103,9 @@ class ProtImodTomoNormalization(ProtImodBase):
                       label='Set scaling range values',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='This option will rescale the densities of all sections by the same '
-                           'factors so that the original minimum and maximum density will be mapped '
+                      help='This option will rescale the densities of all '
+                           'sections by the same factors so that the original '
+                           'minimum and maximum density will be mapped '
                            'to the Min and Max values that are entered')
 
         form.addParam('scaleRangeMax',
@@ -117,7 +124,8 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         form.addParam('antialias',
                       params.EnumParam,
-                      choices=['None', 'Blackman', 'Triangle', 'Mitchell', 'Lanczos 2', 'Lanczos 3'],
+                      choices=['None', 'Blackman', 'Triangle', 'Mitchell',
+                               'Lanczos 2', 'Lanczos 3'],
                       default=5,
                       label='Antialias',
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -129,15 +137,18 @@ class ProtImodTomoNormalization(ProtImodBase):
                            'Mitchell - good at antialiasing, smooths a bit\n'
                            'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
                            'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
-                           'The default is Lanczos 3 as of IMOD 4.7.  Although many people consider Lanczos 2 the best '
-                           'compromise among the various factors, that sentiment may be based on images of natural scenes '
-                           'where there are sharp edges.')
-
+                           'The default is Lanczos 3 as of IMOD 4.7. Although '
+                           'many people consider Lanczos 2 the best compromise '
+                           'among the various factors, that sentiment may be '
+                           'based on images of natural scenes where there are '
+                           'sharp edges.')
 
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
-                                    help='Scale all images to the given mean and standard deviation. This option '
-                                         'implies -float 2 and is incompatible with all other scaling options. If no '
+                                    help='Scale all images to the given mean '
+                                         'and standard deviation. This option '
+                                         'implies -float 2 and is incompatible '
+                                         'with all other scaling options. If no '
                                          'values are set, mean=0 and SD=1 by default')
 
         groupMeanSd.addParam('meanSdToggle',
@@ -176,13 +187,14 @@ class ProtImodTomoNormalization(ProtImodBase):
                             label='Min.',
                             help='Minimum value for the rescaling')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep,
+                                     tomo.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def generateOutputStackStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
         location = tomo.getLocation()[1]
@@ -251,7 +263,8 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
+        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(),
+                                              self.binning.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
@@ -284,7 +297,7 @@ class ProtImodTomoNormalization(ProtImodBase):
         self.Tomograms.write()
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -296,11 +309,11 @@ class ProtImodTomoNormalization(ProtImodBase):
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.Tomograms:
-            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d.\n"
+            summary.append("Input Tilt-Series: %d.\nInterpolations applied: %d"
                            % (self.inputSetOfTomograms.get().getSize(),
                               self.Tomograms.getSize()))
         else:
@@ -310,7 +323,8 @@ class ProtImodTomoNormalization(ProtImodBase):
     def _methods(self):
         methods = []
         if self.Tomograms:
-            methods.append("%d tomograms have been normalized using the IMOD binvol program.\n"
+            methods.append("%d tomograms have been normalized using the """
+                           "IMOD binvol program.\n"
                            % (self.Tomograms.getSize()))
         else:
             methods.append("Output not ready yet.")

@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,21 +24,20 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
 import pyworkflow as pw
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, ProtImodBase, \
-    OUTPUT_TS_COORDINATES_NAME
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
-from imod import Plugin
-from imod import utils
-from pwem.emlib.image import ImageHandler
+from .. import Plugin, utils
+from .protocol_base import (OUTPUT_TILTSERIES_NAME, ProtImodBase,
+                            OUTPUT_TS_COORDINATES_NAME)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -76,7 +75,7 @@ class ProtImodEtomo(ProtImodBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
         pass
@@ -85,7 +84,7 @@ class ProtImodEtomo(ProtImodBase):
         self.inputTiltSeries = None
         self._insertFunctionStep(self.runEtomoStep, interactive=True)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericViewer
         setOftiltSeries = self.inputSetOfTiltSeries.get()
@@ -141,7 +140,6 @@ class ProtImodEtomo(ProtImodBase):
         # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
         args += '-NamingStyle 0 '
 
-
         # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
         # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
         # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
@@ -183,7 +181,7 @@ class ProtImodEtomo(ProtImodBase):
 
         outputPrealiSetOfTiltSeries = None
         outputAliSetOfTiltSeries = None
-        self.FiducialModelNoGaps = None # This will reset the output. Is this what we want?
+        self.FiducialModelNoGaps = None  # This will reset the output. Is this what we want?
         setOfTSCoords = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
@@ -230,7 +228,7 @@ class ProtImodEtomo(ProtImodBase):
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
-                xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
+                xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
                 newTs.setDim((xPreali, yPreali, zPreali))
 
                 newTs.write(properties=False)
@@ -247,7 +245,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
                     outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
                     outputAliSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
-                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputAliSetOfTiltSeries})
+                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputAliSetOfTiltSeries})
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputAliSetOfTiltSeries)
                 else:
@@ -281,7 +279,7 @@ class ProtImodEtomo(ProtImodBase):
                     self.debug("Slice index is %s" % sliceIndex)
                     newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
-                        newTi.setTiltAngle(float(tltList[sliceIndex-1]))
+                        newTi.setTiltAngle(float(tltList[sliceIndex - 1]))
                     xAli, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
                     newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                     if sliceIndex in excludedViewList:
@@ -302,9 +300,10 @@ class ProtImodEtomo(ProtImodBase):
 
                 if os.path.exists(coordFilePath):
                     if setOfTSCoords is None:
-                        setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='LandmarkModel')
+                        setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(),
+                                                                                  suffix='LandmarkModel')
                         setOfTSCoords.setSetOfTiltSeries(outputAliSetOfTiltSeries)
-                        self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME:setOfTSCoords})
+                        self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: setOfTSCoords})
                         self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                    setOfTSCoords)
                     else:
@@ -315,7 +314,8 @@ class ProtImodEtomo(ProtImodBase):
                     for element in coordList:
                         newCoord3D = tomoObj.TiltSeriesCoordinate()
                         newCoord3D.setTsId(ts.getTsId())
-                        self.debug("Setting tilt series coordinate x, y, z: %s, %s, %s." % (element[0], element[1], element[2]))
+                        self.debug("Setting tilt series coordinate x, y, z: %s, %s, %s." % (
+                            element[0], element[1], element[2]))
                         newCoord3D.setX(element[0])
                         newCoord3D.setY(element[1])
                         newCoord3D.setZ(element[2])
@@ -436,7 +436,7 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputSetOfPostProcessTomograms)
         self.closeMappers()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     @staticmethod
     def _writeEtomoEdf(fn, paramsDict):
         template = """
@@ -553,7 +553,7 @@ ProcessTrack.TomogramCombination=Not started
     def getPixSizeFromDimensions(self, outputDim):
         ih = ImageHandler()
         originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
-        return self.inputTiltSeries.getSamplingRate() * round(originalDim/outputDim)
+        return self.inputTiltSeries.getSamplingRate() * round(originalDim / outputDim)
 
     def getResizeFactorFromDimensions(self, outputDim):
         ih = ImageHandler()
@@ -576,8 +576,7 @@ ProcessTrack.TomogramCombination=Not started
                 break
         return excludedViewList
 
-
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = ["The following outputs have been generated from the "
                    "operations performed over the input tilt-series:"]

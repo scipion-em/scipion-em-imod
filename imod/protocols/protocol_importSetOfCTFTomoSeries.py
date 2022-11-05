@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,17 +22,15 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
-from pyworkflow import BETA
-import pyworkflow.object as pwobj
+
 import pyworkflow.protocol.params as params
 from pyworkflow import BETA
 from pyworkflow.object import Set
-import tomo.objects as tomoObj
-from imod import utils
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
+
+from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
 
 
 class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
@@ -51,23 +49,26 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
         form.addParam('exclusionWords', params.StringParam,
                       label='Exclusion words:',
-                      help="List of words separated by a space that the path should not have",
+                      help="List of words separated by a space that the "
+                           "path should not have",
                       expertLevel=params.LEVEL_ADVANCED)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       label='Input tilt-series',
-                      help='Select the tilt-series to which the imported estimation of CTF will be paired. The file '
-                           'names of the file and the defocus file must be the same (except the extension).')
+                      help='Select the tilt-series to which the imported '
+                           'estimation of CTF will be paired. The file '
+                           'names of the file and the defocus file must '
+                           'be the same (except the extension).')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
 
         self._insertFunctionStep(self.importSetOfCtfTomoSeries)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def importSetOfCtfTomoSeries(self):
 
         inputSetOfTiltSeries = self.inputSetOfTiltSeries.get()
@@ -85,18 +86,19 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
 
                     self.info("Parsing file: " + defocusFilePath)
 
-                    self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
+                    self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath,
+                                                              output)
 
     def closeOutputSetsStep(self):
         self.CTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
         self.CTFTomoSeries.write()
         self._store()
 
-    # --------------------------- UTILS functions ---------------------------
+    # --------------------------- UTILS functions -----------------------------
     def _getSetOfTiltSeries(self, pointer=False):
         return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.CTFTomoSeries:
@@ -108,7 +110,8 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
     def _methods(self):
         methods = []
         if self.CTFTomoSeries:
-            methods.append("%d CTF tomo series have been imported into this project.\n"
+            methods.append("%d CTF tomo series have been imported "
+                           "into this project.\n"
                            % self.CTFTomoSeries.getSize())
         return methods
 
@@ -117,7 +120,8 @@ class ProtImodImportSetOfCtfTomoSeries(ProtImodBase):
         if not self.getMatchFiles():
             errorMsg.append('Unable to find the files provided:\n\n'
                             '\t-filePath = %s\n'
-                            '\t-pattern = %s\n' % (self.filesPath.get(), self.filesPattern.get()))
+                            '\t-pattern = %s\n' % (self.filesPath.get(),
+                                                   self.filesPattern.get()))
 
         return errorMsg
 

@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,17 +22,18 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
+
 import os
-import imod.utils as utils
+
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
-from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
-from pyworkflow.protocol import LEVEL_ADVANCED
+
+from .. import Plugin, utils
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodExcludeViews(ProtImodBase):
@@ -61,19 +62,23 @@ class ProtImodExcludeViews(ProtImodBase):
 
         form.addParam('excludeViewsFile',
                       params.FileParam,
-                      expertLevel=LEVEL_ADVANCED,
+                      expertLevel=params.LEVEL_ADVANCED,
                       label='Exclude views file',
-                      help='File containing the views to be excluded for each tilt-series belonging to the set.\n\n'
-                           'The format of the text file must be two columns, the first one being the tilt series ID of '
-                           'the series from which the views will be excluded and the second the views to exclude, '
-                           'numbered from 1. The syntax for this exclude list is a comma separated list of ranges with '
-                           'no spaces between them (e.g., 1,4-5,60-70). \n\n'
+                      help='File containing the views to be excluded for each '
+                           'tilt-series belonging to the set.\n\n'
+                           'The format of the text file must be two columns, '
+                           'the first one being the tilt series ID of '
+                           'the series from which the views will be excluded '
+                           'and the second the views to exclude, numbered from '
+                           '1. The syntax for this exclude list is a comma '
+                           'separated list of ranges with no spaces between '
+                           'them (e.g., 1,4-5,60-70). \n\n'
                            'An example of this file comes as follows:\n'
                            'stack1 1,4-6,8,44-47\n'
                            'stack2 3,10-12,24\n'
                            '...')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
 
         for tsId in self.inputSetOfTiltSeries.get().getIdSet():
@@ -81,16 +86,16 @@ class ProtImodExcludeViews(ProtImodBase):
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def getExcludedViewsFromFile(self):
         if self.excludeViewsInfoMatrix is None:
-
             self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
         return self.excludeViewsInfoMatrix
 
     def getExcludedViewsFromMatrix(self, ts):
-        """ Returns the indexes of the tilt to exclude for a specified tilt series read from de input file """
+        """ Returns the indexes of the tilt to exclude for a
+        specified tilt series read from de input file """
         matrix = self.getExcludedViewsFromFile()
 
         pattern = matrix.get(ts.getTsId(), [])
@@ -101,13 +106,13 @@ class ProtImodExcludeViews(ProtImodBase):
         return views
 
     def getExcludedViews(self, ts):
-        """ Returns the indexes of the tilt to exclude for a specified tilt series"""
+        """ Returns the indexes of the tilt to exclude for a
+        specified tilt series"""
         if self.excludeViewsFile.get():
-            self.info("Using excluded views from %s" % self.excludeViewsFile.get() )
+            self.info("Using excluded views from %s" % self.excludeViewsFile.get())
             return self.getExcludedViewsFromMatrix(ts)
         else:
             return ts._getExcludedViewsIndex()
-
 
     def excludeViewsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -157,12 +162,14 @@ class ProtImodExcludeViews(ProtImodBase):
         excludedViews = self.getExcludedViews(ts)
 
         for index, tiltImage in enumerate(ts):
-            stackIndex = index+1
-            if not stackIndex in excludedViews:
+            stackIndex = index + 1
+            if stackIndex not in excludedViews:
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(stackIndex, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+                newTi.setLocation(stackIndex,
+                                  (os.path.join(extraPrefix,
+                                                tiltImage.parseFileName())))
                 newTs.append(newTi)
             else:
                 self.info("%s excluded from %s." % (stackIndex, tsId))
@@ -178,7 +185,7 @@ class ProtImodExcludeViews(ProtImodBase):
         self.TiltSeries.write()
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
 
     def makeExclusionPatternAsList(self, excludedViews):
         excludedViewsAsList = []
@@ -189,21 +196,21 @@ class ProtImodExcludeViews(ProtImodBase):
             elementVector = element.split('-')
 
             if len(elementVector) > 1:
-                for i in range(int(elementVector[0]), int(elementVector[1])  + 1):
+                for i in range(int(elementVector[0]), int(elementVector[1]) + 1):
                     excludedViewsAsList.append(int(i))
             else:
                 excludedViewsAsList.append(int(elementVector[0]))
 
         return excludedViewsAsList
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
             for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
-                summary.append("Tilt-series ID: %s.   Size: %d ----> %d."
+                summary.append("Tilt-series ID: %s. Size: %d ----> %d."
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),
                                   tsOut.getSize()))
@@ -218,7 +225,7 @@ class ProtImodExcludeViews(ProtImodBase):
             methods.append("Excluded views:\n")
 
             for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
-                methods.append("Tilt-series ID: %s.   Size: %d ----> %d."
+                methods.append("Tilt-series ID: %s. Size: %d ----> %d."
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),
                                   tsOut.getSize()))

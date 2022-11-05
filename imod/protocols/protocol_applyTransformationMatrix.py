@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,18 +22,19 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
-import imod.utils as utils
+
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
-from tomo.objects import TiltSeries, TiltImage
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TS_INTERPOLATED_NAME
+from tomo.objects import TiltSeries, TiltImage
+
+from .. import Plugin, utils
+from .protocol_base import ProtImodBase
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -58,10 +59,12 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         form.addParam('binning', params.FloatParam,
                       default=1.0,
                       label='Binning',
-                      help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
-                           'binned by the given factor. Must be an integer bigger than 1')
+                      help='Binning to be applied to the interpolated '
+                           'tilt-series in IMOD convention. Images will be '
+                           'binned by the given factor. Must be an integer '
+                           'bigger than 1')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
@@ -69,13 +72,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions ------------------------------
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
-        utils.formatTransformFile(ts, os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension="_fid.xf")))
+        utils.formatTransformFile(ts,
+                                  os.path.join(extraPrefix,
+                                               ts.getFirstItem().parseFileName(extension="_fid.xf")))
 
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -102,7 +107,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
 
-        # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # Check if rotation angle is greater than 45º. If so,
+        # swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
         if rotationAngleAvg > 45 or rotationAngleAvg < -45:
             paramsAlignment.update({
@@ -132,14 +138,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         if self.binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
-        index=1
+        index = 1
         for tiltImage in ts:
             if tiltImage.isEnabled():
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-                index+=1
+                index += 1
                 if self.binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
                 newTs.append(newTi)
@@ -159,13 +165,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         self.InterpolatedTiltSeries.write()
         self._store()
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
 
         for ts in self.inputSetOfTiltSeries.get():
             if not ts.getFirstItem().hasTransform():
-                validateMsgs.append("Some tilt-series from the input set of tilt-series is missing from a "
+                validateMsgs.append("Some tilt-series from the input set "
+                                    "of tilt-series is missing from a "
                                     "transformation matrix.")
                 break
 

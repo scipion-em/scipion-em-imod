@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -22,7 +22,7 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
@@ -32,9 +32,8 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 
-from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
-import imod.utils as utils
+from .. import Plugin, utils
+from .protocol_base import ProtImodBase
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -198,7 +197,8 @@ class ProtImodDoseFilter(ProtImodBase):
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append("%s has no dose information stored "
                                         "in Scipion Metadata. To solve this, import "
-                                        "the tilt-series using the mdoc option." % ts.getTsId())
+                                        "the tilt-series using the mdoc option." %
+                                        ts.getTsId())
 
         return validateMsgs
 

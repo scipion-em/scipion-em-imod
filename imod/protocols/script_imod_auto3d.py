@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Based on script from Javi Chichon
@@ -7,7 +7,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,9 +23,8 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
-import sys
 import os
 import argparse
 
@@ -38,7 +37,7 @@ add('inputTs', metavar='INPUT_STACK',
     help='Input tilt series stack file. ')
 
 add('--widthz', type=int, default=500,
-    help='Estimated witdh in Z. ')
+    help='Estimated width in Z. ')
 
 add('--bin', type=int, default=2,
     help='Bin factor.')
@@ -166,4 +165,3 @@ run('trimvol', '-rx %(tomoName)s %(tomoName)s')
 
 # Some clean up
 run('rm', '*~')
-

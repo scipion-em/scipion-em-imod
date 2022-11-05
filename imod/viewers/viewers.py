@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,23 +24,22 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
-
+# *****************************************************************************
 
 import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME
-from imod.viewers.views_tkinter_tree import ImodGenericViewer, ImodSetView, \
-    ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView
 import pyworkflow.protocol.params as params
-
-import tomo.objects
-import imod.protocols
-from imod import Plugin
 from pwem.viewers import DataViewer
+import tomo.objects
+
+from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
+                                       OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+from .views_tkinter_tree import (ImodGenericViewer, ImodSetView,
+                                 ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView)
+import imod.protocols
+from .. import Plugin
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -87,11 +86,12 @@ class ImodObjectView(pwviewer.CommandView):
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
 
-                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated." + extension)
+                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(),
+                                                        "ts_interpolated." + extension)
                 obj.getTiltSeries().applyTransform(outputTSInterpolatedPath)
 
                 fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSInterpolatedPath + " " + \
-                      obj.getModelName() + " ; "
+                     obj.getModelName() + " ; "
 
             else:
                 fn = Plugin.getImodCmd('3dmod') + " -m " + obj.getTiltSeries().getFirstItem().getFileName() + \
@@ -182,4 +182,4 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
             return [self.errorMessage(str(e), "Error displaying the output")]
 
     def _notGenerated(self, param=None):
-       return [self.infoMessage('Output not generated yet. ', 'Info').show()]
+        return [self.infoMessage('Output not generated yet. ', 'Info').show()]

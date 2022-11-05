@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,18 +22,17 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
+
 from pyworkflow import BETA
 from pyworkflow.object import Set
-import pyworkflow.object as pwobj
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
-from imod import Plugin
-from imod import utils
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
+
+from .. import Plugin
+from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -57,20 +56,24 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
                       label='Input set of tilt-series',
-                      help='This should be a raw stack, not an aligned stack, because the interpolation used to make '
-                           'an aligned stack attenuates high frequencies and the noise power spectra would no longer '
-                           'match.')
+                      help='This should be a raw stack, not an aligned stack, '
+                           'because the interpolation used to make '
+                           'an aligned stack attenuates high frequencies and '
+                           'the noise power spectra would no longer match.')
 
         form.addParam('defocusTol',
                       params.FloatParam,
                       label='Defocus tolerance (nm)',
                       default=200,
                       important=True,
-                      help='Defocus tolerance in nanometers defining the center strips. The center strips are taken '
-                           'from the central region of a view that has defocus difference less than this tolerance. '
-                           'These kind of center strips from all views within AngleRange are considered to have a '
-                           'constant defocus and are used to compute the initial CTF after being further tessellated '
-                           'into tiles.')
+                      help='Defocus tolerance in nanometers defining the '
+                           'center strips. The center strips are taken '
+                           'from the central region of a view that has defocus '
+                           'difference less than this tolerance. '
+                           'These kind of center strips from all views within '
+                           'AngleRange are considered to have a constant '
+                           'defocus and are used to compute the initial CTF '
+                           'after being further tessellated into tiles.')
 
         form.addParam('expectedDefocusOrigin',
                       params.EnumParam,
@@ -79,9 +82,12 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Input expected defocus as',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Run the protocol through the interactive GUI. If run in auto mode defocus values are saved '
-                           'to file and exit after autofitting. The program will not ask for confirmation before '
-                           'removing existing entries in the defocus table. If run in interactive mode defocus values'
+                      help='Run the protocol through the interactive GUI. '
+                           'If run in auto mode defocus values are saved '
+                           'to file and exit after autofitting. The program '
+                           'will not ask for confirmation before removing '
+                           'existing entries in the defocus table. If run '
+                           'in interactive mode defocus values'
                            'MUST BE SAVED manually by the user.')
 
         form.addParam('expectedDefocusValue',
@@ -90,7 +96,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Expected defocus value (nm)',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
-                      help='This value will be applied as the expected defocus in nanometers for every tilt-series '
+                      help='This value will be applied as the expected '
+                           'defocus in nanometers for every tilt-series '
                            'from the set.')
 
         form.addParam('expectedDefocusFile',
@@ -98,8 +105,10 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Expected defocus file',
                       important=True,
                       condition="expectedDefocusOrigin == 1",
-                      help='File containing a list of expected defoci in nanometes for each tilt-series of the set. '
-                           'This file must contain two columns. The first column must be the filename of the '
+                      help='File containing a list of expected defoci in '
+                           'nanometes for each tilt-series of the set. '
+                           'This file must contain two columns. The first '
+                           'column must be the filename of the '
                            'tilt-series and the second the expected defocus.')
 
         form.addParam('leftDefTol',
@@ -107,53 +116,65 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Left defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Defocus tolerance in nanometers for strips to the left of the center strip.")
+                      help="Defocus tolerance in nanometers for strips "
+                           "to the left of the center strip.")
 
         form.addParam('rightDefTol',
                       params.FloatParam,
                       label='Right defocus tolerance (nm)',
                       default=2000,
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Defocus tolerance in nanometers for strips to the right of the center strip.")
+                      help="Defocus tolerance in nanometers for strips "
+                           "to the right of the center strip.")
 
         form.addParam('tileSize',
                       params.IntParam,
                       label='Tile size (pixels)',
                       default=256,
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="The tile size each strip will be tessellated into. The size is in pixels and the tiles are "
-                           "square.  Each view is first divided into strips that are considered to have constant "
-                           "defocus.")
+                      help="The tile size each strip will be tessellated "
+                           "into. The size is in pixels and the tiles are "
+                           "square.  Each view is first divided into strips "
+                           "that are considered to have constant defocus.")
 
         groupAngleRange = form.addGroup('Autorefinement angle settings',
-                                        help='This entry sets the range of angles in each fit and the step size between'
-                                             'angles for the initial autofitting of the whole tilt-series.')
+                                        help='This entry sets the range of '
+                                             'angles in each fit and the step '
+                                             'size between angles for the '
+                                             'initial autofitting of the whole '
+                                             'tilt-series.')
 
         groupAngleRange.addParam('angleStep',
                                  params.FloatParam,
                                  default=2,
                                  label='Angle step',
-                                 help='Step size between ranges. A value of zero for the step will make it fit to each '
-                                      'single image separately, regardless of the value for the range.')
+                                 help='Step size between ranges. A value of '
+                                      'zero for the step will make it fit to '
+                                      'each single image separately, '
+                                      'regardless of the value for the range.')
 
         groupAngleRange.addParam('angleRange',
                                  params.FloatParam,
                                  condition="angleStep != 0",
                                  default=16,
                                  label='Angle range',
-                                 help='Size of the angle range in which the CTF is estimated.')
+                                 help='Size of the angle range in which the '
+                                      'CTF is estimated.')
 
         groupFrequencyRange = form.addGroup('Autorefinement frequency range',
                                             expertLevel=params.LEVEL_ADVANCED,
-                                            help='Starting and ending frequencies of range to fit in power spectrum. '
-                                                 'The two values will be used to set the "X1 starts" and "X2 ends" '
+                                            help='Starting and ending frequencies '
+                                                 'of range to fit in power spectrum. '
+                                                 'The two values will be used to '
+                                                 'set the "X1 starts" and "X2 ends" '
                                                  'fields in the fitting dialog.')
 
         groupFrequencyRange.addParam('startFreq',
                                      params.FloatParam,
                                      default=0.0,
                                      label='Start',
-                                     help='Starting frequency. "X1 starts". "X2 ends".')
+                                     help='Starting frequency. "X1 starts". '
+                                          '"X2 ends".')
 
         groupFrequencyRange.addParam('endFreq',
                                      params.FloatParam,
@@ -166,12 +187,16 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Extra zeros to fit',
                       default=0.0,
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="By default, the ending frequency of the fitting range is set to the expected location of "
-                           "the second zero.  With this entry, the range will be extended by the given multiple of the "
-                           "interval between first and seconds zeros.  For example, entries of 1 and 2 will fit "
-                           "approximately to the third and fourth zeros, respectively.  An entry of more than 0.5 will "
-                           "trigger fitting to two exponentials, which is important for fitting multiple peaks between "
-                           "zeros.")
+                      help="By default, the ending frequency of the fitting "
+                           "range is set to the expected location of "
+                           "the second zero.  With this entry, the range will "
+                           "be extended by the given multiple of the interval "
+                           "between first and seconds zeros. For example, "
+                           "entries of 1 and 2 will fit approximately to the "
+                           "third and fourth zeros, respectively. An entry of "
+                           "more than 0.5 will trigger fitting to two "
+                           "exponentials, which is important for fitting "
+                           "multiple peaks between zeros.")
 
         form.addParam('skipAstigmaticViews',
                       params.EnumParam,
@@ -180,7 +205,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Skip astigmatic phase views',
                       expertLevel=params.LEVEL_ADVANCED,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Skip or break views only when finding astigmatism or phase shift')
+                      help='Skip or break views only when finding astigmatism '
+                           'or phase shift')
 
         groupAstigmatism = form.addGroup('Astigmatism settings',
                                          help='Parameters for astigmatism analysis')
@@ -198,26 +224,32 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                   default=1.2,
                                   label='Maximum astigmatism (um)',
                                   condition='searchAstigmatism==0',
-                                  help='Maximum astigmatism, in microns.  During the fitting to wedge spectra, the '
-                                       'defocus is allowed to vary from the global value by more than half of this '
-                                       'amount.')
+                                  help='Maximum astigmatism, in microns. '
+                                       'During the fitting to wedge spectra, '
+                                       'the defocus is allowed to vary from '
+                                       'the global value by more than half '
+                                       'of this amount.')
 
         groupAstigmatism.addParam('numberSectorsAstigmatism',
                                   params.IntParam,
                                   default=36,
                                   label='Number of sectors',
                                   condition='searchAstigmatism==0',
-                                  help='Number of sectors for astigmatism analysis.  A power spectrum is stored '
-                                       'separately for each sector; spectra can then be computed fairly quickly for '
-                                       'wedges of any size that is a multiple of the sector size.  The default is 36, '
-                                       'giving 5 degree sectors.')
+                                  help='Number of sectors for astigmatism '
+                                       'analysis.  A power spectrum is stored '
+                                       'separately for each sector; spectra '
+                                       'can then be computed fairly quickly '
+                                       'for wedges of any size that is a '
+                                       'multiple of the sector size. The '
+                                       'default is 36, giving 5 degree sectors.')
 
         groupAstigmatism.addParam('minimumViewsAstigmatism',
                                   params.IntParam,
                                   default=3,
                                   label='Minimum views astigmatism',
                                   condition='searchAstigmatism==0',
-                                  help='Minimum number of views for finding astigmatism.')
+                                  help='Minimum number of views for '
+                                       'finding astigmatism.')
 
         groupPhaseShift = form.addGroup('Phase shift settings',
                                         help='Parameters for phase shift analysis')
@@ -235,7 +267,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                  default=1,
                                  label='Minimum views phase shift',
                                  condition='searchPhaseShift==0',
-                                 help='Minimum number of views for finding phase shift.')
+                                 help='Minimum number of views for '
+                                      'finding phase shift.')
 
         groupCutOnFreq = form.addGroup('Cut-on frequency settings')
 
@@ -245,18 +278,22 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                 default=1,
                                 label='Search cut-on frequency',
                                 display=params.EnumParam.DISPLAY_HLIST,
-                                help='Search for cut-on frequency when finding phase shift.')
+                                help='Search for cut-on frequency when '
+                                     'finding phase shift.')
 
         groupCutOnFreq.addParam('maximumCutOnFreq',
                                 params.FloatParam,
                                 default=-1,
                                 label='Maximum astigmatism (um)',
                                 condition='searchCutOnFreq==0',
-                                help='Maximum frequency to test when searching for cut-on frequency, in reciprocal '
-                                     'nanometers.  The default is the frequency of the first zero at the expected '
-                                     'defocus and phase shift. To use the default value set box to -1.')
+                                help='Maximum frequency to test when searching '
+                                     'for cut-on frequency, in reciprocal '
+                                     'nanometers.  The default is the '
+                                     'frequency of the first zero at the '
+                                     'expected defocus and phase shift. '
+                                     'To use the default value set box to -1.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _getSetOfTiltSeries(self, pointer=False):
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
@@ -288,7 +325,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self._insertFunctionStep(self.createOutputStep, item.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def ctfEstimation(self, tsObjId):
         """Run ctfplotter IMOD program"""
         ts = self._getTiltSeries(tsObjId)
@@ -398,7 +435,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        defocusFilePath = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus"))
+        defocusFilePath = os.path.join(extraPrefix,
+                                       ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
             output = self.getOutputSetOfCTFTomoSeries(OUTPUT_CTF_SERIE)
@@ -411,7 +449,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self.CTFTomoSeries.write()
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
 
     def allowsDelete(self, obj):
         return True
@@ -427,10 +465,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                     if tsId in defocusTuple[0]:
                         " Look for the filename that contains the tsId "
                         return float(defocusTuple[1])
-                raise Exception("ERROR: tilt-series with tsId %s has not been found in %s" %
+                raise Exception("ERROR: tilt-series with tsId %s has not "
+                                "been found in %s" %
                                 (tsId, (self.expectedDefocusFile.get())))
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.CTFTomoSeries:
@@ -444,7 +483,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def _methods(self):
         methods = []
         if self.CTFTomoSeries:
-            methods.append("%d Tilt-series CTF have been estimated using the IMOD ctfplotter software.\n"
+            methods.append("%d Tilt-series CTF have been estimated """
+                           "using the IMOD ctfplotter software.\n"
                            % (self.CTFTomoSeries.getSize()))
         else:
             methods.append("Output not ready yet.")

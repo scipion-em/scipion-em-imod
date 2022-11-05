@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,19 +22,20 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
 from pwem.objects import Transform
 from pyworkflow import BETA
-from pyworkflow.object import Set, Integer
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-import tomo.objects as tomoObj
-from imod import Plugin
 from pwem.emlib.image import ImageHandler
-from imod.protocols.protocol_base import ProtImodBase
+import tomo.objects as tomoObj
+
+from .. import Plugin
+from .protocol_base import ProtImodBase
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -88,17 +89,18 @@ class ProtImodTomoProjection(ProtImodBase):
                       label='Rotation axis for projection',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Axis to tilt around (X, Y, or Z). Y axis usually corresponds to the typical rotation axis '
+                      help='Axis to tilt around (X, Y, or Z). Y axis usually '
+                           'corresponds to the typical rotation axis '
                            'acquisition.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
             self._insertFunctionStep(self.projectTomogram, tomo.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def projectTomogram(self, tomoObjId):
         tomo = self.inputSetOfTomograms.get()[tomoObjId]
 
@@ -111,7 +113,8 @@ class ProtImodTomoProjection(ProtImodBase):
 
         paramsXYZproj = {
             'input': tomo.getFileName(),
-            'output': os.path.join(extraPrefix, os.path.basename(tomo.getFileName())),
+            'output': os.path.join(extraPrefix,
+                                   os.path.basename(tomo.getFileName())),
             'axis': self.getRotationAxis(),
             'angles': str(self.minAngle.get()) + ',' +
                       str(self.maxAngle.get()) + ',' +
@@ -149,8 +152,10 @@ class ProtImodTomoProjection(ProtImodBase):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
             newTi.setTsId(tomoId)
-            newTi.setAcquisitionOrder(index+1)
-            newTi.setLocation(index + 1, os.path.join(extraPrefix, os.path.basename(tomo.getFileName())))
+            newTi.setAcquisitionOrder(index + 1)
+            newTi.setLocation(index + 1,
+                              os.path.join(extraPrefix,
+                                           os.path.basename(tomo.getFileName())))
             newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
             newTs.append(newTi)
 
@@ -177,7 +182,7 @@ class ProtImodTomoProjection(ProtImodBase):
         self.TiltSeries.write()
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     def getRotationAxis(self):
         parseParamsRotationAxis = {
             self.AXIS_X: 'X',
@@ -199,18 +204,20 @@ class ProtImodTomoProjection(ProtImodBase):
 
         return tiltAngleList
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
 
         if self.minAngle.get() > self.maxAngle.get():
-            validateMsgs.append("ERROR: Maximum angle of rotation bigger than minimum.")
+            validateMsgs.append("ERROR: Maximum angle of rotation bigger "
+                                "than minimum.")
 
         if (self.maxAngle.get() - self.minAngle.get()) < self.stepAngle.get():
             validateMsgs.append("ERROR: Angle step of rotation bigger than range.")
 
         if self.stepAngle.get() < 0:
-            validateMsgs.append("ERROR: Angle step of rotation mus be bigger than zero.")
+            validateMsgs.append("ERROR: Angle step of rotation must be "
+                                "bigger than zero.")
 
         return validateMsgs
 
@@ -227,7 +234,8 @@ class ProtImodTomoProjection(ProtImodBase):
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("%d tilt-series have been generated by projecting the input tomogram.\n"
+            methods.append("%d tilt-series have been generated by projecting "
+                           "the input tomogram.\n"
                            % (self.TiltSeries.getSize()))
         else:
             methods.append("Output not ready yet.")

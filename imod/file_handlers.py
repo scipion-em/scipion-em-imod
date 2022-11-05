@@ -1,5 +1,6 @@
 from pyworkflow.gui import FileHandler, pwutils
 
+
 class ImodHandler(FileHandler):
 
     def getFileActions(self, objFile):

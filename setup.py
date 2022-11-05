@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -41,7 +41,7 @@ from imod import __version__
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 # Arguments marked as "Required" below must be included for upload to PyPI.
@@ -92,11 +92,11 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='J.M. De la Rosa',  # Optional
+    author='J.M. De la Rosa, Federico P. de Isidro Gomez',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='delarosatrevin@scilifelab.se',  # Optional
+    author_email='delarosatrevin@scilifelab.se, fp.deisidro@cnb.csic.es',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
