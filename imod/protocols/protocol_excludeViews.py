@@ -109,7 +109,6 @@ class ProtImodExcludeViews(ProtImodBase):
         """ Returns the indexes of the tilt to exclude for a
         specified tilt series"""
         if self.excludeViewsFile.get():
-            self.info("Using excluded views from %s" % self.excludeViewsFile.get())
             return self.getExcludedViewsFromMatrix(ts)
         else:
             return ts._getExcludedViewsIndex()
@@ -128,9 +127,6 @@ class ProtImodExcludeViews(ProtImodBase):
         excludedViews = self.getExcludedViews(ts)
 
         if excludedViews:
-
-            self.info("Excluded views (%s) found for %s." % (excludedViews, tsId))
-
             path.copyFile(firstItem.getFileName(), outputFileName)
 
             paramsAlignment = {
@@ -176,7 +172,6 @@ class ProtImodExcludeViews(ProtImodBase):
         newTs.write(properties=False)
 
         output.update(newTs)
-        output.updateDim()
         output.write()
         self._store()
 

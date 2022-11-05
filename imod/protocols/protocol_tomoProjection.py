@@ -169,7 +169,6 @@ class ProtImodTomoProjection(ProtImodBase):
         newTs.write(properties=False)
 
         output.update(newTs)
-        output.updateDim()
         output.write()
         self._store()
 

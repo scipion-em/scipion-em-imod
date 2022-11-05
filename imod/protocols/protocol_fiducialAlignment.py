@@ -602,7 +602,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.write(properties=False)
 
             output.update(newTs)
-            output.updateDim()
             output.write()
             self._store()
         else:
@@ -795,7 +794,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.write(properties=False)
 
             output.update(newTs)
-            output.updateDim()
             output.write()
             self._store()
 

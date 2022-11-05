@@ -986,7 +986,7 @@ def readExcludeViewsFile(excludeViewsFilePath):
 
     excludedViews = {}
 
-    logger.info("Reading excluded views from %s" % excludeViewsFilePath)
+    logger.debug("Reading excluded views from %s" % excludeViewsFilePath)
     with open(excludeViewsFilePath, 'r') as f:
         lines = f.read().splitlines()
 
@@ -994,7 +994,7 @@ def readExcludeViewsFile(excludeViewsFilePath):
             vector = line.split()
             tsId = vector[0]
             views = vector[1]
-            logger.info("For %s found this excluded views: %s." % (tsId, views))
+            logger.info("For %s found excluded views: %s" % (tsId, views))
             excludedViews[tsId] = views
 
     return excludedViews
