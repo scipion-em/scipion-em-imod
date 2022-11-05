@@ -70,7 +70,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                       choices=['default', '1', '2', '3', '4'],
                       default=0,
                       label='Adjust densities mode',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Adjust densities of sections individually:\n'
                            '-Default: no adjustment performed\n'
@@ -86,7 +85,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                                'unsigned 16-bit', '32-bit float'],
                       default=0,
                       label='Storage data type',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply one density scaling to all sections to map '
                            'current min and max to the given Min and Max. The '
@@ -101,7 +99,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                       condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
                       default=1,
                       label='Set scaling range values?',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
                            'sections by the same factors so that the original '
@@ -156,7 +153,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                              choices=['Yes', 'No'],
                              default=1,
                              label='Set mean and SD?',
-                             important=True,
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
 

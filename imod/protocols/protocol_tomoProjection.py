@@ -65,21 +65,18 @@ class ProtImodTomoProjection(ProtImodBase):
                       params.FloatParam,
                       default=-60.0,
                       label='Minimum angle of rotation',
-                      important=True,
                       help='Minimum angle of the projection range')
 
         form.addParam('maxAngle',
                       params.FloatParam,
                       default=60.0,
                       label='Maximum angle of rotation',
-                      important=True,
                       help='Maximum angle of the projection range')
 
         form.addParam('stepAngle',
                       params.FloatParam,
                       default=2.0,
                       label='Step angle',
-                      important=True,
                       help='Step angle of the projection range')
 
         form.addParam('rotationAxis',
@@ -87,7 +84,6 @@ class ProtImodTomoProjection(ProtImodBase):
                       choices=['X', 'Y', 'Z'],
                       default=self.AXIS_Y,
                       label='Rotation axis for projection',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Axis to tilt around (X, Y, or Z). Y axis usually '
                            'corresponds to the typical rotation axis '

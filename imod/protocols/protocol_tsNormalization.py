@@ -68,7 +68,6 @@ class ProtImodTSNormalization(ProtImodBase):
                       choices=['default', '1', '2', '3', '4'],
                       default=0,
                       label='Adjust densities mode',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Adjust densities of sections individually:\n'
                            '-Default: no adjustment performed\n'
@@ -85,7 +84,6 @@ class ProtImodTSNormalization(ProtImodBase):
                                'unsigned 16-bit', '32-bit float'],
                       default=0,
                       label='Storage data type',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply one density scaling to all sections to '
                            'map current min and max to the given Min and '
@@ -100,7 +98,6 @@ class ProtImodTSNormalization(ProtImodBase):
                       condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
                       default=1,
                       label='Set scaling range values?',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
                            'sections by the same factors so that the original '
@@ -121,6 +118,27 @@ class ProtImodTSNormalization(ProtImodBase):
                       label='Min.',
                       help='Minimum value for the rescaling')
 
+        form.addParam('antialias',
+                      params.EnumParam,
+                      choices=['None', 'Blackman', 'Triangle', 'Mitchell',
+                               'Lanczos 2', 'Lanczos 3'],
+                      default=5,
+                      label='Antialias method:',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='Type of antialiasing filter to use when reducing images.\n'
+                           'The available types of filters are:\n\n'
+                           'None\n'
+                           'Blackman - fast but not as good at antialiasing as slower filters\n'
+                           'Triangle - fast but smooths more than Blackman\n'
+                           'Mitchell - good at antialiasing, smooths a bit\n'
+                           'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
+                           'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
+                           'The default is Lanczos 3 as of IMOD 4.7. Although '
+                           'many people consider Lanczos 2 the best compromise '
+                           'among the various factors, that sentiment may be '
+                           'based on images of natural scenes where there are '
+                           'sharp edges.')
+
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
                                     help='Scale all images to the given mean '
@@ -134,7 +152,6 @@ class ProtImodTSNormalization(ProtImodBase):
                              choices=['Yes', 'No'],
                              default=1,
                              label='Set mean and SD?',
-                             important=True,
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
 
@@ -189,12 +206,13 @@ class ProtImodTSNormalization(ProtImodBase):
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0,
+            'antialias': self.antialias.get() + 1
         }
 
         argsNewstack = "-input %(input)s " \
                        "-output %(output)s " \
                        "-bin %(bin)d " \
-                       "-antialias -1 " \
+                       "-antialias %(antialias)d " \
                        "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:

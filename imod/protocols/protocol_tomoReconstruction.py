@@ -70,7 +70,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Tomogram shift in X',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This entry allows one to shift the reconstructed '
                            'slice in X before it is output.  If the X shift '
@@ -82,7 +81,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Tomogram shift in Z',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This entry allows one to shift the reconstructed '
                            'slice in Z before it is output. If the Z '
@@ -94,7 +92,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Angle offset',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply an angle offset in degrees to all tilt '
                            'angles. This offset positively rotates the '
@@ -104,7 +101,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Tilt axis offset',
-                      important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply an offset to the tilt axis in a stack of '
                            'full-sized projection images, cutting the '
