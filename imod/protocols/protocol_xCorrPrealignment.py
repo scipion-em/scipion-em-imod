@@ -181,7 +181,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     "-FilterRadius2 %(filterRadius2)f "
 
         if self.cumulativeCorr == 0:
-            argsXcorr += " -CumulativeCorrelation "
+            argsXcorr += "-CumulativeCorrelation "
 
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
@@ -193,7 +193,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         }
         argsXftoxg = "-input %(input)s " \
                      "-NumberToFit 0 " \
-                     "-goutput %(goutput)s"
+                     "-goutput %(goutput)s "
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
     def generateOutputStackStep(self, tsObjId):

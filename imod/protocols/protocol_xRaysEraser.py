@@ -210,4 +210,3 @@ class ProtImodXraysEraser(ProtImodBase):
                            % (self.TiltSeries.getSize()))
 
         return methods
-

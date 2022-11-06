@@ -25,7 +25,6 @@
 # *****************************************************************************
 
 import os
-import numpy as np
 
 from pyworkflow import BETA
 from pyworkflow.object import Set
@@ -225,7 +224,7 @@ class ProtImodFiducialModel(ProtImodBase):
                           "-AdjustSizes "
 
         if self.twoSurfaces.get() == 0:
-            argsAutofidseed += " -TwoSurfaces"
+            argsAutofidseed += " -TwoSurfaces "
 
         Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed))
 
@@ -323,7 +322,7 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-MaxRescueDistance %(maxRescueDistance).2f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
-                        "-MinDiamForParamScaling %(minDiamForParamScaling).1f"
+                        "-MinDiamForParamScaling %(minDiamForParamScaling).1f "
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
@@ -529,68 +528,9 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         if self.refineSobelFilter.get() == 0:
             template += """SobelFilterCentering
 ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
-$if (-e ./savework) ./savework
 """
-        elif self.refineSobelFilter.get() == 1:
-            template += """$if (-e ./savework) ./savework"""
-
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
-
-    @staticmethod
-    def generateTaSolutionText(tiltAlignOutputLog, taSolutionLog,
-                               numberOfTiltImages, pixelSize):
-        """ This method generates a text file containing the TA
-        solution from the tiltalign output log. """
-
-        searchingPassword = "deltilt"
-
-        with open(tiltAlignOutputLog, 'r') as fRead:
-            lines = fRead.readlines()
-
-            counts = []
-
-            for index, line in enumerate(lines):
-                if searchingPassword in line:
-                    counts.append([index])
-
-        lastApparition = max(counts)[0]
-
-        outputLinesAsMatrix = []
-
-        # Take only the lines that compose the table containing the
-        # ta solution info (until blank line)
-        # Convert lines into numpy array for posterior operation
-
-        index = lastApparition + 1
-        while True:
-            vector = lines[index].split()
-            vector = [float(i) for i in vector]
-            outputLinesAsMatrix.append(vector)
-            if int(vector[0]) == numberOfTiltImages:
-                break
-            index += 1
-
-        matrixTaSolution = np.array(outputLinesAsMatrix)
-
-        # Find the position in table of the minimum tilt angle image
-        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
-
-        # Multiply last column by the sampling rate in nanometer
-        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
-
-        # Get minimum rotation to write in file
-        minimumRotation = matrixTaSolution[indexAng][1]
-
-        # Save new matrixTaSolution info into file
-        np.savetxt(fname=taSolutionLog,
-                   X=matrixTaSolution,
-                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
-                   header=" At minimum tilt, rotation angle is %.2f\n\n"
-                          " view   rotation    tilt    deltilt     "
-                          "mag      dmag      skew    resid-nm"
-                          % minimumRotation,
-                   comments='')
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

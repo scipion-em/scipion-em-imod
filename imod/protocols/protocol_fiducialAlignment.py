@@ -424,6 +424,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
                         "-LocalSkewOption %(localSkewOption)d " \
                         "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
+                        "-RobustFitting " \
                         "2>&1 | tee %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
