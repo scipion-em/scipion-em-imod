@@ -173,7 +173,7 @@ class ProtImodEtomo(ProtImodBase):
 
         if ts is not None:
             extraPrefix = self._getExtraPath(tsId)
-            args = '--fg '
+            args = '--fg --namingstyle 0 '
             args += ts.getFirstItem().parseFileName(extension=".edf")
             Plugin.runImod(self, 'etomo', args, cwd=extraPrefix)
 

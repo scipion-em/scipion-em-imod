@@ -61,6 +61,13 @@ class ProtImodFiducialModel(ProtImodBase):
                       important=True,
                       label='Input set of tilt-series')
 
+        form.addParam('fiducialDiameter',
+                      params.FloatParam,
+                      label='Fiducial diameter (nm)',
+                      default='10',
+                      important=True,
+                      help="Fiducials diameter to be tracked for alignment.")
+
         form.addParam('twoSurfaces',
                       params.EnumParam,
                       choices=['Yes', 'No'],
@@ -69,13 +76,6 @@ class ProtImodFiducialModel(ProtImodBase):
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side "
                            "of the sample are located.")
-
-        form.addParam('fiducialDiameter',
-                      params.FloatParam,
-                      label='Fiducial diameter (nm)',
-                      default='10',
-                      important=True,
-                      help="Fiducials diameter to be tracked for alignment.")
 
         form.addParam('numberFiducial',
                       params.IntParam,
