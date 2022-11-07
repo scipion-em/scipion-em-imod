@@ -241,7 +241,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                 'input': inputTomoPath,
                 'output': os.path.join(extraPrefix, os.path.basename(location)),
                 'binning': self.binning.get(),
-                'antialias': self.antialias.get()
+                'antialias': self.antialias.get() + 1
             }
 
             argsBinvol = "-input %(input)s " \
