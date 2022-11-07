@@ -186,6 +186,7 @@ class ProtImodEtomo(ProtImodBase):
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
         setOfTiltSeries = self.inputSetOfTiltSeries.get()
+        ih = ImageHandler()
 
         for ts in setOfTiltSeries:
             self.inputTiltSeries = ts
@@ -208,7 +209,6 @@ class ProtImodEtomo(ProtImodBase):
                 newTs.copyInfo(ts)
                 outputPrealiSetOfTiltSeries.append(newTs)
 
-                ih = ImageHandler()
 
                 # Getting the excluded views in order to disable the
                 # prealigned tilt-series
@@ -401,7 +401,7 @@ class ProtImodEtomo(ProtImodBase):
                 newTomogram.setSamplingRate(ts.getSamplingRate())
 
                 # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=False)
+                newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfFullTomograms.append(newTomogram)
                 outputSetOfFullTomograms.write()
@@ -429,7 +429,7 @@ class ProtImodEtomo(ProtImodBase):
                 newTomogram.setSamplingRate(self.getPixSizeFromDimensions(outputDim))
 
                 # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=False)
+                newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfPostProcessTomograms.append(newTomogram)
                 outputSetOfPostProcessTomograms.write()

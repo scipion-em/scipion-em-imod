@@ -251,7 +251,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                              firstItem.parseFileName(extension=".mrc")))
         newTomogram.setTsId(tsId)
         newTomogram.setSamplingRate(ts.getSamplingRate())
-        newTomogram.setOrigin(ts.getOrigin(force=True))
+        # Set default tomogram origin
+        newTomogram.setOrigin(newOrigin=None)
         newTomogram.setAcquisition(ts.getAcquisition())
 
         output.append(newTomogram)

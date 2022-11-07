@@ -278,7 +278,7 @@ class ProtImodTomoNormalization(ProtImodBase):
             newTomogram.setSamplingRate(sr)
 
             # Set default tomogram origin
-            newTomogram.setOrigin(tomo.getOrigin(force=True))
+            newTomogram.setOrigin(newOrigin=None)
 
         else:
             newTomogram.copyAttributes(tomo, '_origin')
