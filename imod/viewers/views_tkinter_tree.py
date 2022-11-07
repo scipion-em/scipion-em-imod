@@ -71,8 +71,8 @@ class ImodGenericTreeProvider(TreeProvider):
             self.COL_TS = 'Tomograms'
             self.title = 'Tomograms display'
         elif isinstance(objs, tomo.objects.SetOfLandmarkModels):
-            self.COL_TS = 'LandmarkModels'
-            self.title = 'LandmarkModels display'
+            self.COL_TS = 'Landmark models'
+            self.title = 'Landmark models display'
         self.protocol = protocol
         self.objs = objs
         self.isInteractive = isInteractive
@@ -110,8 +110,8 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getColumns(self):
         cols = [
-            (self.COL_TS, 100),
-            (self.COL_INFO, 350)]
+            (self.COL_TS, 200),
+            (self.COL_INFO, 400)]
         if self.isInteractive:
             protocolClass = self.getProtocolClass()
             if protocolClass == protClass.protImodEtomoClass:
@@ -259,7 +259,7 @@ class ImodGenericTreeProvider(TreeProvider):
                 def createViewer(viewerClass, obj):
                     proj = self.protocol.getProject()
                     item = self.objs[obj.getObjId()]  # to load mapper
-                    return lambda : viewerClass(project=proj).visualize(item)
+                    return lambda : viewerClass(project=proj, protocol=self.protocol).visualize(item)
                 actions.append(('Open with %s' % viewerClass.__name__,
                                 createViewer(viewerClass, obj)))
         return actions

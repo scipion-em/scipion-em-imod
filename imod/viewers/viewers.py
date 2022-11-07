@@ -33,6 +33,7 @@ import os
 import pyworkflow.viewer as pwviewer
 from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, \
     OUTPUT_FIDUCIAL_NO_GAPS_NAME
+from imod.utils import generateIMODFidFile
 from imod.viewers.views_tkinter_tree import ImodGenericViewer, ImodSetView, \
     ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView
 import pyworkflow.protocol.params as params
@@ -66,7 +67,8 @@ class ImodViewer(pwviewer.Viewer):
         elif issubclass(cls, tomo.objects.Tomogram):
             view = ImodObjectView(obj)
         elif issubclass(cls, tomo.objects.LandmarkModel):
-            view = ImodObjectView(obj)
+            print(self.protocol)
+            view = ImodObjectView(obj, protocol=self.protocol)
         else:
             view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
 
@@ -77,25 +79,28 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, **kwargs):
+    def __init__(self, obj, protocol=None, **kwargs):
         # Accept file paths
         if isinstance(obj, str):
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
-            if obj.getTiltSeries().getFirstItem().hasTransform():
-                # Input and output extensions must match if we want to apply the transform with Xmipp
-                _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+            # if obj.getTiltSeries().getFirstItem().hasTransform():
+            #     # Input and output extensions must match if we want to apply the transform with Xmipp
+            #     _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+            #
+            #     outputTSPath = os.path.join(tempfile.gettempdir(), "ts_interpolated" + extension)
+            #     obj.getTiltSeries().applyTransform(outputTSPath)
+            #
+            # else:
+            outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
 
-                outputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated." + extension)
-                obj.getTiltSeries().applyTransform(outputTSInterpolatedPath)
+            fidFileName = obj.getModelName()
 
-                fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSInterpolatedPath + " " + \
-                      obj.getModelName() + " ; "
+            if fidFileName is None:
+                fidFileName = generateIMODFidFile(protocol, obj)
 
-            else:
-                fn = Plugin.getImodCmd('3dmod') + " -m " + obj.getTiltSeries().getFirstItem().getFileName() + \
-                      " " + obj.getModelName() + " ; "
+            fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSPath + " " + fidFileName + " ; "
 
         else:
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
