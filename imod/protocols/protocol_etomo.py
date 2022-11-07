@@ -195,10 +195,12 @@ class ProtImodEtomo(ProtImodBase):
             """Prealigned tilt-series"""
             prealiFilePath = self.getFilePath(ts, extension=".preali")
             if os.path.exists(prealiFilePath):
+                xPrealiDims, newPixSize = self.getNewPixAndDim(ih, prealiFilePath)
+                self.debug(f"{prealiFilePath}: pix = {newPixSize}, dims = {xPrealiDims}")
                 if outputPrealiSetOfTiltSeries is None:
                     outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
                     outputPrealiSetOfTiltSeries.copyInfo(setOfTiltSeries)
-                    outputPrealiSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
+                    outputPrealiSetOfTiltSeries.setSamplingRate(newPixSize)
                     self._defineOutputs(PrealignedTiltSeries=outputPrealiSetOfTiltSeries)
                     self._defineSourceRelation(self.inputTiltSeries,
                                                outputPrealiSetOfTiltSeries)
@@ -208,7 +210,6 @@ class ProtImodEtomo(ProtImodBase):
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputPrealiSetOfTiltSeries.append(newTs)
-
 
                 # Getting the excluded views in order to disable the
                 # prealigned tilt-series
@@ -222,29 +223,27 @@ class ProtImodEtomo(ProtImodBase):
                     newTi.setAcquisition(tiltImage.getAcquisition())
                     sliceIndex = newTi.getIndex()
                     newTi.setLocation(sliceIndex, prealiFilePath)
-                    xPreali, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
-                    newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
                     if sliceIndex in excludedViewList:
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
-                xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
-                newTs.setDim((xPreali, yPreali, zPreali))
-
+                newTs.setDim(xPrealiDims)
                 newTs.write(properties=False)
 
-                outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
+                outputPrealiSetOfTiltSeries.update(newTs)
                 outputPrealiSetOfTiltSeries.write()
                 self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
             aligFilePath = self.getFilePath(ts, extension=".ali")
-
             if os.path.exists(aligFilePath):
+                aliDims, newPixSize = self.getNewPixAndDim(ih, aligFilePath)
+                self.debug(f"{aligFilePath}: pix = {newPixSize}, dims = {aliDims}")
+
                 if outputAliSetOfTiltSeries is None:
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
                     outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
-                    outputAliSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
+                    outputAliSetOfTiltSeries.setSamplingRate(newPixSize)
                     self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputAliSetOfTiltSeries})
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputAliSetOfTiltSeries)
@@ -254,8 +253,6 @@ class ProtImodEtomo(ProtImodBase):
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputAliSetOfTiltSeries.append(newTs)
-
-                ih = ImageHandler()
 
                 tltFilePath = self.getFilePath(ts, suffix='_fid',
                                                extension=".tlt")
@@ -280,18 +277,14 @@ class ProtImodEtomo(ProtImodBase):
                     newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[sliceIndex - 1]))
-                    xAli, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
-                    newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
                     if sliceIndex in excludedViewList:
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
-                xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
-                newTs.setDim((xAli, yAli, zAli))
-
+                newTs.setDim(aliDims)
                 newTs.write(properties=False)
 
-                outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
+                outputAliSetOfTiltSeries.update(newTs)
                 outputAliSetOfTiltSeries.write()
                 self._store(outputAliSetOfTiltSeries)
 
@@ -385,9 +378,12 @@ class ProtImodEtomo(ProtImodBase):
             reconstructTomoFilePath = self.getFilePath(ts, suffix="_full",
                                                        extension=".rec")
             if os.path.exists(reconstructTomoFilePath):
+                tomoDims, newPixSize = self.getNewPixAndDim(ih, reconstructTomoFilePath)
+                self.debug(f"{reconstructTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfFullTomograms is None:
                     outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
                     outputSetOfFullTomograms.copyInfo(setOfTiltSeries)
+                    outputSetOfFullTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(FullTomograms=outputSetOfFullTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfFullTomograms)
@@ -398,21 +394,25 @@ class ProtImodEtomo(ProtImodBase):
 
                 newTomogram.setLocation(reconstructTomoFilePath)
                 newTomogram.setTsId(tsId)
-                newTomogram.setSamplingRate(ts.getSamplingRate())
+                newTomogram.setSamplingRate(newPixSize)
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfFullTomograms.append(newTomogram)
+                outputSetOfFullTomograms.update(newTomogram)
                 outputSetOfFullTomograms.write()
                 self._store(outputSetOfFullTomograms)
 
             """Post-processed reconstructed tomogram"""
             posprocessedRecTomoFilePath = self.getFilePath(ts, extension=".rec")
             if os.path.exists(posprocessedRecTomoFilePath):
+                tomoDims, newPixSize = self.getNewPixAndDim(ih, posprocessedRecTomoFilePath)
+                self.debug(f"{posprocessedRecTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfPostProcessTomograms is None:
                     outputSetOfPostProcessTomograms = self._createSetOfTomograms()
                     outputSetOfPostProcessTomograms.copyInfo(setOfTiltSeries)
+                    outputSetOfPostProcessTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(PostProcessTomograms=outputSetOfPostProcessTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfPostProcessTomograms)
@@ -420,18 +420,15 @@ class ProtImodEtomo(ProtImodBase):
                     outputSetOfPostProcessTomograms.enableAppend()
 
                 newTomogram = tomoObj.Tomogram()
-
-                ih = ImageHandler()
-                outputDim, _, _, _ = ih.getDimensions(posprocessedRecTomoFilePath)
-
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
                 newTomogram.setTsId(tsId)
-                newTomogram.setSamplingRate(self.getPixSizeFromDimensions(outputDim))
+                newTomogram.setSamplingRate(newPixSize)
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfPostProcessTomograms.append(newTomogram)
+                outputSetOfPostProcessTomograms.update(newTomogram)
                 outputSetOfPostProcessTomograms.write()
                 self._store(outputSetOfPostProcessTomograms)
         self.closeMappers()
@@ -550,15 +547,17 @@ ProcessTrack.TomogramCombination=Not started
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
 
-    def getPixSizeFromDimensions(self, outputDim):
-        ih = ImageHandler()
-        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
+    def getPixSizeFromDimensions(self, ih, outputDims):
+        origDimX, origDimY, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
+        originalDim = max(origDimX, origDimY)
+        outputDim = max(dim for dim in outputDims[:2])
         return self.inputTiltSeries.getSamplingRate() * round(originalDim / outputDim)
 
-    def getResizeFactorFromDimensions(self, outputDim):
-        ih = ImageHandler()
-        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
-        return round(outputDim / originalDim)
+    def getNewPixAndDim(self, ih, fn):
+        dims = ih.getDimensions(fn + ":mrc")
+        dims = dims[:-1]
+        newPixSize = self.getPixSizeFromDimensions(ih, dims)
+        return dims, newPixSize
 
     def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
         with open(fn, 'r') as f:
