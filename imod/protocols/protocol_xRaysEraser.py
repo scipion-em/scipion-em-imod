@@ -31,8 +31,8 @@ import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
 
-from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from .. import Plugin
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodXraysEraser(ProtImodBase):

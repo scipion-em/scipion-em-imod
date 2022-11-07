@@ -35,7 +35,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from imod.protocols.protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):

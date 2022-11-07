@@ -30,7 +30,6 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
-from tomo.objects import TomoAcquisition
 
 from .. import Plugin
 from .protocol_base import ProtImodBase
@@ -226,16 +225,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-        # paramsNewstack = {
-        #     'input':  os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
-        #     'output':  os.path.join(tmpPrefix, firstItem.parseFileName(suffix="_flipped", extension=".mrc")),
-        # }
-        #
-        # argsNewstack = "-input %(input)s " \
-        #                "-output %(output)s"
-        #
-        # Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
@@ -261,18 +250,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
         newTomogram.setLocation(os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".mrc")))
         newTomogram.setTsId(tsId)
-
         newTomogram.setSamplingRate(ts.getSamplingRate())
-
-        # Set default tomogram origin
-        newTomogram.setOrigin(newOrigin=False)
-
-        # Set tomogram acquisition
-        acquisition = TomoAcquisition()
-        acquisition.setAngleMin(firstItem.getTiltAngle())
-        acquisition.setAngleMax(ts[ts.getSize()].getTiltAngle())
-        acquisition.setStep(self.getAngleStepFromSeries(ts))
-        newTomogram.setAcquisition(acquisition)
+        newTomogram.setOrigin(ts.getOrigin(force=True))
+        newTomogram.setAcquisition(ts.getAcquisition())
 
         output.append(newTomogram)
         output.update(newTomogram)
@@ -284,20 +264,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         self.Tomograms.write()
         self._store()
 
-    # --------------------------- UTILS functions -----------------------------
-    @staticmethod
-    def getAngleStepFromSeries(ts):
-        """ This method return the average angles step from a series. """
-
-        angleStepAverage = 0
-        for i in range(1, ts.getSize()):
-            angleStepAverage += abs(ts[i].getTiltAngle()-ts[i+1].getTiltAngle())
-
-        angleStepAverage /= ts.getSize()-1
-
-        return angleStepAverage
-
-    # --------------------------- INFO functions ------------------------------
+    # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
         if self.Tomograms:
