@@ -95,7 +95,7 @@ class ImodObjectView(pwviewer.CommandView):
             # else:
             outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
 
-            fidFileName = obj._modelName.get()
+            fidFileName = obj.getModelName()
 
             if fidFileName is None:
                 fidFileName = generateIMODFidFile(protocol, obj)

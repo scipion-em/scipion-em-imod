@@ -160,7 +160,7 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
     for vector in infoTable:
         outputLines.append("\t%s\t%s\t%s\t%s\n" % (vector[3], vector[0],
-                                                   vector[1], vector[2]))
+                                                   vector[1], int(vector[2])-1))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
@@ -176,14 +176,15 @@ def generateIMODFidFile(protocol, landmarkModel):
         paramsPoint2Model = {
             'inputFile': fiducialTextFile,
             'outputFile': fiducialModelGapPath,
-            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName()
+            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
+            'size': landmarkModel.getSize()
         }
 
         # -sp <value> parameter: generate sphere with radius <value>
         argsPoint2Model = "-InputFile %(inputFile)s " \
                           "-OutputFile %(outputFile)s " \
                           "-image %(image)s " \
-                          "-zc -ci 5"
+                          "-zc -ci %(size)s"
 
         protocol.setStepsExecutor()
         Plugin.runImod(protocol, 'point2model',
@@ -583,7 +584,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
     # Check if there is CTF estimation information as list
-    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
+    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList() and not isRelion:
 
         logger.debug("Defocus file generated form a list.")
 
@@ -600,8 +601,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
             with open(defocusFilePath, 'w') as f:
                 lines = []
                 pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
-                if isRelion:
-                    lines.append(pattern % (0, 0, 0, 0, 2))
 
                 for index in defocusUDict.keys():
 
