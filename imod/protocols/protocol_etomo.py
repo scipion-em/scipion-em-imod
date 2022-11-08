@@ -342,9 +342,10 @@ class ProtImodEtomo(ProtImodBase):
 
                 landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
-                landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
-                                                            landmarkModelNoGapsFilePath,
-                                                            modelFilePath)
+                landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
+                                                            fileName=landmarkModelNoGapsFilePath,
+                                                            modelName=modelFilePath,
+                                                            size=self.markersDiameter.get() * 10 / ts.getSamplingRate())
 
                 prevTiltIm = 0
                 chainId = 0
