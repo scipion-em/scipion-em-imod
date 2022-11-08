@@ -386,11 +386,13 @@ class ProtImodFiducialModel(ProtImodBase):
             )
 
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
+            fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
             landmarkModelGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                       tiltSeriesPointer=ts,
                                                       fileName=landmarkModelGapsFilePath,
-                                                      modelName=fiducialModelGapPath)
+                                                      modelName=fiducialModelGapPath,
+                                                      size=fiducialDiameterPixel)
 
             landmarkModelGaps.setTiltSeries(ts)
 

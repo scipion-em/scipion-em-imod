@@ -255,6 +255,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         for lm in self.inputSetOfLandmarkModels.get():
             lmTsId = lm.getTsId()
+            self.fiducialDiameterPixel = lm.getSize()
+
             tsObjId = tsIdsDict[lmTsId].getObjId()
             self._insertFunctionStep(self.convertInputStep, tsObjId)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
@@ -712,7 +714,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             landmarkModelNoGaps = LandmarkModel(tsId=tsId,
                                                 fileName=landmarkModelNoGapsFilePath,
-                                                modelName=fiducialModelNoGapPath)
+                                                modelName=fiducialModelNoGapPath,
+                                                size=self.fiducialDiameterPixel)
 
             prevTiltIm = 0
             chainId = 0
