@@ -169,13 +169,9 @@ class ProtImodFiducialModel(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-
-        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel,
-                                3.3*fiducialDiameterPixel+2]))
-
-        # Make boxSizeXandY parameter even due to computational efficiency
-        if boxSizeXandY % 2 == 1:
-            boxSizeXandY += 1
+        boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
+        boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
+        scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
@@ -190,11 +186,11 @@ class ProtImodFiducialModel(ProtImodBase):
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 10 * scaling,
+            'postFitRescueResidual': 2.5 * scaling,
+            'maxRescueDistance': 2.5 * scaling,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': '0.237,2.0'
+            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -244,13 +240,9 @@ class ProtImodFiducialModel(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-
-        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel,
-                                3.3*fiducialDiameterPixel+2]))
-
-        # Make boxSizeXandY parameter even due to computational efficiency
-        if boxSizeXandY % 2 == 1:
-            boxSizeXandY += 1
+        boxSizeXandY = max(3.3*fiducialDiameterPixel+2, 2*fiducialDiameterPixel+20, 32)
+        boxSizeXandY = min(512, 2*int(boxSizeXandY/2))
+        scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsBeadtrack = {
             'inputSeedModel': os.path.join(extraPrefix,
@@ -271,7 +263,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
             'minTiltRangeToFindAngles': 20.0,
-            'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
+            'boxSizeXandY': f"{boxSizeXandY},{boxSizeXandY}",
             'roundsOfTracking': 2,
             'localAreaTracking': 1,
             'localAreaTargetSize': 1000,
@@ -281,13 +273,13 @@ class ProtImodFiducialModel(ProtImodBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 10 * scaling,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'postFitRescueResidual': 2.5 * scaling,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 2.5 * scaling,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.237,2.0',
+            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
             'minDiamForParamScaling': 12.5
         }
 
