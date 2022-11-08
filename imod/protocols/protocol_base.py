@@ -344,7 +344,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     def getOutputSetOfCTFTomoSeries(self, outputSetName):
 
-        outputSetOfCTFTomoSeries = getattr(self, outputSetName)
+        outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
 
         if outputSetOfCTFTomoSeries:
             outputSetOfCTFTomoSeries.enableAppend()
