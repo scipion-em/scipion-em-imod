@@ -67,7 +67,6 @@ class ImodViewer(pwviewer.Viewer):
         elif issubclass(cls, tomo.objects.Tomogram):
             view = ImodObjectView(obj)
         elif issubclass(cls, tomo.objects.LandmarkModel):
-            print(self.protocol)
             view = ImodObjectView(obj, protocol=self.protocol)
         else:
             view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
@@ -79,21 +78,36 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None, **kwargs):
+    def __init__(self, obj, protocol=None,**kwargs):
+        """
+
+        :param obj: Object to deal with usually a single item in a set
+        :param protocol: protocol onwer of obj
+        :param kwargs: extra kwargs
+        """
         # Accept file paths
         if isinstance(obj, str):
             fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
-            # if obj.getTiltSeries().getFirstItem().hasTransform():
-            #     # Input and output extensions must match if we want to apply the transform with Xmipp
-            #     _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
-            #
-            #     outputTSPath = os.path.join(tempfile.gettempdir(), "ts_interpolated" + extension)
-            #     obj.getTiltSeries().applyTransform(outputTSPath)
-            #
-            # else:
-            outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
+
+            if obj.getTiltSeries().hasAlignment() and obj.applyTSTransformation() :
+                # Input and output extensions must match if we want to apply the transform with Xmipp
+                _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+
+                outputTSPath = os.path.join(tempfile.gettempdir(),
+                                "ts_interpolated_%s_%s_%s%s" % (
+                                                protocol.getProject().getShortName(),
+                                                protocol.getObjId(),
+                                                obj.getObjId(),
+                                                extension))
+
+                if not os.path.exists(outputTSPath):
+                    obj.getTiltSeries().applyTransform(outputTSPath)
+
+            else:
+
+                outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
 
             fidFileName = obj.getModelName()
 
