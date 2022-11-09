@@ -56,7 +56,9 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       important=True,
                       label='Input set of tomograms',
                       help='Input set of tomograms from which gold beads '
-                           'will be picked.')
+                           'will be picked. A tomogram needs to be thicker '
+                           'than normal because the program cannot find '
+                           'beads too close to the surfaces of a tomogram.')
 
         form.addParam('beadDiameter',
                       params.FloatParam,
@@ -150,6 +152,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                           "-OutputFile %(outputFile)s " \
                           "-BeadSize %(beadSize)d " \
                           "-MinRelativeStrength %(minRelativeStrength)f " \
+                          "-StorageThreshold 0.0 " \
                           "-MinSpacing %(minSpacing)f "
 
         if self.beadsColor.get() == 1:
