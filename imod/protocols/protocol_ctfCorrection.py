@@ -55,7 +55,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                       label="Input tilt-series",
                       pointerClass='SetOfTiltSeries',
                       help='Select the set of tilt-series to be '
-                           'CTF corrected.')
+                           'CTF corrected. Usually this will be the '
+                           'tilt-series with alignment information.')
 
         form.addParam('inputSetOfCtfTomoSeries',
                       params.PointerParam,
@@ -118,7 +119,6 @@ class ProtImodCtfCorrection(ProtImodBase):
         form.addHidden(params.GPU_LIST,
                        params.StringParam,
                        default='0',
-                       expertLevel=params.LEVEL_ADVANCED,
                        label="Choose GPU IDs",
                        help="GPU ID. To pick the best available one set 0. "
                             "For a specific GPU set its number ID "
@@ -169,18 +169,20 @@ class ProtImodCtfCorrection(ProtImodBase):
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'defocusFile': self.getDefocusFileName(ts),
+            'xformFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".xf")),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
             'defocusTol': self.defocusTol.get(),
             'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
-            'interpolationWidth': self.interpolationWidth.get(),
+            'interpolationWidth': self.interpolationWidth.get()
         }
 
         argsCtfPhaseFlip = "-InputStack %(inputStack)s " \
                            "-AngleFile %(angleFile)s " \
                            "-OutputFileName %(outputFileName)s " \
                            "-DefocusFile %(defocusFile)s " \
+                           "-TransformFile %(xformFile)s " \
                            "-Voltage %(voltage)d " \
                            "-SphericalAberration %(sphericalAberration)f " \
                            "-DefocusTol %(defocusTol)d " \
