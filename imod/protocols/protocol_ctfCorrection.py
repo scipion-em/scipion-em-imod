@@ -169,7 +169,6 @@ class ProtImodCtfCorrection(ProtImodBase):
             'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
             'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'defocusFile': self.getDefocusFileName(ts),
-            'xformFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".xf")),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
             'defocusTol': self.defocusTol.get(),
@@ -182,7 +181,6 @@ class ProtImodCtfCorrection(ProtImodBase):
                            "-AngleFile %(angleFile)s " \
                            "-OutputFileName %(outputFileName)s " \
                            "-DefocusFile %(defocusFile)s " \
-                           "-TransformFile %(xformFile)s " \
                            "-Voltage %(voltage)d " \
                            "-SphericalAberration %(sphericalAberration)f " \
                            "-DefocusTol %(defocusTol)d " \
@@ -196,6 +194,10 @@ class ProtImodCtfCorrection(ProtImodBase):
             })
 
             argsCtfPhaseFlip += "-UseGPU %(useGPU)d "
+
+        if ts.firstItem.hasTransform():
+            paramsCtfPhaseFlip['xformFile'] = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+            argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
