@@ -426,8 +426,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
                         "-LocalSkewOption %(localSkewOption)d " \
                         "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
-                        "-RobustFitting " \
-                        "2>&1 | tee %(outputTiltAlignFileText)s "
+                        "-RobustFitting "
+
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsTiltAlign += f"-ExcludeList {','.join(excludedViews)} "
+
+        argsTiltAlign += "2>&1 | tee %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
 

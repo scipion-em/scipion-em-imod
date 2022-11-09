@@ -208,11 +208,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
             })
             argsTilt += "-FakeSIRTiterations %(FakeSIRTInteractions)d "
 
-        # Excluded views:
-        exclusedViews = ts.getExcludedViewsIndex(caster=str)
-        if len(exclusedViews):
-            paramsTilt.update({'exc': ",".join(exclusedViews)})
-            argsTilt += "-EXCLUDELIST2 %(exc)s "
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsTilt += f"-EXCLUDELIST2 {','.join(excludedViews)} "
 
         if self.usesGpu():
             paramsTilt.update({

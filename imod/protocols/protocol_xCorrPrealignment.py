@@ -183,6 +183,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         if self.cumulativeCorr == 0:
             argsXcorr += "-CumulativeCorrelation "
 
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsXcorr += f"-SkipViews {','.join(excludedViews)} "
+
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
