@@ -366,6 +366,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                          "-RightDefTol %(rightDefTol)f " \
                          "-tileSize %(tileSize)d "
 
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsCtfPlotter += f"-ViewsToSkip {','.join(excludedViews)} "
+
         if self._interactiveMode:
             argsCtfPlotter += "-AngleRange -20.0,20.0 "
         else:
