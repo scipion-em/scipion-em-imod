@@ -431,12 +431,12 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
-            newCTFTomo.setDefocusUList(defocusUDict.get(index + 1, [-999.]))
+            newCTFTomo.setDefocusUList(defocusUDict.get(index + 1, [0.]))
 
             if defocusFileFlag == 1:
                 " Astigmatism estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [-999.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
                 newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
@@ -449,7 +449,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             elif defocusFileFlag == 5:
                 " Astigmatism and phase shift estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [-999.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
                 newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
@@ -460,7 +460,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             elif defocusFileFlag == 37:
                 " Astigmatism, phase shift and cut-on frequency estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [-999.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
                 newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
