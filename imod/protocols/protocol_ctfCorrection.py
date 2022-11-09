@@ -195,7 +195,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
             argsCtfPhaseFlip += "-UseGPU %(useGPU)d "
 
-        if ts.firstItem.hasTransform():
+        if ts.getFirstItem().hasTransform():
             paramsCtfPhaseFlip['xformFile'] = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
             argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
