@@ -36,7 +36,6 @@ import tomo.objects
 
 import imod.protocols
 from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
-                                       OUTPUT_COORDINATES_3D_NAME,
                                        OUTPUT_FIDUCIAL_NO_GAPS_NAME)
 from .views_tkinter_tree import (ImodGenericViewer, ImodSetView,
                                  ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView)
@@ -78,7 +77,7 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None,**kwargs):
+    def __init__(self, obj, protocol=None, **kwargs):
         """
 
         :param obj: Object to deal with usually a single item in a set
@@ -91,12 +90,12 @@ class ImodObjectView(pwviewer.CommandView):
 
         elif isinstance(obj, tomo.objects.LandmarkModel):
 
-            if obj.getTiltSeries().hasAlignment() and obj.applyTSTransformation() :
+            if obj.getTiltSeries().hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
 
                 outputTSPath = os.path.join(tempfile.gettempdir(),
-                                "ts_interpolated_%s_%s_%s%s" % (
+                                            "ts_interpolated_%s_%s_%s%s" % (
                                                 protocol.getProject().getShortName(),
                                                 protocol.getObjId(),
                                                 obj.getObjId(),
@@ -106,7 +105,6 @@ class ImodObjectView(pwviewer.CommandView):
                     obj.getTiltSeries().applyTransform(outputTSPath)
 
             else:
-
                 outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
 
             fidFileName = obj.getModelName()
@@ -140,7 +138,7 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
         group.addParam('saved3DCoord', params.LabelParam,
                        label="3D Coordinates")
         group.addParam('savedFiducials', params.LabelParam,
-                       label="Landmark models no gaps")
+                       label="Landmark models with no gaps")
 
         group = form.addGroup('Tomogram')
         group.addParam('savedReconsTomo', params.LabelParam,

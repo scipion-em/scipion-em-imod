@@ -676,7 +676,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
-        XDim, YDim, ZDim = firstItem.getDimensions()
 
         # Create the output set of landmark models with no gaps
         if os.path.exists(

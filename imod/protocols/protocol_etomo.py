@@ -30,7 +30,6 @@ import os
 
 import pyworkflow as pw
 from pyworkflow import BETA
-from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.emlib.image import ImageHandler

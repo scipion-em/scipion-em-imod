@@ -26,10 +26,6 @@
 
 import tempfile
 import threading
-import tkinter
-from tkinter import *
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
@@ -401,7 +397,7 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
 
             else:
                 self._cmd += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
-                      " " + itemComplete.getModelName() + " ; "
+                             " " + itemComplete.getModelName() + " ; "
 
         super().show()
 
