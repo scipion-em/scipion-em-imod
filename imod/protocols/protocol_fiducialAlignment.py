@@ -265,7 +265,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
-                                         tsObjId, tsIdsDict)
+                                         tsObjId)
 
             if self.eraseGoldBeads.get() == 0:
                 self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
@@ -285,6 +285,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             try:
                 func(self, tsId)
             except:
+                self.error(f"{func.__name__} has failed for tilt-series objId#{tsId}")
                 self._failedTs.append(tsId)
 
         return wrapper
@@ -442,6 +443,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                     ts.getSize(),
                                     ts.getSamplingRate())
 
+    @tryExceptDecorator
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -467,6 +469,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
+    @tryExceptDecorator
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -533,7 +536,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Error (computeOutputStackStep): \n Imod output file "
                 "%s does not exist or it is empty" % tmpFileName)
 
-    def computeOutputInterpolatedStackStep(self, tsObjId, tsIdsDict):
+    @tryExceptDecorator
+    def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
 
@@ -676,6 +680,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
+    @tryExceptDecorator
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
