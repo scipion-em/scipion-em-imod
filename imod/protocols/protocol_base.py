@@ -26,7 +26,7 @@
 
 import os
 
-from pyworkflow.object import Set, CsvList, Integer, Pointer
+from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import path
 from pwem.protocols import EMProtocol
@@ -421,55 +421,56 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 "correspond to flags 0, 1, 4, 5, and 37.")
 
         excludedViews = inputTs.getExcludedViewsIndex()
-        for index, _ in enumerate(inputTs):
+        ids = inputTs.getIdSet()
+        for index in ids:
             newCTFTomo = CTFTomo()
-            newCTFTomo.setIndex(Integer(index + 1))
+            newCTFTomo.setIndex(index)
 
-            if (index + 1) not in defocusUDict.keys() and (index + 1) not in excludedViews:
+            if index not in defocusUDict.keys() and index not in excludedViews:
                 raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                    tsId, (index + 1), inputTs[index + 1].getTiltAngle()))
+                    tsId, index, inputTs[index].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
-            newCTFTomo.setDefocusUList(defocusUDict.get(index + 1, [0.]))
+            newCTFTomo.setDefocusUList(defocusUDict.get(index, [0.]))
 
             if defocusFileFlag == 1:
                 " Astigmatism estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
             elif defocusFileFlag == 4:
                 " Phase-shift information "
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index + 1, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
             elif defocusFileFlag == 5:
                 " Astigmatism and phase shift estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index + 1, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
             elif defocusFileFlag == 37:
                 " Astigmatism, phase shift and cut-on frequency estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index + 1, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index + 1, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
                 newCTFTomo._cutOnFreqList = CsvList(pType=float)
-                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index + 1, [0.]))
+                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index, [0.]))
 
             newCTFTomo.completeInfoFromList()
 

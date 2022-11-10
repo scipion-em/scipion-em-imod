@@ -285,8 +285,8 @@ class ProtImodTSNormalization(ProtImodBase):
         transform = newTi.getTransform()
         matrix = transform.getMatrix()
 
-        matrix[0][2] = matrix[0][2] / self.binning.get()
-        matrix[1][2] = matrix[1][2] / self.binning.get()
+        matrix[0][2] /= self.binning.get()
+        matrix[1][2] /= self.binning.get()
 
         transform.setMatrix(matrix)
         newTi.setTransform(transform)
