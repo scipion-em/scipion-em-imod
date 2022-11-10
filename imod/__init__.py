@@ -36,7 +36,7 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.0.11'
+__version__ = '3.1'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
