@@ -127,7 +127,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
                     ids = ts.getIdSet()
                     for index in ids:
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
+                        inputTransformMatrix = inputTransformMatrixList[:, :, index-1]
 
                         outputTransformMatrix = inputTransformMatrix
                         outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
