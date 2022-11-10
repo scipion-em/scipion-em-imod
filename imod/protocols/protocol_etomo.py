@@ -75,6 +75,8 @@ class ProtImodEtomo(ProtImodBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
+        form.addParallelSection(threads=1, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
@@ -161,7 +163,8 @@ class ProtImodEtomo(ProtImodBase):
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
                                 'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
-                                'imodDir': Plugin.getHome()
+                                'imodDir': Plugin.getHome(),
+                                'useCpu': self.numberOfThreads > 1
                             })
 
     def runEtomo(self, ts):
@@ -532,6 +535,7 @@ Setup.Stack.A.Is.Twodir=false
 Setup.Pos.B.NewDialog=true
 ProcessTrack.TomogramPositioning-B=Not started
 Setup.Combine.PatchBoundaryZMax=0
+Setup.DefaultParallel=%(useCpu)s
 Setup.DefaultGpuProcessing=false
 Setup.Track.A.SeedModel.Auto=true
 Setup.Combine.PatchSize=M
@@ -539,7 +543,6 @@ Setup.AxisB.TiltAngle.Type=Extract
 Setup.Combine.PatchBoundaryZMin=0
 Setup.ProjectLog.FrameLocation.Y=55
 Setup.ProjectLog.FrameLocation.X=95
-Setup.DefaultParallel=false
 Setup.ProjectLog.Visible=true
 Setup.tiltalign.NumberOfLocalPatchesXandY=5,5
 Setup.Combine.PatchRegionModel=

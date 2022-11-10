@@ -214,13 +214,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
             argsTilt += f"-EXCLUDELIST2 {','.join(excludedViews)} "
 
         if self.usesGpu():
-            paramsTilt.update({
-                "useGPU": self.getGpuList()[0],
-                "actionIfGPUFails": "2,2",
-            })
-
-            argsTilt += "-UseGPU %(useGPU)d " \
-                        "-ActionIfGPUFails %(actionIfGPUFails)s "
+            argsTilt += f"-UseGPU {self.getGpuList()[0]} " \
+                        "-ActionIfGPUFails 2,2 "
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
