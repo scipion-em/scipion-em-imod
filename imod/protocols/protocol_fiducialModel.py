@@ -316,6 +316,11 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
                         "-MinDiamForParamScaling %(minDiamForParamScaling).1f "
 
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsBeadtrack += f"-SkipViews {','.join(excludedViews)} "
+
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsObjId):
@@ -523,6 +528,11 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
             template += """SobelFilterCentering
 ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
 """
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            template += f"SkipViews {','.join(excludedViews)}"
+
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
 

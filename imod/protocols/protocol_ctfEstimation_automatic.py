@@ -42,7 +42,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
     """
 
-    _label = 'Automatic CTF estimation (step 1)'
+    _label = 'Automatic CTF estimation'
     _devStatus = BETA
 
     defocusUTolerance = 20
@@ -137,160 +137,161 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            "square. Each view is first divided into strips "
                            "that are considered to have constant defocus.")
 
-        groupAngleRange = form.addGroup('Autorefinement angle settings',
-                                        help='This entry sets the range of '
-                                             'angles for each fit and the step '
-                                             'size between angles for the '
-                                             'initial autofitting of the whole '
-                                             'tilt-series.')
+        if not self._interactiveMode:
+            groupAngleRange = form.addGroup('Autorefinement angle settings',
+                                            help='This entry sets the range of '
+                                                 'angles for each fit and the step '
+                                                 'size between angles for the '
+                                                 'initial autofitting of the whole '
+                                                 'tilt-series.')
 
-        groupAngleRange.addParam('angleStep',
-                                 params.FloatParam,
-                                 default=2,
-                                 label='Angle step',
-                                 help='Step size between ranges. A value of '
-                                      'zero for the step will make it fit to '
-                                      'each single image separately, '
-                                      'regardless of the value for the range.')
-
-        groupAngleRange.addParam('angleRange',
-                                 params.FloatParam,
-                                 condition="angleStep != 0",
-                                 default=16,
-                                 label='Angle range',
-                                 help='Size of the angle range for which the '
-                                      'CTF is estimated.')
-
-        groupFrequencyRange = form.addGroup('Autorefinement frequency range',
-                                            expertLevel=params.LEVEL_ADVANCED,
-                                            help='Starting and ending frequencies '
-                                                 'of range to fit in power spectrum. '
-                                                 'The two values will be used to '
-                                                 'set the "X1 starts" and "X2 ends" '
-                                                 'fields in the fitting dialog.')
-
-        groupFrequencyRange.addParam('startFreq',
+            groupAngleRange.addParam('angleStep',
                                      params.FloatParam,
-                                     default=0.0,
-                                     label='Start',
-                                     help='Starting frequency (X1 starts)')
+                                     default=2,
+                                     label='Angle step',
+                                     help='Step size between ranges. A value of '
+                                          'zero for the step will make it fit to '
+                                          'each single image separately, '
+                                          'regardless of the value for the range.')
 
-        groupFrequencyRange.addParam('endFreq',
+            groupAngleRange.addParam('angleRange',
                                      params.FloatParam,
-                                     default=0.0,
-                                     label='End',
-                                     help='Ending frequency (X2 ends)')
+                                     condition="angleStep != 0",
+                                     default=16,
+                                     label='Angle range',
+                                     help='Size of the angle range for which the '
+                                          'CTF is estimated.')
 
-        form.addParam('extraZerosToFit',
-                      params.FloatParam,
-                      label='Extra zeros to fit',
-                      default=0.0,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="By default, the ending frequency of the fitting "
-                           "range is set to the expected location of "
-                           "the second zero. With this entry, the range will "
-                           "be extended by the given multiple of the interval "
-                           "between first and seconds zeros. For example, "
-                           "entries of 1 and 2 will fit approximately to the "
-                           "third and fourth zeros, respectively. An entry of "
-                           "more than 0.5 will trigger fitting to two "
-                           "exponentials, which is important for fitting "
-                           "multiple peaks between zeros.")
+            groupFrequencyRange = form.addGroup('Autorefinement frequency range',
+                                                expertLevel=params.LEVEL_ADVANCED,
+                                                help='Starting and ending frequencies '
+                                                     'of range to fit in power spectrum. '
+                                                     'The two values will be used to '
+                                                     'set the "X1 starts" and "X2 ends" '
+                                                     'fields in the fitting dialog.')
 
-        form.addParam('skipAstigmaticViews',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Skip astigmatic phase views?',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Skip or break views only when finding astigmatism '
-                           'or phase shift')
+            groupFrequencyRange.addParam('startFreq',
+                                         params.FloatParam,
+                                         default=0.0,
+                                         label='Start',
+                                         help='Starting frequency (X1 starts)')
 
-        groupAstigmatism = form.addGroup('Astigmatism settings',
-                                         help='Parameters for astigmatism analysis')
+            groupFrequencyRange.addParam('endFreq',
+                                         params.FloatParam,
+                                         default=0.0,
+                                         label='End',
+                                         help='Ending frequency (X2 ends)')
 
-        groupAstigmatism.addParam('searchAstigmatism',
-                                  params.EnumParam,
-                                  choices=['Yes', 'No'],
-                                  default=1,
-                                  label='Search astigmatism?',
-                                  display=params.EnumParam.DISPLAY_HLIST,
-                                  help='Search for astigmatism when fitting.')
+            form.addParam('extraZerosToFit',
+                          params.FloatParam,
+                          label='Extra zeros to fit',
+                          default=0.0,
+                          expertLevel=params.LEVEL_ADVANCED,
+                          help="By default, the ending frequency of the fitting "
+                               "range is set to the expected location of "
+                               "the second zero. With this entry, the range will "
+                               "be extended by the given multiple of the interval "
+                               "between first and seconds zeros. For example, "
+                               "entries of 1 and 2 will fit approximately to the "
+                               "third and fourth zeros, respectively. An entry of "
+                               "more than 0.5 will trigger fitting to two "
+                               "exponentials, which is important for fitting "
+                               "multiple peaks between zeros.")
 
-        groupAstigmatism.addParam('maximumAstigmatism',
-                                  params.FloatParam,
-                                  default=1.2,
-                                  label='Maximum astigmatism (um)',
-                                  condition='searchAstigmatism==0',
-                                  help='Maximum astigmatism, in microns. '
-                                       'During the fitting to wedge spectra, '
-                                       'the defocus is allowed to vary from '
-                                       'the global value by more than half '
-                                       'of this amount.')
+            form.addParam('skipAstigmaticViews',
+                          params.EnumParam,
+                          choices=['Yes', 'No'],
+                          default=1,
+                          label='Skip astigmatic phase views?',
+                          expertLevel=params.LEVEL_ADVANCED,
+                          display=params.EnumParam.DISPLAY_HLIST,
+                          help='Skip or break views only when finding astigmatism '
+                               'or phase shift')
 
-        groupAstigmatism.addParam('numberSectorsAstigmatism',
-                                  params.IntParam,
-                                  default=36,
-                                  label='Number of sectors',
-                                  condition='searchAstigmatism==0',
-                                  help='Number of sectors for astigmatism '
-                                       'analysis.  A power spectrum is stored '
-                                       'separately for each sector; spectra '
-                                       'can then be computed fairly quickly '
-                                       'for wedges of any size that is a '
-                                       'multiple of the sector size. The '
-                                       'default is 36, giving 5 degree sectors.')
+            groupAstigmatism = form.addGroup('Astigmatism settings',
+                                             help='Parameters for astigmatism analysis')
 
-        groupAstigmatism.addParam('minimumViewsAstigmatism',
-                                  params.IntParam,
-                                  default=3,
-                                  label='Minimum views astigmatism',
-                                  condition='searchAstigmatism==0',
-                                  help='Minimum number of views for '
-                                       'finding astigmatism.')
+            groupAstigmatism.addParam('searchAstigmatism',
+                                      params.EnumParam,
+                                      choices=['Yes', 'No'],
+                                      default=1,
+                                      label='Search astigmatism?',
+                                      display=params.EnumParam.DISPLAY_HLIST,
+                                      help='Search for astigmatism when fitting.')
 
-        groupPhaseShift = form.addGroup('Phase shift settings',
-                                        help='Parameters for phase shift analysis')
+            groupAstigmatism.addParam('maximumAstigmatism',
+                                      params.FloatParam,
+                                      default=1.2,
+                                      label='Maximum astigmatism (um)',
+                                      condition='searchAstigmatism==0',
+                                      help='Maximum astigmatism, in microns. '
+                                           'During the fitting to wedge spectra, '
+                                           'the defocus is allowed to vary from '
+                                           'the global value by more than half '
+                                           'of this amount.')
 
-        groupPhaseShift.addParam('searchPhaseShift',
-                                 params.EnumParam,
-                                 choices=['Yes', 'No'],
-                                 default=1,
-                                 label='Search phase shift?',
-                                 display=params.EnumParam.DISPLAY_HLIST,
-                                 help='Search for phase shift when fitting.')
+            groupAstigmatism.addParam('numberSectorsAstigmatism',
+                                      params.IntParam,
+                                      default=36,
+                                      label='Number of sectors',
+                                      condition='searchAstigmatism==0',
+                                      help='Number of sectors for astigmatism '
+                                           'analysis.  A power spectrum is stored '
+                                           'separately for each sector; spectra '
+                                           'can then be computed fairly quickly '
+                                           'for wedges of any size that is a '
+                                           'multiple of the sector size. The '
+                                           'default is 36, giving 5 degree sectors.')
 
-        groupPhaseShift.addParam('minimumViewsPhaseShift',
-                                 params.IntParam,
-                                 default=1,
-                                 label='Minimum views phase shift',
-                                 condition='searchPhaseShift==0',
-                                 help='Minimum number of views for '
-                                      'finding phase shift.')
+            groupAstigmatism.addParam('minimumViewsAstigmatism',
+                                      params.IntParam,
+                                      default=3,
+                                      label='Minimum views astigmatism',
+                                      condition='searchAstigmatism==0',
+                                      help='Minimum number of views for '
+                                           'finding astigmatism.')
 
-        groupCutOnFreq = form.addGroup('Cut-on frequency settings')
+            groupPhaseShift = form.addGroup('Phase shift settings',
+                                            help='Parameters for phase shift analysis')
 
-        groupCutOnFreq.addParam('searchCutOnFreq',
-                                params.EnumParam,
-                                choices=['Yes', 'No'],
-                                default=1,
-                                label='Search cut-on frequency?',
-                                display=params.EnumParam.DISPLAY_HLIST,
-                                help='Search for cut-on frequency when '
-                                     'finding phase shift.')
+            groupPhaseShift.addParam('searchPhaseShift',
+                                     params.EnumParam,
+                                     choices=['Yes', 'No'],
+                                     default=1,
+                                     label='Search phase shift?',
+                                     display=params.EnumParam.DISPLAY_HLIST,
+                                     help='Search for phase shift when fitting.')
 
-        groupCutOnFreq.addParam('maximumCutOnFreq',
-                                params.FloatParam,
-                                default=-1,
-                                label='Maximum astigmatism (um)',
-                                condition='searchCutOnFreq==0',
-                                help='Maximum frequency to test when searching '
-                                     'for cut-on frequency, in reciprocal '
-                                     'nanometers.  The default is the '
-                                     'frequency of the first zero at the '
-                                     'expected defocus and phase shift. '
-                                     'To use the default value set box to -1.')
+            groupPhaseShift.addParam('minimumViewsPhaseShift',
+                                     params.IntParam,
+                                     default=1,
+                                     label='Minimum views phase shift',
+                                     condition='searchPhaseShift==0',
+                                     help='Minimum number of views for '
+                                          'finding phase shift.')
+
+            groupCutOnFreq = form.addGroup('Cut-on frequency settings')
+
+            groupCutOnFreq.addParam('searchCutOnFreq',
+                                    params.EnumParam,
+                                    choices=['Yes', 'No'],
+                                    default=1,
+                                    label='Search cut-on frequency?',
+                                    display=params.EnumParam.DISPLAY_HLIST,
+                                    help='Search for cut-on frequency when '
+                                         'finding phase shift.')
+
+            groupCutOnFreq.addParam('maximumCutOnFreq',
+                                    params.FloatParam,
+                                    default=-1,
+                                    label='Maximum astigmatism (1/nm)',
+                                    condition='searchCutOnFreq==0',
+                                    help='Maximum frequency to test when searching '
+                                         'for cut-on frequency, in reciprocal '
+                                         'nanometers.  The default is the '
+                                         'frequency of the first zero at the '
+                                         'expected defocus and phase shift. '
+                                         'To use the default value set box to -1.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _getSetOfTiltSeries(self, pointer=False):
@@ -340,7 +341,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
             'pixelSize': tsSet.getSamplingRate() / 10,
             'expectedDefocus': self.getExpectedDefocus(tsId),
-            'autoFitRangeAndStep': str(self.angleRange.get()) + "," + str(self.angleStep.get()),
             'voltage': tsSet.getAcquisition().getVoltage(),
             'sphericalAberration': tsSet.getAcquisition().getSphericalAberration(),
             'amplitudeContrast': tsSet.getAcquisition().getAmplitudeContrast(),
@@ -357,7 +357,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                          "-AxisAngle %(axisAngle)f " \
                          "-PixelSize %(pixelSize)f " \
                          "-ExpectedDefocus %(expectedDefocus)f " \
-                         "-AutoFitRangeAndStep %(autoFitRangeAndStep)s " \
                          "-Voltage %(voltage)d " \
                          "-SphericalAberration %(sphericalAberration)f " \
                          "-AmplitudeContrast %(amplitudeContrast)f " \
@@ -367,68 +366,78 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                          "-RightDefTol %(rightDefTol)f " \
                          "-tileSize %(tileSize)d "
 
-        if self.startFreq.get() != 0 or self.endFreq.get() != 0:
-            paramsCtfPlotter.update({
-                'startFreq': self.startFreq.get(),
-                'endFreq': self.endFreq.get(),
-            })
+        # Excluded views
+        excludedViews = ts.getExcludedViewsIndex(caster=str)
+        if len(excludedViews):
+            argsCtfPlotter += f"-ViewsToSkip {','.join(excludedViews)} "
 
-            argsCtfPlotter += "-FrequencyRangeToFit %(startFreq)f,%(endFreq)f "
+        if self._interactiveMode:
+            argsCtfPlotter += "-AngleRange -20.0,20.0 "
+        else:
 
-        if self.extraZerosToFit.get() != 0:
-            paramsCtfPlotter.update({
-                'extraZerosToFit': self.extraZerosToFit.get(),
-            })
-
-            argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
-
-        if self.skipAstigmaticViews.get() == 0:
-            argsCtfPlotter += "-SkipOnlyForAstigPhase "
-
-        if self.searchAstigmatism.get() == 0:
-            paramsCtfPlotter.update({
-                'maximumAstigmatism': self.maximumAstigmatism.get(),
-                'numberOfSectors': self.numberSectorsAstigmatism.get(),
-                'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get()
-            })
-
-            argsCtfPlotter += "-SearchAstigmatism " \
-                              "-MaximumAstigmatism %(maximumAstigmatism)f " \
-                              "-NumberOfSectors %(numberOfSectors)d "
-
-        if self.searchPhaseShift.get() == 0:
-            paramsCtfPlotter.update({
-                'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get()
-            })
-
-            argsCtfPlotter += "-SearchPhaseShift "
-
-        if self.searchAstigmatism.get() == 0 and self.searchPhaseShift.get() == 0:
-            argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
-        elif self.searchAstigmatism.get() == 0:
-            argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,0 "
-        elif self.searchPhaseShift.get() == 0:
-            argsCtfPlotter += "-MinViewsAstigAndPhase 0,%(minimumViewsPhaseShift)d "
-
-        if self.searchCutOnFreq.get() == 0:
-
-            if self.maximumCutOnFreq.get() == -1:
-                argsCtfPlotter += "-SearchCutonFrequency "
-
-            else:
+            if self.extraZerosToFit.get() != 0:
                 paramsCtfPlotter.update({
-                    'maximumCutOnFreq': self.maximumCutOnFreq.get(),
+                    'extraZerosToFit': self.extraZerosToFit.get(),
                 })
 
-                argsCtfPlotter += "-SearchCutonFrequency " \
-                                  "-MaxCutOnToSearch %(maximumCutOnFreq)f "
+                argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
 
-        if not self._interactiveMode:
-            argsCtfPlotter += "-SaveAndExit "
+            if self.skipAstigmaticViews.get() == 0:
+                argsCtfPlotter += "-SkipOnlyForAstigPhase "
+
+            if self.searchAstigmatism.get() == 0:
+                paramsCtfPlotter.update({
+                    'maximumAstigmatism': self.maximumAstigmatism.get(),
+                    'numberOfSectors': self.numberSectorsAstigmatism.get(),
+                    'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get()
+                })
+
+                argsCtfPlotter += "-SearchAstigmatism " \
+                                  "-MaximumAstigmatism %(maximumAstigmatism)f " \
+                                  "-NumberOfSectors %(numberOfSectors)d "
+
+            if self.searchPhaseShift.get() == 0:
+                paramsCtfPlotter.update({
+                    'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get()
+                })
+
+                argsCtfPlotter += "-SearchPhaseShift "
+
+            if self.searchAstigmatism.get() == 0 and self.searchPhaseShift.get() == 0:
+                argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
+            elif self.searchAstigmatism.get() == 0:
+                argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,0 "
+            elif self.searchPhaseShift.get() == 0:
+                argsCtfPlotter += "-MinViewsAstigAndPhase 0,%(minimumViewsPhaseShift)d "
+
+            if self.searchCutOnFreq.get() == 0:
+
+                if self.maximumCutOnFreq.get() == -1:
+                    argsCtfPlotter += "-SearchCutonFrequency "
+
+                else:
+                    paramsCtfPlotter.update({
+                        'maximumCutOnFreq': self.maximumCutOnFreq.get(),
+                    })
+
+                    argsCtfPlotter += "-SearchCutonFrequency " \
+                                      "-MaxCutOnToSearch %(maximumCutOnFreq)f "
+
+            paramsCtfPlotter['autoFitRangeAndStep'] = str(self.angleRange.get()) + "," + str(self.angleStep.get())
+            argsCtfPlotter += "-SaveAndExit " \
+                              "-AutoFitRangeAndStep %(autoFitRangeAndStep)s "
+
+            if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+                paramsCtfPlotter.update({
+                    'startFreq': self.startFreq.get(),
+                    'endFreq': self.endFreq.get(),
+                })
+
+                argsCtfPlotter += "-FrequencyRangeToFit %(startFreq)f,%(endFreq)f "
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
-    def createOutputStep(self, tsObjId):
+    def createOutputStep(self, tsObjId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
@@ -438,14 +447,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                        ts.getFirstItem().parseFileName(extension=".defocus"))
 
         if os.path.exists(defocusFilePath):
-            output = self.getOutputSetOfCTFTomoSeries(OUTPUT_CTF_SERIE)
+            output = self.getOutputSetOfCTFTomoSeries(outputSetName)
 
             self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
 
     def closeOutputSetsStep(self):
-
-        self.CTFTomoSeries.setStreamState(Set.STREAM_CLOSED)
-        self.CTFTomoSeries.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- UTILS functions -----------------------------

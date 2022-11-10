@@ -56,7 +56,9 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       important=True,
                       label='Input set of tomograms',
                       help='Input set of tomograms from which gold beads '
-                           'will be picked.')
+                           'will be picked. A tomogram needs to be thicker '
+                           'than normal because the program cannot find '
+                           'beads too close to the surfaces of a tomogram.')
 
         form.addParam('beadDiameter',
                       params.FloatParam,
@@ -100,8 +102,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'eliminated unless the -both option is entered. '
                            'The default is 0.9. A value less than 1 is '
                            'helpful for picking both beads in a pair.')
-
-        form.addParallelSection(threads=4, mpi=1)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -150,6 +150,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                           "-OutputFile %(outputFile)s " \
                           "-BeadSize %(beadSize)d " \
                           "-MinRelativeStrength %(minRelativeStrength)f " \
+                          "-StorageThreshold 0.0 " \
                           "-MinSpacing %(minSpacing)f "
 
         if self.beadsColor.get() == 1:

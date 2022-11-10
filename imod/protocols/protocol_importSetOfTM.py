@@ -118,15 +118,16 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                     extraPrefix = self._getExtraPath(tsId)
                     path.makePath(extraPrefix)
 
-                    # Update shits from the transformation matrix considering
-                    # the matching bining between the input tilt
+                    # Update shifts from the transformation matrix considering
+                    # the matching binning between the input tilt
                     # series and the transformation matrix. We create an empty
                     # tilt-series containing only tilt-images
                     # with transform information.
                     transformMatrixList = []
 
-                    for index, ti in enumerate(ts):
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
+                    ids = ts.getIdSet()
+                    for index in ids:
+                        inputTransformMatrix = inputTransformMatrixList[:, :, index-1]
 
                         outputTransformMatrix = inputTransformMatrix
                         outputTransformMatrix[0][0] = inputTransformMatrix[0][0]

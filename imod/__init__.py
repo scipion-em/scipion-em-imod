@@ -36,7 +36,7 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.0.11'
+__version__ = '3.1'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -152,14 +152,17 @@ class Plugin(pwem.Plugin):
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
 
+        ncpus = protocol.numberOfThreads.get()
+
         # Get the command
-        cmd = cls.getImodCmd(program)
+        cmd = cls.getImodCmd(program, ncpus)
 
         # Run the protocol with that command
-        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd)
+        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd,
+                        numberOfMpi=1, numberOfThreads=1)
 
     @classmethod
-    def getImodCmd(cls, program):
+    def getImodCmd(cls, program, ncpus=1):
         """ Composes an IMOD command for a given program. """
 
         # Program to run
@@ -167,6 +170,9 @@ class Plugin(pwem.Plugin):
 
         # Command to run
         cmd = ""
+
+        if ncpus > 1:
+            cmd += f"export IMOD_PROCESSORS={ncpus} && "
 
         # If absolute ... (then it is based on the config)
         if os.path.isabs(program):

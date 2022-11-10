@@ -44,7 +44,7 @@ class ProtImodTomoNormalization(ProtImodBase):
         https://bio3D.colorado.edu/imod/doc/binvol.html
     """
 
-    _label = 'Tomo normalization'
+    _label = 'Tomo preprocess'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------

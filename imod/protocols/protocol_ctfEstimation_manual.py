@@ -25,32 +25,30 @@
 # *
 # **************************************************************************
 
-import os
-
 from pyworkflow import BETA
 from tomo.objects import SetOfCTFTomoSeries
 
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from .protocol_base import OUTPUT_CTF_SERIE
 
 
 class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
-    Run the protocol through the interactive GUI. Defocus values are saved
-    to file and exit after autofitting. The program will not ask for confirmation before
-    removing existing entries in the defocus table. If run in interactive mode defocus values
+    Runs the protocol through the interactive GUI. The resulting defocus values
     MUST BE SAVED manually by the user.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
 
     """
 
-    _label = 'Manual CTF estimation (step 2)'
+    _label = 'Manual CTF estimation'
     _devStatus = BETA
     _interactiveMode = True
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
+        self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):
         self.inputTiltSeries = None
@@ -66,6 +64,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
                                  isInteractive=True,
                                  itemDoubleClick=True)
         view.show()
+        self.createOutput()
 
     def runAllSteps(self, obj):
         objId = obj.getObjId()
@@ -83,12 +82,3 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def _summary(self):
         summary = []
         return summary
-
-    # ------------------ UTILS METHODS ------------------------------------
-
-    def getFilePath(self, ts, suffix="", extension=""):
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        return os.path.join(extraPrefix,
-                            ts.getFirstItem().parseFileName(suffix=suffix,
-                                                            extension=extension))

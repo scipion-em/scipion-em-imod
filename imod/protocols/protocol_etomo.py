@@ -75,6 +75,8 @@ class ProtImodEtomo(ProtImodBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
+        form.addParallelSection(threads=1, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
@@ -161,7 +163,8 @@ class ProtImodEtomo(ProtImodBase):
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
                                 'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
-                                'imodDir': Plugin.getHome()
+                                'imodDir': Plugin.getHome(),
+                                'useCpu': self.numberOfThreads > 1
                             })
 
     def runEtomo(self, ts):
@@ -216,6 +219,7 @@ class ProtImodEtomo(ProtImodBase):
                 xcorrFn = self._getExtraPath(tsId, 'xcorr.com')
                 excludedViewList = self.getExcludedViewList(xcorrFn,
                                                             reservedWord='SkipViews')
+                self.debug(f"Excluding views for xcorr: {excludedViewList}")
 
                 for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
@@ -263,10 +267,11 @@ class ProtImodEtomo(ProtImodBase):
                     tltList = None
 
                 # Getting the excluded views in order to disable in the
-                # aligned tiltserie
+                # aligned tilt-series
                 alignFn = self._getExtraPath(tsId, 'align.com')
                 excludedViewList = self.getExcludedViewList(alignFn,
                                                             reservedWord='ExcludeList')
+                self.debug(f"Excluding views for align: {excludedViewList}")
 
                 for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
@@ -530,6 +535,7 @@ Setup.Stack.A.Is.Twodir=false
 Setup.Pos.B.NewDialog=true
 ProcessTrack.TomogramPositioning-B=Not started
 Setup.Combine.PatchBoundaryZMax=0
+Setup.DefaultParallel=%(useCpu)s
 Setup.DefaultGpuProcessing=false
 Setup.Track.A.SeedModel.Auto=true
 Setup.Combine.PatchSize=M
@@ -537,7 +543,6 @@ Setup.AxisB.TiltAngle.Type=Extract
 Setup.Combine.PatchBoundaryZMin=0
 Setup.ProjectLog.FrameLocation.Y=55
 Setup.ProjectLog.FrameLocation.X=95
-Setup.DefaultParallel=false
 Setup.ProjectLog.Visible=true
 Setup.tiltalign.NumberOfLocalPatchesXandY=5,5
 Setup.Combine.PatchRegionModel=
@@ -560,18 +565,20 @@ ProcessTrack.TomogramCombination=Not started
         return dims, newPixSize
 
     def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
-        with open(fn, 'r') as f:
+        with open(fn) as f:
             data = f.readlines()
         excludedViewList = []
-        for line in data:
-            # Skip comments
-            if line.startswith("#"):
-                continue
 
+        for line in data:
             if line.startswith(reservedWord):
-                excludedViewList = line.strip().replace('\t', ' ').replace(',', ' ')
-                excludedViewList = excludedViewList.split(' ')[1:]
-                excludedViewList = [int(sliceIndex) for sliceIndex in excludedViewList]
+                excludedRange = line.strip().split("\t")[1]
+                for part in excludedRange.split(','):
+                    if '-' in part:
+                        a, b = map(int, part.split('-'))
+                        excludedViewList.extend(range(a, b + 1))
+                    else:
+                        a = int(part)
+                        excludedViewList.append(a)
                 break
         return excludedViewList
 

@@ -42,7 +42,7 @@ class ProtImodTSNormalization(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
     """
 
-    _label = 'Tilt-series normalization'
+    _label = 'Tilt-series preprocess'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -285,8 +285,8 @@ class ProtImodTSNormalization(ProtImodBase):
         transform = newTi.getTransform()
         matrix = transform.getMatrix()
 
-        matrix[0][2] = matrix[0][2] / self.binning.get()
-        matrix[1][2] = matrix[1][2] / self.binning.get()
+        matrix[0][2] /= self.binning.get()
+        matrix[1][2] /= self.binning.get()
 
         transform.setMatrix(matrix)
         newTi.setTransform(transform)
