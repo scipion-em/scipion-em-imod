@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,24 +22,26 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 import numpy as np
+
 from pyworkflow import BETA
 from pyworkflow.object import Set
 from pyworkflow.utils import path
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-from tomo.objects import TiltSeries, TiltImage
 from pwem.emlib.image import ImageHandler
-from imod import utils
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from tomo.objects import TiltSeries, TiltImage
+
+from .. import utils
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodImportTransformationMatrix(ProtImodBase):
     """
-    Import the transformation matrices assigned to an input set of tilt-series.
+    Import the transformation matrices assigned to an input set of tilt-series
     """
 
     _label = 'Import transformation matrix'
@@ -51,15 +53,17 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         form.addParam('exclusionWords', params.StringParam,
                       label='Exclusion words:',
-                      help="List of words separated by a space that the path should not have",
+                      help="List of words separated by a space that the "
+                           "path should not have",
                       expertLevel=params.LEVEL_ADVANCED)
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      help='Set of tilt-series on which transformation matrices will be assigned.',
-                      label='Assign transformation set of tilt-series')
+                      help='Set of tilt-series on which transformation matrices '
+                           'will be assigned.',
+                      label='Input set of tilt-series')
 
         groupMatchBinning = form.addGroup('Match binning')
 
@@ -67,26 +71,29 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                                    params.IntParam,
                                    default=1,
                                    label='Transformation matrix binning',
-                                   help='Binning of the tilt series at which the transformation matrices were '
+                                   help='Binning of the tilt series at which '
+                                        'the transformation matrices were '
                                         'calculated.')
 
         groupMatchBinning.addParam('binningTS',
                                    params.IntParam,
                                    default=1,
                                    label='Tilt-series binning',
-                                   help='Binning of the tilt-series to which the ')
+                                   help='Binning of the tilt-series.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
 
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
-            self._insertFunctionStep(self.assignTransformationMatricesStep, ts.getObjId())
+            self._insertFunctionStep(self.generateTransformFileStep,
+                                     ts.getObjId())
+            self._insertFunctionStep(self.assignTransformationMatricesStep,
+                                     ts.getObjId())
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def generateTransformFileStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -96,7 +103,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         path.makePath(extraPrefix)
 
-        outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+        outputTransformFile = os.path.join(extraPrefix,
+                                           ts.getFirstItem().parseFileName(extension=".xf"))
 
         for tmFilePath, _ in self.iterFiles():
             tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
@@ -110,8 +118,10 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                     extraPrefix = self._getExtraPath(tsId)
                     path.makePath(extraPrefix)
 
-                    # Update shits from the transformation matrix considering the matching bining between the input tilt
-                    # series and the transformation matrix. We create an empty tilt-series containing only tilt-images
+                    # Update shits from the transformation matrix considering
+                    # the matching bining between the input tilt
+                    # series and the transformation matrix. We create an empty
+                    # tilt-series containing only tilt-images
                     # with transform information.
                     transformMatrixList = []
 
@@ -142,7 +152,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        outputTransformFile = os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+        outputTransformFile = os.path.join(extraPrefix,
+                                           ts.getFirstItem().parseFileName(extension=".xf"))
 
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -183,7 +194,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         newTs.write(properties=False)
 
         output.update(newTs)
-        output.updateDim()
         output.write()
 
         self._store()
@@ -196,7 +206,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         self._store()
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
 
@@ -229,7 +239,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                     break
 
             if not match:
-                validateMsgs.append("No matching file found for tilt-series: %s (with tsID %s)"
+                validateMsgs.append("No matching file found for tilt-series: %s "
+                                    "(with tsID %s)"
                                     % (tsFileName, ts.getTsId()))
 
             match = False
@@ -239,14 +250,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices assigned: %d.\n"
+            summary.append("Input tilt-series: %d\nTransformation matrices "
+                           "assigned: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
         return summary
-
-    def _methods(self):
-        methods = []
-        if self.TiltSeries:
-            methods.append("The transformation matrix has been assigned to %d Tilt-series from the input set.\n"
-                           % self.TiltSeries.getSize())
-        return methods

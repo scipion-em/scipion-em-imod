@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,24 +24,24 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
-
+# *****************************************************************************
 
 import tempfile
 import os
 
 import pyworkflow.viewer as pwviewer
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, OUTPUT_COORDINATES_3D_NAME, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME
-from imod.utils import generateIMODFidFile
-from imod.viewers.views_tkinter_tree import ImodGenericViewer, ImodSetView, \
-    ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView
 import pyworkflow.protocol.params as params
-
-import tomo.objects
-import imod.protocols
-from imod import Plugin
 from pwem.viewers import DataViewer
+import tomo.objects
+
+import imod.protocols
+from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
+                                       OUTPUT_COORDINATES_3D_NAME,
+                                       OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+from .views_tkinter_tree import (ImodGenericViewer, ImodSetView,
+                                 ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView)
+from .. import Plugin
+from ..utils import generateIMODFidFile
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -134,31 +134,19 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
 
         group = form.addGroup('Tilt Series Alignment')
         group.addParam('savedTsPreAli', params.LabelParam,
-                       label="Pre-aligned tilt-series",
-                       help="Through this option the intermediate pre-aligned "
-                            "tilt-series can be shown.")
+                       label="Pre-aligned tilt-series")
         group.addParam('savedTsAli', params.LabelParam,
-                       label="Aligned tilt-series",
-                       help="Through this option the intermediate aligned "
-                            "tilt-series can be shown.")
+                       label="Aligned tilt-series")
         group.addParam('saved3DCoord', params.LabelParam,
-                       label="3D Coordinates",
-                       help="Through this option the 3D coordinates can "
-                            "be shown.")
+                       label="3D Coordinates")
         group.addParam('savedFiducials', params.LabelParam,
-                       label="Landmark models no gaps",
-                       help="Through this option the obtained fiducial model "
-                            "can be shown.")
+                       label="Landmark models no gaps")
 
         group = form.addGroup('Tomogram')
         group.addParam('savedReconsTomo', params.LabelParam,
-                       label="Reconstructed full tomogram",
-                       help="Through this option the final reconstructed "
-                            "tomogram can be shown.")
+                       label="Reconstructed raw tomogram")
         group.addParam('savedPostProcessTomo', params.LabelParam,
-                       label="Postprocess tomogram",
-                       help="Through this option the postprocess "
-                            "tomogram can be shown.")
+                       label="Post-processed tomogram")
 
         self.defineOutputsSetNames()
 
@@ -201,4 +189,4 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
             return [self.errorMessage(str(e), "Error displaying the output")]
 
     def _notGenerated(self, param=None):
-       return [self.infoMessage('Output not generated yet. ', 'Info').show()]
+        return [self.infoMessage('Outputs are not generated yet.', 'Info').show()]

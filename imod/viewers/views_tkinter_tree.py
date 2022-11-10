@@ -1,13 +1,12 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors: Yunior C. Fonseca Reyna    (cfonseca@cnb.csic.es)
-# *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,8 +22,7 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
-
+# *****************************************************************************
 
 import tempfile
 import threading
@@ -33,20 +31,21 @@ from tkinter import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from imod.protocols import ProtImodEtomo
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
-from pyworkflow.gui.dialog import ListDialog, showInfo
+from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 from pyworkflow.plugin import Domain
-
 import tomo.objects
-from imod import Plugin
+
+from .. import Plugin
+from ..protocols import ProtImodEtomo
 
 
 class protClass:
     protImodEtomoClass = 1
     protImodCTFEstimation = 2
+
 
 class ImodGenericTreeProvider(TreeProvider):
     """ Model class that will retrieve the information from TiltSeries,
@@ -60,8 +59,8 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
     COL_LANDMODEL_NO_GAPS = 'Fiducial models w/o gaps'
-    COL_RECONST_TOMOGRAM = 'Full tomograms'
-    COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
+    COL_RECONST_TOMOGRAM = 'Raw tomograms'
+    COL_PREPROCESS_RECONST_TOMOGRAM = 'Post-processed tomograms'
 
     ORDER_DICT = {COL_TS: 'id'}
 
@@ -168,7 +167,7 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getImodEtomoColumnValues(self, obj, values):
         status = 'pending'
-        for item in  self.protocol.inputSetOfTiltSeries.get():
+        for item in self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
                 """Prealigned tilt-series"""
                 prealiFilePath = self.protocol.getFilePath(item,
@@ -231,7 +230,8 @@ class ImodGenericTreeProvider(TreeProvider):
         for item in self.protocol.inputSetOfTiltSeries:
             if item.getTsId() == obj.getTsId():
                 extraPrefix = self.protocol._getExtraPath(item.getTsId())
-                defocusFilePath = os.path.join(extraPrefix, item.getFirstItem().parseFileName(extension=".defocus"))
+                defocusFilePath = os.path.join(extraPrefix,
+                                               item.getFirstItem().parseFileName(extension=".defocus"))
                 if os.path.exists(defocusFilePath):
                     values.append('DONE')
                     status = 'done'
@@ -259,7 +259,8 @@ class ImodGenericTreeProvider(TreeProvider):
                 def createViewer(viewerClass, obj):
                     proj = self.protocol.getProject()
                     item = self.objs[obj.getObjId()]  # to load mapper
-                    return lambda : viewerClass(project=proj, protocol=self.protocol).visualize(item)
+
+                    return lambda: viewerClass(project=proj, protocol=self.protocol).visualize(item)
                 actions.append(('Open with %s' % viewerClass.__name__,
                                 createViewer(viewerClass, obj)))
         return actions
@@ -327,13 +328,13 @@ class ImodListDialog(ListDialog):
         return btn
 
     def _displayAll(self, e=None):
-        set = self.provider.objs
-        if isinstance(set, tomo.objects.SetOfTiltSeries):
-            ImodSetView(set)
-        elif isinstance(set, tomo.objects.SetOfLandmarkModels):
-            ImodSetOfLandmarkModelsView(set)
-        elif isinstance(set, tomo.objects.SetOfTomograms):
-            ImodSetOfTomogramsView(set)
+        objset = self.provider.objs
+        if isinstance(objset, tomo.objects.SetOfTiltSeries):
+            ImodSetView(objset)
+        elif isinstance(objset, tomo.objects.SetOfLandmarkModels):
+            ImodSetOfLandmarkModelsView(objset)
+        elif isinstance(objset, tomo.objects.SetOfTomograms):
+            ImodSetOfTomogramsView(objset)
 
     def _createOutput(self, e=None):
         self.provider.protocol.createOutput()
@@ -348,7 +349,7 @@ class ImodListDialog(ListDialog):
 
     def refresh_gui(self):
         self.tree.update()
-        if self.proc.isAlive():
+        if self.proc.is_alive():
             self.after(1000, self.refresh_gui)
 
 
@@ -361,7 +362,6 @@ class ImodSetView(pwviewer.CommandView):
             # Remove :mrc if present
             fn += " " + item.getFirstItem().getFileName().split(':')[0]
         pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
 
 
 class ImodSetOfTomogramsView(pwviewer.CommandView):
@@ -379,9 +379,8 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
 
     def __init__(self, lmmSet):
         """
-        View to display Land mark model using the imod viewer
+        View to display Landmark model using the imod viewer
         :param lmmSet:
-        :param kwargs:
         """
         super().__init__("")
         self.set = lmmSet
@@ -393,11 +392,12 @@ class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
             itemComplete = self.set.completeLandmarkModel(item)
 
             if itemComplete.getTiltSeries().getFirstItem().hasTransform():
-                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated_%d.mrc" % index)
+                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(),
+                                                        "ts_interpolated_%d.mrc" % index)
                 itemComplete.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
 
                 self._cmd += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
-                      itemComplete.getModelName() + " ; "
+                             itemComplete.getModelName() + " ; "
 
             else:
                 self._cmd += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
@@ -441,5 +441,3 @@ class ImodGenericViewer(pwviewer.View):
                        displayAllButton=self.displayAllButton,
                        createSetButton=self.createSetButton,
                        itemDoubleClick=self.itemDoubleClick)
-
-

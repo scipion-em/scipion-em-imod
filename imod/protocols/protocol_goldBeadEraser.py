@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,20 +22,20 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME
-from pwem.protocols import EMProtocol
 from pyworkflow import BETA
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
+from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
-import imod.utils as utils
-from imod import Plugin
+
+from .. import Plugin, utils
+from .protocol_base import OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
@@ -51,7 +51,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
 
-        # -------------------------- DEFINE param functions -----------------------
+    # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
         form.addSection('Input')
@@ -60,26 +60,30 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('inputSetOfLandmarkModels',
                       params.PointerParam,
                       pointerClass='SetOfLandmarkModels',
                       important=True,
                       label='Input set of landmark models',
-                      help='Input set of landmark models containing the location of the gold beads through the series')
+                      help='Input set of landmark models containing the '
+                           'location of the gold beads through the series.')
 
         form.addParam('betterRadius',  # actually a diameter
                       params.IntParam,
                       default=18,
-                      label='Bead diameter (pixels)',
-                      help="For circle objects, this entry specifies a radius to use for points without an individual "
-                           "point size instead of the object's default sphere radius.  This entry is floating point "
-                           "and can be used to overcome the limitations of having an integer default sphere radius. If "
-                           "there are multiple circle objects, enter one value to apply to all objects or a value for "
-                           "each object.")
+                      label='Bead diameter (px)',
+                      help="For circle objects, this entry specifies a "
+                           "radius to use for points without an individual "
+                           "point size instead of the object's default sphere "
+                           "radius.  This entry is floating point and can be "
+                           "used to overcome the limitations of having an "
+                           "integer default sphere radius. If there are "
+                           "multiple circle objects, enter one value to "
+                           "apply to all objects or a value for each object.")
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
@@ -97,7 +101,8 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         path.makePath(extraPrefix)
 
         """Apply the transformation form the input tilt-series"""
-        outputTsFileName = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName())
+        outputTsFileName = os.path.join(tmpPrefix,
+                                        ts.getFirstItem().parseFileName())
         ts.applyTransform(outputTsFileName)
 
     def generateFiducialModelStep(self, tsObjId):
@@ -112,9 +117,11 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         path.makePath(tmpPrefix)
 
         landmarkTextFilePath = os.path.join(extraPrefix,
-                                            ts.getFirstItem().parseFileName(suffix="_fid", extension=".txt"))
+                                            ts.getFirstItem().parseFileName(suffix="_fid",
+                                                                            extension=".txt"))
         landmarkModelPath = os.path.join(extraPrefix,
-                                         ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod"))
+                                         ts.getFirstItem().parseFileName(suffix="_fid",
+                                                                         extension=".mod"))
 
         # Generate the IMOD file containing the information from the landmark model
         utils.generateIMODFiducialTextFile(landmarkModel=lm,
@@ -141,7 +148,9 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         paramsCcderaser = {
             'inputFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'outputFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'modelFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix="_fid", extension=".mod")),
+            'modelFile': os.path.join(extraPrefix,
+                                      ts.getFirstItem().parseFileName(suffix="_fid",
+                                                                      extension=".mod")),
             'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
@@ -174,7 +183,8 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
             newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
+                              (os.path.join(extraPrefix,
+                                            tiltImage.parseFileName())))
             newTs.append(newTi)
 
         newTs.write(properties=False)
@@ -187,7 +197,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     def getOutputSetOfXraysErasedTiltSeries(self):
         if self.TiltSeries:
             self.TiltSeries.enableAppend()
@@ -196,6 +206,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
             outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
-            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputSetOfTiltSeries})
-            self._defineSourceRelation(self.inputSetOfTiltSeries, outputSetOfTiltSeries)
+            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
+            self._defineSourceRelation(self.inputSetOfTiltSeries,
+                                       outputSetOfTiltSeries)
         return self.TiltSeries

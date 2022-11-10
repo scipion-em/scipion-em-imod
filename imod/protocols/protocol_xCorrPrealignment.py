@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,30 +22,30 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
-import imod.utils as utils
 import numpy as np
-import pwem.objects as data
-from pwem.objects import Transform
+
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import tomo.objects as tomoObj
-from imod import Plugin
+from pwem.objects import Transform
 from pwem.emlib.image import ImageHandler
-from imod.protocols.protocol_base import ProtImodBase
+import tomo.objects as tomoObj
+
+from .. import Plugin, utils
+from .protocol_base import ProtImodBase
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):
     """
-    Tilt-series' cross correlation alignment based on the IMOD procedure.
+    Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
     """
 
-    _label = 'Xcorr prealignment'
+    _label = 'Coarse prealignment'
     _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
@@ -56,26 +56,28 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
+                      label='Input set of tilt-series')
 
         form.addParam('cumulativeCorr',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Use cumulative correlation',
+                      label='Use cumulative correlation?',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Use this option to add up previously aligned pictures to get the reference for the next '
-                           'alignment. Alignments will start at low tilt and work up to high tilt.')
+                      help='Use this option to add up previously aligned '
+                           'pictures to get the reference for the next '
+                           'alignment. Alignments will start at low tilt '
+                           'and work up to high tilt.')
 
         form.addParam('computeAlignment',
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Generate interpolated tilt-series',
+                      label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series applying the'
-                           'obtained transformation matrices.')
+                      help='Generate and save the interpolated tilt-series '
+                           'applying the obtained transformation matrices.')
 
         group = form.addGroup('Interpolated tilt-series',
                               condition='computeAlignment==0')
@@ -84,36 +86,46 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                        params.FloatParam,
                        default=1.0,
                        label='Binning',
-                       help='Binning to be applied to the interpolated tilt-series in IMOD convention. Images will be '
-                            'binned by the given factor. Must be an integer bigger than 1')
+                       help='Binning to be applied to the interpolated '
+                            'tilt-series in IMOD convention. Images will be '
+                            'binned by the given factor. Must be an integer '
+                            'bigger than 1')
 
         form.addParam('filterRadius1',
                       params.FloatParam,
                       label='Filter radius 1',
                       default='0.0',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Low spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
-                           "that is 1 at this cutoff radius and falls off below this radius with a standard deviation "
-                           "specified by FilterSigma2. Spatial frequency units range from 0 to 0.5. Use FilterSigma1 "
-                           "instead of this entry for more predictable attenuation of low frequencies.")
+                      help="Low spatial frequencies in the cross-correlation "
+                           "will be attenuated by a Gaussian curve that is 1 "
+                           "at this cutoff radius and falls off below this "
+                           "radius with a standard deviation specified by "
+                           "FilterSigma2. Spatial frequency units range from "
+                           "0 to 0.5. Use FilterSigma1 instead of this entry "
+                           "for more predictable attenuation of low frequencies.")
 
         form.addParam('filterRadius2',
                       params.FloatParam,
                       label='Filter radius 2',
                       default='0.25',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="High spatial frequencies in the cross-correlation will be attenuated by a Gaussian curve "
-                           "that is 1 at this cutoff radius and falls off above this radius with a standard deviation "
-                           "specified by FilterSigma2.")
+                      help="High spatial frequencies in the cross-correlation "
+                           "will be attenuated by a Gaussian curve that is 1 "
+                           "at this cutoff radius and falls off above this "
+                           "radius with a standard deviation specified by "
+                           "FilterSigma2.")
 
         form.addParam('filterSigma1',
                       params.FloatParam,
                       label='Filter sigma 1',
                       default='0.03',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Sigma value to filter low frequencies in the correlations with a curve that is an inverted "
-                           "Gaussian.  This filter is 0 at 0 frequency and decays up to 1 with the given sigma value. "
-                           "However, if a negative value of radius1 is entered, this filter will be zero from 0 to "
+                      help="Sigma value to filter low frequencies in the "
+                           "correlations with a curve that is an inverted "
+                           "Gaussian.  This filter is 0 at 0 frequency and "
+                           "decays up to 1 with the given sigma value. "
+                           "However, if a negative value of radius1 is entered, "
+                           "this filter will be zero from 0 to "
                            "|radius1| then decay up to 1.")
 
         form.addParam('filterSigma2',
@@ -121,20 +133,23 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       label='Filter sigma 2',
                       default='0.05',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Sigma value for the Gaussian rolloff below and above the cutoff frequencies specified by "
+                      help="Sigma value for the Gaussian rolloff below and "
+                           "above the cutoff frequencies specified by "
                            "FilterRadius1 and FilterRadius2")
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+            self._insertFunctionStep(self.generateOutputStackStep,
+                                     ts.getObjId())
             if self.computeAlignment.get() == 0:
-                self._insertFunctionStep(self.computeInterpolatedStackStep, ts.getObjId())
+                self._insertFunctionStep(self.computeInterpolatedStackStep,
+                                         ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def computeXcorrStep(self, tsObjId):
         """Compute transformation matrix for each tilt series"""
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -143,9 +158,12 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         tmpPrefix = self._getTmpPath(tsId)
 
         paramsXcorr = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
-            'tiltfile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
+            'input': os.path.join(tmpPrefix,
+                                  ts.getFirstItem().parseFileName()),
+            'output': os.path.join(extraPrefix,
+                                   ts.getFirstItem().parseFileName(extension=".prexf")),
+            'tiltfile': os.path.join(tmpPrefix,
+                                     ts.getFirstItem().parseFileName(extension=".tlt")),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'filterSigma1': self.filterSigma1.get(),
             'filterSigma2': self.filterSigma2.get(),
@@ -163,17 +181,19 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     "-FilterRadius2 %(filterRadius2)f "
 
         if self.cumulativeCorr == 0:
-            argsXcorr += " -CumulativeCorrelation "
+            argsXcorr += "-CumulativeCorrelation "
 
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
-            'input': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexf")),
-            'goutput': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
+            'input': os.path.join(extraPrefix,
+                                  ts.getFirstItem().parseFileName(extension=".prexf")),
+            'goutput': os.path.join(extraPrefix,
+                                    ts.getFirstItem().parseFileName(extension=".prexg")),
         }
         argsXftoxg = "-input %(input)s " \
                      "-NumberToFit 0 " \
-                     "-goutput %(goutput)s"
+                     "-goutput %(goutput)s "
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
     def generateOutputStackStep(self, tsObjId):
@@ -186,7 +206,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         alignmentMatrix = utils.formatTransformationMatrix(
-            os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")))
+            os.path.join(extraPrefix,
+                         ts.getFirstItem().parseFileName(extension=".prexg")))
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -238,7 +259,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         paramsAlignment = {
             'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".prexg")),
+            'xform': os.path.join(extraPrefix,
+                                  ts.getFirstItem().parseFileName(extension=".prexg")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
@@ -262,7 +284,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+            newTi.setLocation(index + 1,
+                              (os.path.join(extraPrefix,
+                                            tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
             newTs.append(newTi)
@@ -274,7 +298,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         newTs.write(properties=False)
 
         output.update(newTs)
-        output.updateDim()
         output.write()
         self._store()
 
@@ -287,29 +310,25 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         self._store()
 
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input Tilt-Series: %d.\nTransformation matrices calculated: %d.\n"
+            summary.append("Input tilt-series: %d\nTransformation matrices "
+                           "calculated: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.TiltSeries.getSize()))
             if self.InterpolatedTiltSeries:
-                summary.append("Interpolated Tilt-Series: %d."
-                           % self.InterpolatedTiltSeries.getSize())
+                summary.append("Interpolated tilt-series: %d"
+                               % self.InterpolatedTiltSeries.getSize())
         else:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.TiltSeries:
             methods.append("The transformation matrix has been calculated for %d "
-                           "Tilt-series using the IMOD procedure."
+                           "tilt-series using the IMOD *tiltxcorr* command."
                            % (self.TiltSeries.getSize()))
-            if self.InterpolatedTiltSeries:
-                methods.append("Also, interpolation has been completed for %d Tilt-series."
-                           % self.InterpolatedTiltSeries.getSize())
-        else:
-            methods.append("Output not ready yet.")
         return methods

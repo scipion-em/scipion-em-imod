@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,21 +24,20 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
 import pyworkflow as pw
-from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME, ProtImodBase, \
-    OUTPUT_TS_COORDINATES_NAME
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
-from imod import Plugin
-from imod import utils
-from pwem.emlib.image import ImageHandler
+from .. import Plugin, utils
+from .protocol_base import (OUTPUT_TILTSERIES_NAME, ProtImodBase,
+                            OUTPUT_TS_COORDINATES_NAME)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -67,8 +66,8 @@ class ProtImodEtomo(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of Tilt-Series',
-                      help='Input set of tilt-series to be processed with etomo.')
+                      label='Input set of tilt-series',
+                      help='Input set of tilt-series to be processed with eTomo.')
 
         form.addParam('markersDiameter',
                       params.FloatParam,
@@ -76,7 +75,7 @@ class ProtImodEtomo(ProtImodBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
     def _stepsCheck(self):
         pass
@@ -85,7 +84,7 @@ class ProtImodEtomo(ProtImodBase):
         self.inputTiltSeries = None
         self._insertFunctionStep(self.runEtomoStep, interactive=True)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericViewer
         setOftiltSeries = self.inputSetOfTiltSeries.get()
@@ -141,7 +140,6 @@ class ProtImodEtomo(ProtImodBase):
         # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
         args += '-NamingStyle 0 '
 
-
         # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
         # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
         # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
@@ -175,7 +173,7 @@ class ProtImodEtomo(ProtImodBase):
 
         if ts is not None:
             extraPrefix = self._getExtraPath(tsId)
-            args = '--fg '
+            args = '--fg --namingstyle 0 '
             args += ts.getFirstItem().parseFileName(extension=".edf")
             Plugin.runImod(self, 'etomo', args, cwd=extraPrefix)
 
@@ -183,11 +181,12 @@ class ProtImodEtomo(ProtImodBase):
 
         outputPrealiSetOfTiltSeries = None
         outputAliSetOfTiltSeries = None
-        self.FiducialModelNoGaps = None # This will reset the output. Is this what we want?
+        self.FiducialModelNoGaps = None  # This will reset the output. Is this what we want?
         setOfTSCoords = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
         setOfTiltSeries = self.inputSetOfTiltSeries.get()
+        ih = ImageHandler()
 
         for ts in setOfTiltSeries:
             self.inputTiltSeries = ts
@@ -196,10 +195,12 @@ class ProtImodEtomo(ProtImodBase):
             """Prealigned tilt-series"""
             prealiFilePath = self.getFilePath(ts, extension=".preali")
             if os.path.exists(prealiFilePath):
+                xPrealiDims, newPixSize = self.getNewPixAndDim(ih, prealiFilePath)
+                self.debug(f"{prealiFilePath}: pix = {newPixSize}, dims = {xPrealiDims}")
                 if outputPrealiSetOfTiltSeries is None:
-                    outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Preali')
+                    outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='_prealigned')
                     outputPrealiSetOfTiltSeries.copyInfo(setOfTiltSeries)
-                    outputPrealiSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
+                    outputPrealiSetOfTiltSeries.setSamplingRate(newPixSize)
                     self._defineOutputs(PrealignedTiltSeries=outputPrealiSetOfTiltSeries)
                     self._defineSourceRelation(self.inputTiltSeries,
                                                outputPrealiSetOfTiltSeries)
@@ -209,8 +210,6 @@ class ProtImodEtomo(ProtImodBase):
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputPrealiSetOfTiltSeries.append(newTs)
-
-                ih = ImageHandler()
 
                 # Getting the excluded views in order to disable the
                 # prealigned tilt-series
@@ -224,30 +223,28 @@ class ProtImodEtomo(ProtImodBase):
                     newTi.setAcquisition(tiltImage.getAcquisition())
                     sliceIndex = newTi.getIndex()
                     newTi.setLocation(sliceIndex, prealiFilePath)
-                    xPreali, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
-                    newTi.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
                     if sliceIndex in excludedViewList:
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
-                xPreali, yPreali, zPreali, _ = ih.getDimensions(newTs.getFirstItem().getFileName()+":mrc")
-                newTs.setDim((xPreali, yPreali, zPreali))
-
+                newTs.setDim(xPrealiDims)
                 newTs.write(properties=False)
 
-                outputPrealiSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xPreali))
+                outputPrealiSetOfTiltSeries.update(newTs)
                 outputPrealiSetOfTiltSeries.write()
                 self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
             aligFilePath = self.getFilePath(ts, extension=".ali")
-
             if os.path.exists(aligFilePath):
+                aliDims, newPixSize = self.getNewPixAndDim(ih, aligFilePath)
+                self.debug(f"{aligFilePath}: pix = {newPixSize}, dims = {aliDims}")
+
                 if outputAliSetOfTiltSeries is None:
-                    outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='Ali')
+                    outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='_aligned')
                     outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
-                    outputAliSetOfTiltSeries.setDim(setOfTiltSeries.getDim())
-                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputAliSetOfTiltSeries})
+                    outputAliSetOfTiltSeries.setSamplingRate(newPixSize)
+                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputAliSetOfTiltSeries})
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputAliSetOfTiltSeries)
                 else:
@@ -256,8 +253,6 @@ class ProtImodEtomo(ProtImodBase):
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
                 outputAliSetOfTiltSeries.append(newTs)
-
-                ih = ImageHandler()
 
                 tltFilePath = self.getFilePath(ts, suffix='_fid',
                                                extension=".tlt")
@@ -281,50 +276,48 @@ class ProtImodEtomo(ProtImodBase):
                     self.debug("Slice index is %s" % sliceIndex)
                     newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
-                        newTi.setTiltAngle(float(tltList[sliceIndex-1]))
-                    xAli, _, _, _ = ih.getDimensions(newTi.getFileName() + ":mrc")
-                    newTi.setSamplingRate(self.getPixSizeFromDimensions(xAli))
+                        newTi.setTiltAngle(float(tltList[sliceIndex - 1]))
                     if sliceIndex in excludedViewList:
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
-                xAli, yAli, zAli, _ = ih.getDimensions(newTs.getFirstItem().getFileName() + ":mrc")
-                newTs.setDim((xAli, yAli, zAli))
-
+                newTs.setDim(aliDims)
                 newTs.write(properties=False)
 
-                outputAliSetOfTiltSeries.setSamplingRate(self.getPixSizeFromDimensions(xAli))
+                outputAliSetOfTiltSeries.update(newTs)
                 outputAliSetOfTiltSeries.write()
                 self._store(outputAliSetOfTiltSeries)
 
-                """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-                coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
+            """Output set of coordinates 3D (associated to the aligned tilt-series)"""
+            coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
 
-                if os.path.exists(coordFilePath):
-                    if setOfTSCoords is None:
-                        setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='LandmarkModel')
-                        setOfTSCoords.setSetOfTiltSeries(outputAliSetOfTiltSeries)
-                        self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME:setOfTSCoords})
-                        self._defineSourceRelation(self.inputSetOfTiltSeries,
-                                                   setOfTSCoords)
-                    else:
-                        setOfTSCoords.enableAppend()
+            if os.path.exists(coordFilePath):
+                if setOfTSCoords is None:
+                    setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(),
+                                                                              suffix='Fiducials3D')
+                    setOfTSCoords.setSetOfTiltSeries(outputAliSetOfTiltSeries)
+                    self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: setOfTSCoords})
+                    self._defineSourceRelation(self.inputSetOfTiltSeries,
+                                               setOfTSCoords)
+                else:
+                    setOfTSCoords.enableAppend()
 
-                    coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
+                coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
-                    for element in coordList:
-                        newCoord3D = tomoObj.TiltSeriesCoordinate()
-                        newCoord3D.setTsId(ts.getTsId())
-                        self.debug("Setting tilt series coordinate x, y, z: %s, %s, %s." % (element[0], element[1], element[2]))
-                        newCoord3D.setX(element[0])
-                        newCoord3D.setY(element[1])
-                        newCoord3D.setZ(element[2])
+                for element in coordList:
+                    newCoord3D = tomoObj.TiltSeriesCoordinate()
+                    newCoord3D.setTsId(ts.getTsId())
+                    self.debug("Setting tilt series coordinate x, y, z: %s, %s, %s." % (
+                        element[0], element[1], element[2]))
+                    newCoord3D.setX(element[0])
+                    newCoord3D.setY(element[1])
+                    newCoord3D.setZ(element[2])
 
-                        setOfTSCoords.append(newCoord3D)
-                        setOfTSCoords.update(newCoord3D)
+                    setOfTSCoords.append(newCoord3D)
+                    setOfTSCoords.update(newCoord3D)
 
-                    setOfTSCoords.write()
-                    self._store(setOfTSCoords)
+                setOfTSCoords.write()
+                self._store(setOfTSCoords)
 
             """Landmark models with no gaps"""
             modelFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
@@ -349,9 +342,10 @@ class ProtImodEtomo(ProtImodBase):
 
                 landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
-                landmarkModelNoGaps = tomoObj.LandmarkModel(tsId,
-                                                            landmarkModelNoGapsFilePath,
-                                                            modelFilePath)
+                landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
+                                                            fileName=landmarkModelNoGapsFilePath,
+                                                            modelName=modelFilePath,
+                                                            size=self.markersDiameter.get() * 10 / ts.getSamplingRate())
 
                 prevTiltIm = 0
                 chainId = 0
@@ -385,9 +379,12 @@ class ProtImodEtomo(ProtImodBase):
             reconstructTomoFilePath = self.getFilePath(ts, suffix="_full",
                                                        extension=".rec")
             if os.path.exists(reconstructTomoFilePath):
+                tomoDims, newPixSize = self.getNewPixAndDim(ih, reconstructTomoFilePath)
+                self.debug(f"{reconstructTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfFullTomograms is None:
-                    outputSetOfFullTomograms = self._createSetOfTomograms(suffix='Full')
+                    outputSetOfFullTomograms = self._createSetOfTomograms(suffix='_raw')
                     outputSetOfFullTomograms.copyInfo(setOfTiltSeries)
+                    outputSetOfFullTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(FullTomograms=outputSetOfFullTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfFullTomograms)
@@ -398,21 +395,25 @@ class ProtImodEtomo(ProtImodBase):
 
                 newTomogram.setLocation(reconstructTomoFilePath)
                 newTomogram.setTsId(tsId)
-                newTomogram.setSamplingRate(ts.getSamplingRate())
+                newTomogram.setSamplingRate(newPixSize)
 
                 # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=False)
+                newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfFullTomograms.append(newTomogram)
+                outputSetOfFullTomograms.update(newTomogram)
                 outputSetOfFullTomograms.write()
                 self._store(outputSetOfFullTomograms)
 
             """Post-processed reconstructed tomogram"""
             posprocessedRecTomoFilePath = self.getFilePath(ts, extension=".rec")
             if os.path.exists(posprocessedRecTomoFilePath):
+                tomoDims, newPixSize = self.getNewPixAndDim(ih, posprocessedRecTomoFilePath)
+                self.debug(f"{posprocessedRecTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfPostProcessTomograms is None:
                     outputSetOfPostProcessTomograms = self._createSetOfTomograms()
                     outputSetOfPostProcessTomograms.copyInfo(setOfTiltSeries)
+                    outputSetOfPostProcessTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(PostProcessTomograms=outputSetOfPostProcessTomograms)
                     self._defineSourceRelation(self.inputSetOfTiltSeries,
                                                outputSetOfPostProcessTomograms)
@@ -420,23 +421,21 @@ class ProtImodEtomo(ProtImodBase):
                     outputSetOfPostProcessTomograms.enableAppend()
 
                 newTomogram = tomoObj.Tomogram()
-
-                ih = ImageHandler()
-                outputDim, _, _, _ = ih.getDimensions(posprocessedRecTomoFilePath)
-
                 newTomogram.setLocation(posprocessedRecTomoFilePath)
                 newTomogram.setTsId(tsId)
-                newTomogram.setSamplingRate(self.getPixSizeFromDimensions(outputDim))
+                newTomogram.setSamplingRate(newPixSize)
 
                 # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=False)
+                newTomogram.setOrigin(newOrigin=None)
 
                 outputSetOfPostProcessTomograms.append(newTomogram)
+                outputSetOfPostProcessTomograms.update(newTomogram)
                 outputSetOfPostProcessTomograms.write()
                 self._store(outputSetOfPostProcessTomograms)
+
         self.closeMappers()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     @staticmethod
     def _writeEtomoEdf(fn, paramsDict):
         template = """
@@ -550,15 +549,15 @@ ProcessTrack.TomogramCombination=Not started
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
 
-    def getPixSizeFromDimensions(self, outputDim):
-        ih = ImageHandler()
-        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
-        return self.inputTiltSeries.getSamplingRate() * round(originalDim/outputDim)
+    def getNewPixAndDim(self, ih, fn):
+        dims = ih.getDimensions(fn + ":mrc")
+        dims = dims[:-1]
+        origDimX, origDimY, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
+        originalDim = max(origDimX, origDimY)
+        outputDim = max(dim for dim in dims[:2])
+        newPixSize = self.inputTiltSeries.getSamplingRate() * round(originalDim / outputDim)
 
-    def getResizeFactorFromDimensions(self, outputDim):
-        ih = ImageHandler()
-        originalDim, _, _, _ = ih.getDimensions(self.inputTiltSeries.get().getFirstItem().getFileName())
-        return round(outputDim / originalDim)
+        return dims, newPixSize
 
     def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
         with open(fn, 'r') as f:
@@ -576,64 +575,33 @@ ProcessTrack.TomogramCombination=Not started
                 break
         return excludedViewList
 
-
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = ["The following outputs have been generated from the "
-                   "operations performed over the input tilt-series:"]
+                   "operations performed on the input tilt-series:"]
 
         if self.PrealignedTiltSeries:
-            summary.append("- Tilt-series prealignment.")
+            summary.append("- Pre-aligned tilt-series")
 
         if self.TiltSeries:
-            summary.append("- Tilt-series alignment.")
+            summary.append("- Aligned tilt-series")
 
-        if self.Coordinates3D:
-            summary.append("- Landmark 3D coordinates have been extracted.")
+        if self.TiltSeriesCoordinates:
+            summary.append("- Landmark 3D coordinates")
 
         if self.FiducialModelGaps:
-            summary.append("- Landmark model with gaps has been generated.")
+            summary.append("- Landmark model with gaps")
 
         if self.FiducialModelNoGaps:
-            summary.append("- Landmark model without gaps has been generated.")
+            summary.append("- Landmark model without gaps")
 
         if self.FullTomograms:
-            summary.append("- Full raw reconstructed tomogram.")
+            summary.append("- Raw reconstructed tomogram")
 
         if self.PostProcessedTomograms:
-            summary.append("- Post processed reconstructed tomogram.")
+            summary.append("- Post-processed tomogram")
 
-        if summary == ["The following operations has been performed over the input tilt-series:"]:
-            summary = ["Output classes not ready yet."]
+        if len(summary) == 1:
+            summary = ["Outputs are not ready yet"]
 
         return summary
-
-    def _methods(self):
-        methods = ["The following outputs have been generated from the "
-                   "operations performed over the input tilt-series:"]
-
-        if self.PrealignedTiltSeries:
-            methods.append("- Tilt-series prealignment.")
-
-        if self.TiltSeries:
-            methods.append("- Tilt-series alignment.")
-
-        if self.Coordinates3D:
-            methods.append("- Landmark 3D coordinates have been extracted.")
-
-        if self.FiducialModelGaps:
-            methods.append("- Landmark model with gaps has been generated.")
-
-        if self.FiducialModelNoGaps:
-            methods.append("- Landmark model without gaps has been generated.")
-
-        if self.FullTomograms:
-            methods.append("- Full raw reconstructed tomogram.")
-
-        if self.PostProcessTomograms:
-            methods.append("- Post processed reconstructed tomogram.")
-
-        if methods == ["The following operations has been performed over the input tilt-series:"]:
-            methods = ["Output classes not ready yet."]
-
-        return methods

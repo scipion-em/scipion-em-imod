@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,27 +22,25 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
-import numpy as np
-import imod.utils as utils
+
 from pyworkflow import BETA
+from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.objects import Transform
-import tomo.objects as tomoObj
-from pyworkflow.object import Set
-from tomo.objects import LandmarkModel
-import tomo.constants as constants
 from pwem.emlib.image import ImageHandler
-from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
+import tomo.objects as tomoObj
+
+from .. import Plugin, utils
+from .protocol_base import ProtImodBase
 
 
 class ProtImodFiducialModel(ProtImodBase):
     """
-    Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure.
+    Construction of a fiducial model and alignment of tilt-series based
+    on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
         https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
@@ -60,15 +58,7 @@ class ProtImodFiducialModel(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series.')
-
-        form.addParam('twoSurfaces',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Find on two surfaces',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help="Track fiducials differentiating in which side of the sample are located.")
+                      label='Input set of tilt-series')
 
         form.addParam('fiducialDiameter',
                       params.FloatParam,
@@ -76,6 +66,15 @@ class ProtImodFiducialModel(ProtImodBase):
                       default='10',
                       important=True,
                       help="Fiducials diameter to be tracked for alignment.")
+
+        form.addParam('twoSurfaces',
+                      params.EnumParam,
+                      choices=['Yes', 'No'],
+                      default=1,
+                      label='Find beads on two surfaces?',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help="Track fiducials differentiating in which side "
+                           "of the sample are located.")
 
         form.addParam('numberFiducial',
                       params.IntParam,
@@ -89,13 +88,18 @@ class ProtImodFiducialModel(ProtImodBase):
                       label='Shifts near zero fraction',
                       default='0.2',
                       expertLevel=params.LEVEL_ADVANCED,
-                      help="Fraction of the tracking box size above which to supply shifts near zero tilt to "
-                           "Beadtrack. The dominant net shifts in the bead positions between views are found as "
-                           "described above, and if one of the shifts is larger than this fraction of the "
-                           "-BoxSizeXandY entry to Beadtrack, then the shifts are provided when running Beadtrack on "
-                           "the initial seed models. Also, a command file will be written with modified parameters, "
-                           "named as the root name of the input command file followed by '_adjusted' and its "
-                           "extension. Enter 0 or a large value to disable this analysis.")
+                      help="Fraction of the tracking box size above which to "
+                           "supply shifts near zero tilt to Beadtrack. The "
+                           "dominant net shifts in the bead positions between "
+                           "views are found as described above, and if one of "
+                           "the shifts is larger than this fraction of the "
+                           "-BoxSizeXandY entry to Beadtrack, then the shifts "
+                           "are provided when running Beadtrack on the initial "
+                           "seed models. Also, a command file will be written "
+                           "with modified parameters, named as the root name "
+                           "of the input command file followed by '_adjusted' "
+                           "and its extension. Enter 0 or a large value to "
+                           "disable this analysis.")
 
         groupGlobalVariables = form.addGroup('Filter variables',
                                              expertLevel=params.LEVEL_ADVANCED)
@@ -104,10 +108,11 @@ class ProtImodFiducialModel(ProtImodBase):
                                       params.EnumParam,
                                       choices=['Yes', 'No'],
                                       default=0,
-                                      label='Refine center with Sobel filter',
+                                      label='Refine center with Sobel filter?',
                                       expertLevel=params.LEVEL_ADVANCED,
                                       display=params.EnumParam.DISPLAY_HLIST,
-                                      help='Use edge-detecting Sobel filter to refine the bead positions.')
+                                      help='Use edge-detecting Sobel filter '
+                                           'to refine the bead positions.')
 
         groupGlobalVariables.addParam('scalableSigmaForSobelFilter',
                                       params.FloatParam,
@@ -115,12 +120,16 @@ class ProtImodFiducialModel(ProtImodBase):
                                       condition='refineSobelFilter==0',
                                       label='Sobel sigma relative to bead size',
                                       expertLevel=params.LEVEL_ADVANCED,
-                                      help='Sigma for gaussian kernel filtering of single beads before Sobel '
-                                           'filtering, as fraction of bead diameter. The default sigma is 0.5 pixels '
-                                           'regardless of bead size. A value of around 0.12 diameters is needed for '
-                                           'higher noise (eg. cryo) data.')
+                                      help='Sigma for gaussian kernel filtering '
+                                           'of single beads before Sobel '
+                                           'filtering, as fraction of bead '
+                                           'diameter. The default sigma is 0.5 '
+                                           'pixels regardless of bead size. '
+                                           'A value of around 0.12 diameters is '
+                                           'needed for higher noise (eg. cryo) '
+                                           'data.')
 
-    # -------------------------- INSERT steps functions ---------------------
+    # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._failedTs = []
 
@@ -136,9 +145,10 @@ class ProtImodFiducialModel(ProtImodBase):
 
         self._insertFunctionStep(self.createOutputStep)
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds the tilt series ID to the failed TS array
+        """ This decorator wraps the step in a try/except module which adds
+        the tilt series ID to the failed TS array
         in case the step fails"""
 
         def wrapper(self, tsId):
@@ -159,28 +169,28 @@ class ProtImodFiducialModel(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-
-        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
-
-        # Make boxSizeXandY parameter even due to computational efficiency
-        if boxSizeXandY % 2 == 1:
-            boxSizeXandY += 1
+        boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
+        boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
+        scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsDict = {
             'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'inputSeedModel': os.path.join(extraPrefix, firstItem.parseFileName(extension=".seed")),
-            'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
+            'inputSeedModel': os.path.join(extraPrefix,
+                                           firstItem.parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix,
+                                        firstItem.parseFileName(suffix="_gaps",
+                                                                extension=".fid")),
             'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 10 * scaling,
+            'postFitRescueResidual': 2.5 * scaling,
+            'maxRescueDistance': 2.5 * scaling,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': '0.237,2.0'
+            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -194,7 +204,8 @@ class ProtImodFiducialModel(ProtImodBase):
 
         paramsAutofidseed = {
             'trackCommandFile': os.path.join(extraPrefix,
-                                             ts.getFirstItem().parseFileName(suffix="_track", extension=".com")),
+                                             ts.getFirstItem().parseFileName(suffix="_track",
+                                                                             extension=".com")),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
             'targetNumberOfBeads': self.numberFiducial.get(),
@@ -209,7 +220,7 @@ class ProtImodFiducialModel(ProtImodBase):
                           "-AdjustSizes "
 
         if self.twoSurfaces.get() == 0:
-            argsAutofidseed += " -TwoSurfaces"
+            argsAutofidseed += " -TwoSurfaces "
 
         Plugin.runImod(self, 'autofidseed', (argsAutofidseed % paramsAutofidseed))
 
@@ -229,19 +240,20 @@ class ProtImodFiducialModel(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-
-        boxSizeXandY = int(max([32, 2*fiducialDiameterPixel, 3.3*fiducialDiameterPixel+2]))
-
-        # Make boxSizeXandY parameter even due to computational efficiency
-        if boxSizeXandY % 2 == 1:
-            boxSizeXandY += 1
+        boxSizeXandY = max(3.3*fiducialDiameterPixel+2, 2*fiducialDiameterPixel+20, 32)
+        boxSizeXandY = min(512, 2*int(boxSizeXandY/2))
+        scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsBeadtrack = {
-            'inputSeedModel': os.path.join(extraPrefix, firstItem.parseFileName(extension=".seed")),
-            'outputModel': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
+            'inputSeedModel': os.path.join(extraPrefix,
+                                           firstItem.parseFileName(extension=".seed")),
+            'outputModel': os.path.join(extraPrefix,
+                                        firstItem.parseFileName(suffix="_gaps",
+                                                                extension=".fid")),
             'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
             'imagesAreBinned': 1,
-            'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'tiltFile': os.path.join(tmpPrefix,
+                                     firstItem.parseFileName(extension=".tlt")),
             'tiltDefaultGrouping': 7,
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
@@ -251,7 +263,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'maxGapSize': 5,
             'minTiltRangeToFindAxis': 10.0,
             'minTiltRangeToFindAngles': 20.0,
-            'boxSizeXandY': "%d,%d" % (boxSizeXandY, boxSizeXandY),
+            'boxSizeXandY': f"{boxSizeXandY},{boxSizeXandY}",
             'roundsOfTracking': 2,
             'localAreaTracking': 1,
             'localAreaTargetSize': 1000,
@@ -261,13 +273,13 @@ class ProtImodFiducialModel(ProtImodBase):
             'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
-            'distanceRescueCriterion': 0.75 * fiducialDiameterPixel,
+            'distanceRescueCriterion': 10 * scaling,
             'rescueRelaxationDensityAndDistance': '0.7,0.9',
-            'postFitRescueResidual': 0.2 * fiducialDiameterPixel,
+            'postFitRescueResidual': 2.5 * scaling,
             'densityRelaxationPostFit': 0.9,
-            'maxRescueDistance': 0.2 * fiducialDiameterPixel,
+            'maxRescueDistance': 2.5 * scaling,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': '0.237,2.0',
+            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
             'minDiamForParamScaling': 12.5
         }
 
@@ -302,7 +314,7 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-MaxRescueDistance %(maxRescueDistance).2f " \
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
-                        "-MinDiamForParamScaling %(minDiamForParamScaling).1f"
+                        "-MinDiamForParamScaling %(minDiamForParamScaling).1f "
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
@@ -316,12 +328,15 @@ class ProtImodFiducialModel(ProtImodBase):
 
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
+                                       firstItem.parseFileName(suffix="_gaps",
+                                                               extension=".fid"))):
             paramsGapModel2Point = {
                 'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_gaps", extension=".fid")),
+                                          firstItem.parseFileName(suffix="_gaps",
+                                                                  extension=".fid")),
                 'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_gaps_fid", extension=".txt"))
+                                           firstItem.parseFileName(suffix="_gaps_fid",
+                                                                   extension=".txt"))
             }
             argsGapModel2Point = "-InputFile %(inputFile)s " \
                                  "-OutputFile %(outputFile)s"
@@ -339,7 +354,9 @@ class ProtImodFiducialModel(ProtImodBase):
         # Create the output set of landmark models with gaps
         # Check that previous steps have been completed satisfactorily
         if os.path.exists(
-                os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid"))):
+                os.path.join(extraPrefix,
+                             firstItem.parseFileName(suffix="_gaps",
+                                                     extension=".fid"))):
 
             output = self.getOutputFiducialModelGaps()
 
@@ -363,11 +380,11 @@ class ProtImodFiducialModel(ProtImodBase):
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
             fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
-            landmarkModelGaps = LandmarkModel(tsId=tsId,
-                                              tiltSeriesPointer=ts,
-                                              fileName=landmarkModelGapsFilePath,
-                                              modelName=fiducialModelGapPath,
-                                              size=fiducialDiameterPixel)
+            landmarkModelGaps = tomoObj.LandmarkModel(tsId=tsId,
+                                                      tiltSeriesPointer=ts,
+                                                      fileName=landmarkModelGapsFilePath,
+                                                      modelName=fiducialModelGapPath,
+                                                      size=fiducialDiameterPixel)
 
             landmarkModelGaps.setTiltSeries(ts)
 
@@ -392,7 +409,8 @@ class ProtImodFiducialModel(ProtImodBase):
             output.write()
 
     def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series list to add it to the set
+        # Check if the tilt-series ID is in the failed tilt-series
+        # list to add it to the set
         if tsObjId in self._failedTs:
             output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -416,7 +434,6 @@ class ProtImodFiducialModel(ProtImodBase):
             newTs.write(properties=False)
 
             output.update(newTs)
-            output.updateDim()
             output.write()
             self._store()
 
@@ -428,13 +445,14 @@ class ProtImodFiducialModel(ProtImodBase):
 
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
         trackFilePath = os.path.join(extraPrefix,
-                                     ts.getFirstItem().parseFileName(suffix="_track", extension=".com"))
+                                     ts.getFirstItem().parseFileName(suffix="_track",
+                                                                     extension=".com"))
 
         template = """# Command file for running BEADTRACK
 #
@@ -504,92 +522,38 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         if self.refineSobelFilter.get() == 0:
             template += """SobelFilterCentering
 ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
-$if (-e ./savework) ./savework
 """
-        elif self.refineSobelFilter.get() == 1:
-            template += """$if (-e ./savework) ./savework"""
-
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
 
-    @staticmethod
-    def generateTaSolutionText(tiltAlignOutputLog, taSolutionLog, numberOfTiltImages, pixelSize):
-        """ This method generates a text file containing the TA solution from the tiltalign output log. """
-
-        searchingPassword = "deltilt"
-
-        with open(tiltAlignOutputLog, 'r') as fRead:
-            lines = fRead.readlines()
-
-            counts = []
-
-            for index, line in enumerate(lines):
-                if searchingPassword in line:
-                    counts.append([index])
-
-        lastApparition = max(counts)[0]
-
-        outputLinesAsMatrix = []
-
-        # Take only the lines that compose the table containing the ta solution info (until blank line)
-        # Convert lines into numpy array for posterior operation
-
-        index = lastApparition + 1
-        while True:
-            vector = lines[index].split()
-            vector = [float(i) for i in vector]
-            outputLinesAsMatrix.append(vector)
-            if int(vector[0]) == numberOfTiltImages:
-                break
-            index += 1
-
-        matrixTaSolution = np.array(outputLinesAsMatrix)
-
-        # Find the position in table of the minimum tilt angle image
-        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
-
-        # Multiply last column by the sampling rate in nanometer
-        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
-
-        # Get minimum rotation to write in file
-        minimumRotation = matrixTaSolution[indexAng][1]
-
-        # Save new matrixTaSolution info into file
-        np.savetxt(fname=taSolutionLog,
-                   X=matrixTaSolution,
-                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
-                   header=" At minimum tilt, rotation angle is %.2f\n\n"
-                          " view   rotation    tilt    deltilt     mag      dmag      skew    resid-nm"
-                          % minimumRotation,
-                   comments='')
-
-    # --------------------------- INFO functions ----------------------------
+    # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.FiducialModelGaps:
-            summary.append("Input Tilt-Series: %d.\nFiducial models generated presenting gaps: %d."
+            summary.append("Input tilt-series: %d\nFiducial models "
+                           "(with gaps) generated: %d"
                            % (self.inputSetOfTiltSeries.get().getSize(),
                               self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:
-            summary.append("Failed tilt-series: %d."
+            summary.append("Failed tilt-series: %d"
                            % (self.FailedTiltSeries.getSize()))
 
         if not summary:
-            summary.append("Output not ready yet.")
+            summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
         if self.FiducialModelGaps:
-            methods.append("The fiducial model (presenting gaps) has been computed for %d "
-                           "Tilt-series using the IMOD procedure."
+            methods.append("The fiducial model (with gaps) has "
+                           "been computed for %d "
+                           "tilt-series using the IMOD *beadtrack* command."
                            % (self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:
-            methods.append("%d tilt-series have failed during the fiducial alignment protocol execution."
+            methods.append("%d tilt-series have failed during the "
+                           "protocol execution."
                            % (self.FailedTiltSeries.getSize()))
 
-        if not methods:
-            methods.append("Output not ready yet.")
         return methods
