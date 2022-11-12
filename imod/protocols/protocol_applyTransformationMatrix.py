@@ -80,7 +80,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         path.makePath(extraPrefix)
         utils.formatTransformFile(ts,
                                   os.path.join(extraPrefix,
-                                               ts.getFirstItem().parseFileName(extension="_fid.xf")))
+                                               ts.getFirstItem().parseFileName(extension=".xf")))
 
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -93,7 +93,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         paramsAlignment = {
             'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension="_fid.xf")),
+            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf")),
             'bin': int(self.binning.get()),
             'imagebinned': 1.0
         }
