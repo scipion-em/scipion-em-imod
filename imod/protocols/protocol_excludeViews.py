@@ -74,8 +74,8 @@ class ProtImodExcludeViews(ProtImodBase):
                            'separated list of ranges with no spaces between '
                            'them (e.g., 1,4-5,60-70). \n\n'
                            'An example of this file comes as follows:\n'
-                           'stack1 1,4-6,8,44-47\n'
-                           'stack2 3,10-12,24\n'
+                           'TS_01 1,4-6,8,44-47\n'
+                           'TS_02 3,10-12,24\n'
                            '...')
 
     # -------------------------- INSERT steps functions -----------------------
@@ -161,7 +161,7 @@ class ProtImodExcludeViews(ProtImodBase):
         for index, tiltImage in enumerate(ts):
             if (index + 1) not in excludedViews:
                 newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                newTi.copyInfo(tiltImage, copyId=False, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(i, (os.path.join(extraPrefix,
                                                    tiltImage.parseFileName())))
