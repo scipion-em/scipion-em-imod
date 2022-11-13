@@ -157,18 +157,16 @@ class ProtImodExcludeViews(ProtImodBase):
 
         excludedViews = self.getExcludedViews(ts)
 
+        i = 1
         for index, tiltImage in enumerate(ts):
-            stackIndex = index + 1
-            if stackIndex not in excludedViews:
+            if (index + 1) not in excludedViews:
                 newTi = tomoObj.TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(stackIndex,
-                                  (os.path.join(extraPrefix,
-                                                tiltImage.parseFileName())))
+                newTi.setLocation(i, (os.path.join(extraPrefix,
+                                                   tiltImage.parseFileName())))
                 newTs.append(newTi)
-            else:
-                self.info("%s excluded from %s." % (stackIndex, tsId))
+                i += 1
         newTs.write(properties=False)
 
         output.update(newTs)

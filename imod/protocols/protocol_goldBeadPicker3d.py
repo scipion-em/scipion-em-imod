@@ -78,7 +78,8 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         form.addParam('minRelativeStrength',
                       params.FloatParam,
-                      label='Minimum relative Strength',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Minimum relative strength',
                       default=0.05,
                       help='Minimum relative peak strength for keeping a '
                            'peak in the analysis.  The square root of the '
@@ -94,6 +95,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         form.addParam('minSpacing',
                       params.FloatParam,
+                      expertLevel=params.LEVEL_ADVANCED,
                       label='Minimum spacing',
                       default=0.9,
                       help='Minimum spacing between peaks as a fraction of '
