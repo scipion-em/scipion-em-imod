@@ -110,9 +110,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         # Check if rotation angle is greater than 45º. If so,
         # swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
-        if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+        if 45 < abs(rotationAngleAvg) < 135:
             paramsAlignment.update({
-                'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+                'size': "%d,%d" % (firstItem.getYDim() // self.binning.get(),
+                                   firstItem.getXDim() // self.binning.get())
             })
 
             argsAlignment += "-size %(size)s "
@@ -142,7 +143,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         for tiltImage in ts:
             if tiltImage.isEnabled():
                 newTi = TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 index += 1
@@ -153,8 +154,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
-        newTs.write(properties=False)
 
+        newTs.write(properties=False)
         output.update(newTs)
         output.write()
         self._store()

@@ -568,11 +568,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # Check if rotation angle is greater than 45º. If so, swap x
             # and y dimensions to adapt output image sizes to
             # the final sample disposition.
-            if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+            if 45 < abs(rotationAngleAvg) < 135:
                 paramsAlignment.update({
                     'size': "%d,%d" %
-                            (firstItem.getYDim() / int(self.binning.get()),
-                             firstItem.getXDim() / int(self.binning.get()))
+                            (firstItem.getYDim() // self.binning.get(),
+                             firstItem.getXDim() // self.binning.get())
                 })
 
                 argsAlignment += " -size %(size)s "
