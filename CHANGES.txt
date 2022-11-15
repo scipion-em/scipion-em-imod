@@ -1,4 +1,5 @@
 3.1:
+- remove transformation step from imod ctf estimation (ctf is estimated on raw ts stack)
 - fix rotation angle range for swapping x/y for newstack
 - do not copy objId for apply TM protocol when excluding views
 - fix output size in apply TM protocol

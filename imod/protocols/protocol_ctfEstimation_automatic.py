@@ -29,6 +29,7 @@ import os
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
+from pyworkflow.utils import path
 import tomo.objects as tomoObj
 
 from .. import Plugin
@@ -291,27 +292,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'To use the default value set box to -1.')
 
     # -------------------------- INSERT steps functions -----------------------
-    def _getSetOfTiltSeries(self, pointer=False):
-        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
-            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
-
-        return self.inputSet.get() if not pointer else self.inputSet
-
-    def _getTiltSeries(self, itemId):
-        obj = None
-        inputSetOfTiltseries = self._getSetOfTiltSeries()
-        for item in inputSetOfTiltseries.iterItems(iterate=False):
-            if item.getObjId() == itemId:
-                obj = item
-                if isinstance(obj, tomoObj.CTFTomoSeries):
-                    obj = item.getTiltSeries()
-                break
-
-        if obj is None:
-            raise ("Could not find tilt-series with tsId = %s" % itemId)
-
-        return obj
-
     def _insertAllSteps(self):
         # This assignment is needed to use methods from base class
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
@@ -325,6 +305,24 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsObjId):
+        ts = self._getTiltSeries(tsObjId)
+        tsId = ts.getTsId()
+
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
+        path.makePath(tmpPrefix)
+        path.makePath(extraPrefix)
+
+        firstItem = ts.getFirstItem()
+        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
+        path.createLink(firstItem.getLocation()[1], outputTsFileName)
+
+        angleFilePath = os.path.join(tmpPrefix,
+                                     firstItem.parseFileName(extension=".tlt"))
+        ts.generateTltFile(angleFilePath)
+
     def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
         ts = self._getTiltSeries(tsObjId)
@@ -466,20 +464,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             output.write()
         self._store()
 
-    # --------------------------- UTILS functions -----------------------------
-
-    def allowsDelete(self, obj):
-        return True
-
-    def getExpectedDefocus(self):
-        if self.expectedDefocusOrigin.get() == 1:
-            with open(self.expectedDefocusFile.get()) as f:
-                lines = f.readlines()
-            result = {line.split()[0]: line.split()[1] for line in lines}
-            return result
-        else:
-            return None
-
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
@@ -498,3 +482,38 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            "using the IMOD *ctfplotter* command."
                            % (self.CTFTomoSeries.getSize()))
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+
+    def allowsDelete(self, obj):
+        return True
+
+    def getExpectedDefocus(self):
+        if self.expectedDefocusOrigin.get() == 1:
+            with open(self.expectedDefocusFile.get()) as f:
+                lines = f.readlines()
+            result = {line.split()[0]: line.split()[1] for line in lines}
+            return result
+        else:
+            return None
+
+    def _getSetOfTiltSeries(self, pointer=False):
+        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
+            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
+
+        return self.inputSet.get() if not pointer else self.inputSet
+
+    def _getTiltSeries(self, itemId):
+        obj = None
+        inputSetOfTiltseries = self._getSetOfTiltSeries()
+        for item in inputSetOfTiltseries.iterItems(iterate=False):
+            if item.getObjId() == itemId:
+                obj = item
+                if isinstance(obj, tomoObj.CTFTomoSeries):
+                    obj = item.getTiltSeries()
+                break
+
+        if obj is None:
+            raise ("Could not find tilt-series with tsId = %s" % itemId)
+
+        return obj
