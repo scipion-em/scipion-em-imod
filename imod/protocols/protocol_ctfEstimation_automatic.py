@@ -29,7 +29,6 @@ import os
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-from pyworkflow.utils import path
 import tomo.objects as tomoObj
 
 from .. import Plugin
@@ -306,22 +305,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        firstItem = ts.getFirstItem()
-        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-        path.createLink(firstItem.getLocation()[1], outputTsFileName)
-
-        angleFilePath = os.path.join(tmpPrefix,
-                                     firstItem.parseFileName(extension=".tlt"))
-        ts.generateTltFile(angleFilePath)
+        """ Implement the convertStep to cancel interpolation of the tilt series."""
+        super().convertInputStep(tsObjId, cancelInterpolation=True)
 
     def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
@@ -331,10 +316,12 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        firstTi = ts.getFirstItem()
+
         paramsCtfPlotter = {
-            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
+            'inputStack': os.path.join(tmpPrefix, firstTi.parseFileName()),
+            'angleFile': os.path.join(tmpPrefix, firstTi.parseFileName(extension=".tlt")),
+            'defocusFile': os.path.join(extraPrefix, firstTi.parseFileName(extension=".defocus")),
             'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
             'pixelSize': tsSet.getSamplingRate() / 10,
             'voltage': tsSet.getAcquisition().getVoltage(),
