@@ -69,7 +69,8 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def runAllSteps(self, obj):
         objId = obj.getObjId()
         self.convertInputStep(objId)
-        self.ctfEstimation(objId)
+        expDefoci = self.getExpectedDefocus()
+        self.ctfEstimation(objId, expDefoci)
 
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
