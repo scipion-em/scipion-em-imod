@@ -306,7 +306,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsObjId, cancelInterpolation=True)
+        super().convertInputStep(tsObjId, imodInterpolation=None)
 
     def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
