@@ -81,14 +81,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       default=0,
                       label='Input expected defocus as:',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Run the protocol through the interactive GUI.\n\n'
-                           'If run in auto mode, defocus values are saved '
-                           'to a file after autofitting. The program '
-                           'will not ask for confirmation before removing '
-                           'existing entries in the defocus table.\nIf run '
-                           'in interactive mode, defocus values'
-                           'MUST BE SAVED manually by the user.')
+                      display=params.EnumParam.DISPLAY_HLIST)
 
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
@@ -105,11 +98,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                       label='Expected defocus file',
                       important=True,
                       condition="expectedDefocusOrigin == 1",
-                      help='File containing a list of expected defoci in '
-                           'nanometes for each tilt-series of the set. '
-                           'This file must contain two columns: the first '
-                           'column must be the filename of the '
-                           'tilt-series, the second the expected defocus.')
+                      help='File containing the expected defocus in nanometers for each '
+                           'tilt-series belonging to the set.\n\n'
+                           'The format of the text file must be two columns, '
+                           'the first one being the tilt series ID '
+                           'and the second the defocus value.\n\n'
+                           'An example of this file comes as follows:\n'
+                           'TS_01 4000\n'
+                           'TS_02 1500\n'
+                           '...')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -294,39 +291,24 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'To use the default value set box to -1.')
 
     # -------------------------- INSERT steps functions -----------------------
-    def _getSetOfTiltSeries(self, pointer=False):
-        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
-            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
-
-        return self.inputSet.get() if not pointer else self.inputSet
-
-    def _getTiltSeries(self, itemId):
-        obj = None
-        inputSetOfTiltseries = self._getSetOfTiltSeries()
-        for item in inputSetOfTiltseries.iterItems(iterate=False):
-            if item.getObjId() == itemId:
-                obj = item
-                if isinstance(obj, tomoObj.CTFTomoSeries):
-                    obj = item.getTiltSeries()
-                break
-
-        if obj is None:
-            raise ("Could not find tilt-series with tsId = %s" % itemId)
-
-        return obj
-
     def _insertAllSteps(self):
         # This assignment is needed to use methods from base class
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
+        expDefoci = self.getExpectedDefocus()
 
         for item in self.inputSet.get():
-            self._insertFunctionStep(self.convertInputStep, item.getObjId())
-            self._insertFunctionStep(self.ctfEstimation, item.getObjId())
-            self._insertFunctionStep(self.createOutputStep, item.getObjId())
+            tsObjId = item.getObjId()
+            self._insertFunctionStep(self.convertInputStep, tsObjId)
+            self._insertFunctionStep(self.ctfEstimation, tsObjId, expDefoci)
+            self._insertFunctionStep(self.createOutputStep, tsObjId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def ctfEstimation(self, tsObjId):
+    def convertInputStep(self, tsObjId):
+        """ Implement the convertStep to cancel interpolation of the tilt series."""
+        super().convertInputStep(tsObjId, imodInterpolation=None)
+
+    def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
         ts = self._getTiltSeries(tsObjId)
         tsSet = self._getSetOfTiltSeries()
@@ -334,13 +316,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        firstTi = ts.getFirstItem()
+
         paramsCtfPlotter = {
-            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'defocusFile': os.path.join(extraPrefix, ts.getFirstItem().parseFileName(extension=".defocus")),
+            'inputStack': os.path.join(tmpPrefix, firstTi.parseFileName()),
+            'angleFile': os.path.join(tmpPrefix, firstTi.parseFileName(extension=".tlt")),
+            'defocusFile': os.path.join(extraPrefix, firstTi.parseFileName(extension=".defocus")),
             'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
             'pixelSize': tsSet.getSamplingRate() / 10,
-            'expectedDefocus': self.getExpectedDefocus(tsId),
             'voltage': tsSet.getAcquisition().getVoltage(),
             'sphericalAberration': tsSet.getAcquisition().getSphericalAberration(),
             'amplitudeContrast': tsSet.getAcquisition().getAmplitudeContrast(),
@@ -350,6 +333,17 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             'rightDefTol': self.rightDefTol.get(),
             'tileSize': self.tileSize.get(),
         }
+
+        if self.expectedDefocusOrigin.get() == 0:
+            paramsCtfPlotter['expectedDefocus'] = self.expectedDefocusValue.get()
+        else:
+            self.debug(f"Expected defoci: {expDefoci}")
+            defocus = expDefoci.get(tsId, None)
+            if defocus is None:
+                raise Exception(f"{tsId} not found in the provided defocus file.")
+
+            paramsCtfPlotter['expectedDefocus'] = float(defocus)
+
 
         argsCtfPlotter = "-InputStack %(inputStack)s " \
                          "-AngleFile %(angleFile)s " \
@@ -457,26 +451,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             output.write()
         self._store()
 
-    # --------------------------- UTILS functions -----------------------------
-
-    def allowsDelete(self, obj):
-        return True
-
-    def getExpectedDefocus(self, tsId):
-        if self.expectedDefocusOrigin.get() == 0:
-            return self.expectedDefocusValue.get()
-        else:
-            with open(self.expectedDefocusFile.get()) as f:
-                lines = f.readlines()
-                for line in lines:
-                    defocusTuple = line.split()
-                    if tsId in defocusTuple[0]:
-                        " Look for the filename that contains the tsId "
-                        return float(defocusTuple[1])
-                raise Exception("ERROR: tilt-series with tsId %s not "
-                                "found in %s" %
-                                (tsId, (self.expectedDefocusFile.get())))
-
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
@@ -495,3 +469,38 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            "using the IMOD *ctfplotter* command."
                            % (self.CTFTomoSeries.getSize()))
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+
+    def allowsDelete(self, obj):
+        return True
+
+    def getExpectedDefocus(self):
+        if self.expectedDefocusOrigin.get() == 1:
+            with open(self.expectedDefocusFile.get()) as f:
+                lines = f.readlines()
+            result = {line.split()[0]: line.split()[1] for line in lines}
+            return result
+        else:
+            return None
+
+    def _getSetOfTiltSeries(self, pointer=False):
+        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
+            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
+
+        return self.inputSet.get() if not pointer else self.inputSet
+
+    def _getTiltSeries(self, itemId):
+        obj = None
+        inputSetOfTiltseries = self._getSetOfTiltSeries()
+        for item in inputSetOfTiltseries.iterItems(iterate=False):
+            if item.getObjId() == itemId:
+                obj = item
+                if isinstance(obj, tomoObj.CTFTomoSeries):
+                    obj = item.getTiltSeries()
+                break
+
+        if obj is None:
+            raise ("Could not find tilt-series with tsId = %s" % itemId)
+
+        return obj

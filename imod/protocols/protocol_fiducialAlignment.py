@@ -29,7 +29,6 @@ import numpy as np
 
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 from pwem.objects import Transform
 from pwem.emlib.image import ImageHandler
 from pyworkflow.object import Set
@@ -144,7 +143,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=5,
                       condition='rotationSolutionType==2',
                       label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the rotation group')
 
         form.addParam('magnificationSolutionType',
@@ -162,7 +160,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=4,
                       condition='magnificationSolutionType==1',
                       label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the magnification group')
 
         form.addParam('tiltAngleSolutionType',
@@ -179,7 +176,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=5,
                       condition='tiltAngleSolutionType==1',
                       label='Group size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the tilt angle group')
 
         form.addParam('distortionSolutionType',
@@ -195,7 +191,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=7,
                       condition='distortionSolutionType==1',
                       label='X stretch group size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Basic grouping size for X stretch')
 
         form.addParam('skewGroupSize',
@@ -203,7 +198,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=11,
                       condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
                       label='Skew group size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Size of the skew group')
 
         form.addSection('Erase gold beads')
@@ -227,7 +221,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
                                      params.IntParam,
                                      default=18,
-                                     label='Bead diameter (pixels)',
+                                     label='Bead diameter (px)',
                                      help="For circle objects, this entry "
                                           "specifies a radius to use for points "
                                           "without an individual point size "
@@ -574,11 +568,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # Check if rotation angle is greater than 45º. If so, swap x
             # and y dimensions to adapt output image sizes to
             # the final sample disposition.
-            if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+            if 45 < abs(rotationAngleAvg) < 135:
                 paramsAlignment.update({
                     'size': "%d,%d" %
-                            (firstItem.getYDim() / int(self.binning.get()),
-                             firstItem.getXDim() / int(self.binning.get()))
+                            (firstItem.getYDim() // self.binning.get(),
+                             firstItem.getXDim() // self.binning.get())
                 })
 
                 argsAlignment += " -size %(size)s "
@@ -632,37 +626,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         firstItem = ts.getFirstItem()
 
-        # Move interpolated tilt-series to tmp folder and generate a
-        # new one with the gold beads erased back in the
-        # extra folder
-        path.moveFile(os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-                      os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()))
-
-        # Generate interpolated model
-        paramsImodtrans = {
-            'inputFile': os.path.join(extraPrefix,
-                                      firstItem.parseFileName(suffix="_noGaps",
-                                                              extension=".fid")),
-            'outputFile': os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_noGaps_ali",
-                                                               extension=".fid")),
-            'transformFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_fid",
-                                                                  extension=".xf"))
-        }
-
-        argsImodtrans = "-2 %(transformFile)s " \
-                        "%(inputFile)s " \
-                        "%(outputFile)s "
-
-        Plugin.runImod(self, 'imodtrans', argsImodtrans % paramsImodtrans)
-
-        # Erase gold beads
+        # Erase gold beads on aligned stack
         paramsCcderaser = {
             'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
             'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
             'modelFile': os.path.join(extraPrefix,
-                                      firstItem.parseFileName(suffix="_noGaps_ali",
+                                      firstItem.parseFileName(suffix="_noGaps",
                                                               extension=".fid")),
             'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
@@ -676,7 +645,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-PolynomialOrder %(polynomialOrder)d " \
                         "-CircleObjects %(circleObjects)s " \
                         "-MergePatches 1 " \
-                        "-ExcludeAdjacent"
+                        "-ExcludeAdjacent " \
+                        "-SkipTurnedOffPoints 1 " \
+                        "-ExpandCircleIterations 3 "
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 

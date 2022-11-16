@@ -235,6 +235,18 @@ class ProtImodCtfCorrection(ProtImodBase):
                 return ctfTomoSeries
 
     # --------------------------- INFO functions ------------------------------
+    def _warnings(self):
+        warnings = []
+        ts = self.inputSetOfTiltSeries.get()
+        if not ts.getFirstItem().getFirstItem().hasTransform():
+            warnings.append("Input tilt-series do not have alignment "
+                            "information! The recommended workflow is to "
+                            "estimate CTF on raw tilt-series and then here "
+                            "provide tilt-series with alignment "
+                            "(non-interpolated).")
+
+        return warnings
+
     def _validate(self):
         validateMsgs = []
 
