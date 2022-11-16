@@ -78,6 +78,14 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True):
+        """
+
+        :param tsObjId: Tilt series identifier
+        :param generateAngleFile:  Boolean(True) to generate IMOD angle file
+        :param imodInterpolation: Boolean (True) to interpolate the tilt series with imod in case there is a TM.
+                                  Pass None to cancel interpolation.
+        :return:
+        """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
         elif isinstance(self.inputSetOfTiltSeries, Pointer):
@@ -95,9 +103,14 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
 
-        """Apply the transformation form the input tilt-series"""
-        # Use IMOD newstack interpolation
-        if imodInterpolation:
+        # .. Interpolation cancelled
+        if imodInterpolation is None:
+            self.info("Tilt series %s linked." % tsId)
+            path.createLink(firstItem.getFileName(), outputTsFileName)
+
+        elif imodInterpolation:
+            """Apply the transformation form the input tilt-series"""
+            # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
                 outputTmFileName = os.path.join(tmpPrefix,
@@ -122,22 +135,27 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # Check if rotation angle is greater than 45º. If so,
                 # swap x and y dimensions to adapt output image sizes to
                 # the final sample disposition.
-                if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+                if 45 < abs(rotationAngleAvg) < 135:
                     paramsAlignment.update({
                         'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
                     })
 
                     argsAlignment += "-size %(size)s "
 
+                self.info("Interpolating tilt series %s with imod." % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             else:
+                self.info("Linking tilt series %s. Nothing to interpolate." % tsId)
                 path.createLink(firstItem.getLocation()[1], outputTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
-            outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
+            self.info("Interpolating tilt series %s with emlib." % tsId)
             ts.applyTransform(outputTsFileName)
+
+
+        self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
 
         if generateAngleFile:
             """Generate angle file"""
@@ -145,14 +163,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                          firstItem.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
 
-        # if generateExtraLink:
-        #     """"Generate link to input tilt-series (no longer needed for fiducial viewers)"""
-        #     inputTS = os.path.join(extraPrefix, firstItem.parseFileName())
-        #     if firstItem.hasTransform():
-        #         path.copyFile(outputTsFileName, inputTS)
-        #
-        #     else:
-        #         path.createLink(firstItem.getLocation()[1], inputTS)
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1):

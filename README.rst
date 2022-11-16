@@ -61,7 +61,24 @@ Supported versions
 Protocols
 ---------
 
-tbd
+* apply transformation
+* automatic CTF estimation
+* CTF correction
+* coarse prealignment
+* dose filter
+* etomo interactive
+* exclude views
+* fiducial alignment
+* generate fiducial model
+* gold bead picker 3D
+* import tomo CTFs
+* import transformation matrix
+* manual CTF estimation
+* tilt-series preprocess
+* tomo preprocess
+* tomo projection
+* tomo reconstruction
+* X-rays eraser
 
 References
 ----------

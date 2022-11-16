@@ -1,4 +1,10 @@
 3.1:
+- remove transformation step from imod ctf estimation (ctf is estimated on raw ts stack)
+- fix rotation angle range for swapping x/y for newstack
+- do not copy objId for apply TM protocol when excluding views
+- fix output size in apply TM protocol
+- fix wrong output file index numbers in the exclude views protocol
+- fix gold erasing option in the fid. alignment protocol
 - fix generating ctf output; hide some params from manual ctf protocol; do not run autofit for manual protocol
 - added xform file to ctfphaseflip to rotate astigmatism estimation and adjust for x-shifts for the image center
 - fix excluded views parsing from com files

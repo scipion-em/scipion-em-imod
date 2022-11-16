@@ -68,8 +68,10 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def runAllSteps(self, obj):
         objId = obj.getObjId()
+        # DO not use this to avoid interpolation. CTF will be done on the input TS (hopefully non interpolated).
         self.convertInputStep(objId)
-        self.ctfEstimation(objId)
+        expDefoci = self.getExpectedDefocus()
+        self.ctfEstimation(objId, expDefoci)
 
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
