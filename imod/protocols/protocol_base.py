@@ -115,7 +115,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # Generate transformation matrices file
                 outputTmFileName = os.path.join(tmpPrefix,
                                                 firstItem.parseFileName(extension=".xf"))
-                utils.formatTransformFile(ts, outputTmFileName)
+                # Here we want the xf file according to the stack order driven by the _index
+                utils.formatTransformFile(ts, outputTmFileName, orderBy="_index")
 
                 # Apply interpolation
                 paramsAlignment = {
@@ -161,7 +162,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             """Generate angle file"""
             angleFilePath = os.path.join(tmpPrefix,
                                          firstItem.parseFileName(extension=".tlt"))
-            ts.generateTltFile(angleFilePath)
+            ts.writeTltFile(angleFilePath)
 
 
     # --------------------------- OUTPUT functions ----------------------------

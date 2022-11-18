@@ -561,7 +561,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-bin %(bin)d " \
                             "-antialias -1 " \
                             "-imagebinned %(imagebinned)s " \
-                            "-taper 1,1 "
+                            "-taper 1,1 " \
+                            "-reo 1"
 
             rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
 

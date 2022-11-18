@@ -245,7 +245,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
             newTs.append(newTi)
 
-        newTs.write(properties=False)
+        newTs.write()
 
         output.update(newTs)
         output.write()
@@ -275,7 +275,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                         "-bin %(bin)d " \
                         "-imagebinned %(imagebinned)s " \
                         "-antialias -1 " \
-                        "-float 2 "
+                        "-float 2 " \
+                        "-reo 1 "
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 

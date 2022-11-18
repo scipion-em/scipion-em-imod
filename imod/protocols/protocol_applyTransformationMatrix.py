@@ -80,7 +80,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         path.makePath(extraPrefix)
         utils.formatTransformFile(ts,
                                   os.path.join(extraPrefix,
-                                               ts.getFirstItem().parseFileName(extension=".xf")))
+                                               ts.getFirstItem().parseFileName(extension=".xf")),
+                                  orderBy="_tiltAngle")
 
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -103,7 +104,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-antialias -1 " \
-                        "-imagebinned %(imagebinned)s "
+                        "-imagebinned %(imagebinned)s " \
+                        "-reo 1 "
 
         rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
 
@@ -118,7 +120,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
             argsAlignment += "-size %(size)s "
 
-        excludedViews = ts.getExcludedViewsIndex(caster=str, indexOffset=-1)
+        excludedViews = ts.getExcludedViewsIndex(caster=str, indexOffset=0, orderBy="_tiltAngle")
         if len(excludedViews):
             argsAlignment += "-exclude %s " % ",".join(excludedViews)
 
@@ -140,7 +142,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         index = 1
-        for tiltImage in ts:
+        for tiltImage in ts.iterItems('_tiltAngle'):
             if tiltImage.isEnabled():
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=False, copyTM=False)

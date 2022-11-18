@@ -29,6 +29,8 @@ This module contains utils functions for IMOD protocols
 import logging
 import os
 
+import tomo.objects
+
 logger = logging.getLogger(__name__)
 import csv
 import math
@@ -38,14 +40,14 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
 
-def formatTransformFile(ts, transformFilePath):
+def formatTransformFile(ts:tomo.objects.TiltSeries, transformFilePath, orderBy='id'):
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform
     file in the location indicated. """
 
     tsMatrixTransformList = []
 
-    for ti in ts:
+    for ti in ts.iterItems(orderBy=orderBy):
         transform = ti.getTransform().getMatrix().flatten()
         transformIMOD = ['%.7f' % transform[0],
                          '%.7f' % transform[1],

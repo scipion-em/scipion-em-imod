@@ -118,6 +118,12 @@ class ProtImodTSNormalization(ProtImodBase):
                       label='Min.',
                       help='Minimum value for the rescaling')
 
+        form.addParam('sort',
+                      params.BooleanParam,
+                      default=True,
+                      label='Sort stack',
+                      help='Sorts the stack by tilt angle in ascendant order: e.g. -60, -57 , ... Useful '
+                           'if stack is not sorted and acquired following a dose symmetric scheme.')
         form.addParam('antialias',
                       params.EnumParam,
                       choices=['None', 'Blackman', 'Triangle', 'Mitchell',
@@ -233,6 +239,11 @@ class ProtImodTSNormalization(ProtImodBase):
 
         if self.getModeToOutput() is not None:
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
+        
+        sort = self.sort.get()
+
+        if sort:
+            argsNewstack += " -reo 1 "
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
@@ -249,7 +260,13 @@ class ProtImodTSNormalization(ProtImodBase):
             if tiltImage.hasTransform():
                 newTi = self.updateTM(newTi)
             newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1,
+
+            if sort:
+                slice = index + 1
+            else:
+                slice = tiltImage.getIndex()
+
+            newTi.setLocation(slice,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
@@ -259,7 +276,7 @@ class ProtImodTSNormalization(ProtImodBase):
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
 
-        newTs.write(properties=False)
+        newTs.write()
         output.update(newTs)
         output.write()
         self._store()
