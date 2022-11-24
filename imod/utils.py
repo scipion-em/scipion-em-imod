@@ -38,6 +38,7 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
 
+
 def formatTransformFile(ts, transformFilePath):
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform
@@ -197,7 +198,7 @@ def generateIMODFidFile(protocol, landmarkModel):
 
         protocol.setStepsExecutor()
         Plugin.runImod(protocol, 'point2model',
-                            argsPoint2Model % paramsPoint2Model)
+                       argsPoint2Model % paramsPoint2Model)
 
     return fiducialModelGapPath
 
@@ -228,7 +229,6 @@ def formatAngleList(tltFilePath):
         tltText = f.read().splitlines()
         for line in tltText:
             angleList.append(float(line))
-    # angleList.reverse()
 
     return angleList
 
@@ -477,7 +477,7 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
 
     else:
         raise Exception("Misleading file format, CTF estimation with "
-                        "astigmatism and phase shift should be 6 columns "
+                        "defocus and phase shift should be 6 columns "
                         "long")
 
     return defocusUDict, phaseShiftDict
@@ -534,7 +534,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with "
+        raise Exception("Misleading file format, CTF estimation with "
                         "astigmatism and phase shift should be 8 columns "
                         "long")
 
@@ -599,7 +599,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with "
+        raise Exception("Misleading file format, CTF estimation with "
                         "astigmatism, phase shift and cut-on frequency "
                         "should be 8 columns long")
 
@@ -662,7 +662,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 1:
             # Astigmatism estimation
-            logger.debug("Flag 1: Astigmatism estimtion.")
+            logger.debug("Flag 1: Astigmatism estimation.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
