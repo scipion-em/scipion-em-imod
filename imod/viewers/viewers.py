@@ -28,17 +28,20 @@
 
 import tempfile
 import os
+import logging
+logger = logging.getLogger(__name__)
 
 import pyworkflow.viewer as pwviewer
 import pyworkflow.protocol.params as params
+import pyworkflow.utils as pwutils
 from pwem.viewers import DataViewer
-import tomo.objects
+import tomo.objects as tomoObj
 
 import imod.protocols
 from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
-                                       OUTPUT_FIDUCIAL_NO_GAPS_NAME)
-from .views_tkinter_tree import (ImodGenericViewer, ImodSetView,
-                                 ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView)
+                                       OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                                       OUTPUT_TS_COORDINATES_NAME)
+from .views_tkinter_tree import ImodGenericViewer
 from .. import Plugin
 from ..utils import generateIMODFidFile
 
@@ -49,25 +52,21 @@ class ImodViewer(pwviewer.Viewer):
     """
     _environments = [pwviewer.DESKTOP_TKINTER, Plugin.getEnviron()]
     _targets = [
-        tomo.objects.TiltSeries,
-        tomo.objects.Tomogram,
-        tomo.objects.SetOfTomograms,
-        tomo.objects.SetOfTiltSeries,
-        tomo.objects.SetOfLandmarkModels,
-        tomo.objects.LandmarkModel
+        tomoObj.TiltSeries,
+        tomoObj.Tomogram,
+        tomoObj.SetOfTomograms,
+        tomoObj.SetOfTiltSeries,
+        tomoObj.SetOfLandmarkModels,
+        tomoObj.LandmarkModel
     ]
 
     def _visualize(self, obj, **kwargs):
         env = Plugin.getEnviron()
         cls = type(obj)
 
-        if issubclass(cls, tomo.objects.TiltSeries):
-            view = ImodObjectView(obj.getFirstItem())
-        elif issubclass(cls, tomo.objects.Tomogram):
-            view = ImodObjectView(obj)
-        elif issubclass(cls, tomo.objects.LandmarkModel):
+        if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
             view = ImodObjectView(obj, protocol=self.protocol)
-        else:
+        else:  # Set object
             view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
 
         view._env = env
@@ -79,20 +78,25 @@ class ImodObjectView(pwviewer.CommandView):
 
     def __init__(self, obj, protocol=None, **kwargs):
         """
-
-        :param obj: Object to deal with usually a single item in a set
-        :param protocol: protocol onwer of obj
+        :param obj: Object to deal with, a single item of a set
+        :param protocol: protocol owner of obj
         :param kwargs: extra kwargs
         """
-        # Accept file paths
-        if isinstance(obj, str):
-            fn = Plugin.getImodCmd('3dmod') + ' ' + obj
 
-        elif isinstance(obj, tomo.objects.LandmarkModel):
+        cmd = f"{Plugin.getImodCmd('3dmod')} "
 
-            if obj.getTiltSeries().hasAlignment() and obj.applyTSTransformation():
+        if isinstance(obj, tomoObj.TiltSeries):
+            angleFilePath = os.path.join(tempfile.gettempdir(),
+                                         obj.getFirstItem().parseFileName(extension=".tlt"))
+            obj.generateTltFile(angleFilePath)
+
+            cmd += f"-a {angleFilePath} {obj.getFirstItem().getFileName().split(':')[0]}"
+
+        elif isinstance(obj, tomoObj.LandmarkModel):
+            ts = obj.getTiltSeries()
+            if ts.hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
-                _, extension = os.path.splitext(obj.getTiltSeries().getFirstItem().getFileName())
+                extension = pwutils.getExt(ts.getFirstItem().getFileName())
 
                 outputTSPath = os.path.join(tempfile.gettempdir(),
                                             "ts_interpolated_%s_%s_%s%s" % (
@@ -102,22 +106,27 @@ class ImodObjectView(pwviewer.CommandView):
                                                 extension))
 
                 if not os.path.exists(outputTSPath):
-                    obj.getTiltSeries().applyTransform(outputTSPath)
+                    ts.applyTransform(outputTSPath)
 
             else:
-                outputTSPath = obj.getTiltSeries().getFirstItem().getFileName()
+                outputTSPath = ts.getFirstItem().getFileName()
 
             fidFileName = obj.getModelName()
 
             if fidFileName is None:
                 fidFileName = generateIMODFidFile(protocol, obj)
 
-            fn = Plugin.getImodCmd('3dmod') + " -m " + outputTSPath + " " + fidFileName + " ; "
+            angleFilePath = os.path.join(tempfile.gettempdir(),
+                                         ts.getFirstItem().parseFileName(extension=".tlt"))
+            ts.generateTltFile(angleFilePath)
 
-        else:
-            fn = Plugin.getImodCmd('3dmod') + ' ' + obj.getFileName().split(':')[0]
+            cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"
 
-        pwviewer.CommandView.__init__(self,  fn)
+        else:  # Tomogram
+            cmd += f"{obj.getFileName()}"
+
+        logger.info(f"Executing command: {cmd}")
+        pwviewer.CommandView.__init__(self,  cmd)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
@@ -151,7 +160,7 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
     def defineOutputsSetNames(self, **kwargs):
         self.outputSetName = {'savedTsPreAli': 'PrealignedTiltSeries',
                               'savedTsAli': OUTPUT_TILTSERIES_NAME,
-                              'saved3DCoord': OUTPUT_TILTSERIES_NAME,
+                              'saved3DCoord': OUTPUT_TS_COORDINATES_NAME,
                               'savedFiducials': OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                               'savedReconsTomo': 'FullTomograms',
                               'savedPostProcessTomo': 'PostProcessTomograms'}
@@ -170,16 +179,12 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
             outputName = self.outputSetName.get(param)
             if hasattr(self.protocol, outputName):
                 outputSet = getattr(self.protocol, outputName)
-                if param == 'savedTsPreAli' or param == 'savedTsAli':
-                    ImodSetView(outputSet).show()
-                elif param == 'savedFiducials':
-                    ImodSetOfLandmarkModelsView(outputSet).show()
-                elif param == 'savedReconsTomo' or param == 'savedPostProcessTomo':
-                    ImodSetOfTomogramsView(outputSet).show()
-                elif param == 'saved3DCoord':
+                if param == 'saved3DCoord':
                     dataviewer = DataViewer(protocol=self.protocol,
                                             project=self.protocol.getProject())
                     dataviewer._visualize(outputSet)[0].show()
+                else:
+                    ImodGenericViewer(self.getTkRoot(), self.protocol, outputSet).show()
             else:
                 self._notGenerated()
 
