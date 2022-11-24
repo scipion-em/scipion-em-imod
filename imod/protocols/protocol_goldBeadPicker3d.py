@@ -28,7 +28,7 @@ import os
 
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-from pyworkflow.utils import path
+from pyworkflow.utils import path, removeBaseExt
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
 import tomo.constants as constants
@@ -132,17 +132,14 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def pickGoldBeadsStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getLocation()[1]
-        fileName, _ = os.path.splitext(location)
-
-        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        fileName = removeBaseExt(tomo.getFileName())
+        extraPrefix = self._getExtraPath(fileName)
         path.makePath(extraPrefix)
 
         """ Run findbeads3d IMOD program """
         paramsFindbeads3d = {
-            'inputFile': location,
-            'outputFile': os.path.join(extraPrefix,
-                                       "%s.mod" % os.path.basename(fileName)),
+            'inputFile': tomo.getFilename(),
+            'outputFile': os.path.join(extraPrefix, "%s.mod" % fileName),
             'beadSize': self.beadDiameter.get(),
             'minRelativeStrength': self.minRelativeStrength.get(),
             'minSpacing': self.minSpacing.get(),
@@ -162,7 +159,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     def convertModelToCoordinatesStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getLocation()[1]
+        location = tomo.getFilename()
         fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
@@ -180,7 +177,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     def createOutputStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getLocation()[1]
+        location = tomo.getFilename()
         fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))

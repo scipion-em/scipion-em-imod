@@ -175,10 +175,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
                     "-RotationAngle %(rotationAngle).2f " \
-                    "-FilterSigma1 %(filterSigma1)f " \
-                    "-FilterSigma2 %(filterSigma2)f " \
-                    "-FilterRadius1 %(filterRadius1)f " \
-                    "-FilterRadius2 %(filterRadius2)f "
+                    "-FilterSigma1 %(filterSigma1).3f " \
+                    "-FilterSigma2 %(filterSigma2).3f " \
+                    "-FilterRadius1 %(filterRadius1).3f " \
+                    "-FilterRadius2 %(filterRadius2).3f "
 
         if self.cumulativeCorr == 0:
             argsXcorr += "-CumulativeCorrelation "
