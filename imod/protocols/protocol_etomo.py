@@ -91,7 +91,7 @@ class ProtImodEtomo(ProtImodBase):
         from imod.viewers import ImodGenericViewer
         setOftiltSeries = self.inputSetOfTiltSeries.get()
         view = ImodGenericViewer(None, self, setOftiltSeries,
-                                 displayAllButton=False, isInteractive=True,
+                                 isInteractive=True,
                                  itemDoubleClick=True)
         view.show()
         self.createOutput()
@@ -110,13 +110,14 @@ class ProtImodEtomo(ProtImodBase):
 
     def convertInputStep(self, ts):
         tsId = ts.getTsId()
+        acq = ts.getAcquisition()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
         firstItem = ts.getFirstItem()
 
-        outputTsFileName = self.getFilePath(ts, extension=".st")
+        outputTsFileName = self.getFilePath(ts, extension=".mrc")
 
         """Apply the transformation form the input tilt-series"""
         ts.applyTransform(outputTsFileName)
@@ -133,14 +134,14 @@ class ProtImodEtomo(ProtImodBase):
         pixelSizeNm = ts.getSamplingRate() / 10.
 
         args += '-pixel %0.3f ' % pixelSizeNm
-        args += '-rotation %0.3f ' % ts.getAcquisition().getTiltAxisAngle()
+        args += '-rotation %0.3f ' % acq.getTiltAxisAngle()
         args += '-userawtlt -fei 1 -change "%s/SystemTemplate/cryoSample.adoc" ' % Plugin.getHome()
 
         # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
         # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
         # files will contain an environment variable setting to make programs generate files of the corresponding type.
         # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
-        args += '-NamingStyle 0 '
+        args += '-NamingStyle 1 '
 
         # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
         # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
@@ -148,12 +149,17 @@ class ProtImodEtomo(ProtImodBase):
         # this entry, which could in principle be arbitrary, it will not care if files with other extensions are
         # present.
         # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
-        args += '-StackExtension ""'
+        args += '-StackExtension mrc '
+
+        args += f'-binning 1.0 -Cs {acq.getSphericalAberration()} -voltage {int(acq.getVoltage())} '
+
+        if ts.getExcludedViewsIndex():
+            args += f'-ViewsToSkip {",".join(ts.getExcludedViewsIndex())} '
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
         edfFn = self.getFilePath(ts, extension=".edf")
-        minTilt = min(utils.formatAngleList(self.getFilePath(ts, extension=".rawtlt")))
+        minTilt = min(utils.formatAngleList(angleFilePath))
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
@@ -169,19 +175,19 @@ class ProtImodEtomo(ProtImodBase):
 
     def runEtomo(self, ts):
         tsId = ts.getTsId()
-        edfFilePath = self._getExtraPath(os.path.join(tsId, ts.getFirstItem().parseFileName(extension=".edf")))
+        edfFilePath = self._getExtraPath(os.path.join(tsId,
+                                                      ts.getFirstItem().parseFileName(extension=".edf")))
 
         if not os.path.exists(edfFilePath):
             self.convertInputStep(ts)
 
         if ts is not None:
             extraPrefix = self._getExtraPath(tsId)
-            args = '--fg --namingstyle 0 '
+            args = '--fg '
             args += ts.getFirstItem().parseFileName(extension=".edf")
             Plugin.runImod(self, 'etomo', args, cwd=extraPrefix)
 
     def createOutput(self):
-
         outputPrealiSetOfTiltSeries = None
         outputAliSetOfTiltSeries = None
         self.FiducialModelNoGaps = None  # This will reset the output. Is this what we want?
@@ -196,7 +202,7 @@ class ProtImodEtomo(ProtImodBase):
             tsId = ts.getTsId()
 
             """Prealigned tilt-series"""
-            prealiFilePath = self.getFilePath(ts, extension=".preali")
+            prealiFilePath = self.getFilePath(ts, suffix="_preali", extension=".mrc")
             if os.path.exists(prealiFilePath):
                 xPrealiDims, newPixSize = self.getNewPixAndDim(ih, prealiFilePath)
                 self.debug(f"{prealiFilePath}: pix = {newPixSize}, dims = {xPrealiDims}")
@@ -239,7 +245,7 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
-            aligFilePath = self.getFilePath(ts, extension=".ali")
+            aligFilePath = self.getFilePath(ts, suffix="_ali", extension=".mrc")
             if os.path.exists(aligFilePath):
                 aliDims, newPixSize = self.getNewPixAndDim(ih, aligFilePath)
                 self.debug(f"{aligFilePath}: pix = {newPixSize}, dims = {aliDims}")
@@ -329,7 +335,8 @@ class ProtImodEtomo(ProtImodBase):
             residFilePath = self.getFilePath(ts, extension=".resid")
 
             if os.path.exists(modelFilePath) and os.path.exists(residFilePath):
-                modelFilePathTxt = self.getFilePath(ts, suffix="_nogaps_fid", extension=".txt")
+                modelFilePathTxt = self.getFilePath(ts, suffix="_nogaps_fid",
+                                                    extension=".txt")
 
                 paramsNoGapPoint2Model = {
                     'inputFile': modelFilePath,
@@ -345,7 +352,8 @@ class ProtImodEtomo(ProtImodBase):
 
                 fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".sfid")
+                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps",
+                                                               extension=".sfid")
                 fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                             fileName=landmarkModelNoGapsFilePath,
@@ -381,8 +389,8 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputSetOfLandmarkModelsNoGaps)
 
             """Full reconstructed tomogram"""
-            reconstructTomoFilePath = self.getFilePath(ts, suffix="_full",
-                                                       extension=".rec")
+            reconstructTomoFilePath = self.getFilePath(ts, suffix="_full_rec",
+                                                       extension=".mrc")
             if os.path.exists(reconstructTomoFilePath):
                 tomoDims, newPixSize = self.getNewPixAndDim(ih, reconstructTomoFilePath)
                 self.debug(f"{reconstructTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
@@ -411,7 +419,8 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputSetOfFullTomograms)
 
             """Post-processed reconstructed tomogram"""
-            posprocessedRecTomoFilePath = self.getFilePath(ts, extension=".rec")
+            posprocessedRecTomoFilePath = self.getFilePath(ts, suffix="_rec",
+                                                           extension=".mrc")
             if os.path.exists(posprocessedRecTomoFilePath):
                 tomoDims, newPixSize = self.getNewPixAndDim(ih, posprocessedRecTomoFilePath)
                 self.debug(f"{posprocessedRecTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
@@ -555,7 +564,7 @@ ProcessTrack.TomogramCombination=Not started
             f.write(template % paramsDict)
 
     def getNewPixAndDim(self, ih, fn):
-        dims = ih.getDimensions(fn + ":mrc")
+        dims = ih.getDimensions(fn)
         dims = dims[:-1]
         origDimX, origDimY, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
         originalDim = max(origDimX, origDimY)
