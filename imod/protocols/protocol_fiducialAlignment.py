@@ -313,6 +313,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'outputTiltFile': os.path.join(extraPrefix,
                                            firstItem.parseFileName(suffix="_interpolated",
                                                                    extension=".tlt")),
+            'outputXAxisTiltFile': os.path.join(extraPrefix,
+                                                firstItem.parseFileName(extension=".xtilt")),
             'outputTransformFile': os.path.join(extraPrefix,
                                                 firstItem.parseFileName(suffix="_fid",
                                                                         extension=".xf")),
@@ -365,7 +367,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'localXStretchDefaultGrouping': 7,
             'localSkewOption': 0,
             'localSkewDefaultGrouping': 11,
-            'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
+            'outputTiltAlignFileText': os.path.join(extraPrefix, "align.log"),
         }
 
         argsTiltAlign = "-ModelFile %(modelFile)s " \
@@ -376,6 +378,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-OutputResidualFile %(outputResidualFile)s " \
                         "-OutputFidXYZFile %(outputFidXYZFile)s " \
                         "-OutputTiltFile %(outputTiltFile)s " \
+                        "-OutputXAxisTiltFile %(outputXAxisTiltFile)s " \
                         "-OutputTransformFile %(outputTransformFile)s " \
                         "-OutputFilledInModel %(outputFilledInModel)s " \
                         "-RotationAngle %(rotationAngle).2f " \
@@ -431,11 +434,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsTiltAlign += "2>&1 | tee %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
-
-        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
-                                    os.path.join(extraPrefix, "taSolution.log"),
-                                    ts.getSize(),
-                                    ts.getSamplingRate())
+        Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=extraPrefix)
 
     @tryExceptDecorator
     def translateFiducialPointModelStep(self, tsObjId):
@@ -840,60 +839,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             return 2
         elif self.twoSurfaces.get() == 1:
             return 1
-
-    def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog,
-                               numberOfTiltImages, pixelSize):
-        """ This method generates a text file containing the TA
-        solution from the tiltalign output log. """
-
-        searchingPassword = "deltilt"
-
-        with open(tiltAlignOutputLog, 'r') as fRead:
-            lines = fRead.readlines()
-
-            counts = []
-
-            for index, line in enumerate(lines):
-                if searchingPassword in line:
-                    counts.append([index])
-
-        lastApparition = max(counts)[0]
-
-        outputLinesAsMatrix = []
-
-        # Take only the lines that compose the table containing
-        # the ta solution info (until blank line)
-        # Convert lines into numpy array for posterior operation
-
-        index = lastApparition + 1
-        while True:
-            vector = lines[index].split()
-            vector = [float(i) for i in vector]
-            outputLinesAsMatrix.append(vector)
-            if int(vector[0]) == numberOfTiltImages:
-                break
-            index += 1
-
-        matrixTaSolution = np.array(outputLinesAsMatrix)
-
-        # Find the position in table of the minimum tilt angle image
-        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
-
-        # Multiply last column by the sampling rate in nanometer
-        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
-
-        # Get minimum rotation to write in file
-        minimumRotation = matrixTaSolution[indexAng][1]
-
-        # Save new matrixTaSolution info into file
-        np.savetxt(fname=taSolutionLog,
-                   X=matrixTaSolution,
-                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
-                   header=" At minimum tilt, rotation angle is %.2f\n\n"
-                          " view   rotation    tilt    deltilt     "
-                          "mag      dmag      skew    resid-nm"
-                          % minimumRotation,
-                   comments='')
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
