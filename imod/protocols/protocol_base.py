@@ -142,18 +142,17 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                     argsAlignment += "-size %(size)s "
 
-                self.info("Interpolating tilt series %s with imod." % tsId)
+                self.info("Interpolating tilt series %s with imod" % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             else:
-                self.info("Linking tilt series %s. Nothing to interpolate." % tsId)
-                path.createLink(firstItem.getLocation()[1], outputTsFileName)
+                self.info("Linking tilt series %s" % tsId)
+                path.createLink(firstItem.getFileName(), outputTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
-            self.info("Interpolating tilt series %s with emlib." % tsId)
+            self.info("Interpolating tilt series %s with emlib" % tsId)
             ts.applyTransform(outputTsFileName)
-
 
         self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
 
@@ -162,7 +161,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             angleFilePath = os.path.join(tmpPrefix,
                                          firstItem.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
-
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1):
