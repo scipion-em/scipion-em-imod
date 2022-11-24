@@ -83,6 +83,12 @@ class ProtImodFiducialModel(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Number of fiducials to be tracked for alignment.")
 
+        form.addParam('doTrackWithModel', params.BooleanParam,
+                      default=True,
+                      label="Track with fiducial model as seed",
+                      help="Turn the tracked model into new seed and "
+                           "repeat tracking.")
+
         form.addParam('shiftsNearZeroFraction',
                       params.FloatParam,
                       label='Shifts near zero fraction',
@@ -321,7 +327,23 @@ class ProtImodFiducialModel(ProtImodBase):
         if len(excludedViews):
             argsBeadtrack += f"-SkipViews {','.join(excludedViews)} "
 
+        if firstItem.hasAlignment():
+            XfFileName = os.path.join(tmpPrefix,
+                                      firstItem.parseFileName(extension=".xf"))
+            argsBeadtrack += f"-prexf {XfFileName} "
+
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
+
+        if self.doTrackWithModel:
+            # repeat tracking with the current model as seed
+            path.copyFile(paramsBeadtrack['inputSeedModel'],
+                          os.path.join(extraPrefix,
+                                       firstItem.parseFileName(suffix="_orig",
+                                                               extension=".seed")))
+            path.moveFile(paramsBeadtrack['outputModel'],
+                          paramsBeadtrack['inputSeedModel'])
+
+            Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -454,6 +476,7 @@ class ProtImodFiducialModel(ProtImodBase):
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
         trackFilePath = os.path.join(extraPrefix,
                                      ts.getFirstItem().parseFileName(suffix="_track",
@@ -532,6 +555,11 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
         excludedViews = ts.getExcludedViewsIndex(caster=str)
         if len(excludedViews):
             template += f"SkipViews {','.join(excludedViews)}"
+
+        if ts.getFirstItem().hasAlignment():
+            XfFileName = os.path.join(tmpPrefix,
+                                      ts.getFirstItem().parseFileName(extension=".xf"))
+            template += f"PrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)
