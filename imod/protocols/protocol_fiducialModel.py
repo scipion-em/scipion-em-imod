@@ -478,8 +478,9 @@ class ProtImodFiducialModel(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        firstItem = ts.getFirstItem()
         trackFilePath = os.path.join(extraPrefix,
-                                     ts.getFirstItem().parseFileName(suffix="_track",
+                                     firstItem.parseFileName(suffix="_track",
                                                                      extension=".com"))
 
         template = """# Command file for running BEADTRACK
@@ -556,9 +557,9 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
         if len(excludedViews):
             template += f"SkipViews {','.join(excludedViews)}"
 
-        if ts.getFirstItem().hasAlignment():
+        if firstItem.hasTransform():
             XfFileName = os.path.join(tmpPrefix,
-                                      ts.getFirstItem().parseFileName(extension=".xf"))
+                                      firstItem.parseFileName(extension=".xf"))
             template += f"PrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:

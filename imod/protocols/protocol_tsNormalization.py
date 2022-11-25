@@ -33,6 +33,7 @@ import tomo.objects as tomoObj
 
 from .. import Plugin
 from .protocol_base import ProtImodBase
+from ..utils import formatTransformFile
 
 
 class ProtImodTSNormalization(ProtImodBase):
@@ -56,12 +57,18 @@ class ProtImodTSNormalization(ProtImodBase):
 
         form.addParam('binning',
                       params.FloatParam,
-                      default=1.0,
+                      default=1,
                       label='Binning',
                       important=True,
                       help='Binning to be applied to the normalized tilt-series '
                            'in IMOD convention. Images will be binned by the '
                            'given factor. Must be an integer bigger than 1')
+
+        form.addParam('applyAlignment',
+                      params.BooleanParam,
+                      default=False,
+                      label='Apply transformation matrix',
+                      help='Apply the tilt series transformation matrix if tilt series have them')
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -185,12 +192,17 @@ class ProtImodTSNormalization(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId(),
-                                     generateAngleFile=False)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsObjId):
+
+        # Interpolation will be done in the generateOutputStep.
+        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
+
+
     def generateOutputStackStep(self, tsObjId):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(),
                                                self.binning.get())
@@ -200,18 +212,31 @@ class ProtImodTSNormalization(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+        firstItem = ts.getFirstItem()
 
-        paramsNewstack = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'bin': int(self.binning.get()),
+        xfFile = None
+
+        if (self.applyAlignment.get() and ts.hasAlignment()):
+
+            xfFile= os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+            formatTransformFile(ts, xfFile)
+
+        binning = int(self.binning.get())
+
+        argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
+                                               os.path.join(extraPrefix, firstItem.parseFileName()),
+                                               inputTsFileName=os.path.join(tmpPrefix, firstItem.parseFileName()),
+                                               xfFile=xfFile,
+                                               firstItem=firstItem,
+                                               binning=binning,
+                                               )
+        paramsNewstack.update({
+            'bin': binning,
             'imagebinned': 1.0,
             'antialias': self.antialias.get() + 1
-        }
+        })
 
-        argsNewstack = "-input %(input)s " \
-                       "-output %(output)s " \
-                       "-bin %(bin)d " \
+        argsNewstack += "-bin %(bin)d " \
                        "-antialias %(antialias)d " \
                        "-imagebinned %(imagebinned)s "
 
@@ -240,19 +265,24 @@ class ProtImodTSNormalization(ProtImodBase):
         newTs.copyInfo(ts)
         output.append(newTs)
 
-        if self.binning > 1:
+        if binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-            if tiltImage.hasTransform():
+
+            # Tranformation matrix
+            if tiltImage.hasTransform() and not self.applyAlignment.get():
                 newTi = self.updateTM(newTi)
+            else:
+                newTi.setTransform(None)
+
             newTi.setAcquisition(tiltImage.getAcquisition())
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
-            if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+            if binning > 1:
+                newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
             newTs.append(newTi)
 
         ih = ImageHandler()

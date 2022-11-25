@@ -117,30 +117,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                                 firstItem.parseFileName(extension=".xf"))
                 utils.formatTransformFile(ts, outputTmFileName)
 
-                # Apply interpolation
-                paramsAlignment = {
-                    'input': firstItem.getFileName(),
-                    'output': outputTsFileName,
-                    'xform': os.path.join(tmpPrefix,
-                                          firstItem.parseFileName(extension=".xf")),
-                }
-
-                argsAlignment = "-input %(input)s " \
-                                "-output %(output)s " \
-                                "-xform %(xform)s " \
-                                "-taper 1,1 "
-
-                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-
-                # Check if rotation angle is greater than 45º. If so,
-                # swap x and y dimensions to adapt output image sizes to
-                # the final sample disposition.
-                if 45 < abs(rotationAngle) < 135:
-                    paramsAlignment.update({
-                        'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
-                    })
-
-                    argsAlignment += "-size %(size)s "
+                argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                             outputTsFileName,
+                                                                             xfFile= outputTmFileName,
+                                                                             firstItem=firstItem)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
@@ -161,6 +141,50 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             angleFilePath = os.path.join(tmpPrefix,
                                          firstItem.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
+
+    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None, xfFile=None, firstItem=None, binning = 1):
+        """ Returns basic newstack arguments
+        
+        :param ts: Title Series object
+        :param outputTsFileName: tilt series output file name after newstack
+        :param inputTsFileName: Input tilt series file name. Default to firsItem.getFilename()
+        :param xfFile: xf file name, if passed, alignment will be generated and used
+        :param firstItem: Optional, otherwise it will be taken from ts
+        :param binning: Default to 1. to apply to output size
+        
+        """
+        
+        if firstItem is None:
+            firstItem = ts.getFirstItem()
+
+        if inputTsFileName is None:
+            inputTsFileName = firstItem.getFileName()
+
+        # Apply interpolation
+        paramsAlignment = {
+            'input': inputTsFileName,
+            'output': outputTsFileName,
+        }
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-taper 1,1 "
+
+        if xfFile is not None:
+            paramsAlignment['xform'] = xfFile
+            argsAlignment += "-xform %(xform)s "
+
+        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+        # Check if rotation angle is greater than 45º. If so,
+        # swap x and y dimensions to adapt output image sizes to
+        # the final sample disposition.
+        if 45 < abs(rotationAngle) < 135:
+            paramsAlignment.update({
+                'size': "%d,%d" % (int(firstItem.getYDim()/binning), int(firstItem.getXDim()/binning))
+            })
+
+            argsAlignment += "-size %(size)s "
+
+        return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1):
