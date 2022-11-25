@@ -138,7 +138,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         """ Run findbeads3d IMOD program """
         paramsFindbeads3d = {
-            'inputFile': tomo.getFilename(),
+            'inputFile': tomo.getFileName(),
             'outputFile': os.path.join(extraPrefix, "%s.mod" % fileName),
             'beadSize': self.beadDiameter.get(),
             'minRelativeStrength': self.minRelativeStrength.get(),
@@ -159,7 +159,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     def convertModelToCoordinatesStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFilename()
+        location = tomo.getFileName()
         fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
@@ -177,7 +177,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     def createOutputStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFilename()
+        location = tomo.getFileName()
         fileName, _ = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
