@@ -161,6 +161,7 @@ class ProtImodFiducialModel(ProtImodBase):
             try:
                 func(self, tsId)
             except Exception as e:
+                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
                 self._failedTs.append(tsId)
 
         return wrapper
@@ -327,7 +328,7 @@ class ProtImodFiducialModel(ProtImodBase):
         if len(excludedViews):
             argsBeadtrack += f"-SkipViews {','.join(excludedViews)} "
 
-        if firstItem.hasAlignment():
+        if firstItem.hasTransform():
             XfFileName = os.path.join(tmpPrefix,
                                       firstItem.parseFileName(extension=".xf"))
             argsBeadtrack += f"-prexf {XfFileName} "
