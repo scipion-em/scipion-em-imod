@@ -563,12 +563,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-imagebinned %(imagebinned)s " \
                             "-taper 1,1 "
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
+            rotationAngle = tsIn.getAcquisition().getTiltAxisAngle()
 
             # Check if rotation angle is greater than 45º. If so, swap x
             # and y dimensions to adapt output image sizes to
             # the final sample disposition.
-            if 45 < abs(rotationAngleAvg) < 135:
+            if 45 < abs(rotationAngle) < 135:
                 paramsAlignment.update({
                     'size': "%d,%d" %
                             (firstItem.getYDim() // self.binning.get(),

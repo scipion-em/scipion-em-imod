@@ -105,12 +105,12 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-antialias -1 " \
                         "-imagebinned %(imagebinned)s "
 
-        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
 
         # Check if rotation angle is greater than 45º. If so,
         # swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
-        if 45 < abs(rotationAngleAvg) < 135:
+        if 45 < abs(rotationAngle) < 135:
             paramsAlignment.update({
                 'size': "%d,%d" % (firstItem.getYDim() // self.binning.get(),
                                    firstItem.getXDim() // self.binning.get())
