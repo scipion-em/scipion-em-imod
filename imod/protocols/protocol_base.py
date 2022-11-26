@@ -82,7 +82,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
-        :param imodInterpolation: Boolean (True) to interpolate the tilt series with imod in case there is a TM.
+        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+                                  imod in case there is a TM.
                                   Pass None to cancel interpolation.
         :return:
         """
@@ -119,7 +120,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                 argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                              outputTsFileName,
-                                                                             xfFile= outputTmFileName,
+                                                                             xfFile=outputTmFileName,
                                                                              firstItem=firstItem)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
@@ -142,7 +143,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                          firstItem.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
 
-    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None, xfFile=None, firstItem=None, binning = 1):
+    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
+                               xfFile=None, firstItem=None, binning=1):
         """ Returns basic newstack arguments
         
         :param ts: Title Series object
@@ -179,7 +181,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         # the final sample disposition.
         if 45 < abs(rotationAngle) < 135:
             paramsAlignment.update({
-                'size': "%d,%d" % (int(firstItem.getYDim()/binning), int(firstItem.getXDim()/binning))
+                'size': "%d,%d" % (int(firstItem.getYDim()/binning),
+                                   int(firstItem.getXDim()/binning))
             })
 
             argsAlignment += "-size %(size)s "

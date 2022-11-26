@@ -198,10 +198,9 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId):
-
-        # Interpolation will be done in the generateOutputStep.
-        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
-
+        # Interpolation will be done in the generateOutputStep
+        super().convertInputStep(tsObjId, imodInterpolation=None,
+                                 generateAngleFile=False)
 
     def generateOutputStackStep(self, tsObjId):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(),
@@ -216,20 +215,19 @@ class ProtImodTSNormalization(ProtImodBase):
 
         xfFile = None
 
-        if (self.applyAlignment.get() and ts.hasAlignment()):
-
-            xfFile= os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+        if self.applyAlignment.get() and ts.hasAlignment():
+            xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
             formatTransformFile(ts, xfFile)
 
         binning = int(self.binning.get())
 
         argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
-                                               os.path.join(extraPrefix, firstItem.parseFileName()),
-                                               inputTsFileName=os.path.join(tmpPrefix, firstItem.parseFileName()),
-                                               xfFile=xfFile,
-                                               firstItem=firstItem,
-                                               binning=binning,
-                                               )
+                                                                   os.path.join(extraPrefix, firstItem.parseFileName()),
+                                                                   inputTsFileName=os.path.join(tmpPrefix, firstItem.parseFileName()),
+                                                                   xfFile=xfFile,
+                                                                   firstItem=firstItem,
+                                                                   binning=binning,
+                                                                   )
         paramsNewstack.update({
             'bin': binning,
             'imagebinned': 1.0,
@@ -237,8 +235,8 @@ class ProtImodTSNormalization(ProtImodBase):
         })
 
         argsNewstack += "-bin %(bin)d " \
-                       "-antialias %(antialias)d " \
-                       "-imagebinned %(imagebinned)s "
+                        "-antialias %(antialias)d " \
+                        "-imagebinned %(imagebinned)s "
 
         if self.floatDensities.get() != 0:
             argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
