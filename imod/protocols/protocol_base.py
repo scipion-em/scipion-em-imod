@@ -77,7 +77,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True):
+                         imodInterpolation=True, doSwap=False):
         """
 
         :param tsObjId: Tilt series identifier
@@ -85,6 +85,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param imodInterpolation: Boolean (True) to interpolate the tilt series with
                                   imod in case there is a TM.
                                   Pass None to cancel interpolation.
+        :param doSwap: if applying alignment, consider swapping X/y
         :return:
         """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
@@ -121,7 +122,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                              outputTsFileName,
                                                                              xfFile=outputTmFileName,
-                                                                             firstItem=firstItem)
+                                                                             firstItem=firstItem,
+                                                                             doSwap=doSwap)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
@@ -144,7 +146,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             ts.generateTltFile(angleFilePath)
 
     def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
-                               xfFile=None, firstItem=None, binning=1):
+                               xfFile=None, firstItem=None, binning=1, doSwap=False):
         """ Returns basic newstack arguments
         
         :param ts: Title Series object
@@ -153,6 +155,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param xfFile: xf file name, if passed, alignment will be generated and used
         :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
+        :param doSwap: Default False.
         
         """
         
@@ -175,17 +178,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             paramsAlignment['xform'] = xfFile
             argsAlignment += "-xform %(xform)s "
 
-        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-        # Check if rotation angle is greater than 45º. If so,
-        # swap x and y dimensions to adapt output image sizes to
-        # the final sample disposition.
-        if 45 < abs(rotationAngle) < 135:
-            paramsAlignment.update({
-                'size': "%d,%d" % (int(firstItem.getYDim()/binning),
-                                   int(firstItem.getXDim()/binning))
-            })
+            if doSwap:
+                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+                # Check if rotation angle is greater than 45º. If so,
+                # swap x and y dimensions to adapt output image sizes to
+                # the final sample disposition.
+                if 45 < abs(rotationAngle) < 135:
+                    paramsAlignment.update({
+                        'size': "%d,%d" % (round(firstItem.getYDim()/binning),
+                                           round(firstItem.getXDim()/binning))
+                    })
 
-            argsAlignment += "-size %(size)s "
+                    argsAlignment += "-size %(size)s "
 
         return argsAlignment, paramsAlignment
 

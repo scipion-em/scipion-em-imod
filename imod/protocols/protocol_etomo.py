@@ -75,6 +75,14 @@ class ProtImodEtomo(ProtImodBase):
                       label='Fiducial markers diameter (nm)',
                       help='Diameter of gold beads in nanometers.')
 
+        form.addParam('applyAlignment',
+                      params.BooleanParam,
+                      default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Apply transformation matrix?',
+                      help='Apply the transformation matrix if input'
+                           'tilt series have it.')
+
         form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
@@ -119,8 +127,12 @@ class ProtImodEtomo(ProtImodBase):
 
         outputTsFileName = self.getFilePath(ts, extension=".mrc")
 
-        """Apply the transformation form the input tilt-series"""
-        ts.applyTransform(outputTsFileName)
+        """Apply the transformation from the input tilt-series"""
+        if self.applyAlignment:
+            ts.applyTransform(outputTsFileName)
+        else:
+            path.createAbsLink(os.path.abspath(firstItem.getFileName()),
+                               outputTsFileName)
 
         """Generate angle file"""
         angleFilePath = self.getFilePath(ts, extension=".rawtlt")
@@ -302,7 +314,7 @@ class ProtImodEtomo(ProtImodBase):
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
             coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
 
-            if os.path.exists(coordFilePath):
+            if os.path.exists(coordFilePath) and outputAliSetOfTiltSeries is not None:
                 if setOfTSCoords is None:
                     setOfTSCoords = tomoObj.SetOfTiltSeriesCoordinates.create(self._getPath(),
                                                                               suffix='Fiducials3D')
