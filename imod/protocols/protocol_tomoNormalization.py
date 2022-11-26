@@ -193,7 +193,7 @@ class ProtImodTomoNormalization(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def generateOutputStackStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFilename()
+        location = tomo.getFileName()
         fileName, fileExtension = os.path.splitext(location)
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))

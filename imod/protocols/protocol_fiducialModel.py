@@ -161,6 +161,7 @@ class ProtImodFiducialModel(ProtImodBase):
             try:
                 func(self, tsId)
             except Exception as e:
+                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
                 self._failedTs.append(tsId)
 
         return wrapper
@@ -327,7 +328,7 @@ class ProtImodFiducialModel(ProtImodBase):
         if len(excludedViews):
             argsBeadtrack += f"-SkipViews {','.join(excludedViews)} "
 
-        if firstItem.hasAlignment():
+        if firstItem.hasTransform():
             XfFileName = os.path.join(tmpPrefix,
                                       firstItem.parseFileName(extension=".xf"))
             argsBeadtrack += f"-prexf {XfFileName} "
@@ -478,9 +479,10 @@ class ProtImodFiducialModel(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        firstItem = ts.getFirstItem()
         trackFilePath = os.path.join(extraPrefix,
-                                     ts.getFirstItem().parseFileName(suffix="_track",
-                                                                     extension=".com"))
+                                     firstItem.parseFileName(suffix="_track",
+                                                             extension=".com"))
 
         template = """# Command file for running BEADTRACK
 #
@@ -556,9 +558,9 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
         if len(excludedViews):
             template += f"SkipViews {','.join(excludedViews)}"
 
-        if ts.getFirstItem().hasAlignment():
+        if firstItem.hasTransform():
             XfFileName = os.path.join(tmpPrefix,
-                                      ts.getFirstItem().parseFileName(extension=".xf"))
+                                      firstItem.parseFileName(extension=".xf"))
             template += f"PrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:

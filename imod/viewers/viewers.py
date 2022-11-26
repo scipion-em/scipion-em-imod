@@ -122,6 +122,10 @@ class ImodObjectView(pwviewer.CommandView):
 
             cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"
 
+        # A path called from the object browser
+        elif isinstance(obj, str):
+            cmd += f"{obj}"
+
         else:  # Tomogram
             cmd += f"{obj.getFileName()}"
 
