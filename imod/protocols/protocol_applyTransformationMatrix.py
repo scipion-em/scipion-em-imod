@@ -85,16 +85,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
-
         firstItem = ts.getFirstItem()
+        binning = int(self.binning.get())
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf")),
-            'bin': int(self.binning.get()),
+            'bin': binning,
             'imagebinned': 1.0
         }
 
@@ -112,8 +111,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         # the final sample disposition.
         if 45 < abs(rotationAngle) < 135:
             paramsAlignment.update({
-                'size': "%d,%d" % (firstItem.getYDim() // self.binning.get(),
-                                   firstItem.getXDim() // self.binning.get())
+                'size': "%d,%d" % (round(firstItem.getYDim() / binning),
+                                   round(firstItem.getXDim() / binning))
             })
 
             argsAlignment += "-size %(size)s "
@@ -129,15 +128,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
+        binning = int(self.binning.get())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
 
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+        if binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
         index = 1
         for tiltImage in ts:
@@ -147,8 +146,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 index += 1
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                if binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
                 newTs.append(newTi)
 
         ih = ImageHandler()
