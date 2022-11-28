@@ -134,6 +134,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setInterpolated(True)
         output.append(newTs)
 
         if self.binning > 1:

@@ -207,6 +207,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setCtfCorrected(True)
         output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
