@@ -627,9 +627,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
         output = self.protTomoNormalization.Tomograms
         self.assertSetSize(output, size=2)
 
-        location = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getLocation()[1]
-        fileName, _ = os.path.splitext(location)
-        tomoId = os.path.basename(fileName)
+        location = self.protTomoNormalization.inputSetOfTomograms.get().getFirstItem().getFileName()
+        tomoId = pwutils.removeBaseExt(location)
 
         self.assertTrue(os.path.exists(os.path.join(self.protTomoNormalization._getExtraPath(tomoId),
                                                     tomoId + ".mrc")))

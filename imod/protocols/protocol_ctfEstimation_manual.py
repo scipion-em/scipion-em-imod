@@ -60,7 +60,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         from imod.viewers import ImodGenericViewer
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
         view = ImodGenericViewer(None, self, self.inputSetOfTiltSeries,
-                                 displayAllButton=False, createSetButton=True,
+                                 createSetButton=True,
                                  isInteractive=True,
                                  itemDoubleClick=True)
         view.show()

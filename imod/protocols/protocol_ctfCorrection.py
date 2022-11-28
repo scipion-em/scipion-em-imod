@@ -134,6 +134,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsObjId):
+        # Considering swapXY is required to make tilt axis vertical
+        super().convertInputStep(tsObjId, doSwap=True)
+
     def generateDefocusFile(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()

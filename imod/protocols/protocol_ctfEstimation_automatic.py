@@ -344,7 +344,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
             paramsCtfPlotter['expectedDefocus'] = float(defocus)
 
-
         argsCtfPlotter = "-InputStack %(inputStack)s " \
                          "-AngleFile %(angleFile)s " \
                          "-DefocusFile %(defocusFile)s " \
