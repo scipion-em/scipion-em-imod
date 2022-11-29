@@ -580,6 +580,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(tsIn)
+            newTs.setInterpolated(True)
             output.append(newTs)
 
             tltFilePath = os.path.join(

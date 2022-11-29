@@ -281,6 +281,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setInterpolated(True)
         output.append(newTs)
 
         if self.binning > 1:

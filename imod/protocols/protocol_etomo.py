@@ -230,6 +230,7 @@ class ProtImodEtomo(ProtImodBase):
 
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
+                newTs.setInterpolated(True)
                 outputPrealiSetOfTiltSeries.append(newTs)
 
                 # Getting the excluded views in order to disable the
