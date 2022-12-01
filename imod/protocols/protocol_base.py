@@ -67,6 +67,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         ProtTomoImportFiles.__init__(self, **args)
 
+    @classmethod
+    def worksInStreaming(cls):
+        """ So far none of them work in streaming. Since this inherits from the import they were considered as "streamers". """
+        return False
+
     def defineExecutionPararell(self):
 
         self.stepsExecutionMode = STEPS_PARALLEL
