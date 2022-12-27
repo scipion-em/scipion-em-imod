@@ -7,7 +7,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -25,31 +25,30 @@
 # *
 # **************************************************************************
 
-import os
-
 from pyworkflow import BETA
 from tomo.objects import SetOfCTFTomoSeries
+
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from .protocol_base import OUTPUT_CTF_SERIE
 
 
 class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
-    Run the protocol through the interactive GUI. Defocus values are saved
-    to file and exit after autofitting. The program will not ask for confirmation before
-    removing existing entries in the defocus table. If run in interactive mode defocus values
+    Runs the protocol through the interactive GUI. The resulting defocus values
     MUST BE SAVED manually by the user.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
 
     """
 
-    _label = 'Manual CTF estimation (step 2)'
+    _label = 'Manual CTF estimation'
     _devStatus = BETA
     _interactiveMode = True
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
+        self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):
         self.inputTiltSeries = None
@@ -61,15 +60,18 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         from imod.viewers import ImodGenericViewer
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
         view = ImodGenericViewer(None, self, self.inputSetOfTiltSeries,
-                                 displayAllButton=False, createSetButton=True,
+                                 createSetButton=True,
                                  isInteractive=True,
                                  itemDoubleClick=True)
         view.show()
+        self.createOutput()
 
     def runAllSteps(self, obj):
         objId = obj.getObjId()
+        # DO not use this to avoid interpolation. CTF will be done on the input TS (hopefully non interpolated).
         self.convertInputStep(objId)
-        self.ctfEstimation(objId)
+        expDefoci = self.getExpectedDefocus()
+        self.ctfEstimation(objId, expDefoci)
 
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
@@ -82,11 +84,3 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def _summary(self):
         summary = []
         return summary
-
-    # ------------------ UTILS METHODS ------------------------------------
-
-    def getFilePath(self, ts, suffix="", extension=""):
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        return os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix=suffix,
-                                                                         extension=extension))

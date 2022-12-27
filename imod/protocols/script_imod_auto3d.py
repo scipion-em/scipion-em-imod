@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Based on script from Javi Chichon
@@ -7,7 +7,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,9 +23,8 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
-import sys
 import os
 import argparse
 
@@ -38,7 +37,7 @@ add('inputTs', metavar='INPUT_STACK',
     help='Input tilt series stack file. ')
 
 add('--widthz', type=int, default=500,
-    help='Estimated witdh in Z. ')
+    help='Estimated width in Z. ')
 
 add('--bin', type=int, default=2,
     help='Bin factor.')
@@ -123,7 +122,7 @@ header('STEP 1: PREALIGNMENT FILE GENERATION')
 run('xftoxg',
     '-input %(name)s.prexf -nfit 0 -goutput %(name)s.prexg')
 run('newstack',
-    '-input %(input)s -output %(name)s.preali -mode 0 -xform %(name)s.prexg -float 2')
+    '-input %(input)s -output %(name)s.preali -mode 0 -xform %(name)s.prexg -float 2 -antialias -1')
 
 if args.raptor:
     print("Using RAPTOR to align the tilt-series")
@@ -155,15 +154,14 @@ run('xfproduct',
 run('cp',
     '%(name)s_fid.xf %(name)s.xf')
 run('newstack',
-    '-input %(input)s -output %(name)s.ali -offset 0,0 -xform %(name)s.xf -origin -taper 1,0')
+    '-input %(input)s -output %(name)s.ali -offset 0,0 -xform %(name)s.xf -origin -taper 1,1')
 header('ALIGNMENT DONE.')
 
 header('STEP3: Starting RECONSTRUCTION')
-run('newstack', '-bin %(binFactor)s %(name)s.ali %(name)s.ali')
+run('newstack', '-bin %(binFactor)s -antialias -1 %(name)s.ali %(name)s.ali')
 run(os.path.join(TOMO3D_BIN, 'tomo3d'),
     '-o %(tomoName)s -t 8 -z %(zWidth)s -a %(name)s.tlt -i %(name)s.ali -S -l 30')
-run('trimvol', '-yz %(tomoName)s %(tomoName)s')
+run('trimvol', '-rx %(tomoName)s %(tomoName)s')
 
 # Some clean up
 run('rm', '*~')
-

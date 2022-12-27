@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,20 +22,26 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 """
 This module contains utils functions for IMOD protocols
 """
 import logging
+import os
+
 logger = logging.getLogger(__name__)
 import csv
 import math
 import numpy as np
+
 import pyworkflow.object as pwobj
+import pyworkflow.utils as pwutils
+from imod import Plugin
 
 
 def formatTransformFile(ts, transformFilePath):
-    """ This method takes a tilt series and the output transformation file path and creates an IMOD-based transform
+    """ This method takes a tilt series and the output transformation file path
+    and creates an IMOD-based transform
     file in the location indicated. """
 
     tsMatrixTransformList = []
@@ -56,9 +62,10 @@ def formatTransformFile(ts, transformFilePath):
 
 
 def formatTransformFileFromTransformList(transformMatrixList, transformFilePath):
-    """ This method takes a list of Transform matrices and the output transformation file path and creates an
+    """ This method takes a list of Transform matrices and the output
+    transformation file path and creates an
     IMOD-based transform file in the location indicated.
-    :param transformMatrixList: list of transformation matrices to be writter in file.
+    :param transformMatrixList: list of transformation matrices to be written
     :param transformFilePath: output location of the file. """
 
     tsMatrixTransformList = []
@@ -79,8 +86,9 @@ def formatTransformFileFromTransformList(transformMatrixList, transformFilePath)
 
 
 def formatTransformationMatrix(matrixFile):
-    """ This method takes an IMOD-based transformation matrix file path and returns a 3D matrix containing the
-    transformation matrices for each tilt-image belonging to the tilt-series. """
+    """ This method takes an IMOD-based transformation matrix file path and
+    returns a 3D matrix containing the transformation matrices for
+    each tilt-image belonging to the tilt-series. """
 
     with open(matrixFile, "r") as matrix:
         lines = matrix.readlines()
@@ -106,7 +114,8 @@ def formatTransformationMatrix(matrixFile):
 
 
 def formatFiducialList(fiducialFilePath):
-    """ This method takes an IMOD-based fiducial model file path and returns a list containing the coordinates of each
+    """ This method takes an IMOD-based fiducial model file path
+    and returns a list containing the coordinates of each
     fiducial for each tilt-image belonging to the tilt-series. """
 
     fiducialList = []
@@ -124,8 +133,10 @@ def formatFiducialList(fiducialFilePath):
 
 
 def formatFiducialResidList(fiducialFilePath):
-    """ This method takes an IMOD-based fiducial residual model file path and returns a list containing the coordinates
-    and residual values of each fiducial for each tilt-image belonging to the tilt-series. Since IMOD establishes a
+    """ This method takes an IMOD-based fiducial residual model
+    file path and returns a list containing the coordinates
+    and residual values of each fiducial for each tilt-image
+    belonging to the tilt-series. Since IMOD establishes a
     float value for each coordinate the are parsed to int. """
 
     fiducialResidList = []
@@ -146,8 +157,10 @@ def formatFiducialResidList(fiducialFilePath):
 
 
 def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
-    """ This method takes a Scipion LandmarkModel object and generates a text file in the sepecified location in IMOD
-    convention that contains the information of the position of each fiducial through the tilt-series.
+    """ This method takes a Scipion LandmarkModel object and
+    generates a text file in the sepecified location in IMOD
+    convention that contains the information of the position
+    of each fiducial through the tilt-series.
     :param landmarkModel: landmarkModel Scipion object.
     :param outputFilePath: location where the output file must be saved.
     """
@@ -156,14 +169,43 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
     outputLines = []
 
     for vector in infoTable:
-        outputLines.append("\t%s\t%s\t%s\n" % (vector[0], vector[1], vector[2]))
+        outputLines.append("\t%s\t%s\t%s\t%s\n" % (vector[3], vector[0],
+                                                   vector[1], int(vector[2])-1))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
 
 
+def generateIMODFidFile(protocol, landmarkModel):
+    fiducialTextFile = pwutils.replaceExt(landmarkModel.getFileName(), "txt")
+    generateIMODFiducialTextFile(landmarkModel, fiducialTextFile)
+
+    fiducialModelGapPath = pwutils.replaceExt(landmarkModel.getFileName(), "fid")
+
+    if not os.path.exists(fiducialModelGapPath):
+        paramsPoint2Model = {
+            'inputFile': fiducialTextFile,
+            'outputFile': fiducialModelGapPath,
+            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
+            'size': landmarkModel.getSize()
+        }
+
+        # -sp <value> parameter: generate sphere with radius <value>
+        argsPoint2Model = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s " \
+                          "-image %(image)s " \
+                          "-zc -ci %(size)s"
+
+        protocol.setStepsExecutor()
+        Plugin.runImod(protocol, 'point2model',
+                       argsPoint2Model % paramsPoint2Model)
+
+    return fiducialModelGapPath
+
+
 def formatAngleFile(inputTs, angleFilePath):
-    """ This method takes a list containing the angles for each tilt-image belonging to the tilt-series and writes the
+    """ This method takes a list containing the angles for each
+    tilt-image belonging to the tilt-series and writes the
     IMOD-based angle file at the given location. """
 
     angleList = []
@@ -177,7 +219,8 @@ def formatAngleFile(inputTs, angleFilePath):
 
 
 def formatAngleList(tltFilePath):
-    """ This method takes an IMOD-based angle file path and returns a list containing the angles for each tilt-image
+    """ This method takes an IMOD-based angle file path and
+    returns a list containing the angles for each tilt-image
     belonging to the tilt-series. """
 
     angleList = []
@@ -186,13 +229,13 @@ def formatAngleList(tltFilePath):
         tltText = f.read().splitlines()
         for line in tltText:
             angleList.append(float(line))
-    # angleList.reverse()
 
     return angleList
 
 
 def format3DCoordinatesList(coordFilePath):
-    """ This method takes an IMOD-based fiducial coordinates file path and returns a list containing each coordinate
+    """ This method takes an IMOD-based fiducial coordinates
+    file path and returns a list containing each coordinate
     for each fiducial belonging to the tilt-series. """
 
     coorList = []
@@ -217,8 +260,9 @@ def format3DCoordinatesList(coordFilePath):
 
 
 def getDefocusFileFlag(defocusFilePath):
-    """ This method returns the flag that indicate the information contained in an IMOD defocus file. The flag value "is
-    the sum of:
+    """ This method returns the flag that indicate the
+    information contained in an IMOD defocus file. The flag
+    value "is the sum of:
           1 if the file has astigmatism values
           2 if the astigmatism axis angle is in radians, not degrees
           4 if the file has phase shifts
@@ -246,7 +290,8 @@ def getDefocusFileFlag(defocusFilePath):
 
 
 def readDefocusFileAsTable(defocusFilePath):
-    """ This method takes an IMOD-based ctf estimation file path and returns a table containing the CTF estimation
+    """ This method takes an IMOD-based ctf estimation file path
+    and returns a table containing the CTF estimation
     information of each tilt-image (per line) belonging to the tilt-series. """
     defocusTable = []
 
@@ -283,10 +328,12 @@ def readDefocusFileAsTable(defocusFilePath):
 
 
 def readCTFEstimationInfoFile(defocusFilePath, flag):
-    """ This method takes an IMOD-based file path containing the information associated to a CTF estimation and
-    produces a set of dictionaries containing the information of each parameter for each tilt-image belonging to the
-    tilt-series. These dictionaries are readable information for Scipion, useful to generate the corresponding output
-    CTFTomoSeries object. """
+    """ This method takes an IMOD-based file path containing the
+    information associated to a CTF estimation and produces a set
+    of dictionaries containing the information of each parameter
+    for each tilt-image belonging to the tilt-series. These
+    dictionaries are readable information for Scipion, useful
+    to generate the corresponding output CTFTomoSeries object. """
 
     # Read info as table
     ctfInfoIMODTable = readDefocusFileAsTable(defocusFilePath)
@@ -317,8 +364,10 @@ def readCTFEstimationInfoFile(defocusFilePath, flag):
 
 
 def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based CTF estimation containing only defocus
-    information (5 columns) and produces a new dictionary containing the same information in a format readable for
+    """ This method takes a table containing the information of
+    an IMOD-based CTF estimation containing only defocus
+    information (5 columns) and produces a new dictionary
+    containing the same information in a format readable for
     Scipion. Flag 0. """
 
     if len(ctfInfoIMODTable[0]) == 5:
@@ -338,14 +387,17 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
                     defocusUDict[index] = [pwobj.Float(defocus)]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
+        raise Exception("Misleading file format, CTF estimation with "
+                        "no astigmatism should be 5 columns long")
 
     return defocusUDict
 
 
 def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus and
-    astigmatism information (7 columns) and produces a set of dictionaries table containing the same information in a
+    """ This method takes a table containing the information of an
+    IMOD-based CTF estimation containing defocus and
+    astigmatism information (7 columns) and produces a set
+    of dictionaries table containing the same information in a
     format readable for Scipion. Flag 1. """
 
     if len(ctfInfoIMODTable[0]) == 7:
@@ -385,15 +437,18 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
                     defocusAngleDict[index] = [pwobj.Float(element[6])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with astigmatism should be 7 columns long")
+        raise Exception("Misleading file format, CTF estimation "
+                        "with astigmatism should be 7 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict
 
 
 def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
-    and phase shift information (6 columns) and produces a new set of dictionaries containing the same
-    information in a format readable for Scipion. Flag 4. """
+    """ This method takes a table containing the information of
+    an IMOD-based CTF estimation containing defocus, and phase
+    shift information (6 columns) and produces a new set of
+    dictionaries containing the same information in a format
+    readable for Scipion. Flag 4. """
 
     if len(ctfInfoIMODTable[0]) == 6:
         defocusUDict = {}
@@ -421,16 +476,19 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[5])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with astigmatism and phase shift should be 6 columns "
+        raise Exception("Misleading file format, CTF estimation with "
+                        "defocus and phase shift should be 6 columns "
                         "long")
 
     return defocusUDict, phaseShiftDict
 
 
 def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
-    astigmatism and phase shift information (8 columns) and produces a new set of dictionaries containing the same
-    information in a format readable for Scipion. Flag 5. """
+    """ This method takes a table containing the information of
+    an IMOD-based CTF estimation containing defocus, astigmatism
+    and phase shift information (8 columns) and produces a new
+    set of dictionaries containing the same information in a
+    format readable for Scipion. Flag 5. """
 
     if len(ctfInfoIMODTable[0]) == 8:
         defocusUDict = {}
@@ -476,16 +534,19 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with astigmatism and phase shift should be 8 columns "
+        raise Exception("Misleading file format, CTF estimation with "
+                        "astigmatism and phase shift should be 8 columns "
                         "long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
 
 
 def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable):
-    """ This method takes a table containing the information of an IMOD-based CTF estimation containing defocus,
-    astigmatism, phase shift information and cut-on frequency (8 columns) and produces a new set of dictionaries
-    containing the same information in a format readable for Scipion. Flag 37. """
+    """ This method takes a table containing the information of an
+    IMOD-based CTF estimation containing defocus, astigmatism, phase
+    shift information and cut-on frequency (8 columns) and produces a
+    new set of dictionaries containing the same information in a
+    format readable for Scipion. Flag 37. """
 
     if len(ctfInfoIMODTable[0]) == 9:
         defocusUDict = {}
@@ -538,14 +599,17 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with astigmatism, phase shift and cut-on frequency "
+        raise Exception("Misleading file format, CTF estimation with "
+                        "astigmatism, phase shift and cut-on frequency "
                         "should be 8 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
 
 
-def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=False):
-    """ This methods takes a ctfTomoSeries object a generate a defocus information file in IMOD formatting containing
+def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
+                                      isRelion=False):
+    """ This methods takes a ctfTomoSeries object a generate a
+    defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
     tiltSeries = ctfTomoSeries.getTiltSeries()
@@ -553,7 +617,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
     # Check if there is CTF estimation information as list
-    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList():
+    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList() and not isRelion:
 
         logger.debug("Defocus file generated form a list.")
 
@@ -570,15 +634,14 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
             with open(defocusFilePath, 'w') as f:
                 lines = []
                 pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
-                if isRelion:
-                    lines.append(pattern % (0, 0, 0, 0, 2))
 
                 for index in defocusUDict.keys():
 
                     if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # Dictionary keys is reversed because IMOD set indexes
+                    # upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
                     newLine = (pattern % (
                         index,
@@ -599,7 +662,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
         elif flag == 1:
             # Astigmatism estimation
-            logger.debug("Flag 1: Astigmatism estimtion.")
+            logger.debug("Flag 1: Astigmatism estimation.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -607,7 +670,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                # This line is added at the beginning of the file in
+                # order to match the IMOD defocus file format.
                 lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
@@ -615,7 +679,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # Dictionary keys is reversed because IMOD set indexes
+                    # upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         index,
@@ -641,7 +706,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format.
+                # This line is added at the beginning of the file in
+                # order to match the IMOD defocus file format.
                 lines = ["4\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
@@ -649,7 +715,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # Dictionary keys is reversed because IMOD set indexes
+                    # upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.2f\n" % (
                         index,
@@ -676,7 +743,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format
+                # This line is added at the beginning of the file in order
+                # to match the IMOD defocus file format
                 lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] 
 
                 for index in defocusUDict.keys():
@@ -684,7 +752,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # Dictionary keys is reversed because IMOD set indexes
+                    # upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
                         index,
@@ -714,7 +783,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
-                # This line is added at the beginning of the file in order to match the IMOD defocus file format
+                # This line is added at the beginning of the file in order
+                # to match the IMOD defocus file format
                 lines = ["37\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
@@ -722,7 +792,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
 
-                    # Dictionary keys is reversed because IMOD set indexes upside down Scipion (highest index for
+                    # Dictionary keys is reversed because IMOD set indexes
+                    # upside down Scipion (highest index for
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\t%.4f\n" % (
                         index,
@@ -742,7 +813,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
                 f.writelines(lines)
 
         else:
-            raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
+            raise Exception("Defocus file flag do not supported. Only "
+                            "supported formats corresponding to flags 0, "
                             "1, 4, 5, and 37.")
 
     else:
@@ -753,7 +825,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
         with open(defocusFilePath, 'w') as f:
             lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
-            # CtfTomoSeries is iterated inversely because IMOD set indexes upside down Scipion (highest index for
+            # CtfTomoSeries is iterated inversely because IMOD set indexes
+            # upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
             for ctfTomo in ctfTomoSeries:
                 index = ctfTomo.getIndex().get()
@@ -775,7 +848,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, isRelion=F
 
 
 def generateDefocusUDictionary(ctfTomoSeries):
-    """ This method generates a dictionary containing the defocus U estimation information from a ctfTomoSeries
+    """ This method generates a dictionary containing
+     the defocus U estimation information from a ctfTomoSeries
     object. """
 
     defocusUDict = {}
@@ -793,7 +867,8 @@ def generateDefocusUDictionary(ctfTomoSeries):
 
 
 def generateDefocusVDictionary(ctfTomoSeries):
-    """ This method generates a dictionary containing the defocus V estimation information from a ctfTomoSeries
+    """ This method generates a dictionary containing
+    the defocus V estimation information from a ctfTomoSeries
     object. """
 
     defocusVDict = {}
@@ -810,7 +885,8 @@ def generateDefocusVDictionary(ctfTomoSeries):
 
 
 def generateDefocusAngleDictionary(ctfTomoSeries):
-    """ This method generates a dictionary containing the defocus angle estimation information from a ctfTomoSeries
+    """ This method generates a dictionary containing the
+    defocus angle estimation information from a ctfTomoSeries
     object. """
 
     defocusAngleDict = {}
@@ -827,8 +903,9 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
 
 
 def generatePhaseShiftDictionary(ctfTomoSeries):
-    """ This method generates a dictionary containing the phase shift estimation information from a ctfTomoSeries
-    object. """
+    """ This method generates a dictionary containing
+    the phase shift estimation information from a
+    ctfTomoSeries object. """
 
     phaseShiftDict = {}
 
@@ -844,8 +921,9 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
 
 
 def generateCutOnFreqDictionary(ctfTomoSeries):
-    """ This method generates a dictionary containing the cut-on frequency estimation information from a ctfTomoSeries
-    object. """
+    """ This method generates a dictionary containing
+    the cut-on frequency estimation information from
+    a ctfTomoSeries object. """
 
     cutOnFreqDict = {}
 
@@ -861,8 +939,10 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
 
 
 def formatGoldBead3DCoordinatesList(coordFilePath):
-    """This method takes the IMOD-based gold bead 3D coordinates obtained with find3dbeads program file path and
-    returns a list containing each coordinate for each bead belonging to the tilt-series"""
+    """This method takes the IMOD-based gold bead 3D
+    coordinates obtained with find3dbeads program file
+    path and returns a list containing each coordinate
+    for each bead belonging to the tilt-series"""
 
     coorList = []
 
@@ -877,7 +957,8 @@ def formatGoldBead3DCoordinatesList(coordFilePath):
 
 
 def calculateRotationAngleFromTM(ts):
-    """ This method calculates que average tilt image rotation angle from its associated transformation matrix."""
+    """ This method calculates que average tilt image rotation
+    angle from its associated transformation matrix."""
     avgRotationAngle = 0
 
     if not ts.getFirstItem().hasTransform():
@@ -895,23 +976,26 @@ def calculateRotationAngleFromTM(ts):
 
 
 def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information of a tilt series in the specified location from
-    the dose per tilt information. The format file consist in a single column with one dose value per line that must
-    coincide with each image from the tilt-series"""
+    """ This method generates a file containing the dose information
+    of a tilt series in the specified location from the accumulated
+    dose and dose per tilt. The format is two columns per each tilt image:
+     the prior accumulated dose and the image dose
+     """
 
-    ind = np.argsort([ti.getIndex() for ti in ts])
-    tiList = [ti for ti in ts]
+    doseInfoList = []
 
-    doseInfoList = [tiList[i].getAcquisition().getDosePerFrame() for i in ind]
+    for ti in ts:
+        acq = ti.getAcquisition()
+        doseInfoList.append((acq.getAccumDose()-acq.getDosePerFrame(), acq.getDosePerFrame()))
 
-    with open(doseFileOutputPath, 'w') as f:
-        for dose in doseInfoList:
-            f.writelines("%f\n" % dose)
+    np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
 
 
 def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information of a tilt series in the specified location from
-    the accumulated dose per tilt information. The format file consist in a single column with one dose value per line
+    """ This method generates a file containing the dose information
+    of a tilt series in the specified location from the accumulated
+    dose per tilt information. The format file consist in a single
+    column with one dose value per line
     that must coincide with each image from the tilt-series"""
 
     doseInfoList = []
@@ -925,17 +1009,21 @@ def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
 
 
 def readExcludeViewsFile(excludeViewsFilePath):
-    """ Thie method retrieves from a input exclude views file path a matrix with two columns containing the tsId of
-    tilt-series from which exlude the views in the first column and in the second a string with the pattern of the
-    excluded views"""
+    """ This method retrieves from an input exclude views
+    file path a dictionary where the key is the tsId and the
+    value, the views to exclude"""
 
-    excludedViews = []
+    excludedViews = {}
 
+    logger.debug("Reading excluded views from %s" % excludeViewsFilePath)
     with open(excludeViewsFilePath, 'r') as f:
         lines = f.read().splitlines()
 
         for line in lines:
             vector = line.split()
-            excludedViews.append(vector)
+            tsId = vector[0]
+            views = vector[1]
+            logger.info("For %s found excluded views: %s" % (tsId, views))
+            excludedViews[tsId] = views
 
     return excludedViews

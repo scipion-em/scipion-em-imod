@@ -1,13 +1,12 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors: Yunior C. Fonseca Reyna    (cfonseca@cnb.csic.es)
-# *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,30 +22,24 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
-
-import tempfile
 import threading
-import tkinter
-from tkinter import *
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from imod.protocols import ProtImodEtomo
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
-from pyworkflow.gui.dialog import ListDialog, showInfo
+from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 from pyworkflow.plugin import Domain
-
 import tomo.objects
-from imod import Plugin
+
+from ..protocols import ProtImodEtomo
 
 
 class protClass:
     protImodEtomoClass = 1
     protImodCTFEstimation = 2
+
 
 class ImodGenericTreeProvider(TreeProvider):
     """ Model class that will retrieve the information from TiltSeries,
@@ -60,8 +53,8 @@ class ImodGenericTreeProvider(TreeProvider):
     COL_ALIGNED = 'Aligned'
     COL_COOR3D = 'Coordinates 3D'
     COL_LANDMODEL_NO_GAPS = 'Fiducial models w/o gaps'
-    COL_RECONST_TOMOGRAM = 'Full tomograms'
-    COL_PREPROCESS_RECONST_TOMOGRAM = 'Postprocess tomograms'
+    COL_RECONST_TOMOGRAM = 'Raw tomograms'
+    COL_PREPROCESS_RECONST_TOMOGRAM = 'Post-processed tomograms'
 
     ORDER_DICT = {COL_TS: 'id'}
 
@@ -71,8 +64,8 @@ class ImodGenericTreeProvider(TreeProvider):
             self.COL_TS = 'Tomograms'
             self.title = 'Tomograms display'
         elif isinstance(objs, tomo.objects.SetOfLandmarkModels):
-            self.COL_TS = 'LandmarkModels'
-            self.title = 'LandmarkModels display'
+            self.COL_TS = 'Landmark models'
+            self.title = 'Landmark models display'
         self.protocol = protocol
         self.objs = objs
         self.isInteractive = isInteractive
@@ -110,8 +103,8 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getColumns(self):
         cols = [
-            (self.COL_TS, 100),
-            (self.COL_INFO, 350)]
+            (self.COL_TS, 200),
+            (self.COL_INFO, 400)]
         if self.isInteractive:
             protocolClass = self.getProtocolClass()
             if protocolClass == protClass.protImodEtomoClass:
@@ -168,11 +161,12 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getImodEtomoColumnValues(self, obj, values):
         status = 'pending'
-        for item in  self.protocol.inputSetOfTiltSeries.get():
+        for item in self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
                 """Prealigned tilt-series"""
                 prealiFilePath = self.protocol.getFilePath(item,
-                                                           extension=".preali")
+                                                           suffix="_preali",
+                                                           extension=".mrc")
                 if os.path.exists(prealiFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -180,7 +174,9 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Aligned tilt-series"""
-                aligFilePath = self.protocol.getFilePath(item, extension=".ali")
+                aligFilePath = self.protocol.getFilePath(item,
+                                                         suffix="_ali",
+                                                         extension=".mrc")
                 if os.path.exists(aligFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -207,8 +203,8 @@ class ImodGenericTreeProvider(TreeProvider):
 
                 """Full reconstructed tomogram"""
                 reconstructTomoFilePath = self.protocol.getFilePath(item,
-                                                                    suffix="_full",
-                                                                    extension=".rec")
+                                                                    suffix="_full_rec",
+                                                                    extension=".mrc")
                 if os.path.exists(reconstructTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -217,7 +213,8 @@ class ImodGenericTreeProvider(TreeProvider):
 
                 """Post-processed reconstructed tomogram"""
                 posprocessedRecTomoFilePath = self.protocol.getFilePath(item,
-                                                                        extension=".rec")
+                                                                        suffix="_rec",
+                                                                        extension=".mrc")
                 if os.path.exists(posprocessedRecTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -231,7 +228,8 @@ class ImodGenericTreeProvider(TreeProvider):
         for item in self.protocol.inputSetOfTiltSeries:
             if item.getTsId() == obj.getTsId():
                 extraPrefix = self.protocol._getExtraPath(item.getTsId())
-                defocusFilePath = os.path.join(extraPrefix, item.getFirstItem().parseFileName(extension=".defocus"))
+                defocusFilePath = os.path.join(extraPrefix,
+                                               item.getFirstItem().parseFileName(extension=".defocus"))
                 if os.path.exists(defocusFilePath):
                     values.append('DONE')
                     status = 'done'
@@ -259,7 +257,8 @@ class ImodGenericTreeProvider(TreeProvider):
                 def createViewer(viewerClass, obj):
                     proj = self.protocol.getProject()
                     item = self.objs[obj.getObjId()]  # to load mapper
-                    return lambda : viewerClass(project=proj).visualize(item)
+
+                    return lambda: viewerClass(project=proj, protocol=self.protocol).visualize(item)
                 actions.append(('Open with %s' % viewerClass.__name__,
                                 createViewer(viewerClass, obj)))
         return actions
@@ -270,10 +269,8 @@ class ImodGenericTreeProvider(TreeProvider):
 
 
 class ImodListDialog(ListDialog):
-    def __init__(self, parent, title, provider, displayAllButton=True,
-                 createSetButton=False,
+    def __init__(self, parent, title, provider, createSetButton=False,
                  itemDoubleClick=False, **kwargs):
-        self.displayAllButton = displayAllButton
         self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
@@ -289,13 +286,6 @@ class ImodListDialog(ListDialog):
         gui.configureWeigths(dialogFrame, row=1)
         self._createFilterBox(dialogFrame)
         self._col = 0
-        if self.displayAllButton:
-            self.displayAll = self._addButton(dialogFrame,
-                                              'Display all at once',
-                                              pwutils.Icon.ACTION_VISUALIZE,
-                                              self._displayAll,
-                                              sticky='ne',
-                                              state=tk.NORMAL)
         if self.createSetButton:
             self.createSet = self._addButton(dialogFrame,
                                              'CTFTomo',
@@ -326,15 +316,6 @@ class ImodListDialog(ListDialog):
         self._col += 1
         return btn
 
-    def _displayAll(self, e=None):
-        set = self.provider.objs
-        if isinstance(set, tomo.objects.SetOfTiltSeries):
-            ImodSetView(set)
-        elif isinstance(set, tomo.objects.SetOfLandmarkModels):
-            ImodSetOfLandmarkModelsView(set)
-        elif isinstance(set, tomo.objects.SetOfTomograms):
-            ImodSetOfTomogramsView(set)
-
     def _createOutput(self, e=None):
         self.provider.protocol.createOutput()
 
@@ -348,75 +329,19 @@ class ImodListDialog(ListDialog):
 
     def refresh_gui(self):
         self.tree.update()
-        if self.proc.isAlive():
+        if self.proc.is_alive():
             self.after(1000, self.refresh_gui)
-
-
-class ImodSetView(pwviewer.CommandView):
-    """ Wrapper to visualize different type of objects with the 3dmod """
-
-    def __init__(self, set):
-        fn = ""
-        for item in set:
-            # Remove :mrc if present
-            fn += " " + item.getFirstItem().getFileName().split(':')[0]
-        pwviewer.CommandView.__init__(self, "%s %s" % (Plugin.getImodCmd('3dmod'), fn))
-
-
-
-class ImodSetOfTomogramsView(pwviewer.CommandView):
-    """ Wrapper to visualize set of tomograms with 3dmod """
-
-    def __init__(self, set):
-        fn = " -s 0,0 "
-        for item in set:
-            fn += " " + item.getLocation()[1]
-        pwviewer.CommandView.__init__(self, Plugin.getImodCmd('3dmod') + fn)
-
-
-class ImodSetOfLandmarkModelsView(pwviewer.CommandView):
-    """ Wrapper to visualize landmark models with 3dmod """
-
-    def __init__(self, lmmSet):
-        """
-        View to display Land mark model using the imod viewer
-        :param lmmSet:
-        :param kwargs:
-        """
-        super().__init__("")
-        self.set = lmmSet
-
-    def show(self):
-
-        self._cmd = ""
-        for index, item in enumerate(self.set):
-            itemComplete = self.set.completeLandmarkModel(item)
-
-            if itemComplete.getTiltSeries().getFirstItem().hasTransform():
-                otuputTSInterpolatedPath = os.path.join(tempfile.gettempdir(), "ts_interpolated_%d.mrc" % index)
-                itemComplete.getTiltSeries().applyTransform(otuputTSInterpolatedPath)
-
-                self._cmd += Plugin.getImodCmd('3dmod') + " -m " + otuputTSInterpolatedPath + " " + \
-                      itemComplete.getModelName() + " ; "
-
-            else:
-                self._cmd += Plugin.getImodCmd('3dmod') + " -m " + itemComplete.getTiltSeries().getFirstItem().getFileName() + \
-                      " " + itemComplete.getModelName() + " ; "
-
-        super().show()
 
 
 class ImodGenericViewer(pwviewer.View):
     """ This class implements a view using Tkinter ListDialog
     and the ImodTreeProvider.
     """
-    def __init__(self, parent, protocol, objs, displayAllButton=True,
-                 createSetButton=False, isInteractive=False,
-                 itemDoubleClick=False, **kwargs):
+    def __init__(self, parent, protocol, objs, createSetButton=False,
+                 isInteractive=False, itemDoubleClick=False, **kwargs):
         """
          Params:
             parent: Tkinter parent widget
-
 
         From kwargs:
                 message: message tooltip to show when browsing.
@@ -432,14 +357,10 @@ class ImodGenericViewer(pwviewer.View):
         self._protocol = protocol
         self._provider = ImodGenericTreeProvider(protocol, objs, isInteractive)
         self.title = self._provider.title
-        self.displayAllButton = displayAllButton
         self.createSetButton = createSetButton
         self.itemDoubleClick = itemDoubleClick
 
     def show(self):
         ImodListDialog(self._tkParent, self.title, self._provider,
-                       displayAllButton=self.displayAllButton,
                        createSetButton=self.createSetButton,
                        itemDoubleClick=self.itemDoubleClick)
-
-

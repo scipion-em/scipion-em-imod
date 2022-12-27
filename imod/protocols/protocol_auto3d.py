@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,14 +22,13 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
-import pyworkflow as pw
 from pyworkflow import BETA
+import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
-
 from tomo.protocols import ProtTomoReconstruct
 from tomo.convert import writeTiStack
 
@@ -40,9 +39,8 @@ class ProtImodAuto3D(ProtTomoReconstruct):
     (Sample scripts provided by Javi Chichon)
     """
 
-    _label = 'imod auto3d'
+    _label = 'auto3d'
     _devStatus = BETA
-
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -50,7 +48,7 @@ class ProtImodAuto3D(ProtTomoReconstruct):
         form.addParam('inputTiltSeries', params.PointerParam,
                       pointerClass='TiltSeries,SetOfTiltSeries',
                       important=True,
-                      label='Input Tilt-Series',
+                      label='Input tilt-series',
                       help='Provide either a single TiltSeries or a '
                            'SetOfTiltSeries that will be used for the quick '
                            'reconstruction of Tomograms.')
@@ -80,14 +78,14 @@ class ProtImodAuto3D(ProtTomoReconstruct):
                        label='Number of markers to track',
                        help='Number of markers that will be tracked by RAPTOR.')
 
-    # --------------------------- STEPS functions ----------------------------
+    # --------------------------- STEPS functions -----------------------------
     def processTiltSeriesStep(self, tsId):
         ts = self._tsDict.getTs(tsId)
 
         workingFolder = self._getTmpPath(tsId)
         prefix = os.path.join(workingFolder, tsId)
 
-        pw.utils.makePath(workingFolder)
+        pwutils.makePath(workingFolder)
 
         # Write new stack discarding excluded tilts
         excludeList = map(int, self.excludeList.get().split())
@@ -118,13 +116,12 @@ class ProtImodAuto3D(ProtTomoReconstruct):
         tomoPath = os.path.join(workingFolder, tomoName)
 
         if os.path.exists(tomoPath):
-            pw.utils.moveFile(tomoPath, self._getPath(tomoName))
+            pwutils.moveFile(tomoPath, self._getPath(tomoName))
         else:
-            print("ERROR: The expected tomogram for Tilt-Series %s "
+            print("ERROR: The expected tomogram for tilt-series %s "
                   "was not properly generated. " % tsId)
 
-        if not pw.utils.envVarOn('SCIPION_DEBUG_NOCLEAN'):
-            pw.utils.cleanPath(workingFolder)
+        if not pwutils.envVarOn('SCIPION_DEBUG_NOCLEAN'):
+            pwutils.cleanPath(workingFolder)
 
         self._tsDict.setFinished(tsId)
-

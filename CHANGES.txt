@@ -1,0 +1,49 @@
+3.1:
+- remove displayAll button from set viewer as it seems to be not practical to open all items at once (close #141)
+- change etomo naming style to mrc (close #153)
+- output xtilt file from fid alignment
+- rename fid alignment output to align.log and parse it with imod tools
+- add beadtrack step  with current model as seed (close #160)
+- refactor viewers:
+   - remove ImodSetOfLandmarkModelsView, ImodSetOfTomogramsView, ImodSetView
+   - remove displayAllButton
+   - update etomoviewer for new naming style
+   - show tilt angles in 3dmod viewer (close #161 )
+   - fix saved3DCoord etomo output display
+- fix rotation angle calculation for newstack operation
+- remove transformation step from imod ctf estimation (ctf is estimated on raw ts stack)
+- fix rotation angle range for swapping x/y for newstack
+- do not copy objId for apply TM protocol when excluding views
+- fix output size in apply TM protocol
+- fix wrong output file index numbers in the exclude views protocol
+- fix gold erasing option in the fid. alignment protocol
+- fix generating ctf output; hide some params from manual ctf protocol; do not run autofit for manual protocol
+- added xform file to ctfphaseflip to rotate astigmatism estimation and adjust for x-shifts for the image center
+- fix excluded views parsing from com files
+- rename "normalization" to "preprocess" protocols
+- handle excluded views properly (closes #137 , closes #147)
+- ctfplotter handles excluded views properly, output ctfs for such views have 0 values
+- fix failed ts generation in fid.alignment protocol
+- pep8 fixes, add pip-related files
+- mtffilter was missing pixelsize param, causing wrong filter being applied (always with 1A/px)
+- add antialias param to ts norm protocol
+- fix wrong default naming style for etomo
+- enable robust fitting for beadtracker
+- remove redundant updateDim calls
+- get acquisition from ts when creating a tomo
+- fix pixsize and dims for etomo outputs (closes #139)
+- fix beadtrack args to match copytomocoms script
+- always use antialias when binning a stack
+- two surfaces search is off in both protocols for consistency
+- bead radius default is 18px (good range for bin 4 and 10nm beads)
+- use sobel filter for bead centering for most cryo data
+- use lowpass for bead tracking
+- use adjustbeadsizes
+- trimvol -yz replaced by -rx, the first one flips the hand
+- add expandcircles to eraser
+- replace wrong dose file format for mtffilter
+- set output 3D coord size based on bead diameter
+- fix betterradius param in gold eraser tab of the fid alignment
+- add missing pix size in fid align
+- fix minpacing in gold picker
+- add missing taper arg for newstack

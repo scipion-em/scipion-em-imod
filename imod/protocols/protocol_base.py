@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
 # *
@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,22 +22,19 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
 
-from pwem.protocols import EMProtocol
-from pyworkflow.object import Set, CsvList, Integer, Pointer
+from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import path
+from pwem.protocols import EMProtocol
+from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
+from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
+                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates)
 
-from tomo.protocols import ProtTomoBase
-from tomo.protocols.protocol_base import ProtTomoImportFiles
-from tomo.objects import SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries, CTFTomoSeries, CTFTomo, \
-    SetOfTiltSeriesCoordinates
-
-from imod import utils
-from imod import Plugin
+from .. import Plugin, utils
 
 OUTPUT_TS_COORDINATES_NAME = "TiltSeriesCoordinates"
 OUTPUT_FIDUCIAL_NO_GAPS_NAME = "FiducialModelNoGaps"
@@ -60,15 +57,20 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         # Possible outputs (synchronize these names with the constants)
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
-        self.FiducialModelGaps =None
+        self.FiducialModelGaps = None
         self.TiltSeries = None
         self.InterpolatedTiltSeries = None
         self.CTFTomoSeries = None
-        self.FailedTiltSeries =None
+        self.FailedTiltSeries = None
         self.Tomograms = None
         self.Coordinates3D = None
 
         ProtTomoImportFiles.__init__(self, **args)
+
+    @classmethod
+    def worksInStreaming(cls):
+        """ So far none of them work in streaming. Since this inherits from the import they were considered as "streamers". """
+        return False
 
     def defineExecutionPararell(self):
 
@@ -79,7 +81,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         ProtTomoImportFiles._defineImportParams(self, form)
 
     # --------------------------- CACULUS functions ---------------------------
-    def convertInputStep(self, tsObjId, generateAngleFile=True, imodInterpolation=True):
+    def convertInputStep(self, tsObjId, generateAngleFile=True,
+                         imodInterpolation=True, doSwap=False):
+        """
+
+        :param tsObjId: Tilt series identifier
+        :param generateAngleFile:  Boolean(True) to generate IMOD angle file
+        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+                                  imod in case there is a TM.
+                                  Pass None to cancel interpolation.
+        :param doSwap: if applying alignment, consider swapping X/y
+        :return:
+        """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
         elif isinstance(self.inputSetOfTiltSeries, Pointer):
@@ -97,59 +110,93 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
 
-        """Apply the transformation form the input tilt-series"""
-        # Use IMOD newstack interpolation
-        if imodInterpolation:
+        # .. Interpolation cancelled
+        if imodInterpolation is None:
+            self.info("Tilt series %s linked." % tsId)
+            path.createLink(firstItem.getFileName(), outputTsFileName)
+
+        elif imodInterpolation:
+            """Apply the transformation form the input tilt-series"""
+            # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
-                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+                outputTmFileName = os.path.join(tmpPrefix,
+                                                firstItem.parseFileName(extension=".xf"))
                 utils.formatTransformFile(ts, outputTmFileName)
 
-                # Apply interpolation
-                paramsAlignment = {
-                    'input': firstItem.getFileName(),
-                    'output': outputTsFileName,
-                    'xform': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf")),
-                }
+                argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                             outputTsFileName,
+                                                                             xfFile=outputTmFileName,
+                                                                             firstItem=firstItem,
+                                                                             doSwap=doSwap)
 
-                argsAlignment = "-input %(input)s " \
-                                "-output %(output)s " \
-                                "-xform %(xform)s " \
+                self.info("Interpolating tilt series %s with imod" % tsId)
+                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-                rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+            else:
+                self.info("Linking tilt series %s" % tsId)
+                path.createLink(firstItem.getFileName(), outputTsFileName)
 
-                # Check if rotation angle is greater than 45º. If so, swap x and y dimensions to adapt output image sizes to
+        # Use Xmipp interpolation via Scipion
+        else:
+            self.info("Interpolating tilt series %s with emlib" % tsId)
+            ts.applyTransform(outputTsFileName)
+
+        self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
+
+        if generateAngleFile:
+            """Generate angle file"""
+            angleFilePath = os.path.join(tmpPrefix,
+                                         firstItem.parseFileName(extension=".tlt"))
+            ts.generateTltFile(angleFilePath)
+
+    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
+                               xfFile=None, firstItem=None, binning=1, doSwap=False):
+        """ Returns basic newstack arguments
+        
+        :param ts: Title Series object
+        :param outputTsFileName: tilt series output file name after newstack
+        :param inputTsFileName: Input tilt series file name. Default to firsItem.getFilename()
+        :param xfFile: xf file name, if passed, alignment will be generated and used
+        :param firstItem: Optional, otherwise it will be taken from ts
+        :param binning: Default to 1. to apply to output size
+        :param doSwap: Default False.
+        
+        """
+        
+        if firstItem is None:
+            firstItem = ts.getFirstItem()
+
+        if inputTsFileName is None:
+            inputTsFileName = firstItem.getFileName()
+
+        # Apply interpolation
+        paramsAlignment = {
+            'input': inputTsFileName,
+            'output': outputTsFileName,
+        }
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-taper 1,1 "
+
+        if xfFile is not None:
+            paramsAlignment['xform'] = xfFile
+            argsAlignment += "-xform %(xform)s "
+
+            if doSwap:
+                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+                # Check if rotation angle is greater than 45º. If so,
+                # swap x and y dimensions to adapt output image sizes to
                 # the final sample disposition.
-                if rotationAngleAvg > 45 or rotationAngleAvg < -45:
+                if 45 < abs(rotationAngle) < 135:
                     paramsAlignment.update({
-                        'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
+                        'size': "%d,%d" % (round(firstItem.getYDim()/binning),
+                                           round(firstItem.getXDim()/binning))
                     })
 
                     argsAlignment += "-size %(size)s "
 
-                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
-            else:
-                path.createLink(firstItem.getLocation()[1], outputTsFileName)
-
-        # Use Xmipp interpolation via Scipion
-        else:
-            outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-            ts.applyTransform(outputTsFileName)
-
-        if generateAngleFile:
-            """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
-            ts.generateTltFile(angleFilePath)
-
-        # if generateExtraLink:
-        #     """"Generate link to input tilt-series (no longer needed for fiducial viewers)"""
-        #     inputTS = os.path.join(extraPrefix, firstItem.parseFileName())
-        #     if firstItem.hasTransform():
-        #         path.copyFile(outputTsFileName, inputTS)
-        #
-        #     else:
-        #         path.createLink(firstItem.getLocation()[1], inputTS)
+        return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1):
@@ -177,7 +224,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputSetOfTiltSeries})
+            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
             self._defineSourceRelation(inputSet, outputSetOfTiltSeries)
 
         return self.TiltSeries
@@ -207,7 +254,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TS_INTERPOLATED_NAME:outputInterpolatedSetOfTiltSeries})
+            self._defineOutputs(**{OUTPUT_TS_INTERPOLATED_NAME: outputInterpolatedSetOfTiltSeries})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputInterpolatedSetOfTiltSeries)
 
         return self.InterpolatedTiltSeries
@@ -229,13 +276,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFailedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TS_FAILED_NAME:outputFailedSetOfTiltSeries})
+            self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: outputFailedSetOfTiltSeries})
             self._defineSourceRelation(inputSet, outputFailedSetOfTiltSeries)
 
         return self.FailedTiltSeries
 
     def getOutputFiducialModelNoGaps(self, tiltSeries=None):
-        
+
         if self.FiducialModelNoGaps:
             self.FiducialModelNoGaps.enableAppend()
 
@@ -254,7 +301,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME:outputFiducialModelNoGaps})
+            self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME: outputFiducialModelNoGaps})
             self._defineSourceRelation(tiltSeriesPointer, outputFiducialModelNoGaps)
 
         return self.FiducialModelNoGaps
@@ -270,23 +317,24 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME:outputFiducialModelGaps})
+            self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: outputFiducialModelGaps})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
 
         return self.FiducialModelGaps
 
     def getOutputSetOfTiltSeriesCoordinates(self, setOfTiltSeries=None):
-        
+
         if self.TiltSeriesCoordinates:
             self.TiltSeriesCoordinates.enableAppend()
 
         else:
-            outputSetOfCoordinates3D = SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='Fiducials3D')
+            outputSetOfCoordinates3D = SetOfTiltSeriesCoordinates.create(self._getPath(),
+                                                                         suffix='Fiducials3D')
 
             outputSetOfCoordinates3D.setSetOfTiltSeries(setOfTiltSeries)
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME:outputSetOfCoordinates3D})
+            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: outputSetOfCoordinates3D})
             self._defineSourceRelation(setOfTiltSeries, outputSetOfCoordinates3D)
 
         return self.TiltSeriesCoordinates
@@ -306,7 +354,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputSetOfCoordinates3D.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME:outputSetOfCoordinates3D})
+            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: outputSetOfCoordinates3D})
             self._defineSourceRelation(inputSet, outputSetOfCoordinates3D)
 
         return self.Coordinates3D
@@ -333,16 +381,16 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TOMOGRAMS_NAME:outputSetOfTomograms})
+            self._defineOutputs(**{OUTPUT_TOMOGRAMS_NAME: outputSetOfTomograms})
             self._defineSourceRelation(inputSet, outputSetOfTomograms)
 
         return self.Tomograms
 
     def getOutputSetOfCTFTomoSeries(self, outputSetName):
 
-        outputSetOfCTFTomoSeries = getattr(self, outputSetName)
+        outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
 
-        if outputSetOfCTFTomoSeries :
+        if outputSetOfCTFTomoSeries:
             outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
@@ -354,7 +402,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         return outputSetOfCTFTomoSeries
 
     def addCTFTomoSeriesToSetFromDefocusFile(self, inputTs, defocusFilePath, output):
-        """ This method generates a CtfTomoSeries Scipion object from a CTF estimation IMOD .defocus file.
+        """ This method generates a CtfTomoSeries Scipion object
+        from a CTF estimation IMOD .defocus file.
 
         :param inputTs: tilt series associated to the CTF tomo series to be added.
         :param defocusFilePath: Location of the input .defocus file.
@@ -375,8 +424,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         newCTFTomoSeries.setTsId(tsId)
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
 
-        # We need to create now all the attributes of this object in order to append it to the set and be
-        # able to update it posteriorly.
+        # We need to create now all the attributes of this object
+        # in order to append it to the set and be
+        # able to update it later.
 
         newCTFTomoSeries.setNumberOfEstimationsInRange(None)
 
@@ -411,75 +461,60 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         else:
             raise Exception(
-                "Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
-                "1, 4, 5, and 37.")
+                f"Defocus file flag {defocusFileFlag} is not supported. Only supported formats "
+                "correspond to flags 0, 1, 4, 5, and 37.")
 
-        for index, _ in enumerate(inputTs):
+        excludedViews = inputTs.getExcludedViewsIndex()
+        ids = inputTs.getIdSet()
+        for index in ids:
             newCTFTomo = CTFTomo()
-            newCTFTomo.setIndex(Integer(index + 1))
+            newCTFTomo.setIndex(index)
 
-            if (index + 1) not in defocusUDict.keys():
+            if index not in defocusUDict.keys() and index not in excludedViews:
                 raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                tsId, (index + 1), inputTs[index + 1].getTiltAngle()))
+                    tsId, index, inputTs[index].getTiltAngle()))
 
-            if defocusFileFlag == 0:
-                " Plain estimation "
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict[index + 1])
+            " Plain estimation (any defocus flag)"
+            newCTFTomo._defocusUList = CsvList(pType=float)
+            newCTFTomo.setDefocusUList(defocusUDict.get(index, [0.]))
 
-            elif defocusFileFlag == 1:
+            if defocusFileFlag == 1:
                 " Astigmatism estimation "
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict[index + 1])
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
             elif defocusFileFlag == 4:
                 " Phase-shift information "
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
             elif defocusFileFlag == 5:
                 " Astigmatism and phase shift estimation "
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict[index + 1])
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
             elif defocusFileFlag == 37:
                 " Astigmatism, phase shift and cut-on frequency estimation "
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict[index + 1])
-
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict[index + 1])
+                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict[index + 1])
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict[index + 1])
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
 
                 newCTFTomo._cutOnFreqList = CsvList(pType=float)
-                newCTFTomo.setCutOnFreqList(cutOnFreqDict[index + 1])
-
-                defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict = \
-                    utils.readCTFEstimationInfoFile(defocusFilePath,
-                                                    flag=defocusFileFlag)
+                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index, [0.]))
 
             newCTFTomo.completeInfoFromList()
 
@@ -501,7 +536,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         self._store()
 
-    # --------------------------- UTILS functions ----------------------------
+    # --------------------------- UTILS functions -----------------------------
     def iterFiles(self):
         """ Iterate through the files matched with the pattern.
         Provide the fileName and fileId.

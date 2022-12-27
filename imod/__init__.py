@@ -1,4 +1,4 @@
-# **************************************************************************
+# *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,23 +24,25 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# **************************************************************************
+# *****************************************************************************
 
 import os
-import pwem
+from shutil import which
+
 from pyworkflow.gui import FileTreeProvider
+from pyworkflow.gui.project.utils import OS
+import pwem
 
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
-from shutil import which
-from pyworkflow.gui.project.utils import OS
 
-__version__ = '3.0.11'
+
+__version__ = '3.1.0'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
 def getImodEnv():
-    """ This function allows to call imod outside of this plugin. """
+    """ This function allows to call imod outside this plugin. """
 
     return Plugin.getHome("IMOD-linux.sh && ")
 
@@ -85,15 +87,14 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def validateInstallation(cls):
-        """
-        Check if imod is in the path
-        """
+        """ Check if imod is in the path """
 
         if not cls._validationMsg:
             etomo = cls._getProgram(ETOMO_CMD)
 
             cls._validationMsg = [
-                "imod's %s command not found in path, please install it." % etomo] if not which(
+                "IMOD's %s command not found in path, please "
+                "install it." % etomo] if not which(
                 ETOMO_CMD) and not os.path.exists(etomo) else []
 
         return cls._validationMsg
@@ -108,7 +109,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
 
         for version in VERSIONS:
-            cls.installImod(env,version, version==DEFAULT_VERSION)
+            cls.installImod(env, version, version == DEFAULT_VERSION)
 
     @classmethod
     def installImod(cls, env, version, default):
@@ -127,7 +128,6 @@ class Plugin(pwem.Plugin):
                 jpeg = env.getTarget(JPEG_NAME)
 
             # Download .sh
-            # https://bio3d.colorado.edu/imod/AMD64-RHEL5/imod_4.11.7_RHEL7-64_CUDA10.1.sh
             installationCmd = 'wget --continue http://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
                               'imod_%s_RHEL7-64_CUDA10.1.sh --no-check-certificate && ' % version
 
@@ -152,14 +152,17 @@ class Plugin(pwem.Plugin):
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
 
+        ncpus = protocol.numberOfThreads.get()
+
         # Get the command
-        cmd = cls.getImodCmd(program)
+        cmd = cls.getImodCmd(program, ncpus)
 
         # Run the protocol with that command
-        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd)
+        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd,
+                        numberOfMpi=1, numberOfThreads=1)
 
     @classmethod
-    def getImodCmd(cls, program):
+    def getImodCmd(cls, program, ncpus=1):
         """ Composes an IMOD command for a given program. """
 
         # Program to run
@@ -167,6 +170,9 @@ class Plugin(pwem.Plugin):
 
         # Command to run
         cmd = ""
+
+        if ncpus > 1:
+            cmd += f"export IMOD_PROCESSORS={ncpus} && "
 
         # If absolute ... (then it is based on the config)
         if os.path.isabs(program):
@@ -177,10 +183,7 @@ class Plugin(pwem.Plugin):
         return cmd
 
 
-# register file handlers to preview info in the Filebrowser....
-# Here register happens very early. Earlier than done in pwem therefore this filehandler will be the default one.
-# We can add .mrc and .mrcs but don't want to overlap with pwem ones.
 from .file_handlers import *
 
 register = FileTreeProvider.registerFileHandler
-register(ImodHandler(), '.ali', '.st', '.rec')
+register(ImodHandler(), '.ali', '.st', '.rec', '.mrc', '.mrcs')
