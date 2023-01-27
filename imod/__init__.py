@@ -36,7 +36,7 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.1.2'
+__version__ = '3.1.3'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -144,7 +144,6 @@ class Plugin(pwem.Plugin):
                            createBuildDir=True,
                            buildDir=cls._getEMFolder(version),
                            neededProgs=cls.getDependencies(),
-                           libChecks="libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=default)
 
