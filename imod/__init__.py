@@ -144,7 +144,6 @@ class Plugin(pwem.Plugin):
                            createBuildDir=True,
                            buildDir=cls._getEMFolder(version),
                            neededProgs=cls.getDependencies(),
-                           libChecks="libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=default)
 
