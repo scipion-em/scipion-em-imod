@@ -50,6 +50,7 @@ def getImodEnv():
 class Plugin(pwem.Plugin):
     _homeVar = IMOD_HOME
     _validationMsg = None
+    _url = "https://bio3d.colorado.edu/imod/"
 
     @classmethod
     def _defineVariables(cls):
