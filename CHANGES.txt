@@ -1,3 +1,8 @@
+3.1.4: set tilt axis to 0 if TS is aligned (reported by Bram Koster)
+3.1.3: fix installation: remove libjpeg62 check
+3.1.2:
+- Flag ts as interpolated in some cases
+- Imod protocols do not work, for now in streaming
 3.1:
 - remove displayAll button from set viewer as it seems to be not practical to open all items at once (close #141)
 - change etomo naming style to mrc (close #153)
