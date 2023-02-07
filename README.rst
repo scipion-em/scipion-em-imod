@@ -33,7 +33,7 @@ This plugin is currently in **BETA** mode.
 Installation
 ------------
 
-You will need to use `3.0 <https://scipion-em.github.io/docs/release-3.0.0/docs/scipion-modes/how-to-install.html>`_ version of Scipion to be able to run these protocols.
+You will need to use `3.0+ <https://scipion-em.github.io/docs/release-3.0.0/docs/scipion-modes/how-to-install.html>`_ version of Scipion to be able to run these protocols.
 
 Protocols
 ---------
@@ -60,7 +60,7 @@ Protocols
 **Latest plugin versions**
 ==========================
 
-If you want to check the latest version and release history go to `CHANGES <https://github.com/scipion-em-imod/imod/blob/master/CHANGES.txt>`_
+If you want to check the latest version and release history go to `CHANGES <https://github.com/scipion-em/scipion-em-imod/imod/blob/master/CHANGES.txt>`_
 
 
 **Installing the plugin**
@@ -91,14 +91,14 @@ Install the plugin in developer mode.
     scipion installp -p local/path/to/scipion-em-imod --devel
 
 
-IMOD binaries will be downloaded and installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/imod-4.11.20/IMOD``, if you want to change it, set *IMOD_HOME* in ``scipion.conf`` file to the folder where the IMOD is installed.
+IMOD binaries will be downloaded and installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/imod-4.11.24/IMOD``, if you want to change it, set *IMOD_HOME* in ``scipion.conf`` file to the folder where the IMOD is installed.
 
 To check the installation, simply run one of the tests. A complete list of tests can be displayed by executing ``scipion test --show --grep imod``
 
 Supported versions
 ------------------
 
-4.11.7, 4.11.20
+4.11.7, 4.11.20, 4.11.24
 
 
 References
