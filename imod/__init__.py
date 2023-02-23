@@ -36,7 +36,7 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.1.4'
+__version__ = '3.1.5'
 _logo = ""
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -108,9 +108,8 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-
-        for version in VERSIONS:
-            cls.installImod(env, version, version == DEFAULT_VERSION)
+        version = VERSIONS[-1]
+        cls.installImod(env, version, version == DEFAULT_VERSION)
 
     @classmethod
     def installImod(cls, env, version, default):
