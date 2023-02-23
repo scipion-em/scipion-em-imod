@@ -108,9 +108,8 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-
-        for version in VERSIONS:
-            cls.installImod(env, version, version == DEFAULT_VERSION)
+        version = VERSIONS[-1]
+        cls.installImod(env, version, version == DEFAULT_VERSION)
 
     @classmethod
     def installImod(cls, env, version, default):
