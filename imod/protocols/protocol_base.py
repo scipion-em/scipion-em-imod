@@ -314,8 +314,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-
+            outputFiducialModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: outputFiducialModelGaps})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
