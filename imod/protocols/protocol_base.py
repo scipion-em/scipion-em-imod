@@ -395,9 +395,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
+            ts = self._getSetOfTiltSeries(pointer=True)
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
+            self._defineCtfRelation(outputSetOfCTFTomoSeries, ts.get())
 
         return outputSetOfCTFTomoSeries
 
