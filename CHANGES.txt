@@ -1,3 +1,9 @@
+3.1.5: fix xf file reading, add IMOD 4.11.24, remove previous binaries as they are gone fron the website
+3.1.4: set tilt axis to 0 if TS is aligned (reported by Bram Koster)
+3.1.3: fix installation: remove libjpeg62 check
+3.1.2:
+- Flag ts as interpolated in some cases
+- Imod protocols do not work, for now in streaming
 3.1:
 - remove displayAll button from set viewer as it seems to be not practical to open all items at once (close #141)
 - change etomo naming style to mrc (close #153)
