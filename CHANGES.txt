@@ -1,3 +1,5 @@
+3.1.7:
+    - validate input alignment for TS preprocess protocol
 3.1.6:
   icon added
   template added for automatic tilt series alignment
