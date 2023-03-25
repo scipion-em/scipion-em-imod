@@ -106,12 +106,13 @@ class ProtImodXraysEraser(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId(),
-                                     generateAngleFile=False)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.eraseXraysStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputStep)
 
+    def convertInputStep(self, tsObjId):
+        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 

@@ -1,5 +1,6 @@
 3.1.7:
-    - validate input alignment for TS preprocess protocol
+    - Validate input alignment for TS preprocess protocol
+    - Fix: Xray erser when there is alignment.
 3.1.6:
   icon added
   template added for automatic tilt series alignment
