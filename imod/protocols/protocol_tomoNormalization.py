@@ -33,7 +33,7 @@ import pyworkflow.utils.path as path
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
 
 
 class ProtImodTomoNormalization(ProtImodBase):
@@ -183,6 +183,17 @@ class ProtImodTomoNormalization(ProtImodBase):
                             label='Min.',
                             help='Minimum value for the rescaling')
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Process odd/even?',
+                      help='If the tilt series does not have odd-even only the full tilt series will be processed'
+                           '(False) Only the full tilt series will be processed.'
+                           '(True) The full tilt series and the odd/even tilt series associated will be processed.'
+                           'The transformations applied to the odd-even tilt series will be exactly the same than'
+                           'the ones for the full tilt series.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for tomo in self.inputSetOfTomograms.get():
@@ -234,16 +245,40 @@ class ProtImodTomoNormalization(ProtImodBase):
             runNewstack = True
             argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
 
+        oddEvenOutput = [[], []]
+
         if runNewstack:
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
+            if self.processOddEven and tomo.hasHalfMaps():
+                oddFn, evenFn = tomo.getHalfMaps().split(',')
+                paramsNewstack['input'] = oddFn
+                oddEvenOutput[0] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
+                paramsNewstack['output'] = oddEvenOutput[0]
+                Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+                paramsNewstack['input'] = evenFn
+                oddEvenOutput[1] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)
+                paramsNewstack['output'] = oddEvenOutput[1]
+                Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
         if self.binning.get() != 1:
             if runNewstack:
-                path.moveFile(os.path.join(extraPrefix, os.path.basename(location)),
-                              os.path.join(tmpPrefix, os.path.basename(location)))
-                inputTomoPath = os.path.join(tmpPrefix, os.path.basename(location))
+                baseLoc = os.path.basename(location)
+                tmpPath = os.path.join(tmpPrefix, baseLoc)
+                path.moveFile(os.path.join(extraPrefix, baseLoc), tmpPath)
+                inputTomoPath = tmpPath
+
+                if self.processOddEven and tomo.hasHalfMaps():
+                    path.moveFile(oddEvenOutput[0], tmpPath)
+                    path.moveFile(oddEvenOutput[1], tmpPath)
+                    inputTomoPath = tmpPath
+                    inputOdd, inputEven = (os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
+                                            os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
             else:
                 inputTomoPath = location
+                if self.processOddEven and tomo.hasHalfMaps():
+                    inputOdd, inputEven = tomo.getHalfMaps().split(',')
+
 
             paramsBinvol = {
                 'input': inputTomoPath,
@@ -259,8 +294,15 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(),
-                                              self.binning.get())
+            if self.processOddEven and tomo.hasHalfMaps():
+                paramsBinvol['input'] = inputOdd
+                paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
+                Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
+                paramsBinvol['input'] = inputEven
+                paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)
+                Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
+
+        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
@@ -272,6 +314,8 @@ class ProtImodTomoNormalization(ProtImodBase):
             location = os.path.join(extraPrefix, os.path.basename(location))
             newTomogram.setLocation(location)
 
+
+
         if self.binning.get() > 1:
             sr = tomo.getSamplingRate() * int(self.binning.get())
 
@@ -282,6 +326,11 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         else:
             newTomogram.copyAttributes(tomo, '_origin')
+
+        if self.processOddEven and tomo.hasHalfMaps():
+            halfMapsList = [os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
+                            os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)]
+            newTomogram.setHalfMaps(halfMapsList)
 
         output.append(newTomogram)
         output.update(newTomogram)

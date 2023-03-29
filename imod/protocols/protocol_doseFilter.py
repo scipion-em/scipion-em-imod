@@ -31,9 +31,10 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
+from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -90,6 +91,17 @@ class ProtImodDoseFilter(ProtImodBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Filter odd/even',
+                      help='This functionality only works if the tilt series has associated the odd-even images'
+                           '(False) Only the full tilt series is filtered.'
+                           '(True) The full tilt series and the odd/even tilt series associated will be filtered.'
+                           'The applied dose for the odd and the even will be the same than the used one for the '
+                           'full tilt series.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -105,7 +117,7 @@ class ProtImodDoseFilter(ProtImodBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+        tmpPrefix = self._getExtraPath(tsId)
 
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
@@ -150,6 +162,17 @@ class ProtImodDoseFilter(ProtImodBase):
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
+        if self.processOddEven and ts.hasOddEven():
+            oddFn = firstItem.getOdd().split('@')[1]
+            paramsMtffilter['input'] = oddFn
+            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+
+            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsMtffilter['input'] = evenFn
+            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
+
     def createOutputStep(self, tsObjId):
         """Generate output filtered tilt series"""
 
@@ -163,14 +186,23 @@ class ProtImodDoseFilter(ProtImodBase):
 
         output.append(newTs)
 
+        ih = ImageHandler()
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix,
-                                                       tiltImage.parseFileName())))
-
+            if self.processOddEven:
+                locationOdd  = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+            else:
+                newTi.setOddEven([])
+            locationTi = index + 1, (os.path.join(extraPrefix,
+                                                       tiltImage.parseFileName()))
+            newTi.setLocation(locationTi)
             newTs.append(newTi)
+            newTs.update(newTi)
 
         newTs.write(properties=False)
 
