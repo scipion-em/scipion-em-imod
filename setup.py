@@ -168,7 +168,8 @@ setup(
     # MANIFEST.in as well.
     # include_package_data=True,
     package_data={  # Optional
-       'imod': ['protocols.conf'],
+       'imod': ['protocols.conf', 'icon.png', 'templates/*'],
+
     },
 
     # Although 'package_data' is the preferred approach, in some case you may

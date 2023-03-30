@@ -213,22 +213,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         match = False
 
-        # This is forcing an exact match of xf files. I think is best to
-        # To loop through the set and find the best matching file
-        # for tmFilePath, _ in self.iterFiles():
-        #     tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-        #
-        #     for ts in self.inputSetOfTiltSeries.get():
-        #         tsFileName = ts.getFirstItem().parseFileName(extension='')
-        #
-        #         if tsFileName == tmFileName:
-        #             match = True
-        #
-        #     if not match:
-        #         validateMsgs.append("No matching tilt-series found for file: %s" % tmFilePath)
-        #
-        #     match = False
-
         for ts in self.inputSetOfTiltSeries.get():
             tsFileName = ts.getFirstItem().parseFileName(extension='')
 
@@ -240,9 +224,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                     break
 
             if not match:
-                validateMsgs.append("No matching file found for tilt-series: %s "
-                                    "(with tsID %s)"
-                                    % (tsFileName, ts.getTsId()))
+                validateMsgs.append("No xf file found for tilt-series %s: image file is %s and have not found its "
+                                    "exact match."  % (ts.getTsId(), tsFileName, ))
 
             match = False
 

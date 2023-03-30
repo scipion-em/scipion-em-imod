@@ -167,7 +167,7 @@ class ProtImodFiducialModel(ProtImodBase):
         return wrapper
 
     def generateTrackComStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -204,7 +204,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     @tryExceptDecorator
     def generateFiducialSeedStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -238,7 +238,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     @tryExceptDecorator
     def generateFiducialModelStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -347,7 +347,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -372,7 +372,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
     def computeOutputModelsStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -388,7 +388,6 @@ class ProtImodFiducialModel(ProtImodBase):
 
             output = self.getOutputFiducialModelGaps()
 
-            output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             landmarkModelGapsFilePath = os.path.join(
                 extraPrefix,
@@ -436,13 +435,17 @@ class ProtImodFiducialModel(ProtImodBase):
             output.update(landmarkModelGaps)
             output.write()
 
+    def getTiltSeries(self, tsObjId):
+        # TODO: cache this in a dictionary instead of querying the set through []
+        return self.inputSetOfTiltSeries.get()[tsObjId]
+
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series
         # list to add it to the set
         if tsObjId in self._failedTs:
             output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
+            ts = self.getTiltSeries(tsObjId)
             tsId = ts.getTsId()
 
             newTs = tomoObj.TiltSeries(tsId=tsId)

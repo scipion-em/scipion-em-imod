@@ -36,8 +36,8 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.1.5'
-_logo = ""
+__version__ = '3.1.7'
+_logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
@@ -50,7 +50,7 @@ def getImodEnv():
 class Plugin(pwem.Plugin):
     _homeVar = IMOD_HOME
     _validationMsg = None
-    _url = "https://bio3d.colorado.edu/imod/"
+    _url = "https://github.com/scipion-em/scipion-em-imod"
 
     @classmethod
     def _defineVariables(cls):

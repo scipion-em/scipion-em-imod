@@ -322,6 +322,14 @@ class ProtImodTSNormalization(ProtImodBase):
         return newTi
 
     # --------------------------- INFO functions ------------------------------
+    def _validate(self):
+        errors = []
+        hasAlign = self.inputSetOfTiltSeries.get().getFirstItem().getFirstItem().hasTransform()
+        if self.applyAlignment.get() and not hasAlign:
+            errors.append("Input tilt-series do not have alignment information")
+
+        return errors
+
     def _summary(self):
         summary = []
         if self.TiltSeries:
