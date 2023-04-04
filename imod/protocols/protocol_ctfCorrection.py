@@ -262,16 +262,6 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         return warnings
 
-    def _validate(self):
-        validateMsgs = []
-
-        if self.inputSetOfTiltSeries.get().getSize() != self.inputSetOfCtfTomoSeries.get().getSize():
-            validateMsgs.append("Input tilt-series and CTF tomo "
-                                "estimations must contain the "
-                                "same number of elements.")
-
-        return validateMsgs
-
     def _summary(self):
         summary = []
         if self.TiltSeries:
