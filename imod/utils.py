@@ -90,25 +90,20 @@ def formatTransformationMatrix(matrixFile):
     returns a 3D matrix containing the transformation matrices for
     each tilt-image belonging to the tilt-series. """
 
-    with open(matrixFile, "r") as matrix:
-        lines = matrix.readlines()
-
-    numberLines = len(lines)
+    matrix = np.loadtxt(matrixFile, dtype=float, comments='#')
+    numberLines = matrix.shape[0]
     frameMatrix = np.empty([3, 3, numberLines])
 
-    i = 0
-    for line in lines:
-        values = line.split()
-        frameMatrix[0, 0, i] = float(values[0])
-        frameMatrix[1, 0, i] = float(values[2])
-        frameMatrix[0, 1, i] = float(values[1])
-        frameMatrix[1, 1, i] = float(values[3])
-        frameMatrix[0, 2, i] = float(values[4])
-        frameMatrix[1, 2, i] = float(values[5])
-        frameMatrix[2, 0, i] = 0.0
-        frameMatrix[2, 1, i] = 0.0
-        frameMatrix[2, 2, i] = 1.0
-        i += 1
+    for row in range(numberLines):
+        frameMatrix[0, 0, row] = matrix[row][0]
+        frameMatrix[1, 0, row] = matrix[row][2]
+        frameMatrix[0, 1, row] = matrix[row][1]
+        frameMatrix[1, 1, row] = matrix[row][3]
+        frameMatrix[0, 2, row] = matrix[row][4]
+        frameMatrix[1, 2, row] = matrix[row][5]
+        frameMatrix[2, 0, row] = 0.0
+        frameMatrix[2, 1, row] = 0.0
+        frameMatrix[2, 2, row] = 1.0
 
     return frameMatrix
 

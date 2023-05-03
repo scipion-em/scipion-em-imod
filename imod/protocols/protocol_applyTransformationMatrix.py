@@ -156,6 +156,9 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         newTs.setInterpolated(True)
+        acq = newTs.getAcquisition()
+        acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+        newTs.setAcquisition(acq)
         output.append(newTs)
 
         if binning > 1:
@@ -168,7 +171,9 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             if tiltImage.isEnabled():
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                newTi.setAcquisition(tiltImage.getAcquisition())
+                acq = tiltImage.getAcquisition()
+                acq.setTiltAxisAngle(0.)
+                newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 if self.processOddEven:
                     locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))

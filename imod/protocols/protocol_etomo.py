@@ -275,6 +275,7 @@ class ProtImodEtomo(ProtImodBase):
 
                 newTs = ts.clone()
                 newTs.copyInfo(ts)
+                newTs.setInterpolated(True)
                 outputAliSetOfTiltSeries.append(newTs)
 
                 tltFilePath = self.getFilePath(ts, suffix='_fid',
@@ -295,7 +296,9 @@ class ProtImodEtomo(ProtImodBase):
                 for tiltImage in ts.iterItems(iterate=False):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setAcquisition(tiltImage.getAcquisition())
+                    acq = tiltImage.getAcquisition()
+                    acq.setTiltAxisAngle(0.)
+                    newTi.setAcquisition(acq)
                     sliceIndex = newTi.getIndex()
                     self.debug("Slice index is %s" % sliceIndex)
                     newTi.setLocation(sliceIndex, aligFilePath)
@@ -305,6 +308,9 @@ class ProtImodEtomo(ProtImodBase):
                         newTi.setEnabled(False)
                     newTs.append(newTi)
 
+                acq = newTs.getAcquisition()
+                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+                newTs.setAcquisition(acq)
                 newTs.setDim(aliDims)
                 newTs.write(properties=False)
 

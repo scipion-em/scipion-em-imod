@@ -83,6 +83,7 @@ setup(
     # This field corresponds to the "Description" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#description-optional
     long_description=long_description,  # Optional
+    long_description_content_type='text/x-rst',
 
     # This should be a valid link to your project's main homepage.
     #
@@ -167,7 +168,8 @@ setup(
     # MANIFEST.in as well.
     # include_package_data=True,
     package_data={  # Optional
-       'imod': ['protocols.conf'],
+       'imod': ['protocols.conf', 'icon.png', 'templates/*'],
+
     },
 
     # Although 'package_data' is the preferred approach, in some case you may
