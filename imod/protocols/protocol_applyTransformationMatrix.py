@@ -175,7 +175,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 acq.setTiltAxisAngle(0.)
                 newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-                if self.processOddEven:
+                if self.processOddEven and ts.hasOddEven():
                     locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
                     locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                     newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
