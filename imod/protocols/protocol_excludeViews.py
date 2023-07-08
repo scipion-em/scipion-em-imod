@@ -39,7 +39,11 @@ from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 class ProtImodExcludeViews(ProtImodBase):
     """
     excludeviews - Reversibly remove views from a tilt series stack
-    If you use this protocol, make sure tis output tilt series is use for everything else
+
+    By default, the protocol will remove disabled tilt images from the input TS.
+    Alternatively, you can provide a text file with a list of tilts to exclude.
+
+    If you use this protocol, make sure this output tilt series is use for everything else
     CTF estimation, per particle per tilt, tomogram reconstruction....
     More info:
         https://bio3d.colorado.edu/imod/doc/man/excludeviews.html
@@ -98,7 +102,7 @@ class ProtImodExcludeViews(ProtImodBase):
         specified tilt series read from de input file """
         matrix = self.getExcludedViewsFromFile()
 
-        pattern = matrix.get(ts.getTsId(), [])
+        pattern = matrix.get(ts.getTsId(), "")
 
         views = self.makeExclusionPatternAsList(pattern)
 
