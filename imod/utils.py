@@ -164,8 +164,32 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
     outputLines = []
 
     for vector in infoTable:
-        outputLines.append("\t%s\t%s\t%s\t%s\n" % (vector[3], vector[0],
-                                                   vector[1], int(vector[2])-1))
+        outputLines.append("\t%.2f\t%.2f\t%d\n" % (float(vector[0]),
+                                                   float(vector[1]),
+                                                   int(float(vector[2]))))
+
+    with open(outputFilePath, 'w') as f:
+        f.writelines(outputLines)
+
+
+def generateIMODFiducialResidTextFile(landmarkModel, outputFilePath):
+    """ This method takes a Scipion LandmarkModel object and
+    generates a text file in the specified location in IMOD
+    convention that contains the information of the position
+    of each fiducial through the tilt-series and its residuals.
+    :param landmarkModel: landmarkModel Scipion object.
+    :param outputFilePath: location where the output file must be saved.
+    """
+
+    infoTable = landmarkModel.retrieveInfoTable()
+    outputLines = ["\t%d residuals\n" % len(infoTable)]
+
+    for vector in infoTable:
+        outputLines.append("\t%.2f\t%.2f\t%d\t%.2f\t%.2f\n" % (float(vector[0]),
+                                                               float(vector[1]),
+                                                               int(float(vector[2])),
+                                                               float(vector[4]),
+                                                               float(vector[5])))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
@@ -173,7 +197,7 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
 def generateIMODFidFile(protocol, landmarkModel):
     fiducialTextFile = pwutils.replaceExt(landmarkModel.getFileName(), "txt")
-    generateIMODFiducialTextFile(landmarkModel, fiducialTextFile)
+    generateIMODFiducialResidTextFile(landmarkModel, fiducialTextFile)
 
     fiducialModelGapPath = pwutils.replaceExt(landmarkModel.getFileName(), "fid")
 
@@ -182,7 +206,7 @@ def generateIMODFidFile(protocol, landmarkModel):
             'inputFile': fiducialTextFile,
             'outputFile': fiducialModelGapPath,
             'image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
-            'size': landmarkModel.getSize()
+            'size': int(landmarkModel.getSize() / landmarkModel.getTiltSeries().getSamplingRate())
         }
 
         # -sp <value> parameter: generate sphere with radius <value>
@@ -194,6 +218,30 @@ def generateIMODFidFile(protocol, landmarkModel):
         protocol.setStepsExecutor()
         Plugin.runImod(protocol, 'point2model',
                        argsPoint2Model % paramsPoint2Model)
+
+    return fiducialModelGapPath
+
+
+def generateIMODResidFidFile(protocol, landmarkModel):
+    fiducialTextFile = pwutils.replaceExt(landmarkModel.getFileName(), "txt")
+    generateIMODFiducialResidTextFile(landmarkModel, fiducialTextFile)
+
+    fiducialModelGapPath = pwutils.replaceExt(landmarkModel.getFileName(), "resmod")
+
+    paramsPatch2imod = {
+        'inputFile': fiducialTextFile,
+        'outputFile': fiducialModelGapPath,
+        'size': 10,
+    }
+
+    # -sp <value> parameter: generate sphere with radius <value>
+    argsPatch2imod = "%(inputFile)s " \
+                     "%(outputFile)s " \
+                     "-s %(size)s "
+
+    protocol.setStepsExecutor()
+    Plugin.runImod(protocol, 'patch2imod',
+                   argsPatch2imod % paramsPatch2imod)
 
     return fiducialModelGapPath
 
@@ -644,7 +692,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        int(float(defocusUDict[index][0])/10)
+                        int(float(defocusUDict[index][0]) / 10)
                     ))
 
                     lines.append(newLine)
@@ -683,9 +731,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                     ))
 
@@ -719,7 +767,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         float(phaseShiftDict[index][0]),
                     ))
 
@@ -740,7 +788,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
             with open(defocusFilePath, 'w') as f:
                 # This line is added at the beginning of the file in order
                 # to match the IMOD defocus file format
-                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] 
+                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
 
@@ -756,9 +804,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0])
                     ))
@@ -796,9 +844,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0]),
                         float(cutOnFreqDict[index][0])
@@ -832,9 +880,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     tiltSeries[index].getTiltAngle(),
                     tiltSeries[index].getTiltAngle(),
                     # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                    ctfTomo.getDefocusU()/10,
+                    ctfTomo.getDefocusU() / 10,
                     # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                    ctfTomo.getDefocusV()/10,
+                    ctfTomo.getDefocusV() / 10,
                     ctfTomo.getDefocusAngle())
                            )
 
@@ -963,7 +1011,7 @@ def calculateRotationAngleFromTM(ts):
         tm = ti.getTransform().getMatrix()
         cosRotationAngle = tm[0][0]
         sinRotationAngle = tm[1][0]
-        avgRotationAngle += math.degrees(math.atan(sinRotationAngle/cosRotationAngle))
+        avgRotationAngle += math.degrees(math.atan(sinRotationAngle / cosRotationAngle))
 
     avgRotationAngle = avgRotationAngle / ts.getSize()
 
@@ -981,7 +1029,7 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
 
     for ti in ts:
         acq = ti.getAcquisition()
-        doseInfoList.append((acq.getAccumDose()-acq.getDosePerFrame(), acq.getDosePerFrame()))
+        doseInfoList.append((acq.getAccumDose() - acq.getDosePerFrame(), acq.getDosePerFrame()))
 
     np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
 
