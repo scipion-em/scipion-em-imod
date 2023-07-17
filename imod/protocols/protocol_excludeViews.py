@@ -187,7 +187,7 @@ class ProtImodExcludeViews(ProtImodBase):
     def makeExclusionPatternAsList(self, excludedViews):
         excludedViewsAsList = []
 
-        if len(excludedViews)>0:
+        if excludedViews:
             vector = excludedViews.split(',')
 
             for element in vector:
