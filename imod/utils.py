@@ -188,8 +188,8 @@ def generateIMODFiducialResidTextFile(landmarkModel, outputFilePath):
         outputLines.append("\t%.2f\t%.2f\t%d\t%.2f\t%.2f\n" % (float(vector[0]),
                                                                float(vector[1]),
                                                                int(float(vector[2])),
-                                                               float(vector[4]),
-                                                               float(vector[5])))
+                                                               float(vector[4])/10,
+                                                               float(vector[5])/10))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
@@ -231,17 +231,20 @@ def generateIMODResidFidFile(protocol, landmarkModel):
     paramsPatch2imod = {
         'inputFile': fiducialTextFile,
         'outputFile': fiducialModelGapPath,
-        'size': 10,
+        'size': 100,
     }
 
     # -sp <value> parameter: generate sphere with radius <value>
     argsPatch2imod = "%(inputFile)s " \
                      "%(outputFile)s " \
-                     "-s %(size)s "
+                     "-s %(size)f " \
+                     "-f "  # Dot not flip the model
 
     protocol.setStepsExecutor()
     Plugin.runImod(protocol, 'patch2imod',
                    argsPatch2imod % paramsPatch2imod)
+
+    print(argsPatch2imod % paramsPatch2imod)
 
     return fiducialModelGapPath
 

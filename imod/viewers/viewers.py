@@ -43,7 +43,7 @@ from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
                                        OUTPUT_TS_COORDINATES_NAME)
 from .views_tkinter_tree import ImodGenericViewer
 from .. import Plugin
-from ..utils import generateIMODFidFile
+from ..utils import generateIMODFidFile, generateIMODResidFidFile
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -106,7 +106,8 @@ class ImodObjectView(pwviewer.CommandView):
                                                 extension))
 
                 if not os.path.exists(outputTSPath):
-                    ts.applyTransform(outputTSPath)
+                    ts.applyTransform(outputTSPath,
+                                      swapXY=True)
 
             else:
                 outputTSPath = ts.getFirstItem().getFileName()
@@ -114,13 +115,13 @@ class ImodObjectView(pwviewer.CommandView):
             fidFileName = obj.getModelName()
 
             if fidFileName is None:
-                fidFileName = generateIMODFidFile(protocol, obj)
+                fidFileName = generateIMODResidFidFile(protocol, obj)
 
             angleFilePath = os.path.join(tempfile.gettempdir(),
                                          ts.getFirstItem().parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
 
-            cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"
+            cmd += f"-a {angleFilePath} {outputTSPath} {fidFileName}"
 
         # A path called from the object browser
         elif isinstance(obj, str):
@@ -129,6 +130,8 @@ class ImodObjectView(pwviewer.CommandView):
         else:  # Tomogram
             cmd += f"{obj.getFileName()}"
 
+        print("------------------------------------------")
+        print(cmd)
         logger.info(f"Executing command: {cmd}")
         pwviewer.CommandView.__init__(self,  cmd)
 
