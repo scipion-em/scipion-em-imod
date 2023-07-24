@@ -499,6 +499,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
+                newTi.setAcquisition(tiltImage.getAcquisition())
 
                 if tiltImage.hasTransform():
                     transform = Transform()
