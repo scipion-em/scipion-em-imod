@@ -411,7 +411,8 @@ class ProtImodFiducialModel(ProtImodBase):
                                                       tiltSeriesPointer=ts,
                                                       fileName=landmarkModelGapsFilePath,
                                                       modelName=fiducialModelGapPath,
-                                                      size=fiducialDiameterPixel)
+                                                      size=fiducialDiameterPixel,
+                                                      hasResidualInfo=False)
 
             landmarkModelGaps.setTiltSeries(ts)
 
