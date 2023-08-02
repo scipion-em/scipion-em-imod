@@ -219,7 +219,7 @@ class ProtImodTSNormalization(ProtImodBase):
             xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
             formatTransformFile(ts, xfFile)
 
-        binning = int(self.binning.get())
+        binning = self.binning.get()
 
         argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
                                                                    os.path.join(extraPrefix, firstItem.parseFileName()),
@@ -264,7 +264,7 @@ class ProtImodTSNormalization(ProtImodBase):
         output.append(newTs)
 
         if binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+            newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
