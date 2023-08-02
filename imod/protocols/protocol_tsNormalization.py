@@ -56,7 +56,7 @@ class ProtImodTSNormalization(ProtImodBase):
                       label='Input set of tilt-series')
 
         form.addParam('binning',
-                      params.FloatParam,
+                      params.IntParam,
                       default=1,
                       label='Binning',
                       important=True,

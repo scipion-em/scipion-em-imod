@@ -57,8 +57,8 @@ class ProtImodTomoNormalization(ProtImodBase):
                       label='Input set of tomograms')
 
         form.addParam('binning',
-                      params.FloatParam,
-                      default=1.0,
+                      params.IntParam,
+                      default=1,
                       label='Binning',
                       important=True,
                       help='Binning to be applied to the normalized tomograms '
