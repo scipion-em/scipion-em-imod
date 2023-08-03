@@ -1,3 +1,6 @@
+3.1.9:
+  - fix binning for normalization protocols
+  - fix excluded views parsing
 3.1.8:
   - Reconstruction:
      - tomoWidth added to specify a width when reconstructing
