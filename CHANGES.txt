@@ -1,3 +1,5 @@
+3.1.10:
+  - fix DefocusTol param type for CTF correction protocol: must be integer
 3.1.9:
   - fix binning for normalization protocols
   - fix excluded views parsing
