@@ -56,7 +56,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('binning', params.FloatParam,
+        form.addParam('binning', params.IntParam,
                       default=1.0,
                       label='Binning',
                       help='Binning to be applied to the interpolated '
@@ -87,7 +87,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         firstItem = ts.getFirstItem()
-        binning = int(self.binning.get())
+        binning = self.binning.get()
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
@@ -129,7 +129,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        binning = int(self.binning.get())
+        binning = self.binning.get()
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)

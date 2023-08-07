@@ -83,8 +83,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                               condition='computeAlignment==0')
 
         group.addParam('binning',
-                       params.FloatParam,
-                       default=1.0,
+                       params.IntParam,
+                       default=1,
                        label='Binning',
                        help='Binning to be applied to the interpolated '
                             'tilt-series in IMOD convention. Images will be '
@@ -266,7 +266,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
             'xform': os.path.join(extraPrefix,
                                   ts.getFirstItem().parseFileName(extension=".prexg")),
-            'bin': int(self.binning.get()),
+            'bin': self.binning.get(),
             'imagebinned': 1.0
         }
         argsAlignment = "-input %(input)s " \
@@ -285,7 +285,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         output.append(newTs)
 
         if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+            newTs.setSamplingRate(ts.getSamplingRate() * self.binning.get())
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -294,7 +294,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
             if self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
             newTs.append(newTi)
 
         ih = ImageHandler()
