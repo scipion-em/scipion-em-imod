@@ -126,12 +126,14 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runXcorrPrealignment(cls, inputSoTS, computeAlignmentToggle,
-                              binning, rotationAngle):
+                              binning, rotationAngle, xmin, ymin):
         cls.protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
                                         inputSetOfTiltSeries=inputSoTS,
                                         computeAlignment=computeAlignmentToggle,
                                         binning=binning,
-                                        rotationAngle=rotationAngle)
+                                        tiltAxisAngle=rotationAngle,
+                                        xmin=xmin,
+                                        ymin=ymin)
         cls.launchProtocol(cls.protXcorr)
         return cls.protXcorr
 
@@ -368,7 +370,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.protXcorr = cls._runXcorrPrealignment(inputSoTS=cls.protDoseFilter.TiltSeries,
                                                   computeAlignmentToggle=0,
                                                   binning=cls.binningPrealignment,
-                                                  rotationAngle=-12.5)
+                                                  rotationAngle=-12.5,
+                                                  xmin=10,
+                                                  ymin=10)
 
         cls.protFiducialModels = cls._runFiducialModels(inputSoTS=cls.protXcorr.TiltSeries,
                                                         twoSurfaces=0,
