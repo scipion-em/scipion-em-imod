@@ -106,12 +106,13 @@ class ProtImodXraysEraser(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId(),
-                                     generateAngleFile=False)
+            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.eraseXraysStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputStep)
 
+    def convertInputStep(self, tsObjId):
+        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 
@@ -125,11 +126,11 @@ class ProtImodXraysEraser(ProtImodBase):
             'findPeaks': 1,
             'peakCriterion': self.peakCriterion.get(),
             'diffCriterion': self.diffCriterion.get(),
-            'growCriterion': 4,
-            'scanCriterion': 3,
+            'growCriterion': 4.,
+            'scanCriterion': 3.,
             'maximumRadius': self.maximumRadius.get(),
-            'giantCriterion': 12,
-            'extraLargeRadius': 8,
+            'giantCriterion': 12.,
+            'extraLargeRadius': 8.,
             'bigDiffCriterion': self.bigDiffCriterion.get(),
             'annulusWidth': 2.0,
             'xyScanSize': 100,
@@ -146,12 +147,12 @@ class ProtImodXraysEraser(ProtImodBase):
                         "-FindPeaks %(findPeaks)d " \
                         "-PeakCriterion %(peakCriterion).2f " \
                         "-DiffCriterion %(diffCriterion).2f " \
-                        "-GrowCriterion %(growCriterion)d " \
-                        "-ScanCriterion %(scanCriterion)d " \
+                        "-GrowCriterion %(growCriterion).2f " \
+                        "-ScanCriterion %(scanCriterion).2f " \
                         "-MaximumRadius %(maximumRadius).2f " \
-                        "-GiantCriterion %(giantCriterion)d " \
-                        "-ExtraLargeRadius %(extraLargeRadius)d " \
-                        "-BigDiffCriterion %(bigDiffCriterion)d " \
+                        "-GiantCriterion %(giantCriterion).2f " \
+                        "-ExtraLargeRadius %(extraLargeRadius).2f " \
+                        "-BigDiffCriterion %(bigDiffCriterion).2f " \
                         "-AnnulusWidth %(annulusWidth).2f " \
                         "-XYScanSize %(xyScanSize)d " \
                         "-EdgeExclusionWidth %(edgeExclusionWidth)d " \

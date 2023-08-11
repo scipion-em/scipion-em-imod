@@ -118,8 +118,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                            condition='computeAlignment==0')
 
         groupInterpolation.addParam('binning',
-                                    params.FloatParam,
-                                    default=1.0,
+                                    params.IntParam,
+                                    default=1,
                                     label='Binning',
                                     help='Binning to be applied to the '
                                          'interpolated tilt-series in IMOD '
@@ -313,6 +313,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'outputTiltFile': os.path.join(extraPrefix,
                                            firstItem.parseFileName(suffix="_interpolated",
                                                                    extension=".tlt")),
+            'outputXAxisTiltFile': os.path.join(extraPrefix,
+                                                firstItem.parseFileName(extension=".xtilt")),
             'outputTransformFile': os.path.join(extraPrefix,
                                                 firstItem.parseFileName(suffix="_fid",
                                                                         extension=".xf")),
@@ -365,7 +367,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'localXStretchDefaultGrouping': 7,
             'localSkewOption': 0,
             'localSkewDefaultGrouping': 11,
-            'outputTiltAlignFileText': os.path.join(extraPrefix, "outputTiltAlign.txt"),
+            'outputTiltAlignFileText': os.path.join(extraPrefix, "align.log"),
         }
 
         argsTiltAlign = "-ModelFile %(modelFile)s " \
@@ -376,6 +378,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-OutputResidualFile %(outputResidualFile)s " \
                         "-OutputFidXYZFile %(outputFidXYZFile)s " \
                         "-OutputTiltFile %(outputTiltFile)s " \
+                        "-OutputXAxisTiltFile %(outputXAxisTiltFile)s " \
                         "-OutputTransformFile %(outputTransformFile)s " \
                         "-OutputFilledInModel %(outputFilledInModel)s " \
                         "-RotationAngle %(rotationAngle).2f " \
@@ -431,11 +434,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsTiltAlign += "2>&1 | tee %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
-
-        self.generateTaSolutionText(os.path.join(extraPrefix, "outputTiltAlign.txt"),
-                                    os.path.join(extraPrefix, "taSolution.log"),
-                                    ts.getSize(),
-                                    ts.getSamplingRate())
+        Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=extraPrefix)
 
     @tryExceptDecorator
     def translateFiducialPointModelStep(self, tsObjId):
@@ -500,6 +499,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
+                newTi.setAcquisition(tiltImage.getAcquisition())
 
                 if tiltImage.hasTransform():
                     transform = Transform()
@@ -552,7 +552,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 'output': os.path.join(extraPrefix, firstItem.parseFileName()),
                 'xform': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid",
                                                                            extension=".xf")),
-                'bin': int(self.binning.get()),
+                'bin': self.binning.get(),
                 'imagebinned': 1.0}
 
             argsAlignment = "-input %(input)s " \
@@ -564,12 +564,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             "-taper 1,1 " \
                             "-reo 1"
 
-            rotationAngleAvg = utils.calculateRotationAngleFromTM(self.TiltSeries.getTiltSeriesFromTsId(tsId))
+            rotationAngle = tsIn.getAcquisition().getTiltAxisAngle()
 
             # Check if rotation angle is greater than 45º. If so, swap x
             # and y dimensions to adapt output image sizes to
             # the final sample disposition.
-            if 45 < abs(rotationAngleAvg) < 135:
+            if 45 < abs(rotationAngle) < 135:
                 paramsAlignment.update({
                     'size': "%d,%d" %
                             (firstItem.getYDim() // self.binning.get(),
@@ -582,6 +582,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(tsIn)
+            newTs.setInterpolated(True)
             output.append(newTs)
 
             tltFilePath = os.path.join(
@@ -592,7 +593,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             tltList = utils.formatAngleList(tltFilePath)
 
             if self.binning > 1:
-                newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
+                newTs.setSamplingRate(tsIn.getSamplingRate() * self.binning.get())
 
             for index, tiltImage in enumerate(tsIn):
                 newTi = TiltImage()
@@ -601,7 +602,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName()))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -771,7 +772,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -841,60 +842,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             return 2
         elif self.twoSurfaces.get() == 1:
             return 1
-
-    def generateTaSolutionText(self, tiltAlignOutputLog, taSolutionLog,
-                               numberOfTiltImages, pixelSize):
-        """ This method generates a text file containing the TA
-        solution from the tiltalign output log. """
-
-        searchingPassword = "deltilt"
-
-        with open(tiltAlignOutputLog, 'r') as fRead:
-            lines = fRead.readlines()
-
-            counts = []
-
-            for index, line in enumerate(lines):
-                if searchingPassword in line:
-                    counts.append([index])
-
-        lastApparition = max(counts)[0]
-
-        outputLinesAsMatrix = []
-
-        # Take only the lines that compose the table containing
-        # the ta solution info (until blank line)
-        # Convert lines into numpy array for posterior operation
-
-        index = lastApparition + 1
-        while True:
-            vector = lines[index].split()
-            vector = [float(i) for i in vector]
-            outputLinesAsMatrix.append(vector)
-            if int(vector[0]) == numberOfTiltImages:
-                break
-            index += 1
-
-        matrixTaSolution = np.array(outputLinesAsMatrix)
-
-        # Find the position in table of the minimum tilt angle image
-        _, indexAng = min((abs(val), idx) for (idx, val) in enumerate(matrixTaSolution[:, 2]))
-
-        # Multiply last column by the sampling rate in nanometer
-        matrixTaSolution[:, -1] = matrixTaSolution[:, -1] * pixelSize / 10
-
-        # Get minimum rotation to write in file
-        minimumRotation = matrixTaSolution[indexAng][1]
-
-        # Save new matrixTaSolution info into file
-        np.savetxt(fname=taSolutionLog,
-                   X=matrixTaSolution,
-                   fmt=" %i\t%.1f\t%.1f\t%.2f\t%.4f\t%.4f\t%.2f\t%.2f",
-                   header=" At minimum tilt, rotation angle is %.2f\n\n"
-                          " view   rotation    tilt    deltilt     "
-                          "mag      dmag      skew    resid-nm"
-                          % minimumRotation,
-                   comments='')
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

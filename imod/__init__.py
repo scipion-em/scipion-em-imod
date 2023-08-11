@@ -36,8 +36,8 @@ import pwem
 from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
 
 
-__version__ = '3.1'
-_logo = ""
+__version__ = '3.1.10'
+_logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
@@ -50,6 +50,7 @@ def getImodEnv():
 class Plugin(pwem.Plugin):
     _homeVar = IMOD_HOME
     _validationMsg = None
+    _url = "https://github.com/scipion-em/scipion-em-imod"
 
     @classmethod
     def _defineVariables(cls):
@@ -107,9 +108,8 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-
-        for version in VERSIONS:
-            cls.installImod(env, version, version == DEFAULT_VERSION)
+        version = VERSIONS[-1]
+        cls.installImod(env, version, version == DEFAULT_VERSION)
 
     @classmethod
     def installImod(cls, env, version, default):
@@ -144,7 +144,6 @@ class Plugin(pwem.Plugin):
                            createBuildDir=True,
                            buildDir=cls._getEMFolder(version),
                            neededProgs=cls.getDependencies(),
-                           libChecks="libjpeg62",
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=default)
 

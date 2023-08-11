@@ -40,6 +40,8 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
 
+
+def formatTransformFile(ts, transformFilePath):
 def formatTransformFile(ts:tomo.objects.TiltSeries, transformFilePath, orderBy='id'):
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform
@@ -91,25 +93,20 @@ def formatTransformationMatrix(matrixFile):
     returns a 3D matrix containing the transformation matrices for
     each tilt-image belonging to the tilt-series. """
 
-    with open(matrixFile, "r") as matrix:
-        lines = matrix.readlines()
-
-    numberLines = len(lines)
+    matrix = np.loadtxt(matrixFile, dtype=float, comments='#')
+    numberLines = matrix.shape[0]
     frameMatrix = np.empty([3, 3, numberLines])
 
-    i = 0
-    for line in lines:
-        values = line.split()
-        frameMatrix[0, 0, i] = float(values[0])
-        frameMatrix[1, 0, i] = float(values[2])
-        frameMatrix[0, 1, i] = float(values[1])
-        frameMatrix[1, 1, i] = float(values[3])
-        frameMatrix[0, 2, i] = float(values[4])
-        frameMatrix[1, 2, i] = float(values[5])
-        frameMatrix[2, 0, i] = 0.0
-        frameMatrix[2, 1, i] = 0.0
-        frameMatrix[2, 2, i] = 1.0
-        i += 1
+    for row in range(numberLines):
+        frameMatrix[0, 0, row] = matrix[row][0]
+        frameMatrix[1, 0, row] = matrix[row][2]
+        frameMatrix[0, 1, row] = matrix[row][1]
+        frameMatrix[1, 1, row] = matrix[row][3]
+        frameMatrix[0, 2, row] = matrix[row][4]
+        frameMatrix[1, 2, row] = matrix[row][5]
+        frameMatrix[2, 0, row] = 0.0
+        frameMatrix[2, 1, row] = 0.0
+        frameMatrix[2, 2, row] = 1.0
 
     return frameMatrix
 
@@ -199,7 +196,7 @@ def generateIMODFidFile(protocol, landmarkModel):
 
         protocol.setStepsExecutor()
         Plugin.runImod(protocol, 'point2model',
-                            argsPoint2Model % paramsPoint2Model)
+                       argsPoint2Model % paramsPoint2Model)
 
     return fiducialModelGapPath
 
@@ -230,7 +227,6 @@ def formatAngleList(tltFilePath):
         tltText = f.read().splitlines()
         for line in tltText:
             angleList.append(float(line))
-    # angleList.reverse()
 
     return angleList
 
@@ -479,7 +475,7 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
 
     else:
         raise Exception("Misleading file format, CTF estimation with "
-                        "astigmatism and phase shift should be 6 columns "
+                        "defocus and phase shift should be 6 columns "
                         "long")
 
     return defocusUDict, phaseShiftDict
@@ -536,7 +532,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with "
+        raise Exception("Misleading file format, CTF estimation with "
                         "astigmatism and phase shift should be 8 columns "
                         "long")
 
@@ -601,7 +597,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
-        raise Exception("Misleading file format, CTF estiation with "
+        raise Exception("Misleading file format, CTF estimation with "
                         "astigmatism, phase shift and cut-on frequency "
                         "should be 8 columns long")
 
@@ -664,7 +660,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 1:
             # Astigmatism estimation
-            logger.debug("Flag 1: Astigmatism estimtion.")
+            logger.debug("Flag 1: Astigmatism estimation.")
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -1019,7 +1015,8 @@ def readExcludeViewsFile(excludeViewsFilePath):
 
     logger.debug("Reading excluded views from %s" % excludeViewsFilePath)
     with open(excludeViewsFilePath, 'r') as f:
-        lines = f.read().splitlines()
+        lines = f.readlines()
+        lines = filter(lambda x: x.strip(), lines)
 
         for line in lines:
             vector = line.split()

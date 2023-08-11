@@ -67,6 +67,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         ProtTomoImportFiles.__init__(self, **args)
 
+    @classmethod
+    def worksInStreaming(cls):
+        """ So far none of them work in streaming. Since this inherits from the import they were considered as "streamers". """
+        return False
+
     def defineExecutionPararell(self):
 
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -77,13 +82,15 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True):
+                         imodInterpolation=True, doSwap=False):
         """
 
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
-        :param imodInterpolation: Boolean (True) to interpolate the tilt series with imod in case there is a TM.
+        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+                                  imod in case there is a TM.
                                   Pass None to cancel interpolation.
+        :param doSwap: if applying alignment, consider swapping X/y
         :return:
         """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
@@ -118,43 +125,23 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # Here we want the xf file according to the stack order driven by the _index
                 utils.formatTransformFile(ts, outputTmFileName, orderBy="_index")
 
-                # Apply interpolation
-                paramsAlignment = {
-                    'input': firstItem.getFileName(),
-                    'output': outputTsFileName,
-                    'xform': os.path.join(tmpPrefix,
-                                          firstItem.parseFileName(extension=".xf")),
-                }
+                argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                             outputTsFileName,
+                                                                             xfFile=outputTmFileName,
+                                                                             firstItem=firstItem,
+                                                                             doSwap=doSwap)
 
-                argsAlignment = "-input %(input)s " \
-                                "-output %(output)s " \
-                                "-xform %(xform)s " \
-                                "-taper 1,1 "
-
-                rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
-
-                # Check if rotation angle is greater than 45º. If so,
-                # swap x and y dimensions to adapt output image sizes to
-                # the final sample disposition.
-                if 45 < abs(rotationAngleAvg) < 135:
-                    paramsAlignment.update({
-                        'size': "%d,%d" % (firstItem.getYDim(), firstItem.getXDim())
-                    })
-
-                    argsAlignment += "-size %(size)s "
-
-                self.info("Interpolating tilt series %s with imod." % tsId)
+                self.info("Interpolating tilt series %s with imod" % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             else:
-                self.info("Linking tilt series %s. Nothing to interpolate." % tsId)
-                path.createLink(firstItem.getLocation()[1], outputTsFileName)
+                self.info("Linking tilt series %s" % tsId)
+                path.createLink(firstItem.getFileName(), outputTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
-            self.info("Interpolating tilt series %s with emlib." % tsId)
+            self.info("Interpolating tilt series %s with emlib" % tsId)
             ts.applyTransform(outputTsFileName)
-
 
         self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
 
@@ -164,6 +151,53 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                          firstItem.parseFileName(extension=".tlt"))
             ts.writeTltFile(angleFilePath)
 
+    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
+                               xfFile=None, firstItem=None, binning=1, doSwap=False):
+        """ Returns basic newstack arguments
+        
+        :param ts: Title Series object
+        :param outputTsFileName: tilt series output file name after newstack
+        :param inputTsFileName: Input tilt series file name. Default to firsItem.getFilename()
+        :param xfFile: xf file name, if passed, alignment will be generated and used
+        :param firstItem: Optional, otherwise it will be taken from ts
+        :param binning: Default to 1. to apply to output size
+        :param doSwap: Default False.
+        
+        """
+        
+        if firstItem is None:
+            firstItem = ts.getFirstItem()
+
+        if inputTsFileName is None:
+            inputTsFileName = firstItem.getFileName()
+
+        # Apply interpolation
+        paramsAlignment = {
+            'input': inputTsFileName,
+            'output': outputTsFileName,
+        }
+        argsAlignment = "-input %(input)s " \
+                        "-output %(output)s " \
+                        "-taper 1,1 "
+
+        if xfFile is not None:
+            paramsAlignment['xform'] = xfFile
+            argsAlignment += "-xform %(xform)s "
+
+            if doSwap:
+                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+                # Check if rotation angle is greater than 45º. If so,
+                # swap x and y dimensions to adapt output image sizes to
+                # the final sample disposition.
+                if 45 < abs(rotationAngle) < 135:
+                    paramsAlignment.update({
+                        'size': "%d,%d" % (round(firstItem.getYDim()/binning),
+                                           round(firstItem.getXDim()/binning))
+                    })
+
+                    argsAlignment += "-size %(size)s "
+
+        return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1):
@@ -281,8 +315,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputFiducialModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
-
+            outputFiducialModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
+
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: outputFiducialModelGaps})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
@@ -362,9 +397,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(self._getSetOfTiltSeries(pointer=True))
+            ts = self._getSetOfTiltSeries(pointer=True)
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
+            self._defineCtfRelation(outputSetOfCTFTomoSeries, ts.get())
 
         return outputSetOfCTFTomoSeries
 

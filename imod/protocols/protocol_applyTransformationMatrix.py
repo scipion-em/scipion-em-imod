@@ -56,8 +56,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('binning', params.FloatParam,
-                      default=1.0,
+        form.addParam('binning', params.IntParam,
+                      default=1,
                       label='Binning',
                       help='Binning to be applied to the interpolated '
                            'tilt-series in IMOD convention. Images will be '
@@ -86,16 +86,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
-
         firstItem = ts.getFirstItem()
+        binning = self.binning.get()
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
             'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf")),
-            'bin': int(self.binning.get()),
+            'bin': binning,
             'imagebinned': 1.0
         }
 
@@ -107,15 +106,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-imagebinned %(imagebinned)s " \
                         "-reo 1 "
 
-        rotationAngleAvg = utils.calculateRotationAngleFromTM(ts)
+        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
 
         # Check if rotation angle is greater than 45º. If so,
         # swap x and y dimensions to adapt output image sizes to
         # the final sample disposition.
-        if 45 < abs(rotationAngleAvg) < 135:
+        if 45 < abs(rotationAngle) < 135:
             paramsAlignment.update({
-                'size': "%d,%d" % (firstItem.getYDim() // self.binning.get(),
-                                   firstItem.getXDim() // self.binning.get())
+                'size': "%d,%d" % (round(firstItem.getYDim() / binning),
+                                   round(firstItem.getXDim() / binning))
             })
 
             argsAlignment += "-size %(size)s "
@@ -131,26 +130,32 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
+        binning = self.binning.get()
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setInterpolated(True)
+        acq = newTs.getAcquisition()
+        acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+        newTs.setAcquisition(acq)
         output.append(newTs)
 
-        if self.binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * int(self.binning.get()))
+        if binning > 1:
+            newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
         index = 1
         for tiltImage in ts.iterItems('_tiltAngle'):
             if tiltImage.isEnabled():
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                newTi.setAcquisition(tiltImage.getAcquisition())
+                acq = tiltImage.getAcquisition()
+                acq.setTiltAxisAngle(0.)
+                newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 index += 1
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                if binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
                 newTs.append(newTi)
 
         ih = ImageHandler()

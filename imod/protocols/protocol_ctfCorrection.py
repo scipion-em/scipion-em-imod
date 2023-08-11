@@ -66,7 +66,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                            'of tilt-series.')
 
         form.addParam('defocusTol',
-                      params.FloatParam,
+                      params.IntParam,
                       label='Defocus tolerance (nm)',
                       default=200,
                       important=True,
@@ -134,6 +134,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsObjId):
+        # Considering swapXY is required to make tilt axis vertical
+        super().convertInputStep(tsObjId, doSwap=True)
+
     def generateDefocusFile(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -199,24 +203,35 @@ class ProtImodCtfCorrection(ProtImodBase):
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        inputTs = self.inputSetOfTiltSeries.get()
+        output = self.getOutputSetOfTiltSeries(inputTs)
+        hasAlign = inputTs.getFirstItem().getFirstItem().hasTransform()
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = inputTs[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setCtfCorrected(True)
         output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-            newTi.setAcquisition(tiltImage.getAcquisition())
+            acq = tiltImage.getAcquisition()
+            if hasAlign:
+                acq.setTiltAxisAngle(0.)
+            newTi.setAcquisition(acq)
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
             newTs.append(newTi)
+
+        if hasAlign:
+            acq = newTs.getAcquisition()
+            acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+            newTs.setAcquisition(acq)
 
         newTs.write(properties=False)
         output.update(newTs)
@@ -246,16 +261,6 @@ class ProtImodCtfCorrection(ProtImodBase):
                             "(non-interpolated).")
 
         return warnings
-
-    def _validate(self):
-        validateMsgs = []
-
-        if self.inputSetOfTiltSeries.get().getSize() != self.inputSetOfCtfTomoSeries.get().getSize():
-            validateMsgs.append("Input tilt-series and CTF tomo "
-                                "estimations must contain the "
-                                "same number of elements.")
-
-        return validateMsgs
 
     def _summary(self):
         summary = []

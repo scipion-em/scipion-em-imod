@@ -61,7 +61,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       default=1000,
                       label='Tomogram thickness (voxels)',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Size in voxels of the tomogram in the z '
                            'axis (beam direction).')
 
@@ -69,18 +68,20 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Tomogram shift in X',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='This entry allows one to shift the reconstructed '
                            'slice in X before it is output.  If the X shift '
                            'is positive, the slice will be shifted to the '
                            'right, and the output will contain the left part '
                            'of the whole potentially reconstructable area.')
-
+        form.addParam('tomoWidth',
+                      params.IntParam,
+                      default=0,
+                      label='Tomogram width (voxels)',
+                      help='Number of pixels to cut out in X, centered on the middle in X. Leave 0 for default X.')
         form.addParam('tomoShiftZ',
                       params.FloatParam,
                       default=0,
                       label='Tomogram shift in Z',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='This entry allows one to shift the reconstructed '
                            'slice in Z before it is output. If the Z '
                            'shift is positive, the slice is shifted upward. '
@@ -91,7 +92,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Angle offset',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply an angle offset in degrees to all tilt '
                            'angles. This offset positively rotates the '
                            'reconstructed sections anticlockwise.')
@@ -100,7 +100,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.FloatParam,
                       default=0,
                       label='Tilt axis offset',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Apply an offset to the tilt axis in a stack of '
                            'full-sized projection images, cutting the '
                            'X-axis at  NX/2. + offset instead of NX/2. The '
@@ -111,7 +110,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.IntParam,
                       default=0,
                       label='Iterations of a SIRT-like equivalent filter',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Modify the radial filter to produce a '
                            'reconstruction equivalent to the one produced by '
@@ -170,6 +168,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsObjId):
+        # Considering swapXY is required to make tilt axis vertical
+        super().convertInputStep(tsObjId, doSwap=True)
+
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -219,10 +221,18 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
+        def getArgs():
+            args = "-rx "
+
+            if self.tomoWidth.get():
+                args += " -nx %s" % self.tomoWidth.get()
+
+            return args
+
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
-            'options': "-rx "
+            'options': getArgs()
         }
 
         argsTrimvol = "%(options)s " \
@@ -247,6 +257,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
         newTomogram.setSamplingRate(ts.getSamplingRate())
         # Set default tomogram origin
         newTomogram.setOrigin(newOrigin=None)
+        if self.tomoShiftZ.get():
+            x,y,z = newTomogram.getShiftsFromOrigin()
+            shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
+            newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+
         newTomogram.setAcquisition(ts.getAcquisition())
 
         output.append(newTomogram)

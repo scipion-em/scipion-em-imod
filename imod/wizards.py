@@ -26,14 +26,23 @@
 # *
 # *****************************************************************************
 
+from pwem.constants import *
+from pwem.wizards import *
+from pwem.wizards.wizard import EmWizard
+from pyworkflow.wizard import Wizard
 
-# ----------------- Constants values ------------------------------------------
+from .protocols import ProtImodXcorrPrealignment
 
-IMOD_HOME = 'IMOD_HOME'
-ETOMO_CMD = 'etomo'
 
-VERSION_4_11_7 = '4.11.7'
-VERSION_4_11_20 = '4.11.20'
-VERSION_4_11_24 = '4.11.24'
-VERSIONS = [VERSION_4_11_7, VERSION_4_11_20, VERSION_4_11_24]
-DEFAULT_VERSION = VERSION_4_11_24
+class ProtImodXcorrPrealignmentWizard(Wizard):
+    _targets = [(ProtImodXcorrPrealignment, ['tiltAxisAngle'])]
+
+    def _getTiltAxisAngle(self, protocol):
+        if protocol.inputSetOfTiltSeries.hasValue():
+            tiltAxisAngle = protocol.inputSetOfTiltSeries.get().getAcquisition().getTiltAxisAngle()
+
+        return tiltAxisAngle
+
+    def show(self, form):
+        form.setVar('tiltAxisAngle', self._getTiltAxisAngle(form.protocol))
+
