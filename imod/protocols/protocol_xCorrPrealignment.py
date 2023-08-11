@@ -81,17 +81,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       help='Generate and save the interpolated tilt-series '
                            'applying the obtained transformation matrices.')
 
-        form.addParam('tiltAxisAngle',
-                      params.FloatParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      allowsNull=True,
-                      label='Tilt axis angle (degrees)',
-                      help='The tilt axis angle is the tilt axis rotation relative to the Y axis of the image.'
-                           'If it was not properly set in the import of the tilt series, or the imported'
-                           'information is not correct you have the chance to correct at in this point.'
-                           'Usually, it will be 90 degrees less than the RotationAngle in a '
-                           'system with no axis inversions')
-
         form.addParam('binning',
                       params.IntParam,
                       default=1,
@@ -100,6 +89,19 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'tilt-series in IMOD convention. Images will be '
                            'binned by the given factor. Must be an integer '
                            'bigger than 1')
+
+        form.addParam('Trimming parameters', params.LabelParam,
+                                 label='Tilt axis angle detected from import. In case another value is desired please adjust the number below')
+
+        form.addParam('tiltAxisAngle',
+                      params.FloatParam,
+                      allowsNull=True,
+                      label='Tilt axis angle (degrees)',
+                      help='The tilt axis angle is the tilt axis rotation relative to the Y axis of the image.'
+                           'If it was not properly set in the import of the tilt series, or the imported'
+                           'information is not correct you have the chance to correct at in this point.'
+                           'Usually, it will be 90 degrees less than the RotationAngle in a '
+                           'system with no axis inversions')
 
         trimming = form.addGroup('Trimming parameters',
                                   expertLevel=params.LEVEL_ADVANCED)
@@ -225,10 +227,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
-        if self.tiltAxisAngle.get():
-            tiltAxisAngle = self.tiltAxisAngle.get()
-        else:
-            tiltAxisAngle = ts.getAcquisition().getTiltAxisAngle()
+        tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
         paramsXcorr = {
             'input': os.path.join(tmpPrefix,
@@ -295,6 +294,12 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                      "-goutput %(goutput)s "
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
+    def getTiltAxisOrientation(self, ts):
+        if self.tiltAxisAngle.get():
+            return self.tiltAxisAngle.get()
+        else:
+            return ts.getAcquisition().getTiltAxisAngle()
+
     def generateOutputStackStep(self, tsObjId):
         """ Generate tilt-serie with the associated transform matrix """
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -310,8 +315,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        if self.tiltAxisAngle.get():
-            newTs.setTiltAxisAngle(self.tiltAxisAngle.get())
+        newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
 
         output.append(newTs)
 
@@ -377,8 +381,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-        if self.tiltAxisAngle.get():
-            newTs.setTiltAxisAngle(self.tiltAxisAngle.get())
+        newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
 
         newTs.setInterpolated(True)
         output.append(newTs)

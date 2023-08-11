@@ -57,7 +57,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       label='Input set of tilt-series')
 
         form.addParam('binning', params.IntParam,
-                      default=1.0,
+                      default=1,
                       label='Binning',
                       help='Binning to be applied to the interpolated '
                            'tilt-series in IMOD convention. Images will be '
