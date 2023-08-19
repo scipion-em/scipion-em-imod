@@ -45,6 +45,7 @@ from .views_tkinter_tree import ImodGenericViewer
 from .. import Plugin
 from ..utils import generateIMODFidFile
 
+DEFAULT_IMOD_VIEWER_BINNING = 1
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
@@ -83,7 +84,15 @@ class ImodObjectView(pwviewer.CommandView):
         :param kwargs: extra kwargs
         """
 
+        # Check if a default binning level has been defined for 3dmod:
+        env = Plugin.getEnviron()
+        if 'IMOD_VIEWER_BINNING' in env:
+            binningstr =  env['IMOD_VIEWER_BINNING']
+        else:
+            binningstr =  DEFAULT_IMOD_VIEWER_BINNING
+
         cmd = f"{Plugin.getImodCmd('3dmod')} "
+        cmd += f"-B {binningstr} " 
 
         if isinstance(obj, tomoObj.TiltSeries):
             angleFilePath = os.path.join(tempfile.gettempdir(),
