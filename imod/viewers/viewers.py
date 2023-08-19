@@ -92,13 +92,13 @@ class ImodObjectView(pwviewer.CommandView):
             binningstr =  DEFAULT_IMOD_VIEWER_BINNING
 
         cmd = f"{Plugin.getImodCmd('3dmod')} "
-        cmd += f"-B {binningstr} " 
 
         if isinstance(obj, tomoObj.TiltSeries):
             angleFilePath = os.path.join(tempfile.gettempdir(),
                                          obj.getFirstItem().parseFileName(extension=".tlt"))
             obj.generateTltFile(angleFilePath)
 
+            cmd += f"-b {binningstr},1 " 
             cmd += f"-a {angleFilePath} {obj.getFirstItem().getFileName().split(':')[0]}"
 
         elif isinstance(obj, tomoObj.LandmarkModel):
@@ -136,6 +136,7 @@ class ImodObjectView(pwviewer.CommandView):
             cmd += f"{obj}"
 
         else:  # Tomogram
+            cmd += f"-b {binningstr},{binningstr} " 
             cmd += f"{obj.getFileName()}"
 
         logger.info(f"Executing command: {cmd}")
