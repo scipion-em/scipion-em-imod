@@ -1,3 +1,5 @@
+3.2.0:
+  - user-controllable binning for display in 3dmod
 3.1.10:
   - fix DefocusTol param type for CTF correction protocol: must be integer
   - fix binning for other protocols
