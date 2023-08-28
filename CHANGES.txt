@@ -1,3 +1,6 @@
+3.1.10:
+  - fix DefocusTol param type for CTF correction protocol: must be integer
+  - fix binning for other protocols
 3.1.9:
   - fix binning for normalization protocols
   - fix excluded views parsing
@@ -9,7 +12,7 @@
   - Ctf correction: Allows different size of ctf set and ts set. Only paired (TS-CTF) ones will be processed
 3.1.7:
   - Validate input alignment for TS preprocess protocol
-  - Fix: Xray erser when there is alignment.
+  - Fix: Xray eraser when there is alignment.
 3.1.6:
   icon added
   template added for automatic tilt series alignment

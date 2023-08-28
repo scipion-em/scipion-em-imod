@@ -286,7 +286,9 @@ class ProtImodTomoNormalization(ProtImodBase):
             newTomogram.copyAttributes(tomo, '_origin')
 
         output.append(newTomogram)
+        output.updateDim()
         output.update(newTomogram)
+
         output.write()
         self._store()
 
