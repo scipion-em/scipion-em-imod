@@ -57,9 +57,9 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     # --------------------------- STEPS functions ----------------------------
 
     def runCTFEtimationStep(self):
-        from imod.viewers import ImodGenericViewer
+        from imod.viewers import ImodGenericView
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
-        view = ImodGenericViewer(None, self, self.inputSetOfTiltSeries,
+        view = ImodGenericView(None, self, self.inputSetOfTiltSeries,
                                  createSetButton=True,
                                  isInteractive=True,
                                  itemDoubleClick=True)

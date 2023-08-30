@@ -41,11 +41,9 @@ import imod.protocols
 from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
                                        OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                                        OUTPUT_TS_COORDINATES_NAME)
-from .views_tkinter_tree import ImodGenericViewer
+from .views_tkinter_tree import ImodGenericView
 from .. import Plugin
 from ..utils import generateIMODFidFile
-
-DEFAULT_IMOD_VIEWER_BINNING = 1
 
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
@@ -68,7 +66,7 @@ class ImodViewer(pwviewer.Viewer):
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
             view = ImodObjectView(obj, protocol=self.protocol)
         else:  # Set object
-            view = ImodGenericViewer(self.getTkRoot(), self.protocol, obj)
+            view = ImodGenericView(self.getTkRoot(), self.protocol, obj)
 
         view._env = env
         return [view]
@@ -77,19 +75,15 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None, **kwargs):
+    def __init__(self, obj, protocol=None, binning="1", **kwargs):
         """
         :param obj: Object to deal with, a single item of a set
         :param protocol: protocol owner of obj
         :param kwargs: extra kwargs
         """
 
-        # Check if a default binning level has been defined for 3dmod:
-        env = Plugin.getEnviron()
-        if 'IMOD_VIEWER_BINNING' in env:
-            binningstr =  env['IMOD_VIEWER_BINNING']
-        else:
-            binningstr =  DEFAULT_IMOD_VIEWER_BINNING
+        # Get default binning level has been defined for 3dmod:
+        binningstr = binning
 
         cmd = f"{Plugin.getImodCmd('3dmod')} "
 
@@ -198,7 +192,7 @@ class ImodEtomoViewer(pwviewer.ProtocolViewer):
                                             project=self.protocol.getProject())
                     dataviewer._visualize(outputSet)[0].show()
                 else:
-                    ImodGenericViewer(self.getTkRoot(), self.protocol, outputSet).show()
+                    ImodGenericView(self.getTkRoot(), self.protocol, outputSet).show()
             else:
                 self._notGenerated()
 

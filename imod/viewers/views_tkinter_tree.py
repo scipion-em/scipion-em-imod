@@ -32,6 +32,7 @@ from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 from pyworkflow.plugin import Domain
 import tomo.objects
+from imod import Plugin
 
 from ..protocols import ProtImodEtomo
 
@@ -73,6 +74,7 @@ class ImodGenericTreeProvider(TreeProvider):
         self.selectedDict = {}
         self.mapper = protocol.mapper
         self.maxNum = 200
+        self.binning = None
 
     def getObjects(self):
         # Retrieve all objects of type className
@@ -83,7 +85,7 @@ class ImodGenericTreeProvider(TreeProvider):
 
         for obj in self.objs.iterItems(orderBy=orderBy, direction=direction):
             if isinstance(obj, tomo.objects.TiltSeries):
-                item = obj.clone(ignoreAttrs=('_mapperPath',))
+                item = obj.clone(ignoreAttrs=[])#('_mapperPath',))
             elif isinstance(obj, tomo.objects.LandmarkModel):
                 self.objs.completeLandmarkModel(obj)
                 item = obj.clone()
@@ -274,6 +276,7 @@ class ImodListDialog(ListDialog):
         self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
+        self.binning = None
         ListDialog.__init__(self, parent, title, provider, message=None,
                             allowSelect=False,  cancelButton=True, **kwargs)
 
@@ -297,6 +300,27 @@ class ImodListDialog(ListDialog):
         self.initial_focus = self.tree
         if self._itemDoubleClick:
             self.tree.itemDoubleClick = self.doubleClickOnItem
+        else:
+            self._addBinningBox(dialogFrame)
+            self.tree.itemDoubleClick = self._showItem
+
+    def _showItem(self, item):
+        from imod.viewers import ImodObjectView
+        ImodObjectView(item, protocol=self.protocol, binning=self.binning.get()).show()
+
+    def _addBinningBox(self, frame):
+
+        self.binning = tk.StringVar(value=Plugin.getViewerBinning())
+
+        binningFrame= tk.Frame(frame)
+        binningFrame.grid(row=3,column=0, pady=2)
+
+        label = tk.Label(binningFrame, text="Display binning", bd=0)
+        label.grid(row=0, column=0, sticky='w')
+
+        entry = tk.Entry(binningFrame, width=10, textvariable=self.binning, font=gui.getDefaultFont())
+        entry.grid(row=0, column=1, sticky='w')
+
 
     def _addButton(self, frame, text, image, command, sticky='news',
                    state=tk.NORMAL):
@@ -333,7 +357,7 @@ class ImodListDialog(ListDialog):
             self.after(1000, self.refresh_gui)
 
 
-class ImodGenericViewer(pwviewer.View):
+class ImodGenericView(pwviewer.View):
     """ This class implements a view using Tkinter ListDialog
     and the ImodTreeProvider.
     """
