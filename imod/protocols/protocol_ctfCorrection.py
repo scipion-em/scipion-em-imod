@@ -66,7 +66,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                            'of tilt-series.')
 
         form.addParam('defocusTol',
-                      params.FloatParam,
+                      params.IntParam,
                       label='Defocus tolerance (nm)',
                       default=200,
                       important=True,

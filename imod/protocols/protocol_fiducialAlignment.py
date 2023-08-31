@@ -118,8 +118,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                            condition='computeAlignment==0')
 
         groupInterpolation.addParam('binning',
-                                    params.FloatParam,
-                                    default=1.0,
+                                    params.IntParam,
+                                    default=1,
                                     label='Binning',
                                     help='Binning to be applied to the '
                                          'interpolated tilt-series in IMOD '
@@ -499,6 +499,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setLocation(tiltImage.getLocation())
                 newTi.setTiltAngle(float(tltList[index]))
+                newTi.setAcquisition(tiltImage.getAcquisition())
 
                 if tiltImage.hasTransform():
                     transform = Transform()
@@ -551,7 +552,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 'output': os.path.join(extraPrefix, firstItem.parseFileName()),
                 'xform': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid",
                                                                            extension=".xf")),
-                'bin': int(self.binning.get()),
+                'bin': self.binning.get(),
                 'imagebinned': 1.0}
 
             argsAlignment = "-input %(input)s " \
@@ -591,7 +592,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             tltList = utils.formatAngleList(tltFilePath)
 
             if self.binning > 1:
-                newTs.setSamplingRate(tsIn.getSamplingRate() * int(self.binning.get()))
+                newTs.setSamplingRate(tsIn.getSamplingRate() * self.binning.get())
 
             for index, tiltImage in enumerate(tsIn):
                 newTi = TiltImage()
@@ -600,7 +601,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName()))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
             ih = ImageHandler()
@@ -770,7 +771,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * int(self.binning.get()))
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
             ih = ImageHandler()
