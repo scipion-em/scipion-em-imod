@@ -697,7 +697,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             landmarkModelNoGaps = LandmarkModel(tsId=tsId,
                                                 fileName=landmarkModelNoGapsFilePath,
                                                 modelName=fiducialModelNoGapPath,
-                                                size=self.fiducialDiameterPixel)
+                                                size=self.fiducialDiameterPixel,
+                                                hasResidualInfo=True)
 
             prevTiltIm = 0
             chainId = 0
