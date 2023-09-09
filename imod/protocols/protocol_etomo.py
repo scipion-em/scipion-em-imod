@@ -96,9 +96,9 @@ class ProtImodEtomo(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
-        from imod.viewers import ImodGenericViewer
+        from imod.viewers import ImodGenericView
         setOftiltSeries = self.inputSetOfTiltSeries.get()
-        view = ImodGenericViewer(None, self, setOftiltSeries,
+        view = ImodGenericView(None, self, setOftiltSeries,
                                  isInteractive=True,
                                  itemDoubleClick=True)
         view.show()

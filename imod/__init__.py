@@ -33,10 +33,10 @@ from pyworkflow.gui import FileTreeProvider
 from pyworkflow.gui.project.utils import OS
 import pwem
 
-from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS
+from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS, IMOD_VIEWER_BINNING
 
 
-__version__ = '3.1.10'
+__version__ = '3.2.0'
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -55,6 +55,11 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
+        cls._defineVar(IMOD_VIEWER_BINNING, "1")
+
+    @classmethod
+    def getViewerBinning(cls):
+        return cls.getVar(IMOD_VIEWER_BINNING)
 
     @classmethod
     def _getEMFolder(cls, version, *paths):
