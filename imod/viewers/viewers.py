@@ -45,6 +45,7 @@ from .views_tkinter_tree import ImodGenericView
 from .. import Plugin
 from ..utils import generateIMODFidFile
 
+
 class ImodViewer(pwviewer.Viewer):
     """ Wrapper to visualize different type of objects
     with the Imod program 3dmod
@@ -64,7 +65,8 @@ class ImodViewer(pwviewer.Viewer):
         cls = type(obj)
 
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
-            view = ImodObjectView(obj, protocol=self.protocol)
+            binning = kwargs.get("binning", 1)
+            view = ImodObjectView(obj, protocol=self.protocol, binning=binning)
         else:  # Set object
             view = ImodGenericView(self.getTkRoot(), self.protocol, obj)
 
@@ -75,7 +77,7 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None, binning="1", **kwargs):
+    def __init__(self, obj, protocol=None, binning=1, **kwargs):
         """
         :param obj: Object to deal with, a single item of a set
         :param protocol: protocol owner of obj
@@ -83,7 +85,7 @@ class ImodObjectView(pwviewer.CommandView):
         """
 
         # Get default binning level has been defined for 3dmod:
-        binningstr = binning
+        binningstr = str(binning)
 
         cmd = f"{Plugin.getImodCmd('3dmod')} "
 

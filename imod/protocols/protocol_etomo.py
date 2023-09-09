@@ -99,8 +99,7 @@ class ProtImodEtomo(ProtImodBase):
         from imod.viewers import ImodGenericView
         setOftiltSeries = self.inputSetOfTiltSeries.get()
         view = ImodGenericView(None, self, setOftiltSeries,
-                                 isInteractive=True,
-                                 itemDoubleClick=True)
+                               isInteractive=True)
         view.show()
         self.createOutput()
 

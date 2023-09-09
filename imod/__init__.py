@@ -55,7 +55,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
-        cls._defineVar(IMOD_VIEWER_BINNING, "1")
+        cls._defineVar(IMOD_VIEWER_BINNING, 1)
 
     @classmethod
     def getViewerBinning(cls):
