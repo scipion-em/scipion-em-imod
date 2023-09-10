@@ -34,7 +34,7 @@ from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -63,6 +63,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'tilt-series in IMOD convention. Images will be '
                            'binned by the given factor. Must be an integer '
                            'bigger than 1')
+
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Apply to odd/even',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The transformations applied to the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -123,6 +131,16 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsAlignment['input'] = oddFn
+            paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+            paramsAlignment['input'] = evenFn
+            paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
     def generateOutputStackStep(self, tsObjId):
         output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -142,6 +160,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         if binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
+        ih = ImageHandler()
+
         index = 1
         for tiltImage in ts:
             if tiltImage.isEnabled():
@@ -151,6 +171,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 acq.setTiltAxisAngle(0.)
                 newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
+                if self.applyToOddEven(ts):
+                    locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                    locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                    newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+
                 index += 1
                 if binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)

@@ -32,7 +32,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
 from ..utils import formatTransformFile
 
 
@@ -189,6 +189,14 @@ class ProtImodTSNormalization(ProtImodBase):
                             label='Min.',
                             help='Minimum value for the rescaling')
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Apply to odd/even',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The transformations applied to the odd/even tilt series will be exactly the same.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -259,12 +267,24 @@ class ProtImodTSNormalization(ProtImodBase):
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            evenFn= firstItem.getEven().split('@')[1]
+            paramsNewstack['input'] = oddFn
+            paramsNewstack['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+            paramsNewstack['input'] = evenFn
+            paramsNewstack['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
 
         if binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * binning)
+
+        ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -277,6 +297,11 @@ class ProtImodTSNormalization(ProtImodBase):
                 newTi.setTransform(None)
 
             newTi.setAcquisition(tiltImage.getAcquisition())
+            if self.applyToOddEven(ts):
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix, tiltImage.parseFileName())))
             if binning > 1:
