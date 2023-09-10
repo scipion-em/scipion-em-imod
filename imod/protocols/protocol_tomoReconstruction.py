@@ -242,7 +242,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsTilt['InputProjections'] = oddFn
-            oddEvenTmp[0] =  os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
+            oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[0]
 
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
@@ -290,6 +290,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
                             os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
             newTomogram.setHalfMaps(halfMapsList)
+
         newTomogram.setTsId(tsId)
         newTomogram.setSamplingRate(ts.getSamplingRate())
         # Set default tomogram origin

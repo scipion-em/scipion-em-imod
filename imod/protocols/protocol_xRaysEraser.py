@@ -174,7 +174,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
-            evenFn= firstItem.getEven().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
             paramsCcderaser['input'] = oddFn
             paramsCcderaser['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
@@ -203,11 +203,10 @@ class ProtImodXraysEraser(ProtImodBase):
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
             if self.applyToOddEven(ts):
-                locationOdd  = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
                 locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
+
             newTs.append(newTi)
 
         newTs.write(properties=False)

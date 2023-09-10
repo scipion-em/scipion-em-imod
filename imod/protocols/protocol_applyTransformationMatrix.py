@@ -133,7 +133,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
-            evenFn= firstItem.getEven().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
             paramsAlignment['input'] = oddFn
             paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
@@ -172,8 +172,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
                 if self.applyToOddEven(ts):
-                    locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                    locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                    locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                    locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                     newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
 
                 index += 1

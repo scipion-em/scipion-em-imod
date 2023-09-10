@@ -214,14 +214,13 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
-            evenFn= firstItem.getEven().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
             paramsCtfPhaseFlip['inputStack'] = oddFn
             paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
             paramsCtfPhaseFlip['inputStack'] = evenFn
             paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
-
 
     def createOutputStep(self, tsObjId):
         inputTs = self.inputSetOfTiltSeries.get()
@@ -253,8 +252,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                 locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
                 locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
+
             newTs.append(newTi)
 
         if hasAlign:
