@@ -1012,7 +1012,8 @@ def readExcludeViewsFile(excludeViewsFilePath):
 
     logger.debug("Reading excluded views from %s" % excludeViewsFilePath)
     with open(excludeViewsFilePath, 'r') as f:
-        lines = f.read().splitlines()
+        lines = f.readlines()
+        lines = filter(lambda x: x.strip(), lines)
 
         for line in lines:
             vector = line.split()
