@@ -270,7 +270,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                     path.moveFile(oddEvenOutput[1], tmpPath)
                     inputTomoPath = tmpPath
                     inputOdd, inputEven = (os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
-                                            os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
+                                           os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
             else:
                 inputTomoPath = location
                 if self.applyToOddEven(tomo):
