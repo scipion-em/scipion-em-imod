@@ -247,7 +247,7 @@ class ProtImodTomoNormalization(ProtImodBase):
         if runNewstack:
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
-            if self.processOddEven and tomo.hasHalfMaps():
+            if self.applyToOddEven(tomo):
                 oddFn, evenFn = tomo.getHalfMaps().split(',')
                 paramsNewstack['input'] = oddFn
                 oddEvenOutput[0] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
@@ -265,7 +265,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                 path.moveFile(os.path.join(extraPrefix, baseLoc), tmpPath)
                 inputTomoPath = tmpPath
 
-                if self.processOddEven and tomo.hasHalfMaps():
+                if self.applyToOddEven(tomo):
                     path.moveFile(oddEvenOutput[0], tmpPath)
                     path.moveFile(oddEvenOutput[1], tmpPath)
                     inputTomoPath = tmpPath
@@ -273,7 +273,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                                             os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
             else:
                 inputTomoPath = location
-                if self.processOddEven and tomo.hasHalfMaps():
+                if self.applyToOddEven(tomo):
                     inputOdd, inputEven = tomo.getHalfMaps().split(',')
 
 
@@ -291,7 +291,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-            if self.processOddEven and tomo.hasHalfMaps():
+            if self.applyToOddEven(tomo):
                 paramsBinvol['input'] = inputOdd
                 paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
                 Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
@@ -311,8 +311,6 @@ class ProtImodTomoNormalization(ProtImodBase):
             location = os.path.join(extraPrefix, os.path.basename(location))
             newTomogram.setLocation(location)
 
-
-
         if self.binning.get() > 1:
             sr = tomo.getSamplingRate() * int(self.binning.get())
 
@@ -324,7 +322,7 @@ class ProtImodTomoNormalization(ProtImodBase):
         else:
             newTomogram.copyAttributes(tomo, '_origin')
 
-        if self.processOddEven and tomo.hasHalfMaps():
+        if self.applyToOddEven(tomo):
             halfMapsList = [os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
                             os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)]
             newTomogram.setHalfMaps(halfMapsList)
@@ -369,3 +367,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                            "IMOD *binvol* command.\n"
                            % (self.Tomograms.getSize()))
         return methods
+
+    def applyToOddEven(self, tomo):
+        """ Reimplemented from base class for the tomogram case. """
+        return self.processOddEven and tomo.hasHalfMaps()
