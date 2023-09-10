@@ -96,11 +96,8 @@ class ProtImodDoseFilter(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Filter odd/even',
-                      help='This functionality only works if the tilt series has associated the odd-even images'
-                           '(False) Only the full tilt series is filtered.'
-                           '(True) The full tilt series and the odd/even tilt series associated will be filtered.'
-                           'The applied dose for the odd and the even will be the same than the used one for the '
-                           'full tilt series.')
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The applied dose for the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -117,7 +114,7 @@ class ProtImodDoseFilter(ProtImodBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
 
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
@@ -162,7 +159,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsMtffilter['input'] = oddFn
             paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
@@ -192,7 +189,7 @@ class ProtImodDoseFilter(ProtImodBase):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
-            if self.processOddEven:
+            if self.applyToOddEven(ts):
                 locationOdd  = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
                 locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])

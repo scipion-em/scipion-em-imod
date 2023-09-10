@@ -587,3 +587,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             allowedFiles.append(file)
 
         return allowedFiles
+
+    def applyToOddEven(self, ts):
+        return hasattr(self, "processOddEven") and self.processOddEven and ts.hasOddEven()

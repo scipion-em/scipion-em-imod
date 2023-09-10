@@ -164,11 +164,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Reconstruct odd/even?',
-                      help='If the tilt series does not have odd-even only the full tilt series will be reconstructed'
-                           '(False) Only the full tilt series will be processed.'
-                           '(True) The full tilt series and the odd/even tilt series associated will be reconstructed.'
-                           'The alignment applied to the odd-even tilt series will be exactly the same than'
-                           'the ones for the full tilt series.')
+                      help='If True, the full tilt series and the associated odd/even tilt series will be reconstructed. '
+                           'The alignment applied to the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -242,7 +239,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         oddEvenTmp = [[], []]
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsTilt['InputProjections'] = oddFn
             oddEvenTmp[0] =  os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
@@ -267,7 +264,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             paramsTrimVol['input'] = oddEvenTmp[0]
             paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
@@ -289,7 +286,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         newTomogram.setLocation(os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".mrc")))
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
                             os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
             newTomogram.setHalfMaps(halfMapsList)

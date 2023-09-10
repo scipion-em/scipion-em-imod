@@ -194,11 +194,8 @@ class ProtImodTSNormalization(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Apply to odd/even',
-                      help='If the tilt series does not have odd-even only the full tilt series will be processed'
-                           '(False) Only the full tilt series will be processed.'
-                           '(True) The full tilt series and the odd/even tilt series associated will be processed.'
-                           'The transformations applied to the odd-even tilt series will be exactlly the same than'
-                           'the ones for the full tilt series.')
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The transformations applied to the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -270,7 +267,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
         Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn= firstItem.getEven().split('@')[1]
             paramsNewstack['input'] = oddFn
@@ -300,7 +297,7 @@ class ProtImodTSNormalization(ProtImodBase):
                 newTi.setTransform(None)
 
             newTi.setAcquisition(tiltImage.getAcquisition())
-            if self.processOddEven:
+            if self.applyToOddEven(ts):
                 locationOdd  = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
                 locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])

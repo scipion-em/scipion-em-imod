@@ -69,11 +69,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Apply to odd/even',
-                      help='If the tilt series does not have odd-even only the full tilt series will be processed'
-                           '(False) Only the full tilt series will be processed.'
-                           '(True) The full tilt series and the odd/even tilt series associated will be processed.'
-                           'The transformations applied to the odd-even tilt series will be exactlly the same than'
-                           'the ones for the full tilt series.')
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The transformations applied to the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -134,7 +131,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-        if self.processOddEven and ts.hasOddEven():
+        if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn= firstItem.getEven().split('@')[1]
             paramsAlignment['input'] = oddFn
@@ -143,7 +140,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             paramsAlignment['input'] = evenFn
             paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
 
     def generateOutputStackStep(self, tsObjId):
         output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
@@ -175,7 +171,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 acq.setTiltAxisAngle(0.)
                 newTi.setAcquisition(acq)
                 newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-                if self.processOddEven and ts.hasOddEven():
+                if self.applyToOddEven(ts):
                     locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
                     locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                     newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
