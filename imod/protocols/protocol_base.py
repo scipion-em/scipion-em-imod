@@ -303,6 +303,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFiducialModelNoGaps.copyInfo(tiltSeries)
             outputFiducialModelNoGaps.setSetOfTiltSeries(tiltSeriesPointer)
+            outputFiducialModelNoGaps.setHasResidualInfo(True)
 
             outputFiducialModelNoGaps.setStreamState(Set.STREAM_OPEN)
 
@@ -320,6 +321,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFiducialModelGaps.copyInfo(self.inputSetOfTiltSeries.get())
             outputFiducialModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
+            outputFiducialModelGaps.setHasResidualInfo(False)
+
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
 
 

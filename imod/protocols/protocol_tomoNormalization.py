@@ -57,8 +57,8 @@ class ProtImodTomoNormalization(ProtImodBase):
                       label='Input set of tomograms')
 
         form.addParam('binning',
-                      params.FloatParam,
-                      default=1.0,
+                      params.IntParam,
+                      default=1,
                       label='Binning',
                       important=True,
                       help='Binning to be applied to the normalized tomograms '
@@ -258,7 +258,9 @@ class ProtImodTomoNormalization(ProtImodBase):
                 paramsNewstack['output'] = oddEvenOutput[1]
                 Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
-        if self.binning.get() != 1:
+        binning = self.binning.get()
+
+        if binning != 1:
             if runNewstack:
                 baseLoc = os.path.basename(location)
                 tmpPath = os.path.join(tmpPrefix, baseLoc)
@@ -280,7 +282,7 @@ class ProtImodTomoNormalization(ProtImodBase):
             paramsBinvol = {
                 'input': inputTomoPath,
                 'output': os.path.join(extraPrefix, os.path.basename(location)),
-                'binning': self.binning.get(),
+                'binning': binning,
                 'antialias': self.antialias.get() + 1
             }
 
@@ -299,20 +301,21 @@ class ProtImodTomoNormalization(ProtImodBase):
                 paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)
                 Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(), self.binning.get())
+        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(),
+                                              binning)
 
         newTomogram = Tomogram()
         newTomogram.copyInfo(tomo)
         newTomogram.setTsId(tomo.getTsId())
 
-        if not runNewstack and self.binning.get() == 1:
+        if not runNewstack and binning == 1:
             newTomogram.setLocation(location)
         else:
             location = os.path.join(extraPrefix, os.path.basename(location))
             newTomogram.setLocation(location)
 
-        if self.binning.get() > 1:
-            sr = tomo.getSamplingRate() * int(self.binning.get())
+        if binning > 1:
+            sr = tomo.getSamplingRate() * binning
 
             newTomogram.setSamplingRate(sr)
 
@@ -328,7 +331,9 @@ class ProtImodTomoNormalization(ProtImodBase):
             newTomogram.setHalfMaps(halfMapsList)
 
         output.append(newTomogram)
+        output.updateDim()
         output.update(newTomogram)
+
         output.write()
         self._store()
 
