@@ -193,6 +193,8 @@ class ProtImodDoseFilter(ProtImodBase):
                 locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
                 locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+            else:
+                newTi.setOddEven([])
 
             locationTi = index + 1, (os.path.join(extraPrefix,
                                                   tiltImage.parseFileName()))

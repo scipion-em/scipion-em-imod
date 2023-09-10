@@ -175,6 +175,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
                     locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                     newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+                else:
+                    newTi.setOddEven([])
 
                 index += 1
                 if binning > 1:
