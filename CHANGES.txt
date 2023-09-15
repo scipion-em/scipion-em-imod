@@ -1,3 +1,5 @@
+3.1.11:
+  - fix: interpolated flag is no set when correcting the CTFs
 3.1.10:
   - fix DefocusTol param type for CTF correction protocol: must be integer
   - fix binning for other protocols

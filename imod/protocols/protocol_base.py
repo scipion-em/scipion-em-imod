@@ -204,7 +204,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning=1):
+    def getOutputSetOfTiltSeries(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
 
         if self.TiltSeries:

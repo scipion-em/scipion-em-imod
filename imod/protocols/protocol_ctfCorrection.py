@@ -157,7 +157,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = self.getDefocusFileName(ts)
 
         """Generate defocus file"""
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
 
     def getDefocusFileName(self, ts):
@@ -234,6 +234,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         newTs.setCtfCorrected(True)
+        newTs.setInterpolated(True)
         output.append(newTs)
 
         ih = ImageHandler()
@@ -273,7 +274,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._store()
 
     # --------------------------- UTILS functions -----------------------------
-    def getCtfTomoSeriesFromTsId(self, setOfCtfTomoSeries, tsId):
+    def getCtfTomoSeriesFromTsId(self, tsId):
         for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
             if tsId == ctfTomoSeries.getTsId():
                 return ctfTomoSeries
