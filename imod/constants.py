@@ -30,6 +30,7 @@
 # ----------------- Constants values ------------------------------------------
 
 IMOD_HOME = 'IMOD_HOME'
+IMOD_VIEWER_BINNING = 'IMOD_VIEWER_BINNING'
 ETOMO_CMD = 'etomo'
 
 VERSION_4_11_7 = '4.11.7'
