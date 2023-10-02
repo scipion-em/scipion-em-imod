@@ -31,9 +31,10 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
+from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -89,6 +90,14 @@ class ProtImodDoseFilter(ProtImodBase):
                       condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
+
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Filter odd/even',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The applied dose for the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -150,6 +159,17 @@ class ProtImodDoseFilter(ProtImodBase):
 
         Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            paramsMtffilter['input'] = oddFn
+            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+
+            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsMtffilter['input'] = evenFn
+            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
+
     def createOutputStep(self, tsObjId):
         """Generate output filtered tilt series"""
 
@@ -163,14 +183,24 @@ class ProtImodDoseFilter(ProtImodBase):
 
         output.append(newTs)
 
+        ih = ImageHandler()
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1, (os.path.join(extraPrefix,
-                                                       tiltImage.parseFileName())))
+            if self.applyToOddEven(ts):
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+            else:
+                newTi.setOddEven([])
 
+            locationTi = index + 1, (os.path.join(extraPrefix,
+                                                  tiltImage.parseFileName()))
+            newTi.setLocation(locationTi)
             newTs.append(newTi)
+            newTs.update(newTi)
 
         newTs.write(properties=False)
 

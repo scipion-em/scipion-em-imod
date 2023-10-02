@@ -31,9 +31,10 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
+from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME
 
 
 class ProtImodCtfCorrection(ProtImodBase):
@@ -124,6 +125,14 @@ class ProtImodCtfCorrection(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Correct odd/even',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The CTF correction applied to the odd/even tilt series will be exactly the same.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -148,7 +157,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = self.getDefocusFileName(ts)
 
         """Generate defocus file"""
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(self.inputSetOfCtfTomoSeries.get(), tsId)
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
 
     def getDefocusFileName(self, ts):
@@ -166,12 +175,13 @@ class ProtImodCtfCorrection(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
+        firstItem = ts.getFirstItem()
 
         """Run ctfphaseflip IMOD program"""
         paramsCtfPhaseFlip = {
-            'inputStack': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'angleFile': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".tlt")),
-            'outputFileName': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'inputStack': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'angleFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'outputFileName': os.path.join(extraPrefix, firstItem.parseFileName()),
             'defocusFile': self.getDefocusFileName(ts),
             'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
             'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
@@ -197,10 +207,20 @@ class ProtImodCtfCorrection(ProtImodBase):
                                 "-ActionIfGPUFails 2,2 "
 
         if ts.getFirstItem().hasTransform():
-            paramsCtfPhaseFlip['xformFile'] = os.path.join(tmpPrefix, ts.getFirstItem().parseFileName(extension=".xf"))
+            paramsCtfPhaseFlip['xformFile'] = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
             argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsCtfPhaseFlip['inputStack'] = oddFn
+            paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+            paramsCtfPhaseFlip['inputStack'] = evenFn
+            paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
         inputTs = self.inputSetOfTiltSeries.get()
@@ -214,7 +234,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         newTs.setCtfCorrected(True)
+        newTs.setInterpolated(True)
         output.append(newTs)
+
+        ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -226,6 +249,13 @@ class ProtImodCtfCorrection(ProtImodBase):
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
+            if self.applyToOddEven(ts):
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+            else:
+                newTi.setOddEven([])
+
             newTs.append(newTi)
 
         if hasAlign:
@@ -244,7 +274,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._store()
 
     # --------------------------- UTILS functions -----------------------------
-    def getCtfTomoSeriesFromTsId(self, setOfCtfTomoSeries, tsId):
+    def getCtfTomoSeriesFromTsId(self, tsId):
         for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
             if tsId == ctfTomoSeries.getTsId():
                 return ctfTomoSeries

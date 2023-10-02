@@ -45,6 +45,11 @@ OUTPUT_TS_FAILED_NAME = "FailedTiltSeries"
 OUTPUT_CTF_SERIE = "CTFTomoSeries"
 OUTPUT_TOMOGRAMS_NAME = "Tomograms"
 OUTPUT_COORDINATES_3D_NAME = "Coordinates3D"
+EXT_MRCS_TS_EVEN_NAME = "_even.mrcs"
+EXT_MRCS_TS_ODD_NAME = "_odd.mrcs"
+EXT_MRC_EVEN_NAME = "_even.mrc"
+EXT_MRC_ODD_NAME = "_odd.mrc"
+
 
 
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -199,7 +204,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning=1):
+    def getOutputSetOfTiltSeries(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
 
         if self.TiltSeries:
@@ -367,6 +372,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
+
 
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
@@ -584,3 +590,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             allowedFiles.append(file)
 
         return allowedFiles
+
+    def applyToOddEven(self, ts):
+        return hasattr(self, "processOddEven") and self.processOddEven and ts.hasOddEven()

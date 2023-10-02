@@ -29,10 +29,11 @@ import os
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
+from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -103,6 +104,14 @@ class ProtImodXraysEraser(ProtImodBase):
                            'may be needed to make extra-large peak removal '
                            'useful.')
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Apply to odd/even',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
+                           'The filter applied to the odd/even tilt series will be exactly the same.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -120,9 +129,11 @@ class ProtImodXraysEraser(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
 
+        firstItem = ts.getFirstItem()
+
         paramsCcderaser = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
+            'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
             'findPeaks': 1,
             'peakCriterion': self.peakCriterion.get(),
             'diffCriterion': self.diffCriterion.get(),
@@ -136,7 +147,7 @@ class ProtImodXraysEraser(ProtImodBase):
             'xyScanSize': 100,
             'edgeExclusionWidth': 4,
             'pointModel': os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(suffix="_fid",
+                                       firstItem.parseFileName(suffix="_fid",
                                                                        extension=".mod")),
             'borderSize': 2,
             'polynomialOrder': 2,
@@ -161,6 +172,16 @@ class ProtImodXraysEraser(ProtImodBase):
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsCcderaser['input'] = oddFn
+            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+            paramsCcderaser['input'] = evenFn
+            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
+
     def createOutputStep(self, tsObjId):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
@@ -172,6 +193,8 @@ class ProtImodXraysEraser(ProtImodBase):
         newTs.copyInfo(ts)
         output.append(newTs)
 
+        ih = ImageHandler()
+
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
@@ -179,6 +202,13 @@ class ProtImodXraysEraser(ProtImodBase):
             newTi.setLocation(index + 1,
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
+            if self.applyToOddEven(ts):
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+            else:
+                newTi.setOddEven([])
+
             newTs.append(newTi)
 
         newTs.write(properties=False)

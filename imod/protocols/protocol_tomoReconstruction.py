@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -159,6 +159,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Reconstruct odd/even?',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be reconstructed. '
+                           'The alignment applied to the odd/even tilt series will be exactly the same.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         for ts in self.inputSetOfTiltSeries.get():
@@ -229,6 +237,21 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             return args
 
+        oddEvenTmp = [[], []]
+
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            paramsTilt['InputProjections'] = oddFn
+            oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
+            paramsTilt['OutputFile'] = oddEvenTmp[0]
+
+            Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsTilt['InputProjections'] = evenFn
+            oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
+            paramsTilt['OutputFile'] = oddEvenTmp[1]
+            Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
+
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
@@ -240,6 +263,15 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       "%(output)s "
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
+        if self.applyToOddEven(ts):
+            paramsTrimVol['input'] = oddEvenTmp[0]
+            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME)
+            Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
+            paramsTrimVol['input'] = oddEvenTmp[1]
+            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)
+            Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -253,6 +285,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
         newTomogram = Tomogram()
         newTomogram.setLocation(os.path.join(extraPrefix,
                                              firstItem.parseFileName(extension=".mrc")))
+
+        if self.applyToOddEven(ts):
+            halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
+                            os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
+            newTomogram.setHalfMaps(halfMapsList)
+
         newTomogram.setTsId(tsId)
         newTomogram.setSamplingRate(ts.getSamplingRate())
         # Set default tomogram origin
