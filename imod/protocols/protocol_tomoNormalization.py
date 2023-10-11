@@ -30,10 +30,10 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from tomo.objects import Tomogram
+from tomo.objects import Tomogram, SetOfTomograms
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, OUTPUT_TOMOGRAMS_NAME
 
 
 class ProtImodTomoNormalization(ProtImodBase):
@@ -46,6 +46,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
     _label = 'Tomo preprocess'
     _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -202,7 +203,7 @@ class ProtImodTomoNormalization(ProtImodBase):
     def generateOutputStackStep(self, tsObjId):
         tomo = self.inputSetOfTomograms.get()[tsObjId]
         location = tomo.getFileName()
-        fileName, fileExtension = os.path.splitext(location)
+        fileName = os.path.splitext(location)[0]
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
         tmpPrefix = self._getTmpPath(os.path.basename(fileName))
