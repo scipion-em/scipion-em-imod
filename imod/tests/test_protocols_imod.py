@@ -434,7 +434,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tseries = self.protImportTM.TiltSeries
         self.assertSetSize(tseries, size=2)
-
+        self.assertTrue(tseries.hasAlignment(), "Tilt series does not have alignment flag")
         for ts in tseries:
             self.assertTrue(ts.getFirstItem().hasTransform())
 
@@ -502,6 +502,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         ts = self.protXcorr.InterpolatedTiltSeries
         self.assertSetSize(ts)
+        self.assertFalse(ts.hasAlignment(), "Tilt series does not have alignment flag canceled")
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
@@ -532,6 +533,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         output = self.protFiducialAlignment.TiltSeries
         self.assertSetSize(output, size=2)
+        self.assertTrue(output.hasAlignment(), "Fiducial alignment Tilt series does not have alignment flag")
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
@@ -544,6 +546,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         # Interpolated
         output = self.protFiducialAlignment.InterpolatedTiltSeries
         self.assertSetSize(output, size=2)
+        self.assertFalse(output.hasAlignment(), "Interpolated Tilt series does have alignment flag")
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
@@ -586,6 +589,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         output = self.protApplyTransformationMatrix.InterpolatedTiltSeries
         self.assertSetSize(output, size=2)
+        self.assertFalse(output.hasAlignment(), "Tilt series interpolated does have alignment flag")
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId),
@@ -749,3 +753,5 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                           '%s.st' % tsId)
 
             self.assertTrue(os.path.exists(outputLocation))
+
+        self.assertTrue(output.interpolated(), "Tilt series does not have interpolated flag")
