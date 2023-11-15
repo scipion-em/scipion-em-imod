@@ -174,8 +174,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = self.getDefocusFileName(ts)
 
         """Generate defocus file"""
+
         ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
-        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
+        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, inputTiltSeries=ts)
+
 
     def getDefocusFileName(self, ts):
         """ Returns the path of the defocus filename based on

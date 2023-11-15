@@ -217,7 +217,9 @@ class ProtImodXraysEraser(ProtImodBase):
         self._store()
 
     def closeOutputStep(self):
-        getattr(self, OUTPUT_TILTSERIES_NAME).setStreamState(Set.STREAM_CLOSED)
+        if self.TiltSeries:
+            self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
+            self.TiltSeries.write()
         self._store()
 
     # --------------------------- INFO functions ------------------------------
