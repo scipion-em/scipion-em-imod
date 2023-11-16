@@ -45,6 +45,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
     _label = 'X-rays eraser'
     _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     # def __init__(self, **kwargs):
     #     EMProtocol.__init__(self, **kwargs)
