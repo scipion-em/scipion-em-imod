@@ -26,10 +26,11 @@
 
 import os
 
+from pwem.emlib.image import ImageHandler
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-from tomo.objects import Tomogram
+from tomo.objects import Tomogram, TiltSeries, TiltImage
 
 from .. import Plugin
 from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
@@ -169,17 +170,35 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.computeReconstructionStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def tryExceptDecorator(func):
+        """ This decorator wraps the step in a try/except module which adds
+        the tilt series ID to the failed TS array
+        in case the step fails"""
+
+        def wrapper(self, tsId):
+            try:
+                func(self, tsId)
+            except Exception as e:
+                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
+                self._failedTs.append(tsId)
+
+        return wrapper
+
     def convertInputStep(self, tsObjId):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
+    @tryExceptDecorator
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -280,36 +299,70 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
+        tomoLocation = os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc"))
 
-        newTomogram = Tomogram()
-        newTomogram.setLocation(os.path.join(extraPrefix,
-                                             firstItem.parseFileName(extension=".mrc")))
+        if os.path.exists(tomoLocation):
+            output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
-        if self.applyToOddEven(ts):
-            halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
-                            os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
-            newTomogram.setHalfMaps(halfMapsList)
+            newTomogram = Tomogram()
+            newTomogram.setLocation(tomoLocation)
 
-        newTomogram.setTsId(tsId)
-        newTomogram.setSamplingRate(ts.getSamplingRate())
-        # Set default tomogram origin
-        newTomogram.setOrigin(newOrigin=None)
-        if self.tomoShiftZ.get():
-            x,y,z = newTomogram.getShiftsFromOrigin()
-            shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-            newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+            if self.applyToOddEven(ts):
+                halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
+                                os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
+                newTomogram.setHalfMaps(halfMapsList)
 
-        newTomogram.setAcquisition(ts.getAcquisition())
+            newTomogram.setTsId(tsId)
+            newTomogram.setSamplingRate(ts.getSamplingRate())
 
-        output.append(newTomogram)
-        output.update(newTomogram)
-        output.write()
-        self._store()
+            # Set default tomogram origin
+            newTomogram.setOrigin(newOrigin=None)
+            if self.tomoShiftZ.get():
+                x,y,z = newTomogram.getShiftsFromOrigin()
+                shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
+                newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+
+            newTomogram.setAcquisition(ts.getAcquisition())
+
+            output.append(newTomogram)
+            output.update(newTomogram)
+            output.write()
+            self._store()
+
+    def createOutputFailedSet(self, tsObjId):
+        # Check if the tilt-series ID is in the failed tilt-series
+        # list to add it to the set
+        if tsObjId in self._failedTs:
+            ts = self.inputSetOfTiltSeries.get()[tsObjId]
+            tsSet = self.inputSetOfTiltSeries.get()
+            tsId = ts.getTsId()
+
+            output = self.getOutputFailedSetOfTiltSeries(tsSet)
+
+            newTs = TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            output.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(tiltImage.getLocation())
+                newTs.append(newTi)
+
+            ih = ImageHandler()
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            newTs.setDim((x, y, z))
+            newTs.write(properties=False)
+
+            output.update(newTs)
+            output.write()
+            self._store()
 
     def closeOutputSetsStep(self):
-        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
-        self.Tomograms.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- INFO functions ----------------------------
