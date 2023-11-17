@@ -80,8 +80,6 @@ class ProtImodAuto3D(ProtTomoReconstruct):
 
     # --------------------------- STEPS functions -----------------------------
     def processTiltSeriesStep(self, tsId):
-        ts = self._tsDict.getTs(tsId)
-
         workingFolder = self._getTmpPath(tsId)
         prefix = os.path.join(workingFolder, tsId)
 

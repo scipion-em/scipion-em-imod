@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 
+import os.path
 import threading
 
 from pyworkflow.gui import *

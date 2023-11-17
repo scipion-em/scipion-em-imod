@@ -194,7 +194,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         return wrapper
 
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 

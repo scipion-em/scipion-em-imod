@@ -47,10 +47,6 @@ class ProtImodXraysEraser(ProtImodBase):
     _devStatus = BETA
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
-    # def __init__(self, **kwargs):
-    #     EMProtocol.__init__(self, **kwargs)
-    #
-
     # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
@@ -121,7 +117,7 @@ class ProtImodXraysEraser(ProtImodBase):
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
         self._insertFunctionStep(self.closeOutputStep)
 
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]

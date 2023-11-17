@@ -526,7 +526,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             self._store()
         else:
-            raise Exception(
+            raise FileNotFoundError(
                 "Error (computeOutputStackStep): \n Imod output file "
                 "%s does not exist or it is empty" % tmpFileName)
 
@@ -613,7 +613,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             output.write()
             self._store()
         else:
-            raise Exception(
+            raise FileNotFoundError(
                 "Error (computeOutputInterpolatedStackStep): \n "
                 "Imod output file %s does not exist or it is empty" % tmpFileName)
 

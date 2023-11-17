@@ -205,7 +205,7 @@ class ProtImodTSNormalization(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsObjId, imodInterpolation=None,
                                  generateAngleFile=False)

@@ -322,7 +322,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         return wrapper
 
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
         super().convertInputStep(tsObjId, imodInterpolation=None)
 
@@ -359,7 +359,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.debug(f"Expected defoci: {expDefoci}")
             defocus = expDefoci.get(tsId, None)
             if defocus is None:
-                raise Exception(f"{tsId} not found in the provided defocus file.")
+                raise ValueError(f"{tsId} not found in the provided defocus file.")
 
             paramsCtfPlotter['expectedDefocus'] = float(defocus)
 

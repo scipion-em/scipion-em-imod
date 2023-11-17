@@ -472,7 +472,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                                 flag=defocusFileFlag)
 
         else:
-            raise Exception(
+            raise ValueError(
                 f"Defocus file flag {defocusFileFlag} is not supported. Only supported formats "
                 "correspond to flags 0, 1, 4, 5, and 37.")
 
@@ -483,7 +483,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo.setIndex(index)
 
             if index not in defocusUDict.keys() and index not in excludedViews:
-                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
+                raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
                     tsId, index, inputTs[index].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
@@ -563,8 +563,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # this is set by the user by using #### format in the pattern
                 match = self._idRegex.match(fileName)
                 if match is None:
-                    raise Exception("File '%s' doesn't match the pattern '%s'"
-                                    % (fileName, self.getPattern()))
+                    raise ValueError("File '%s' doesn't match the pattern '%s'"
+                                     % (fileName, self.getPattern()))
 
                 fileId = int(match.group(1))
 
