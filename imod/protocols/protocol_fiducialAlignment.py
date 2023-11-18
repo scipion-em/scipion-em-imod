@@ -739,37 +739,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
             output.write()
             self._store()
 
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed
-        # tilt-series list to add it to the set
-        if tsObjId in self._failedTs:
-            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-
-            newTs = TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
-
     def createOutputStep(self):
         if self.TiltSeries:
             self.TiltSeries.setStreamState(Set.STREAM_CLOSED)

@@ -119,6 +119,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
     def convertInputStep(self, tsObjId, **kwargs):
         super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
+
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
 

@@ -29,10 +29,12 @@ import os
 from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import path
+from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates)
+                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates,
+                          TiltSeries, TiltImage)
 
 from .. import Plugin, utils
 
@@ -561,7 +563,45 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         self._store()
 
+    def createOutputFailedSet(self, tsObjId):
+        # Check if the tilt-series ID is in the failed tilt-series
+        # list to add it to the set
+        if tsObjId in self._failedTs:
+            ts = self._getTiltSeries(tsObjId)
+            tsSet = self._getSetOfTiltSeries()
+            tsId = ts.getTsId()
+
+            output = self.getOutputFailedSetOfTiltSeries(tsSet)
+
+            newTs = TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            output.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(tiltImage.getLocation())
+                if hasattr(self, "binning") and self.binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
+                newTs.append(newTi)
+
+            ih = ImageHandler()
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            newTs.setDim((x, y, z))
+            newTs.write(properties=False)
+
+            output.update(newTs)
+            output.write()
+            self._store()
+
     # --------------------------- UTILS functions -----------------------------
+    def _getSetOfTiltSeries(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+
+    def _getTiltSeries(self, itemId):
+        return self.inputSetOfTiltSeries.get()[itemId]
+
     def iterFiles(self):
         """ Iterate through the files matched with the pattern.
         Provide the fileName and fileId.

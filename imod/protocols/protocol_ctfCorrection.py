@@ -274,36 +274,6 @@ class ProtImodCtfCorrection(ProtImodBase):
             output.write()
             self._store()
 
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsSet = self.inputSetOfTiltSeries.get()
-            tsId = ts.getTsId()
-
-            output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
-
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
             output.setStreamState(Set.STREAM_CLOSED)

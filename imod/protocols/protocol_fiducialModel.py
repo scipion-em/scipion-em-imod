@@ -30,7 +30,6 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
@@ -153,7 +152,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def generateTrackComStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -190,7 +189,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     @ProtImodBase.tryExceptDecorator
     def generateFiducialSeedStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -224,7 +223,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     @ProtImodBase.tryExceptDecorator
     def generateFiducialModelStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -333,7 +332,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -358,7 +357,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
     def computeOutputModelsStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -421,39 +420,6 @@ class ProtImodFiducialModel(ProtImodBase):
             output.append(landmarkModelGaps)
             output.update(landmarkModelGaps)
             output.write()
-
-    def getTiltSeries(self, tsObjId):
-        # TODO: cache this in a dictionary instead of querying the set through []
-        return self.inputSetOfTiltSeries.get()[tsObjId]
-
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-            ts = self.getTiltSeries(tsObjId)
-            tsId = ts.getTsId()
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
 
     def createOutputStep(self):
         if self.FiducialModelGaps:

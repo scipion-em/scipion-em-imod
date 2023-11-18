@@ -26,7 +26,6 @@
 
 import os
 
-from pwem.emlib.image import ImageHandler
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
@@ -449,36 +448,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
             self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
 
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self._getTiltSeries(tsObjId)
-            tsSet = self._getSetOfTiltSeries()
-            tsId = ts.getTsId()
-
-            output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
-
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
             output.setStreamState(Set.STREAM_CLOSED)
@@ -519,12 +488,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             return None
 
     def _getSetOfTiltSeries(self, pointer=False):
+        """ Reimplemented from the base class for CTF case. """
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
 
         return self.inputSet.get() if not pointer else self.inputSet
 
     def _getTiltSeries(self, itemId):
+        """ Reimplemented from the base class for CTF case. """
         obj = None
         inputSetOfTiltseries = self._getSetOfTiltSeries()
         for item in inputSetOfTiltseries.iterItems(iterate=False):
