@@ -51,7 +51,6 @@ EXT_MRC_EVEN_NAME = "_even.mrc"
 EXT_MRC_ODD_NAME = "_odd.mrc"
 
 
-
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     """
     Base class with methods used in the rest of the imod protocols
@@ -85,7 +84,21 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
 
-    # --------------------------- CACULUS functions ---------------------------
+    # --------------------------- CALCULUS functions ---------------------------
+    def tryExceptDecorator(func):
+        """ This decorator wraps the step in a try/except module which adds
+        the tilt series ID to the failed TS array
+        in case the step fails"""
+
+        def wrapper(self, tsId, *args):
+            try:
+                func(self, tsId, *args)
+            except Exception as e:
+                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
+                self._failedTs.append(tsId)
+
+        return wrapper
+
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False):
         """

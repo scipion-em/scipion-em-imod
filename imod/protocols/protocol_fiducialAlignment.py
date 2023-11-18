@@ -270,21 +270,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which
-        adds the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except:
-                self.error(f"{func.__name__} has failed for tilt-series objId#{tsId}")
-                self._failedTs.append(tsId)
-
-        return wrapper
-
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeFiducialAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -436,7 +422,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
         Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=extraPrefix)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -462,7 +448,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -530,7 +516,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Error (computeOutputStackStep): \n Imod output file "
                 "%s does not exist or it is empty" % tmpFileName)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
@@ -617,7 +603,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Error (computeOutputInterpolatedStackStep): \n "
                 "Imod output file %s does not exist or it is empty" % tmpFileName)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -652,7 +638,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()

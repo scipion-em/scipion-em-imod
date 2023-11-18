@@ -180,25 +180,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except Exception as e:
-                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
-                self._failedTs.append(tsId)
-
-        return wrapper
-
     def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()

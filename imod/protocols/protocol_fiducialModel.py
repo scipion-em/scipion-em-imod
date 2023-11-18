@@ -152,20 +152,6 @@ class ProtImodFiducialModel(ProtImodBase):
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except Exception as e:
-                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
-                self._failedTs.append(tsId)
-
-        return wrapper
-
     def generateTrackComStep(self, tsObjId):
         ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
@@ -202,7 +188,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         self.translateTrackCom(ts, paramsDict)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def generateFiducialSeedStep(self, tsObjId):
         ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
@@ -236,7 +222,7 @@ class ProtImodFiducialModel(ProtImodBase):
         path.moveTree("autofidseed.dir", autofidseedDirPath)
         path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def generateFiducialModelStep(self, tsObjId):
         ts = self.getTiltSeries(tsObjId)
         tsId = ts.getTsId()
