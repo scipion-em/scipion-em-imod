@@ -64,7 +64,7 @@ def _getVar(key):
     value = os.environ.get(key, None)
 
     if value is None:
-        raise Exception("%s var should be defined" % key)
+        raise ValueError("%s var should be defined" % key)
 
     return value
 
@@ -99,9 +99,7 @@ argsDict = {
 def run(program, args):
     cmd = "%s %s" % (program, args % argsDict)
     print("\n>>>  %s" % cmd)
-    retCode = os.system(cmd)
-    # if retCode:
-    #     raise Exception("An error occurred when running command: %s" % cmd)
+    os.system(cmd)
 
 
 def header(msg):
@@ -135,7 +133,7 @@ else:
     fidErr = "Should provide input fiducial file"
 
 if not os.path.exists(fidFile):
-    raise Exception("Missing fiducials file\n   Expecting: %s" % fidFile)
+    raise FileNotFoundError("Missing fiducials file\n   Expecting: %s" % fidFile)
 
 header('STEP 2: alignment FILE GENERATION')
 # Generate ali: tiltalign (align using model); xfproduct (Forms product of two lists of transformations)

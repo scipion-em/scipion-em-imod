@@ -292,6 +292,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         # This assignment is needed to use methods from base class
         self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
         expDefoci = self.getExpectedDefocus()
@@ -301,13 +303,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self._insertFunctionStep(self.convertInputStep, tsObjId)
             self._insertFunctionStep(self.ctfEstimation, tsObjId, expDefoci)
             self._insertFunctionStep(self.createOutputStep, tsObjId)
+            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
         super().convertInputStep(tsObjId, imodInterpolation=None)
 
+    @ProtImodBase.tryExceptDecorator
     def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
         ts = self._getTiltSeries(tsObjId)
@@ -340,7 +344,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.debug(f"Expected defoci: {expDefoci}")
             defocus = expDefoci.get(tsId, None)
             if defocus is None:
-                raise Exception(f"{tsId} not found in the provided defocus file.")
+                raise ValueError(f"{tsId} not found in the provided defocus file.")
 
             paramsCtfPlotter['expectedDefocus'] = float(defocus)
 
@@ -484,12 +488,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             return None
 
     def _getSetOfTiltSeries(self, pointer=False):
+        """ Reimplemented from the base class for CTF case. """
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
 
         return self.inputSet.get() if not pointer else self.inputSet
 
     def _getTiltSeries(self, itemId):
+        """ Reimplemented from the base class for CTF case. """
         obj = None
         inputSetOfTiltseries = self._getSetOfTiltSeries()
         for item in inputSetOfTiltseries.iterItems(iterate=False):

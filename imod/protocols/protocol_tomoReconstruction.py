@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -159,19 +159,31 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Reconstruct odd/even?',
+                      help='If True, the full tilt series and the associated odd/even tilt series will be reconstructed. '
+                           'The alignment applied to the odd/even tilt series will be exactly the same.')
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.computeReconstructionStep, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
+    @ProtImodBase.tryExceptDecorator
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -229,6 +241,21 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             return args
 
+        oddEvenTmp = [[], []]
+
+        if self.applyToOddEven(ts):
+            oddFn = firstItem.getOdd().split('@')[1]
+            paramsTilt['InputProjections'] = oddFn
+            oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
+            paramsTilt['OutputFile'] = oddEvenTmp[0]
+
+            Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
+            evenFn = firstItem.getEven().split('@')[1]
+            paramsTilt['InputProjections'] = evenFn
+            oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
+            paramsTilt['OutputFile'] = oddEvenTmp[1]
+            Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
+
         paramsTrimVol = {
             'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
             'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
@@ -241,6 +268,15 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
+        if self.applyToOddEven(ts):
+            paramsTrimVol['input'] = oddEvenTmp[0]
+            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME)
+            Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
+            paramsTrimVol['input'] = oddEvenTmp[1]
+            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)
+            Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
     def createOutputStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -248,30 +284,40 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         extraPrefix = self._getExtraPath(tsId)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
+        tomoLocation = os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc"))
 
-        newTomogram = Tomogram()
-        newTomogram.setLocation(os.path.join(extraPrefix,
-                                             firstItem.parseFileName(extension=".mrc")))
-        newTomogram.setTsId(tsId)
-        newTomogram.setSamplingRate(ts.getSamplingRate())
-        # Set default tomogram origin
-        newTomogram.setOrigin(newOrigin=None)
-        if self.tomoShiftZ.get():
-            x,y,z = newTomogram.getShiftsFromOrigin()
-            shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-            newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+        if os.path.exists(tomoLocation):
+            output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
 
-        newTomogram.setAcquisition(ts.getAcquisition())
+            newTomogram = Tomogram()
+            newTomogram.setLocation(tomoLocation)
 
-        output.append(newTomogram)
-        output.update(newTomogram)
-        output.write()
-        self._store()
+            if self.applyToOddEven(ts):
+                halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
+                                os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
+                newTomogram.setHalfMaps(halfMapsList)
+
+            newTomogram.setTsId(tsId)
+            newTomogram.setSamplingRate(ts.getSamplingRate())
+
+            # Set default tomogram origin
+            newTomogram.setOrigin(newOrigin=None)
+            if self.tomoShiftZ.get():
+                x,y,z = newTomogram.getShiftsFromOrigin()
+                shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
+                newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+
+            newTomogram.setAcquisition(ts.getAcquisition())
+
+            output.append(newTomogram)
+            output.update(newTomogram)
+            output.write()
+            self._store()
 
     def closeOutputSetsStep(self):
-        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
-        self.Tomograms.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- INFO functions ----------------------------

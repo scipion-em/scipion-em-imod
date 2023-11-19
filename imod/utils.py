@@ -354,8 +354,8 @@ def readCTFEstimationInfoFile(defocusFilePath, flag):
         return refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable)
 
     else:
-        raise Exception("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
-                        "1, 4, 5, and 37.")
+        raise ValueError("Defocus file flag do not supported. Only supported formats corresponding to flags 0, "
+                         "1, 4, 5, and 37.")
 
 
 def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
@@ -382,8 +382,8 @@ def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
                     defocusUDict[index] = [pwobj.Float(defocus)]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with "
-                        "no astigmatism should be 5 columns long")
+        raise RuntimeError("Misleading file format, CTF estimation with "
+                           "no astigmatism should be 5 columns long")
 
     return defocusUDict
 
@@ -432,8 +432,8 @@ def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
                     defocusAngleDict[index] = [pwobj.Float(element[6])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation "
-                        "with astigmatism should be 7 columns long")
+        raise RuntimeError("Misleading file format, CTF estimation "
+                           "with astigmatism should be 7 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict
 
@@ -471,9 +471,9 @@ def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[5])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with "
-                        "defocus and phase shift should be 6 columns "
-                        "long")
+        raise RuntimeError("Misleading file format, CTF estimation with "
+                           "defocus and phase shift should be 6 columns "
+                           "long")
 
     return defocusUDict, phaseShiftDict
 
@@ -529,9 +529,9 @@ def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
                     phaseShiftDict[index] = [pwobj.Float(element[7])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with "
-                        "astigmatism and phase shift should be 8 columns "
-                        "long")
+        raise RuntimeError("Misleading file format, CTF estimation with "
+                           "astigmatism and phase shift should be 8 columns "
+                           "long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
 
@@ -594,20 +594,23 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
                     cutOnFreqDict[index] = [pwobj.Float(element[8])]
 
     else:
-        raise Exception("Misleading file format, CTF estimation with "
-                        "astigmatism, phase shift and cut-on frequency "
-                        "should be 8 columns long")
+        raise RuntimeError("Misleading file format, CTF estimation with "
+                           "astigmatism, phase shift and cut-on frequency "
+                           "should be 8 columns long")
 
     return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
-                                      isRelion=False):
-    """ This methods takes a ctfTomoSeries object a generate a
+                                      isRelion=False, inputTiltSeries=None):
+    """ This method takes a ctfTomoSeries object a generate a
     defocus information file in IMOD formatting containing
     the same information in the specified location. """
 
-    tiltSeries = ctfTomoSeries.getTiltSeries()
+    if inputTiltSeries is None:
+        tiltSeries = ctfTomoSeries.getTiltSeries()
+    else:
+        tiltSeries = inputTiltSeries
 
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
@@ -808,9 +811,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 f.writelines(lines)
 
         else:
-            raise Exception("Defocus file flag do not supported. Only "
-                            "supported formats corresponding to flags 0, "
-                            "1, 4, 5, and 37.")
+            raise ValueError("Defocus file flag do not supported. Only "
+                             "supported formats corresponding to flags 0, "
+                             "1, 4, 5, and 37.")
 
     else:
         # There is no information available as list (not an IMOD CTF estimation)

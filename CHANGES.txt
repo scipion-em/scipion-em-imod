@@ -1,3 +1,12 @@
+3.2.0:
+  - add more possible outputs
+  - fixing ctf after aretomo
+  - make ctf auomatic estimation tolerant to errors
+  - odd/even processing implemented
+  - update FiducialModel
+  - changes in protocols to save if landmark model has residual information
+  - fix: interpolated flag is no set when correcting the CTFs
+  - user-controllable binning for display in 3dmod: plugin variable -> IMOD_VIEWER_BINNING = 1
 3.1.10:
   - fix DefocusTol param type for CTF correction protocol: must be integer
   - fix binning for other protocols

@@ -24,14 +24,15 @@
 # *
 # *****************************************************************************
 
+import os.path
 import threading
 
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
-from pyworkflow.plugin import Domain
 import tomo.objects
+from imod import Plugin
 
 from ..protocols import ProtImodEtomo
 
@@ -83,7 +84,7 @@ class ImodGenericTreeProvider(TreeProvider):
 
         for obj in self.objs.iterItems(orderBy=orderBy, direction=direction):
             if isinstance(obj, tomo.objects.TiltSeries):
-                item = obj.clone(ignoreAttrs=('_mapperPath',))
+                item = obj.clone(ignoreAttrs=['_mapperPath'])
             elif isinstance(obj, tomo.objects.LandmarkModel):
                 self.objs.completeLandmarkModel(obj)
                 item = obj.clone()
@@ -248,21 +249,6 @@ class ImodGenericTreeProvider(TreeProvider):
 
         return status
 
-    def getObjectActions(self, obj):
-        actions = []
-        if not self.isInteractive:
-            viewers = Domain.findViewers(obj.getClassName(),
-                                         pwviewer.DESKTOP_TKINTER)
-            for viewerClass in viewers:
-                def createViewer(viewerClass, obj):
-                    proj = self.protocol.getProject()
-                    item = self.objs[obj.getObjId()]  # to load mapper
-
-                    return lambda: viewerClass(project=proj, protocol=self.protocol).visualize(item)
-                actions.append(('Open with %s' % viewerClass.__name__,
-                                createViewer(viewerClass, obj)))
-        return actions
-
     def configureTags(self, tree):
         tree.tag_configure("pending", foreground="red")
         tree.tag_configure("done", foreground="green")
@@ -270,12 +256,13 @@ class ImodGenericTreeProvider(TreeProvider):
 
 class ImodListDialog(ListDialog):
     def __init__(self, parent, title, provider, createSetButton=False,
-                 itemDoubleClick=False, **kwargs):
+                 itemDoubleClick=True, **kwargs):
         self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
+        self.binningVar = None
         ListDialog.__init__(self, parent, title, provider, message=None,
-                            allowSelect=False,  cancelButton=True, **kwargs)
+                            allowSelect=False, cancelButton=True, **kwargs)
 
     def body(self, bodyFrame):
         bodyFrame.config()
@@ -293,10 +280,26 @@ class ImodListDialog(ListDialog):
                                              self._createOutput,
                                              sticky='ne',
                                              state=tk.NORMAL)
+        else:
+            self._addBinningBox()
         self._createTree(dialogFrame)
         self.initial_focus = self.tree
         if self._itemDoubleClick:
-            self.tree.itemDoubleClick = self.doubleClickOnItem
+            if self.provider.isInteractive:  # etomo, ctf estimation
+                self.tree.itemDoubleClick = self.runProtocolSteps
+            else:
+                self.tree.itemDoubleClick = self.openImodViewer
+
+    def _addBinningBox(self):
+        self.binningVar = tk.StringVar(value=str(Plugin.getViewerBinning()))
+        frame = self.searchBoxframe
+        label = tk.Label(frame, text="Display binning")
+        label.grid(row=0, column=2, sticky='nw')
+
+        entry = tk.Entry(frame, bg=Config.SCIPION_BG_COLOR,
+                         width=3, textvariable=self.binningVar,
+                         font=gui.getDefaultFont())
+        entry.grid(row=0, column=3, sticky='news')
 
     def _addButton(self, frame, text, image, command, sticky='news',
                    state=tk.NORMAL):
@@ -319,7 +322,14 @@ class ImodListDialog(ListDialog):
     def _createOutput(self, e=None):
         self.provider.protocol.createOutput()
 
-    def doubleClickOnItem(self, e=None):
+    def openImodViewer(self, item=None):
+        from imod.viewers import ImodObjectView
+        prot = self.provider.protocol
+        item = self.provider.objs[item.getObjId()]  # to load mapper
+
+        ImodObjectView(item, protocol=prot, binning=self.binningVar.get()).show()
+
+    def runProtocolSteps(self, e=None):
         ts = e
         protocol = self.provider.protocol
         self.proc = threading.Thread(target=protocol.runAllSteps,
@@ -333,12 +343,12 @@ class ImodListDialog(ListDialog):
             self.after(1000, self.refresh_gui)
 
 
-class ImodGenericViewer(pwviewer.View):
+class ImodGenericView(pwviewer.View):
     """ This class implements a view using Tkinter ListDialog
     and the ImodTreeProvider.
     """
     def __init__(self, parent, protocol, objs, createSetButton=False,
-                 isInteractive=False, itemDoubleClick=False, **kwargs):
+                 isInteractive=False, itemDoubleClick=True, **kwargs):
         """
          Params:
             parent: Tkinter parent widget

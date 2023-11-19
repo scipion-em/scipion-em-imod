@@ -91,9 +91,19 @@ Install the plugin in developer mode.
     scipion installp -p local/path/to/scipion-em-imod --devel
 
 
-IMOD binaries will be downloaded and installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/imod-4.11.24/IMOD``, if you want to change it, set *IMOD_HOME* in ``scipion.conf`` file to the folder where the IMOD is installed.
+IMOD binaries will be downloaded and installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/imod-4.11.24/IMOD``, if you want to change it, set ``IMOD_HOME`` in ``scipion.conf`` file to the folder where the IMOD is installed.
 
 To check the installation, simply run one of the tests. A complete list of tests can be displayed by executing ``scipion test --show --grep imod``
+
+**Changing the binning level for 3dmod**
+========================================
+For quick visualization purposes, it can be useful to bin images and tomograms on the fly using the ``ImodViewer`` provided by this plugin (i.e. ``3dmod``). For that, the user can define the ``IMOD_VIEWER_BINNING`` environment variable in ``scipion.conf`` as in the following example:
+
+.. code-block::
+        [PLUGINS]
+        
+        IMOD_HOME = %(EM_ROOT)s/imod-4.11.24/IMOD
+        IMOD_VIEWER_BINNING = 8
 
 Supported versions
 ------------------

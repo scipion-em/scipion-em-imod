@@ -96,11 +96,10 @@ class ProtImodEtomo(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
-        from imod.viewers import ImodGenericViewer
+        from imod.viewers import ImodGenericView
         setOftiltSeries = self.inputSetOfTiltSeries.get()
-        view = ImodGenericViewer(None, self, setOftiltSeries,
-                                 isInteractive=True,
-                                 itemDoubleClick=True)
+        view = ImodGenericView(None, self, setOftiltSeries,
+                               isInteractive=True)
         view.show()
         self.createOutput()
 
@@ -116,7 +115,7 @@ class ProtImodEtomo(ProtImodBase):
         return os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix=suffix,
                                                                          extension=extension))
 
-    def convertInputStep(self, ts):
+    def convertInputStep(self, ts, **kwargs):
         tsId = ts.getTsId()
         acq = ts.getAcquisition()
         extraPrefix = self._getExtraPath(tsId)
@@ -332,7 +331,7 @@ class ProtImodEtomo(ProtImodBase):
                 else:
                     setOfTSCoords.enableAppend()
 
-                coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
+                coordList, _, _ = utils.format3DCoordinatesList(coordFilePath)
 
                 for element in coordList:
                     newCoord3D = tomoObj.TiltSeriesCoordinate()
