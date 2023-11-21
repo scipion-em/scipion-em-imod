@@ -146,7 +146,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
-        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -155,6 +154,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         outputLocation = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
 
         if os.path.exists(outputLocation):
+            output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+
             binning = self.binning.get()
 
             newTs = TiltSeries(tsId=tsId)
