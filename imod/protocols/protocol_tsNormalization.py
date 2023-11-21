@@ -199,6 +199,8 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
@@ -210,6 +212,7 @@ class ProtImodTSNormalization(ProtImodBase):
         super().convertInputStep(tsObjId, imodInterpolation=None,
                                  generateAngleFile=False)
 
+    @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(),
                                                self.binning.get())
@@ -320,10 +323,10 @@ class ProtImodTSNormalization(ProtImodBase):
         self._store()
 
     def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
-
     # --------------------------- UTILS functions -----------------------------
     def getModeToOutput(self):
         parseParamsOutputMode = {
