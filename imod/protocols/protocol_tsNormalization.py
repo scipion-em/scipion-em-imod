@@ -204,6 +204,7 @@ class ProtImodTSNormalization(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
@@ -214,9 +215,6 @@ class ProtImodTSNormalization(ProtImodBase):
 
     @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(),
-                                               self.binning.get())
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -280,6 +278,8 @@ class ProtImodTSNormalization(ProtImodBase):
             paramsNewstack['input'] = evenFn
             paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
