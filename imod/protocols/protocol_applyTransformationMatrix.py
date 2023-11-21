@@ -152,7 +152,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
-        outputLocation = os.path.join(extraPrefix, tiltImage.parseFileName())
+        outputLocation = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
 
         if os.path.exists(outputLocation):
             binning = self.binning.get()
