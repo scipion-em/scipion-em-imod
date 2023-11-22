@@ -74,10 +74,13 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
             self._insertFunctionStep(self.computeAlignmentStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ------------------------------
@@ -90,6 +93,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                   os.path.join(extraPrefix,
                                                ts.getFirstItem().parseFileName(extension=".xf")))
 
+    @ProtImodBase.tryExceptDecorator
     def computeAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -142,59 +146,65 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsObjId):
-        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        binning = self.binning.get()
 
-        newTs = TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        newTs.setInterpolated(True)
-        acq = newTs.getAcquisition()
-        acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-        newTs.setAcquisition(acq)
-        output.append(newTs)
+        outputLocation = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
 
-        if binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * binning)
+        if os.path.exists(outputLocation):
+            output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
-        ih = ImageHandler()
+            binning = self.binning.get()
 
-        index = 1
-        for tiltImage in ts:
-            if tiltImage.isEnabled():
-                newTi = TiltImage()
-                newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                acq = tiltImage.getAcquisition()
-                acq.setTiltAxisAngle(0.)
-                newTi.setAcquisition(acq)
-                newTi.setLocation(index, (os.path.join(extraPrefix, tiltImage.parseFileName())))
-                if self.applyToOddEven(ts):
-                    locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                    locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
-                    newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-                else:
-                    newTi.setOddEven([])
+            newTs = TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            newTs.setInterpolated(True)
+            acq = newTs.getAcquisition()
+            acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+            newTs.setAcquisition(acq)
+            output.append(newTs)
 
-                index += 1
-                if binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                newTs.append(newTi)
+            if binning > 1:
+                newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
+            ih = ImageHandler()
 
-        newTs.write(properties=False)
-        output.update(newTs)
-        output.write()
-        self._store()
+            index = 1
+            for tiltImage in ts:
+                if tiltImage.isEnabled():
+                    newTi = TiltImage()
+                    newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
+                    acq = tiltImage.getAcquisition()
+                    acq.setTiltAxisAngle(0.)
+                    newTi.setAcquisition(acq)
+                    newTi.setLocation(index, outputLocation)
+                    if self.applyToOddEven(ts):
+                        locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                        locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                        newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+                    else:
+                        newTi.setOddEven([])
+
+                    index += 1
+                    if binning > 1:
+                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
+                    newTs.append(newTi)
+
+            ih = ImageHandler()
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            newTs.setDim((x, y, z))
+
+            newTs.write(properties=False)
+            output.update(newTs)
+            output.write()
+            self._store()
 
     def closeOutputSetsStep(self):
-        self.InterpolatedTiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.InterpolatedTiltSeries.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- INFO functions ------------------------------
