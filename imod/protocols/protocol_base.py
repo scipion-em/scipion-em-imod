@@ -140,42 +140,30 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
-                outputTmFileName = os.path.join(tmpPrefix,
-                                                firstItem.parseFileName(extension=".xf"))
+                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
                 utils.formatTransformFile(ts, outputTmFileName)
 
-                argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                def applyNewStack(outputTsFileName, fnIn):
+
+                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                              outputTsFileName,
+                                                                             inputTsFileName=fnIn,
                                                                              xfFile=outputTmFileName,
                                                                              firstItem=firstItem,
                                                                              doSwap=doSwap)
+                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
-                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+                applyNewStack(outputTsFileName, None)
 
                 if oddEven:
-
-                    firstItem = ts.getFirstItem()
-                    fnOdd = firstItem.getOdd().split('@')[1]
-                    fnEven = firstItem.getEven().split('@')[1]
+                    fnOdd = ts.getOddFileName()
+                    fnEven = ts.getEvenFileName()
 
                     outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
-                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                             outputOddTsFileName,
-                                                                             inputTsFileName=fnOdd,
-                                                                             xfFile=outputTmFileName,
-                                                                             firstItem=firstItem,
-                                                                             doSwap=doSwap)
-                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
                     outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
-                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                             outputEvenTsFileName,
-                                                                             inputTsFileName=fnEven,
-                                                                             xfFile=outputTmFileName,
-                                                                             firstItem=firstItem,
-                                                                             doSwap=doSwap)
-                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+                    applyNewStack(outputOddTsFileName, fnOdd)
+                    applyNewStack(outputEvenTsFileName, fnEven)
 
             else:
                 self.info("Linking tilt series %s" % tsId)
