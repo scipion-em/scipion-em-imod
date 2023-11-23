@@ -26,9 +26,6 @@
 # *
 # *****************************************************************************
 
-from pwem.constants import *
-from pwem.wizards import *
-from pwem.wizards.wizard import EmWizard
 from pyworkflow.wizard import Wizard
 
 from .protocols import ProtImodXcorrPrealignment
@@ -45,4 +42,3 @@ class ProtImodXcorrPrealignmentWizard(Wizard):
 
     def show(self, form):
         form.setVar('tiltAxisAngle', self._getTiltAxisAngle(form.protocol))
-

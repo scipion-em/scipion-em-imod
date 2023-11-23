@@ -26,7 +26,6 @@
 
 import os
 
-from pwem.emlib.image import ImageHandler
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
@@ -308,25 +307,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId, expDefoci):
-            try:
-                func(self, tsId, expDefoci)
-            except Exception as e:
-                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
-                self._failedTs.append(tsId)
-
-        return wrapper
-
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
         super().convertInputStep(tsObjId, imodInterpolation=None)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def ctfEstimation(self, tsObjId, expDefoci):
         """Run ctfplotter IMOD program"""
         ts = self._getTiltSeries(tsObjId)
@@ -359,7 +344,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.debug(f"Expected defoci: {expDefoci}")
             defocus = expDefoci.get(tsId, None)
             if defocus is None:
-                raise Exception(f"{tsId} not found in the provided defocus file.")
+                raise ValueError(f"{tsId} not found in the provided defocus file.")
 
             paramsCtfPlotter['expectedDefocus'] = float(defocus)
 
@@ -463,36 +448,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
             self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
 
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self._getTiltSeries(tsObjId)
-            tsSet = self._getSetOfTiltSeries()
-            tsId = ts.getTsId()
-
-            output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
-
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
             output.setStreamState(Set.STREAM_CLOSED)
@@ -533,12 +488,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             return None
 
     def _getSetOfTiltSeries(self, pointer=False):
+        """ Reimplemented from the base class for CTF case. """
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
 
         return self.inputSet.get() if not pointer else self.inputSet
 
     def _getTiltSeries(self, itemId):
+        """ Reimplemented from the base class for CTF case. """
         obj = None
         inputSetOfTiltseries = self._getSetOfTiltSeries()
         for item in inputSetOfTiltseries.iterItems(iterate=False):

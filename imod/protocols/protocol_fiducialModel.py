@@ -30,7 +30,6 @@ from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
@@ -152,22 +151,8 @@ class ProtImodFiducialModel(ProtImodBase):
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except Exception as e:
-                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
-                self._failedTs.append(tsId)
-
-        return wrapper
-
     def generateTrackComStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -202,9 +187,9 @@ class ProtImodFiducialModel(ProtImodBase):
 
         self.translateTrackCom(ts, paramsDict)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def generateFiducialSeedStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -236,9 +221,9 @@ class ProtImodFiducialModel(ProtImodBase):
         path.moveTree("autofidseed.dir", autofidseedDirPath)
         path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def generateFiducialModelStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -347,7 +332,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -372,7 +357,7 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
     def computeOutputModelsStep(self, tsObjId):
-        ts = self.getTiltSeries(tsObjId)
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
@@ -435,39 +420,6 @@ class ProtImodFiducialModel(ProtImodBase):
             output.append(landmarkModelGaps)
             output.update(landmarkModelGaps)
             output.write()
-
-    def getTiltSeries(self, tsObjId):
-        # TODO: cache this in a dictionary instead of querying the set through []
-        return self.inputSetOfTiltSeries.get()[tsObjId]
-
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-            ts = self.getTiltSeries(tsObjId)
-            tsId = ts.getTsId()
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
-            output.write()
-            self._store()
 
     def createOutputStep(self):
         if self.FiducialModelGaps:

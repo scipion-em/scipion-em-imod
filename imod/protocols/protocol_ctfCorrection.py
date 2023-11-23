@@ -146,21 +146,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except Exception as e:
-                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
-                self._failedTs.append(tsId)
-
-        return wrapper
-
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
@@ -178,7 +164,6 @@ class ProtImodCtfCorrection(ProtImodBase):
         ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, inputTiltSeries=ts)
 
-
     def getDefocusFileName(self, ts):
         """ Returns the path of the defocus filename based on
          the tilt series and creates the folder/s"""
@@ -189,7 +174,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = os.path.join(tmpPrefix, defocusFn)
         return defocusFilePath
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def ctfCorrection(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -285,36 +270,6 @@ class ProtImodCtfCorrection(ProtImodBase):
                 newTs.setAcquisition(acq)
 
             newTs.write(properties=False)
-            output.update(newTs)
-            output.write()
-            self._store()
-
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed tilt-series
-        # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsSet = self.inputSetOfTiltSeries.get()
-            tsId = ts.getTsId()
-
-            output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = tomoObj.TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
             output.update(newTs)
             output.write()
             self._store()

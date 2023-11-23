@@ -29,10 +29,12 @@ import os
 from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import path
+from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates)
+                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates,
+                          TiltSeries, TiltImage)
 
 from .. import Plugin, utils
 
@@ -49,7 +51,6 @@ EXT_MRCS_TS_EVEN_NAME = "_even.mrcs"
 EXT_MRCS_TS_ODD_NAME = "_odd.mrcs"
 EXT_MRC_EVEN_NAME = "_even.mrc"
 EXT_MRC_ODD_NAME = "_odd.mrc"
-
 
 
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -85,7 +86,21 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         """ Method to define import params in protocol form """
         ProtTomoImportFiles._defineImportParams(self, form)
 
-    # --------------------------- CACULUS functions ---------------------------
+    # --------------------------- CALCULUS functions ---------------------------
+    def tryExceptDecorator(func):
+        """ This decorator wraps the step in a try/except module which adds
+        the tilt series ID to the failed TS array
+        in case the step fails"""
+
+        def wrapper(self, tsId, *args):
+            try:
+                func(self, tsId, *args)
+            except Exception as e:
+                self.error("Some error occurred calling %s with TS id %s: %s" % (func.__name__, tsId, e))
+                self._failedTs.append(tsId)
+
+        return wrapper
+
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False, oddEven=False):
         """
@@ -496,7 +511,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                                 flag=defocusFileFlag)
 
         else:
-            raise Exception(
+            raise ValueError(
                 f"Defocus file flag {defocusFileFlag} is not supported. Only supported formats "
                 "correspond to flags 0, 1, 4, 5, and 37.")
 
@@ -507,7 +522,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo.setIndex(index)
 
             if index not in defocusUDict.keys() and index not in excludedViews:
-                raise Exception("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
+                raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
                     tsId, index, inputTs[index].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
@@ -572,7 +587,45 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         self._store()
 
+    def createOutputFailedSet(self, tsObjId):
+        # Check if the tilt-series ID is in the failed tilt-series
+        # list to add it to the set
+        if tsObjId in self._failedTs:
+            ts = self._getTiltSeries(tsObjId)
+            tsSet = self._getSetOfTiltSeries()
+            tsId = ts.getTsId()
+
+            output = self.getOutputFailedSetOfTiltSeries(tsSet)
+
+            newTs = TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            output.append(newTs)
+
+            for index, tiltImage in enumerate(ts):
+                newTi = TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                newTi.setAcquisition(tiltImage.getAcquisition())
+                newTi.setLocation(tiltImage.getLocation())
+                if hasattr(self, "binning") and self.binning > 1:
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
+                newTs.append(newTi)
+
+            ih = ImageHandler()
+            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
+            newTs.setDim((x, y, z))
+            newTs.write(properties=False)
+
+            output.update(newTs)
+            output.write()
+            self._store()
+
     # --------------------------- UTILS functions -----------------------------
+    def _getSetOfTiltSeries(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+
+    def _getTiltSeries(self, itemId):
+        return self.inputSetOfTiltSeries.get()[itemId]
+
     def iterFiles(self):
         """ Iterate through the files matched with the pattern.
         Provide the fileName and fileId.
@@ -587,8 +640,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # this is set by the user by using #### format in the pattern
                 match = self._idRegex.match(fileName)
                 if match is None:
-                    raise Exception("File '%s' doesn't match the pattern '%s'"
-                                    % (fileName, self.getPattern()))
+                    raise ValueError("File '%s' doesn't match the pattern '%s'"
+                                     % (fileName, self.getPattern()))
 
                 fileId = int(match.group(1))
 

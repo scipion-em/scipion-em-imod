@@ -270,21 +270,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which
-        adds the tilt series ID to the failed TS array
-        in case the step fails"""
-
-        def wrapper(self, tsId):
-            try:
-                func(self, tsId)
-            except:
-                self.error(f"{func.__name__} has failed for tilt-series objId#{tsId}")
-                self._failedTs.append(tsId)
-
-        return wrapper
-
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeFiducialAlignmentStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -436,7 +422,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
         Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=extraPrefix)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def translateFiducialPointModelStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -462,7 +448,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -526,11 +512,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             self._store()
         else:
-            raise Exception(
+            raise FileNotFoundError(
                 "Error (computeOutputStackStep): \n Imod output file "
                 "%s does not exist or it is empty" % tmpFileName)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputInterpolatedStackStep(self, tsObjId):
         tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = tsIn.getTsId()
@@ -613,11 +599,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
             output.write()
             self._store()
         else:
-            raise Exception(
+            raise FileNotFoundError(
                 "Error (computeOutputInterpolatedStackStep): \n "
                 "Imod output file %s does not exist or it is empty" % tmpFileName)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def eraseGoldBeadsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -652,7 +638,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
-    @tryExceptDecorator
+    @ProtImodBase.tryExceptDecorator
     def computeOutputModelsStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
@@ -750,37 +736,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                        sampling_rate=ts.getSamplingRate())
 
                 output.append(newCoord3D)
-            output.write()
-            self._store()
-
-    def createOutputFailedSet(self, tsObjId):
-        # Check if the tilt-series ID is in the failed
-        # tilt-series list to add it to the set
-        if tsObjId in self._failedTs:
-            output = self.getOutputFailedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
-            tsId = ts.getTsId()
-
-            newTs = TiltSeries(tsId=tsId)
-            newTs.copyInfo(ts)
-            output.append(newTs)
-
-            for index, tiltImage in enumerate(ts):
-                newTi = TiltImage()
-                newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(tiltImage.getLocation())
-                if self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
-                newTs.append(newTi)
-
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
-            newTs.write(properties=False)
-
-            output.update(newTs)
             output.write()
             self._store()
 
