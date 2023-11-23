@@ -47,6 +47,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     _label = 'Coarse prealignment'
     _devStatus = BETA
+    _possibleOutputs = {"outputSetOfTiltSeries": tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -83,6 +84,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         form.addParam('binning',
                       params.IntParam,
+                      condition='computeAlignment==0',
                       default=1,
                       label='Binning for the interpolated',
                       help='Binning to be applied to the interpolated '

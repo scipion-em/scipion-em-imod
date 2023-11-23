@@ -87,7 +87,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     # --------------------------- CACULUS functions ---------------------------
     def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False):
+                         imodInterpolation=True, doSwap=False, oddEven=False):
         """
 
         :param tsObjId: Tilt series identifier
@@ -137,6 +137,30 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
                 Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+                if oddEven:
+
+                    firstItem = ts.getFirstItem()
+                    fnOdd = firstItem.getOdd().split('@')[1]
+                    fnEven = firstItem.getEven().split('@')[1]
+
+                    outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                             outputOddTsFileName,
+                                                                             inputTsFileName=fnOdd,
+                                                                             xfFile=outputTmFileName,
+                                                                             firstItem=firstItem,
+                                                                             doSwap=doSwap)
+                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+                    outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                             outputEvenTsFileName,
+                                                                             inputTsFileName=fnEven,
+                                                                             xfFile=outputTmFileName,
+                                                                             firstItem=firstItem,
+                                                                             doSwap=doSwap)
+                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
             else:
                 self.info("Linking tilt series %s" % tsId)

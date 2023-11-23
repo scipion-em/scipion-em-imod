@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -178,7 +178,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId):
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsObjId, doSwap=True)
+        super().convertInputStep(tsObjId, doSwap=True, oddEven=True)
 
     def computeReconstructionStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -240,13 +240,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            oddFn = firstItem.getOdd().split('@')[1]
+            oddFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             paramsTilt['InputProjections'] = oddFn
             oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[0]
-
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
-            evenFn = firstItem.getEven().split('@')[1]
+
+            evenFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
             paramsTilt['InputProjections'] = evenFn
             oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[1]
