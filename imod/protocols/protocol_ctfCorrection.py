@@ -137,7 +137,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     def _insertAllSteps(self):
         self._failedTs = []
 
-        for ts in self.inputSetOfTiltSeries.get():
+        for ts in self.inputSetOfTiltSeries.get().iterItems():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateDefocusFile, ts.getObjId())
             self._insertFunctionStep(self.ctfCorrection, ts.getObjId())
@@ -150,7 +150,14 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
+    def tsToProcess(self, tsObjId) -> bool:
+        tsId = self.inputSetOfTiltSeries.get()[tsObjId].getTsId()
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
+        return ctfTomoSeries
+
     def generateDefocusFile(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -160,7 +167,6 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = self.getDefocusFileName(ts)
 
         """Generate defocus file"""
-
         ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, inputTiltSeries=ts)
 
@@ -176,6 +182,8 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     @ProtImodBase.tryExceptDecorator
     def ctfCorrection(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -228,6 +236,8 @@ class ProtImodCtfCorrection(ProtImodBase):
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
         if tsObjId not in self._failedTs:
             inputTs = self.inputSetOfTiltSeries.get()
             output = self.getOutputSetOfTiltSeries(inputTs)
@@ -274,6 +284,11 @@ class ProtImodCtfCorrection(ProtImodBase):
             output.write()
             self._store()
 
+    def createOutputFailedSet(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
+        super().createOutputFailedSet(tsObjId)
+
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
             output.setStreamState(Set.STREAM_CLOSED)
@@ -285,6 +300,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
             if tsId == ctfTomoSeries.getTsId():
                 return ctfTomoSeries
+        return None
 
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
