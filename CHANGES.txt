@@ -1,3 +1,10 @@
+3.3.0:
+  - Fixing a bug with odd even in tomogram reconstruction
+  - Tolerating errors in alignment
+  - Making tomogram reconstruction error tolerant
+  - Making tilt series alignment error tolerant
+  - Adding possible outputs in xray eraser
+  - Removing visible parameters with the intepolation is not applied
 3.2.0:
   - add more possible outputs
   - fixing ctf after aretomo

@@ -102,7 +102,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         return wrapper
 
     def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False):
+                         imodInterpolation=True, doSwap=False, oddEven=False):
         """
 
         :param tsObjId: Tilt series identifier
@@ -140,18 +140,30 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
-                outputTmFileName = os.path.join(tmpPrefix,
-                                                firstItem.parseFileName(extension=".xf"))
+                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
                 utils.formatTransformFile(ts, outputTmFileName)
 
-                argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                def applyNewStack(outputTsFileName, fnIn):
+
+                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                              outputTsFileName,
+                                                                             inputTsFileName=fnIn,
                                                                              xfFile=outputTmFileName,
                                                                              firstItem=firstItem,
                                                                              doSwap=doSwap)
+                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
-                Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+                applyNewStack(outputTsFileName, None)
+
+                if oddEven:
+                    fnOdd = ts.getOddFileName()
+                    fnEven = ts.getEvenFileName()
+
+                    outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+                    outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+                    applyNewStack(outputOddTsFileName, fnOdd)
+                    applyNewStack(outputEvenTsFileName, fnEven)
 
             else:
                 self.info("Linking tilt series %s" % tsId)
