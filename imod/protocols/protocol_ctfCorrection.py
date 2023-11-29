@@ -138,7 +138,6 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._failedTs = []
 
         for ts in self.inputSetOfTiltSeries.get().iterItems():
-            print('cccccccccccccccccccccccccccccc')
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateDefocusFile, ts.getObjId())
             self._insertFunctionStep(self.ctfCorrection, ts.getObjId())
