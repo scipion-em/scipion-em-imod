@@ -37,7 +37,7 @@ from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS, IMOD_VIE
 
 
 
-__version__ = '3.2.0'
+__version__ = '3.2.1'
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
