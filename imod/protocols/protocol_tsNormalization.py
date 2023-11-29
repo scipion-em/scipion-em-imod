@@ -199,9 +199,12 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._failedTs = []
+
         for ts in self.inputSetOfTiltSeries.get():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
@@ -210,10 +213,8 @@ class ProtImodTSNormalization(ProtImodBase):
         super().convertInputStep(tsObjId, imodInterpolation=None,
                                  generateAngleFile=False)
 
+    @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(),
-                                               self.binning.get())
-
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -231,7 +232,8 @@ class ProtImodTSNormalization(ProtImodBase):
 
         argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
                                                                    os.path.join(extraPrefix, firstItem.parseFileName()),
-                                                                   inputTsFileName=os.path.join(tmpPrefix, firstItem.parseFileName()),
+                                                                   inputTsFileName=os.path.join(tmpPrefix,
+                                                                                                firstItem.parseFileName()),
                                                                    xfFile=xfFile,
                                                                    firstItem=firstItem,
                                                                    binning=binning,
@@ -269,13 +271,15 @@ class ProtImodTSNormalization(ProtImodBase):
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
-            evenFn= firstItem.getEven().split('@')[1]
+            evenFn = firstItem.getEven().split('@')[1]
             paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
             paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+
+        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -298,8 +302,8 @@ class ProtImodTSNormalization(ProtImodBase):
 
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])
@@ -320,8 +324,9 @@ class ProtImodTSNormalization(ProtImodBase):
         self._store()
 
     def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- UTILS functions -----------------------------
@@ -345,7 +350,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
         transform.setMatrix(matrix)
         newTi.setTransform(transform)
-        
+
         return newTi
 
     # --------------------------- INFO functions ------------------------------
