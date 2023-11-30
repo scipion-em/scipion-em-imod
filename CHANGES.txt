@@ -1,3 +1,4 @@
+3.2.3: declare requirements.txt in manifest
 3.2.2:
   - Add requirements
 3.2.1:
