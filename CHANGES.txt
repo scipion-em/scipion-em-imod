@@ -1,3 +1,5 @@
+3.2.3:
+  - Hotfix: requirements were not specified to be packaged in the setup
 3.2.2:
   - Add requirements
 3.2.1:

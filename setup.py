@@ -206,4 +206,5 @@ setup(
         'Bug Reports': 'https://github.com/scipion-em/scipion-em-imod/issues',
         'Source': 'https://github.com/scipion-em/scipion-em-imod/',
     },
+    install_requires=[requirements],  # Optional
 )
