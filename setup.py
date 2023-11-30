@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es)
 # *
-# * [1] SciLifeLab, Stockholm University
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,9 @@ here = path.abspath(path.dirname(__file__))
 # Get the long description from the README file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
+
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
 
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
@@ -93,11 +96,11 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='J.M. De la Rosa, Federico P. de Isidro Gomez',  # Optional
+    author='I2PC',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='delarosatrevin@scilifelab.se, fp.deisidro@cnb.csic.es',  # Optional
+    author_email='scipion@cnb.csic.es',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #

@@ -1,4 +1,6 @@
-3.3.0:
+3.2.2:
+  - Add requirements
+3.2.1:
   - Fixing a bug with odd even in tomogram reconstruction
   - Tolerating errors in alignment
   - Making tomogram reconstruction error tolerant
