@@ -47,6 +47,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     _label = 'Coarse prealignment'
     _devStatus = BETA
+    _possibleOutputs = {"TiltSeries": tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -83,6 +84,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         form.addParam('binning',
                       params.IntParam,
+                      condition='computeAlignment==0',
                       default=1,
                       label='Binning for the interpolated',
                       help='Binning to be applied to the interpolated '
@@ -91,7 +93,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'bigger than 1')
 
         form.addParam('Trimming parameters', params.LabelParam,
-                                 label='Tilt axis angle detected from import. In case another value is desired please adjust the number below')
+                      label='Tilt axis angle detected from import. In case another value is desired please adjust the '
+                            'number below')
 
         form.addParam('tiltAxisAngle',
                       params.FloatParam,
@@ -104,41 +107,40 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'system with no axis inversions')
 
         trimming = form.addGroup('Trimming parameters',
-                                  expertLevel=params.LEVEL_ADVANCED)
+                                 expertLevel=params.LEVEL_ADVANCED)
 
         xtrimming = trimming.addLine('Horizontal: Number of pixels to avoid from the',
-                                  expertLevel=params.LEVEL_ADVANCED,
-                                  help="Starting and ending X coordinates of a region to correlate, "
-                                       "based on the position of the region at zero tilt.")
+                                     expertLevel=params.LEVEL_ADVANCED,
+                                     help="Starting and ending X coordinates of a region to correlate, "
+                                          "based on the position of the region at zero tilt.")
 
         xtrimming.addParam('xmin',
-                       params.IntParam,
-                       label='left',
-                       allowsNull=True,
-                       expertLevel=params.LEVEL_ADVANCED)
+                           params.IntParam,
+                           label='left',
+                           allowsNull=True,
+                           expertLevel=params.LEVEL_ADVANCED)
 
         xtrimming.addParam('xmax',
-                          params.IntParam,
-                          label='right',
-                          allowsNull=True,
-                          expertLevel=params.LEVEL_ADVANCED)
+                           params.IntParam,
+                           label='right',
+                           allowsNull=True,
+                           expertLevel=params.LEVEL_ADVANCED)
 
         ytrimming = trimming.addLine('Vertical: Number of pixels to avoid from the',
-                                  expertLevel=params.LEVEL_ADVANCED,
-                                  help="Starting and ending Y coordinates of a region to correlate.")
+                                     expertLevel=params.LEVEL_ADVANCED,
+                                     help="Starting and ending Y coordinates of a region to correlate.")
 
         ytrimming.addParam('ymin',
-                          params.IntParam,
-                          label='top',
-                          allowsNull=True,
-                          expertLevel=params.LEVEL_ADVANCED)
+                           params.IntParam,
+                           label='top',
+                           allowsNull=True,
+                           expertLevel=params.LEVEL_ADVANCED)
 
         ytrimming.addParam('ymax',
-                          params.IntParam,
-                          label='botton',
-                          allowsNull=True,
-                          expertLevel=params.LEVEL_ADVANCED)
-
+                           params.IntParam,
+                           label='botton',
+                           allowsNull=True,
+                           expertLevel=params.LEVEL_ADVANCED)
 
         filtering = form.addGroup('Filtering parameters',
                                   expertLevel=params.LEVEL_ADVANCED)
@@ -243,8 +245,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             'filterRadius2': self.filterRadius2.get()
         }
 
-
-
         argsXcorr = "-input %(input)s " \
                     "-output %(output)s " \
                     "-tiltfile %(tiltfile)s " \
@@ -267,11 +267,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             if xmin is None:
                 xmin = 0
             if xmax is None:
-                xmax = xdim-1
+                xmax = xdim - 1
             if ymin is None:
                 ymin = 0
             if ymax is None:
-                ymax = ydim-1
+                ymax = ydim - 1
 
             argsXcorr += " -xminmax %i,%i " % (xmin, xmax)
             argsXcorr += " -yminmax %i,%i " % (ymin, ymax)

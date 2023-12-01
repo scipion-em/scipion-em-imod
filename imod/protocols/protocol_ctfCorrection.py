@@ -135,19 +135,29 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
+        self._failedTs = []
+
+        for ts in self.inputSetOfTiltSeries.get().iterItems():
             self._insertFunctionStep(self.convertInputStep, ts.getObjId())
             self._insertFunctionStep(self.generateDefocusFile, ts.getObjId())
             self._insertFunctionStep(self.ctfCorrection, ts.getObjId())
             self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId):
+    def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsObjId, doSwap=True)
 
+    def tsToProcess(self, tsObjId) -> bool:
+        tsId = self.inputSetOfTiltSeries.get()[tsObjId].getTsId()
+        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
+        return ctfTomoSeries
+
     def generateDefocusFile(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
 
@@ -158,7 +168,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         """Generate defocus file"""
         ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
-        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath)
+        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, inputTiltSeries=ts)
 
     def getDefocusFileName(self, ts):
         """ Returns the path of the defocus filename based on
@@ -170,7 +180,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         defocusFilePath = os.path.join(tmpPrefix, defocusFn)
         return defocusFilePath
 
+    @ProtImodBase.tryExceptDecorator
     def ctfCorrection(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -223,54 +236,63 @@ class ProtImodCtfCorrection(ProtImodBase):
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsObjId):
-        inputTs = self.inputSetOfTiltSeries.get()
-        output = self.getOutputSetOfTiltSeries(inputTs)
-        hasAlign = inputTs.getFirstItem().getFirstItem().hasTransform()
+        if self.tsToProcess(tsObjId) is None:
+            return
+        if tsObjId not in self._failedTs:
+            inputTs = self.inputSetOfTiltSeries.get()
+            output = self.getOutputSetOfTiltSeries(inputTs)
+            hasAlign = inputTs.getFirstItem().getFirstItem().hasTransform()
 
-        ts = inputTs[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
+            ts = inputTs[tsObjId]
+            tsId = ts.getTsId()
+            extraPrefix = self._getExtraPath(tsId)
 
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        newTs.setCtfCorrected(True)
-        newTs.setInterpolated(True)
-        output.append(newTs)
+            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs.copyInfo(ts)
+            newTs.setCtfCorrected(True)
+            newTs.setInterpolated(True)
+            output.append(newTs)
 
-        ih = ImageHandler()
+            ih = ImageHandler()
 
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-            acq = tiltImage.getAcquisition()
+            for index, tiltImage in enumerate(ts):
+                newTi = tomoObj.TiltImage()
+                newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                acq = tiltImage.getAcquisition()
+                if hasAlign:
+                    acq.setTiltAxisAngle(0.)
+                newTi.setAcquisition(acq)
+                newTi.setLocation(index + 1,
+                                  (os.path.join(extraPrefix,
+                                                tiltImage.parseFileName())))
+                if self.applyToOddEven(ts):
+                    locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                    locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                    newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+                else:
+                    newTi.setOddEven([])
+
+                newTs.append(newTi)
+
             if hasAlign:
-                acq.setTiltAxisAngle(0.)
-            newTi.setAcquisition(acq)
-            newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix,
-                                            tiltImage.parseFileName())))
-            if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
-                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
+                acq = newTs.getAcquisition()
+                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+                newTs.setAcquisition(acq)
 
-            newTs.append(newTi)
+            newTs.write(properties=False)
+            output.update(newTs)
+            output.write()
+            self._store()
 
-        if hasAlign:
-            acq = newTs.getAcquisition()
-            acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-            newTs.setAcquisition(acq)
-
-        newTs.write(properties=False)
-        output.update(newTs)
-        output.write()
-        self._store()
+    def createOutputFailedSet(self, tsObjId):
+        if self.tsToProcess(tsObjId) is None:
+            return
+        super().createOutputFailedSet(tsObjId)
 
     def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
+        for _, output in self.iterOutputAttributes():
+            output.setStreamState(Set.STREAM_CLOSED)
+            output.write()
         self._store()
 
     # --------------------------- UTILS functions -----------------------------
@@ -278,6 +300,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
             if tsId == ctfTomoSeries.getTsId():
                 return ctfTomoSeries
+        return None
 
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):

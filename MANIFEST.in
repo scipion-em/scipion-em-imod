@@ -5,7 +5,7 @@ include *.rst
 include LICENSE
 
 # Include the changelog
-include CHANGES.txt
+include *.txt
 
 # Include conf file
 include imod/protocols.conf
