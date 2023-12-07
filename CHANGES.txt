@@ -1,3 +1,5 @@
+3.3.0:
+  - Prevent viewers from locking the screen focus. Version bumped.
 3.2.4: bug fixed in odd-even management in CTF correction
 3.2.3: declare requirements.txt in manifest
 3.2.2:
