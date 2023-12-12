@@ -130,6 +130,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
 
+        if oddEven:
+            fnOdd = ts.getOddFileName()
+            fnEven = ts.getEvenFileName()
+
+            outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+
         # .. Interpolation cancelled
         if imodInterpolation is None:
             self.info("Tilt series %s linked." % tsId)
@@ -137,6 +144,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         elif imodInterpolation:
             """Apply the transformation form the input tilt-series"""
+
+
             # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
@@ -157,17 +166,16 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 applyNewStack(outputTsFileName, None)
 
                 if oddEven:
-                    fnOdd = ts.getOddFileName()
-                    fnEven = ts.getEvenFileName()
-
-                    outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
-                    outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
                     applyNewStack(outputOddTsFileName, fnOdd)
                     applyNewStack(outputEvenTsFileName, fnEven)
 
             else:
                 self.info("Linking tilt series %s" % tsId)
                 path.createLink(firstItem.getFileName(), outputTsFileName)
+
+                if oddEven:
+                    path.createLink(fnOdd, outputOddTsFileName)
+                    path.createLink(fnEven, outputEvenTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
