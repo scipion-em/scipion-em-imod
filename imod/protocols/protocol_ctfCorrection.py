@@ -148,7 +148,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsObjId, doSwap=True)
+        super().convertInputStep(tsObjId, doSwap=True, oddEven=True)
 
     def tsToProcess(self, tsObjId) -> bool:
         tsId = self.inputSetOfTiltSeries.get()[tsObjId].getTsId()
