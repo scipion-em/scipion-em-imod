@@ -106,6 +106,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
                            'DELXX entry is optional and defaults to 0 '
                            'when omitted.')
 
+        form.addParam('superSampleFactor',
+                      params.IntParam,
+                      default=2,
+                      label='Super-sampling factor',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Compute slices in pixels smaller by this factor to reduce artifacts.')
+        
         form.addParam('fakeInteractionsSIRT',
                       params.IntParam,
                       default=0,
@@ -205,6 +212,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
             'Shift': str(self.tomoShiftX.get()) + "," + str(self.tomoShiftZ.get()),
             'Offset': str(self.angleOffset.get()) + "," + str(self.tiltAxisOffset.get()),
+            'SuperSampleFactor': self.superSampleFactor.get(),
         }
 
         argsTilt = "-InputProjections %(InputProjections)s " \
@@ -217,6 +225,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                    "-OFFSET %(Offset)s " \
                    "-MODE 1 " \
                    "-PERPENDICULAR " \
+                   "-SuperSampleFactor %(SuperSampleFactor)d " \
                    "-AdjustOrigin "
 
         if self.fakeInteractionsSIRT.get() != 0:
