@@ -1,3 +1,4 @@
+3.3.1: move plugin-specific import CTF protocol to the core
 3.3.0:
   - Prevent viewers from locking the screen focus.
 3.2.4: bug fixed in odd-even management in CTF correction
