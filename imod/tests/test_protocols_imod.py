@@ -238,9 +238,10 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runImportSetOfCtfSeries(cls, filesPath, filesPattern, inputSetOfTiltSeries):
-        cls.protImportSetOfCtfSeries = cls.newProtocol(ProtImodImportSetOfCtfTomoSeries,
+        cls.protImportSetOfCtfSeries = cls.newProtocol(tomo.protocols.ProtImportTsCTF,
                                                        filesPath=filesPath,
                                                        filesPattern=filesPattern,
+                                                       importFrom=1,  # imod
                                                        inputSetOfTiltSeries=inputSetOfTiltSeries)
         cls.launchProtocol(cls.protImportSetOfCtfSeries)
         return cls.protImportSetOfCtfSeries
