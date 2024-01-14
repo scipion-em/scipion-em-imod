@@ -1,3 +1,5 @@
+3.3.1:
+  - add IMOD 4.11.25 version
 3.3.0:
   - Prevent viewers from locking the screen focus.
 3.2.4: bug fixed in odd-even management in CTF correction

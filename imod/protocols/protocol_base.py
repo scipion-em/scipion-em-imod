@@ -145,7 +145,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         elif imodInterpolation:
             """Apply the transformation form the input tilt-series"""
 
-
             # Use IMOD newstack interpolation
             if firstItem.hasTransform():
                 # Generate transformation matrices file
