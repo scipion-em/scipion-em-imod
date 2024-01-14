@@ -104,14 +104,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False, oddEven=False):
         """
-
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
         :param imodInterpolation: Boolean (True) to interpolate the tilt series with
                                   imod in case there is a TM.
                                   Pass None to cancel interpolation.
-        :param doSwap: if applying alignment, consider swapping X/y
-        :return:
+        :param doSwap: if applying alignment, consider swapping X/Y
+        :param oddEven: process odd/even sets
         """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
@@ -134,8 +133,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             fnOdd = ts.getOddFileName()
             fnEven = ts.getEvenFileName()
 
-            outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
-            outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            outputOddTsFileName = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
+            outputEvenTsFileName = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
 
         # .. Interpolation cancelled
         if imodInterpolation is None:
@@ -154,11 +153,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 def applyNewStack(outputTsFileName, fnIn):
 
                     argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                             outputTsFileName,
-                                                                             inputTsFileName=fnIn,
-                                                                             xfFile=outputTmFileName,
-                                                                             firstItem=firstItem,
-                                                                             doSwap=doSwap)
+                                                                                 outputTsFileName,
+                                                                                 inputTsFileName=fnIn,
+                                                                                 xfFile=outputTmFileName,
+                                                                                 firstItem=firstItem,
+                                                                                 doSwap=doSwap)
                     Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
@@ -202,7 +201,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param doSwap: Default False.
         
         """
-        
+
         if firstItem is None:
             firstItem = ts.getFirstItem()
 
@@ -229,8 +228,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # the final sample disposition.
                 if 45 < abs(rotationAngle) < 135:
                     paramsAlignment.update({
-                        'size': "%d,%d" % (round(firstItem.getYDim()/binning),
-                                           round(firstItem.getXDim()/binning))
+                        'size': "%d,%d" % (round(firstItem.getYDim() / binning),
+                                           round(firstItem.getXDim() / binning))
                     })
 
                     argsAlignment += "-size %(size)s "
@@ -358,7 +357,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             outputFiducialModelGaps.setHasResidualInfo(False)
 
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
-
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: outputFiducialModelGaps})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)

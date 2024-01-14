@@ -225,7 +225,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
             if not match:
                 validateMsgs.append("No xf file found for tilt-series %s: image file is %s and have not found its "
-                                    "exact match."  % (ts.getTsId(), tsFileName, ))
+                                    "exact match." % (ts.getTsId(), tsFileName, ))
 
             match = False
 

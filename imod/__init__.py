@@ -132,7 +132,7 @@ class Plugin(pwem.Plugin):
                 jpeg = env.getTarget(JPEG_NAME)
 
             # Download .sh
-            installationCmd = 'wget --continue http://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
+            installationCmd = 'wget --continue https://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
                               'imod_%s_RHEL7-64_CUDA10.1.sh --no-check-certificate && ' % version
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)

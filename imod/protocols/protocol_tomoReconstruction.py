@@ -32,7 +32,8 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
+                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -112,7 +113,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       label='Super-sampling factor',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Compute slices in pixels smaller by this factor to reduce artifacts.')
-        
+
         form.addParam('fakeInteractionsSIRT',
                       params.IntParam,
                       default=0,
@@ -256,13 +257,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            oddFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            oddFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
             paramsTilt['InputProjections'] = oddFn
             oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-            evenFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            evenFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
             paramsTilt['InputProjections'] = evenFn
             oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[1]
@@ -315,9 +316,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
             # Set default tomogram origin
             newTomogram.setOrigin(newOrigin=None)
             if self.tomoShiftZ.get():
-                x,y,z = newTomogram.getShiftsFromOrigin()
-                shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-                newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+                x, y, z = newTomogram.getShiftsFromOrigin()
+                shiftZang = self.tomoShiftZ.get() * newTomogram.getSamplingRate()
+                newTomogram.setShiftsInOrigin(x=x, y=y, z=z + shiftZang)
 
             newTomogram.setAcquisition(ts.getAcquisition())
 

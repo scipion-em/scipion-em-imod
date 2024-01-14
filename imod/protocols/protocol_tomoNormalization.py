@@ -279,7 +279,6 @@ class ProtImodTomoNormalization(ProtImodBase):
                 if self.applyToOddEven(tomo):
                     inputOdd, inputEven = tomo.getHalfMaps().split(',')
 
-
             paramsBinvol = {
                 'input': inputTomoPath,
                 'output': os.path.join(extraPrefix, os.path.basename(location)),
