@@ -182,7 +182,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'postFitRescueResidual': 2.5 * scaling,
             'maxRescueDistance': 2.5 * scaling,
             'minDiamForParamScaling': 12.5,
-            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
+            'deletionCriterionMinAndSD': f"{0.04 * scaling:0.3f},2.0",
         }
 
         self.translateTrackCom(ts, paramsDict)
@@ -232,8 +232,8 @@ class ProtImodFiducialModel(ProtImodBase):
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
-        boxSizeXandY = max(3.3*fiducialDiameterPixel+2, 2*fiducialDiameterPixel+20, 32)
-        boxSizeXandY = min(512, 2*int(boxSizeXandY/2))
+        boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
+        boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsBeadtrack = {
@@ -271,7 +271,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'densityRelaxationPostFit': 0.9,
             'maxRescueDistance': 2.5 * scaling,
             'residualsToAnalyzeMaxAndMin': '9,5',
-            'deletionCriterionMinAndSD': f"{0.04*scaling:0.3f},2.0",
+            'deletionCriterionMinAndSD': f"{0.04 * scaling:0.3f},2.0",
             'minDiamForParamScaling': 12.5
         }
 
@@ -373,7 +373,6 @@ class ProtImodFiducialModel(ProtImodBase):
 
             output = self.getOutputFiducialModelGaps()
 
-
             landmarkModelGapsFilePath = os.path.join(
                 extraPrefix,
                 firstItem.parseFileName(suffix="_gaps", extension=".sfid")
@@ -390,7 +389,8 @@ class ProtImodFiducialModel(ProtImodBase):
             )
 
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
-            fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+            fiducialDiameterPixel = self.fiducialDiameter.get() / (
+                        self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
             landmarkModelGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                       tiltSeriesPointer=ts,
