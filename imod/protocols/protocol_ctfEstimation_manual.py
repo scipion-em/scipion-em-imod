@@ -42,7 +42,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     """
 
-    _label = 'Manual CTF estimation'
+    _label = 'CTF estimation (manual)'
     _devStatus = BETA
     _interactiveMode = True
 
