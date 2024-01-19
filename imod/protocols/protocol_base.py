@@ -33,8 +33,8 @@ from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates,
-                          TiltSeries, TiltImage)
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
+                          TiltImage)
 
 from .. import Plugin, utils
 
@@ -445,36 +445,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
-    def addCTFTomoSeriesToSetFromDefocusFile(self, inputTs, defocusFilePath, output):
-        """ This method generates a CtfTomoSeries Scipion object
-        from a CTF estimation IMOD .defocus file.
-
-        :param inputTs: tilt series associated to the CTF tomo series to be added.
-        :param defocusFilePath: Location of the input .defocus file.
-        :param output: SetOfCTFTomoSeries to do the append
-
+    def parseTSDefocusFile(self, inputTs, defocusFilePath, newCTFTomoSeries):
+        """ Parse tilt-series ctf estimation file.
+        :param inputTs: input tilt-series
+        :param defocusFilePath: input *.defocus file to be parsed
+        :param newCTFTomoSeries: output CTFTomoSeries
         """
-
         defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
-
-        tsId = inputTs.getTsId()
-        tsObjId = inputTs.getObjId()
-
-        newCTFTomoSeries = CTFTomoSeries()
-
-        newCTFTomoSeries.copyInfo(inputTs)
-        newCTFTomoSeries.setTiltSeries(inputTs)
-        newCTFTomoSeries.setObjId(tsObjId)
-        newCTFTomoSeries.setTsId(tsId)
-        newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-
-        # We need to create now all the attributes of this object
-        # in order to append it to the set and be
-        # able to update it later.
-
-        newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-
-        output.append(newCTFTomoSeries)
 
         if defocusFileFlag == 0:
             " Plain estimation "
@@ -516,7 +493,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             if index not in defocusUDict.keys() and index not in excludedViews:
                 raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                    tsId, index, inputTs[index].getTiltAngle()))
+                    inputTs.getTsId(), index, inputTs[index].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
@@ -561,24 +538,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index, [0.]))
 
             newCTFTomo.completeInfoFromList()
-
             newCTFTomoSeries.append(newCTFTomo)
 
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-
-        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
-        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
-
-        if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-            newCTFTomoSeries.setEnabled(False)
-
-        newCTFTomoSeries.write(properties=False)
-
-        output.update(newCTFTomoSeries)
-        output.write()
-
-        self._store()
+        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
+        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series
