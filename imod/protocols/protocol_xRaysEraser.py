@@ -118,7 +118,9 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputStep)
 
     def convertInputStep(self, tsObjId, **kwargs):
-        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+        super().convertInputStep(tsObjId, imodInterpolation=None,
+                                 generateAngleFile=False, oddEven=oddEvenFlag)
 
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
