@@ -26,7 +26,6 @@
 # *
 # *****************************************************************************
 
-import tempfile
 import os
 import logging
 logger = logging.getLogger(__name__)
@@ -90,7 +89,7 @@ class ImodObjectView(pwviewer.CommandView):
         cmd = f"{Plugin.getImodCmd('3dmod')} "
 
         if isinstance(obj, tomoObj.TiltSeries):
-            angleFilePath = os.path.join(tempfile.gettempdir(),
+            angleFilePath = os.path.join(protocol.getProject().getTmpPath(),
                                          obj.getFirstItem().parseFileName(extension=".tlt"))
             obj.generateTltFile(angleFilePath)
 
@@ -103,7 +102,7 @@ class ImodObjectView(pwviewer.CommandView):
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 extension = pwutils.getExt(ts.getFirstItem().getFileName())
 
-                outputTSPath = os.path.join(tempfile.gettempdir(),
+                outputTSPath = os.path.join(protocol.getProject().getTmpPath(),
                                             "ts_interpolated_%s_%s_%s%s" % (
                                                 protocol.getProject().getShortName(),
                                                 protocol.getObjId(),
@@ -121,7 +120,7 @@ class ImodObjectView(pwviewer.CommandView):
             if fidFileName is None:
                 fidFileName = generateIMODFidFile(protocol, obj)
 
-            angleFilePath = os.path.join(tempfile.gettempdir(),
+            angleFilePath = os.path.join(protocol.getProject().getTmpPath(),
                                          ts.getFirstItem().parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath)
 
