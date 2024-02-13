@@ -147,8 +147,10 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsObjId, doSwap=True)
+        super().convertInputStep(tsObjId, doSwap=True, oddEven=oddEvenFlag)
 
     def tsToProcess(self, tsObjId) -> bool:
         tsId = self.inputSetOfTiltSeries.get()[tsObjId].getTsId()
@@ -226,11 +228,14 @@ class ProtImodCtfCorrection(ProtImodBase):
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
         if self.applyToOddEven(ts):
-            oddFn = firstItem.getOdd().split('@')[1]
-            evenFn = firstItem.getEven().split('@')[1]
+            #ODD
+            oddFn = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
             paramsCtfPhaseFlip['inputStack'] = oddFn
             paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+
+            # EVEN
+            evenFn = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
             paramsCtfPhaseFlip['inputStack'] = evenFn
             paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)

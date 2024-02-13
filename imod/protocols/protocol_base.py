@@ -100,6 +100,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 self._failedTs.append(tsId)
 
         return wrapper
+    def getTmpTSFile(self, tsId, tmpPrefix=None, suffix=".mrcs"):
+        if tmpPrefix is None:
+            tmpPrefix = self._getTmpPath(tsId)
+
+        return os.path.join(tmpPrefix, tsId + suffix)
 
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False, oddEven=False):
@@ -133,8 +138,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             fnOdd = ts.getOddFileName()
             fnEven = ts.getEvenFileName()
 
-            outputOddTsFileName = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
-            outputEvenTsFileName = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
+            outputOddTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
+            outputEvenTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
 
         # .. Interpolation cancelled
         if imodInterpolation is None:
