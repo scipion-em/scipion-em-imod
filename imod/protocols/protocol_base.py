@@ -545,6 +545,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             newCTFTomo.completeInfoFromList()
             newCTFTomoSeries.append(newCTFTomo)
 
+        newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
