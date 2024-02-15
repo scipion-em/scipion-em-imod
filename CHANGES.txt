@@ -1,3 +1,4 @@
+3.4.1: bugfix for import ctf, set missing defocus flag
 3.4.0:
   - move plugin-specific import CTF protocol to the core
   - add IMOD 4.11.25 version
