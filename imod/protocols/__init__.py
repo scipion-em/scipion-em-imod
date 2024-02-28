@@ -48,7 +48,6 @@ from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
 
 # Import protocols
-from .protocol_importSetOfCTFTomoSeries import ProtImodImportSetOfCtfTomoSeries
 from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
 
 # Deprecated protocols

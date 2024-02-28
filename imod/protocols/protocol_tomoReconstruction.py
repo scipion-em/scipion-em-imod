@@ -189,9 +189,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        oddEvenFlag = False
-        if self.inputSetOfTiltSeries.get().hasOddEven():
-            oddEvenFlag = True
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         super().convertInputStep(tsObjId, doSwap=True, oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator

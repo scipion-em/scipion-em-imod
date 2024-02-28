@@ -209,9 +209,10 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsObjId, imodInterpolation=None,
-                                 generateAngleFile=False)
+                                 generateAngleFile=False, oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):

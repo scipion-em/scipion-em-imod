@@ -238,9 +238,10 @@ class TestImodBase(BaseTest):
 
     @classmethod
     def _runImportSetOfCtfSeries(cls, filesPath, filesPattern, inputSetOfTiltSeries):
-        cls.protImportSetOfCtfSeries = cls.newProtocol(ProtImodImportSetOfCtfTomoSeries,
+        cls.protImportSetOfCtfSeries = cls.newProtocol(tomo.protocols.ProtImportTsCTF,
                                                        filesPath=filesPath,
                                                        filesPattern=filesPattern,
+                                                       importFrom=1,  # imod
                                                        inputSetOfTiltSeries=inputSetOfTiltSeries)
         cls.launchProtocol(cls.protImportSetOfCtfSeries)
         return cls.protImportSetOfCtfSeries
@@ -729,7 +730,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                                       interpolationWidth=15)
 
     def test_importCtfTomoSeriesOutput(self):
-        self.assertSetSize(self.protImportSetOfCtfSeries.CTFTomoSeries, size=1)
+        self.assertSetSize(self.protImportSetOfCtfSeries.CTFs, size=1)
 
     def test_ctfEstimationOutputSize(self):
         self.assertSetSize(self.protCTFEstimation.CTFTomoSeries, size=2)
