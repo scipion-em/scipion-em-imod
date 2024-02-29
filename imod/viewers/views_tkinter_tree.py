@@ -256,13 +256,17 @@ class ImodGenericTreeProvider(TreeProvider):
 
 class ImodListDialog(ListDialog):
     def __init__(self, parent, title, provider, createSetButton=False,
-                 itemDoubleClick=True, **kwargs):
+                 itemDoubleClick=True, lockGui=False, **kwargs):
         self.createSetButton = createSetButton
         self._itemDoubleClick = itemDoubleClick
         self.provider = provider
         self.binningVar = None
-        ListDialog.__init__(self, parent, title, provider, message=None,
-                            allowSelect=False, cancelButton=True, **kwargs)
+        ListDialog.__init__(self, parent, title, provider,
+                            message=None,
+                            allowSelect=False,
+                            lockGui=lockGui,
+                            cancelButton=True,
+                            **kwargs)
 
     def body(self, bodyFrame):
         bodyFrame.config()

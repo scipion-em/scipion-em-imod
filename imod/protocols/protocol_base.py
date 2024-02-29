@@ -33,8 +33,8 @@ from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomoSeries, CTFTomo, SetOfTiltSeriesCoordinates,
-                          TiltSeries, TiltImage)
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
+                          TiltImage)
 
 from .. import Plugin, utils
 
@@ -100,18 +100,22 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 self._failedTs.append(tsId)
 
         return wrapper
+    def getTmpTSFile(self, tsId, tmpPrefix=None, suffix=".mrcs"):
+        if tmpPrefix is None:
+            tmpPrefix = self._getTmpPath(tsId)
+
+        return os.path.join(tmpPrefix, tsId + suffix)
 
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False, oddEven=False):
         """
-
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
         :param imodInterpolation: Boolean (True) to interpolate the tilt series with
                                   imod in case there is a TM.
                                   Pass None to cancel interpolation.
-        :param doSwap: if applying alignment, consider swapping X/y
-        :return:
+        :param doSwap: if applying alignment, consider swapping X/Y
+        :param oddEven: process odd/even sets
         """
         if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
             ts = self.inputSetOfTiltSeries[tsObjId]
@@ -134,8 +138,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             fnOdd = ts.getOddFileName()
             fnEven = ts.getEvenFileName()
 
-            outputOddTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
-            outputEvenTsFileName = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            outputOddTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
+            outputEvenTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
 
         # .. Interpolation cancelled
         if imodInterpolation is None:
@@ -144,7 +148,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         elif imodInterpolation:
             """Apply the transformation form the input tilt-series"""
-
 
             # Use IMOD newstack interpolation
             if firstItem.hasTransform():
@@ -155,11 +158,11 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 def applyNewStack(outputTsFileName, fnIn):
 
                     argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                             outputTsFileName,
-                                                                             inputTsFileName=fnIn,
-                                                                             xfFile=outputTmFileName,
-                                                                             firstItem=firstItem,
-                                                                             doSwap=doSwap)
+                                                                                 outputTsFileName,
+                                                                                 inputTsFileName=fnIn,
+                                                                                 xfFile=outputTmFileName,
+                                                                                 firstItem=firstItem,
+                                                                                 doSwap=doSwap)
                     Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
                 self.info("Interpolating tilt series %s with imod" % tsId)
@@ -203,7 +206,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param doSwap: Default False.
         
         """
-        
+
         if firstItem is None:
             firstItem = ts.getFirstItem()
 
@@ -230,8 +233,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # the final sample disposition.
                 if 45 < abs(rotationAngle) < 135:
                     paramsAlignment.update({
-                        'size': "%d,%d" % (round(firstItem.getYDim()/binning),
-                                           round(firstItem.getXDim()/binning))
+                        'size': "%d,%d" % (round(firstItem.getYDim() / binning),
+                                           round(firstItem.getXDim() / binning))
                     })
 
                     argsAlignment += "-size %(size)s "
@@ -360,7 +363,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             outputFiducialModelGaps.setStreamState(Set.STREAM_OPEN)
 
-
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: outputFiducialModelGaps})
             self._defineSourceRelation(self.inputSetOfTiltSeries, outputFiducialModelGaps)
 
@@ -448,36 +450,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
-    def addCTFTomoSeriesToSetFromDefocusFile(self, inputTs, defocusFilePath, output):
-        """ This method generates a CtfTomoSeries Scipion object
-        from a CTF estimation IMOD .defocus file.
-
-        :param inputTs: tilt series associated to the CTF tomo series to be added.
-        :param defocusFilePath: Location of the input .defocus file.
-        :param output: SetOfCTFTomoSeries to do the append
-
+    def parseTSDefocusFile(self, inputTs, defocusFilePath, newCTFTomoSeries):
+        """ Parse tilt-series ctf estimation file.
+        :param inputTs: input tilt-series
+        :param defocusFilePath: input *.defocus file to be parsed
+        :param newCTFTomoSeries: output CTFTomoSeries
         """
-
         defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
-
-        tsId = inputTs.getTsId()
-        tsObjId = inputTs.getObjId()
-
-        newCTFTomoSeries = CTFTomoSeries()
-
-        newCTFTomoSeries.copyInfo(inputTs)
-        newCTFTomoSeries.setTiltSeries(inputTs)
-        newCTFTomoSeries.setObjId(tsObjId)
-        newCTFTomoSeries.setTsId(tsId)
-        newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-
-        # We need to create now all the attributes of this object
-        # in order to append it to the set and be
-        # able to update it later.
-
-        newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-
-        output.append(newCTFTomoSeries)
 
         if defocusFileFlag == 0:
             " Plain estimation "
@@ -519,7 +498,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             if index not in defocusUDict.keys() and index not in excludedViews:
                 raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                    tsId, index, inputTs[index].getTiltAngle()))
+                    inputTs.getTsId(), index, inputTs[index].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
@@ -564,24 +543,12 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index, [0.]))
 
             newCTFTomo.completeInfoFromList()
-
             newCTFTomoSeries.append(newCTFTomo)
 
+        newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-
-        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=self.defocusUTolerance)
-        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=self.defocusVTolerance)
-
-        if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-            newCTFTomoSeries.setEnabled(False)
-
-        newCTFTomoSeries.write(properties=False)
-
-        output.update(newCTFTomoSeries)
-        output.write()
-
-        self._store()
+        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
+        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
     def createOutputFailedSet(self, tsObjId):
         # Check if the tilt-series ID is in the failed tilt-series

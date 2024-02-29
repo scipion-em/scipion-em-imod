@@ -39,22 +39,21 @@ Protocols
 ---------
 
 * **Apply transformation** : Compute the interpolated tilt-series from its transform matrix. More info: `newstack doc <https://bio3d.colorado.edu/imod/doc/man/newstack.html>`__
-* **Automatic CTF estimation** :  CTF estimation of a set of input tilt-series using the IMOD procedure. More info: `ctfplotter doc <https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html>`_
 * **CTF correction** : CTF correction of a set of input tilt-series using the IMOD procedure. More info: `ctfphaseflip doc <https://bio3d.colorado.edu/imod/doc/man/ctfphaseflip.html>`_
+* **CTF estimation (auto)** :  CTF estimation of a set of input tilt-series using the IMOD procedure. More info: `ctfplotter doc <https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html>`_
+* **CTF estimation (manual)** : CTF estimation of a set of input tilt-series using the IMOD procedure. Runs the protocol through the interactive GUI. The resulting defocus values MUST BE SAVED manually by the user. More info: `ctfplotter doc <https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html>`_
+* **Coarse prealignment** : Tilt-series cross correlation alignment based on the IMOD procedure. More info: `tiltxcorr doc <https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html>`_
 * **Dose filter** : Tilt-series dose filtering based on the IMOD procedure. More info: `mtffilter doc <https://bio3d.colorado.edu/imod/doc/man/mtffilter.html>`_
 * **Etomo interactive** : Simple wrapper around etomo to manually reconstruct a Tomogram. More info:  `etomo tutorial <https://bio3d.colorado.edu/imod/doc/etomoTutorial.html>`_
 * **Exclude views** : excludeviews - Reversibly remove views from a tilt series stack. If you use this protocol, make sure tis output tilt series is use for everything else  CTF estimation, per particle per tilt, tomogram reconstruction....More info:  `here <https://bio3d.colorado.edu/imod/doc/man/excludeviews.html>`_
 * **Fiducial alignment** : Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure. More info: `tiltalign doc <https://bio3d.colorado.edu/imod/doc/man/tiltalign.html>`_ , `model2point doc <https://bio3d.colorado.edu/imod/doc/man/model2point.html>`_, `imodtrans doc <https://bio3d.colorado.edu/imod/doc/man/imodtrans.html>`_, `newstack doc <https://bio3d.colorado.edu/imod/doc/man/newstack.html>`__, `ccderaser doc <https://bio3d.colorado.edu/imod/doc/man/ccderaser.html>`_
 * **Generate fiducial model** : Construction of a fiducial model and alignment of tilt-series based on the IMOD procedure. More info: `autofidseed doc <https://bio3d.colorado.edu/imod/doc/man/autofidseed.html>`_, `beadtrack doc <https://bio3d.colorado.edu/imod/doc/man/beadtrack.html>`_, `model2point doc <https://bio3d.colorado.edu/imod/doc/man/model2point.html>`_
 * **Gold bead picker 3D** : 3-dimensional gold bead picker using the IMOD procedure. More info: `findbeads3d doc <https://bio3d.colorado.edu/imod/doc/man/findbeads3d.html>`_
-* **Import tomo CTFs** :  Protocol to import estimations of CTF series from tilt-series into Scipion.
 * **Import transformation matrix** : Import the transformation matrices assigned to an input set of tilt-series
-* **Manual CTF estimation** : CTF estimation of a set of input tilt-series using the IMOD procedure. Runs the protocol through the interactive GUI. The resulting defocus values MUST BE SAVED manually by the user. More info: `ctfplotter doc <https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html>`_
 * **Tilt-series preprocess** : Normalize input tilt-series and change its storing formatting. More info: `newstack doc <https://bio3d.colorado.edu/imod/doc/man/newstack.html>`__
 * **Tomo preprocess** : Normalize input tomogram and change its storing formatting. More info: `newstack doc <https://bio3D.colorado.edu/imod/doc/newstack.html>`__, `binvol doc <https://bio3D.colorado.edu/imod/doc/binvol.html>`_
 * **Tomo projection** : Re-project a tomogram given a geometric description (axis and angles). More info: `xyzproj doc <https://bio3d.colorado.edu/imod/doc/man/xyzproj.html>`_
 * **Tomo reconstruction** : omogram reconstruction procedure based on the IMOD procedure. More info: `tilt doc <https://bio3d.colorado.edu/imod/doc/man/tilt.html>`_
-* **Coarse prealignment** : Tilt-series cross correlation alignment based on the IMOD procedure. More info: `tiltxcorr doc <https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html>`_
 * **X-rays eraser** : Erase X-rays from aligned tilt-series based on the IMOD procedure. More info: `ccderaser doc <https://bio3d.colorado.edu/imod/doc/man/ccderaser.html>`_
 
 **Latest plugin versions**
@@ -102,13 +101,13 @@ For quick visualization purposes, it can be useful to bin images and tomograms o
 .. code-block::
         [PLUGINS]
         
-        IMOD_HOME = %(EM_ROOT)s/imod-4.11.24/IMOD
+        IMOD_HOME = %(EM_ROOT)s/imod-4.11.25/IMOD
         IMOD_VIEWER_BINNING = 8
 
 Supported versions
 ------------------
 
-4.11.7, 4.11.20, 4.11.24
+4.11.24, 4.11.25
 
 
 References

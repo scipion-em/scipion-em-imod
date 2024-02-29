@@ -118,7 +118,9 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputStep)
 
     def convertInputStep(self, tsObjId, **kwargs):
-        super().convertInputStep(tsObjId, imodInterpolation=None, generateAngleFile=False)
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+        super().convertInputStep(tsObjId, imodInterpolation=None,
+                                 generateAngleFile=False, oddEven=oddEvenFlag)
 
     def eraseXraysStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
@@ -146,7 +148,7 @@ class ProtImodXraysEraser(ProtImodBase):
             'edgeExclusionWidth': 4,
             'pointModel': os.path.join(extraPrefix,
                                        firstItem.parseFileName(suffix="_fid",
-                                                                       extension=".mod")),
+                                                               extension=".mod")),
             'borderSize': 2,
             'polynomialOrder': 2,
         }
@@ -174,10 +176,10 @@ class ProtImodXraysEraser(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsCcderaser['input'] = oddFn
-            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
             paramsCcderaser['input'] = evenFn
-            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsObjId):
@@ -201,8 +203,8 @@ class ProtImodXraysEraser(ProtImodBase):
                               (os.path.join(extraPrefix,
                                             tiltImage.parseFileName())))
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])

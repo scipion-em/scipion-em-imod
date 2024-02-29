@@ -32,7 +32,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, OUTPUT_TILTSERIES_NAME
 from ..utils import formatTransformFile
 
 
@@ -45,6 +45,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
     _label = 'Tilt-series preprocess'
     _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME:tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -209,9 +210,10 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsObjId, imodInterpolation=None,
-                                 generateAngleFile=False)
+                                 generateAngleFile=False, oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):

@@ -1,3 +1,10 @@
+3.3.0:
+  - bugfix for import ctf, set missing defocus flag
+  - move plugin-specific import CTF protocol to the core
+  - add IMOD 4.11.25 version
+  - Prevent viewers from locking the screen focus.
+  - tilt series normalization: defines possible outputs
+  - tomo preprocess: always outputs mrc file
 3.2.4: bug fixed in odd-even management in CTF correction
 3.2.3: declare requirements.txt in manifest
 3.2.2:

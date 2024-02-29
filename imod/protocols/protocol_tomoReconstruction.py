@@ -32,7 +32,8 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
+                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -105,6 +106,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
                            'X-axis at  NX/2. + offset instead of NX/2. The '
                            'DELXX entry is optional and defaults to 0 '
                            'when omitted.')
+
+        form.addParam('superSampleFactor',
+                      params.IntParam,
+                      default=2,
+                      label='Super-sampling factor',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Compute slices in pixels smaller by this factor to reduce artifacts.')
 
         form.addParam('fakeInteractionsSIRT',
                       params.IntParam,
@@ -181,9 +189,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsObjId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        oddEvenFlag = False
-        if self.inputSetOfTiltSeries.get().hasOddEven():
-            oddEvenFlag = True
+        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         super().convertInputStep(tsObjId, doSwap=True, oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
@@ -205,6 +211,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
             'Shift': str(self.tomoShiftX.get()) + "," + str(self.tomoShiftZ.get()),
             'Offset': str(self.angleOffset.get()) + "," + str(self.tiltAxisOffset.get()),
+            'SuperSampleFactor': self.superSampleFactor.get(),
         }
 
         argsTilt = "-InputProjections %(InputProjections)s " \
@@ -217,6 +224,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                    "-OFFSET %(Offset)s " \
                    "-MODE 1 " \
                    "-PERPENDICULAR " \
+                   "-SuperSampleFactor %(SuperSampleFactor)d " \
                    "-AdjustOrigin "
 
         if self.fakeInteractionsSIRT.get() != 0:
@@ -247,13 +255,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            oddFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            oddFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
             paramsTilt['InputProjections'] = oddFn
             oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-            evenFn = os.path.join(tmpPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            evenFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
             paramsTilt['InputProjections'] = evenFn
             oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
             paramsTilt['OutputFile'] = oddEvenTmp[1]
@@ -306,9 +314,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
             # Set default tomogram origin
             newTomogram.setOrigin(newOrigin=None)
             if self.tomoShiftZ.get():
-                x,y,z = newTomogram.getShiftsFromOrigin()
-                shiftZang= self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-                newTomogram.setShiftsInOrigin(x=x,y=y,z=z+shiftZang)
+                x, y, z = newTomogram.getShiftsFromOrigin()
+                shiftZang = self.tomoShiftZ.get() * newTomogram.getSamplingRate()
+                newTomogram.setShiftsInOrigin(x=x, y=y, z=z + shiftZang)
 
             newTomogram.setAcquisition(ts.getAcquisition())
 

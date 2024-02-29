@@ -31,7 +31,7 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
 
-from .. import Plugin
+from .. import Plugin, utils
 from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
 
 
@@ -42,7 +42,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
     """
 
-    _label = 'Automatic CTF estimation'
+    _label = 'CTF estimation (auto)'
     _devStatus = BETA
 
     defocusUTolerance = 20
@@ -439,14 +439,30 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         tsId = ts.getTsId()
 
         extraPrefix = self._getExtraPath(tsId)
-
         defocusFilePath = os.path.join(extraPrefix,
                                        ts.getFirstItem().parseFileName(extension=".defocus"))
-
         if os.path.exists(defocusFilePath):
             output = self.getOutputSetOfCTFTomoSeries(outputSetName)
+            defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-            self.addCTFTomoSeriesToSetFromDefocusFile(ts, defocusFilePath, output)
+            newCTFTomoSeries = tomoObj.CTFTomoSeries()
+            newCTFTomoSeries.copyInfo(ts)
+            newCTFTomoSeries.setTiltSeries(ts)
+            newCTFTomoSeries.setObjId(tsObjId)
+            newCTFTomoSeries.setTsId(tsId)
+            newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
+            newCTFTomoSeries.setNumberOfEstimationsInRange(None)
+            output.append(newCTFTomoSeries)
+
+            self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+
+            if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                    newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                newCTFTomoSeries.setEnabled(False)
+
+            output.update(newCTFTomoSeries)
+            output.write()
+            self._store()
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
