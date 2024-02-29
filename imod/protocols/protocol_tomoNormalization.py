@@ -29,7 +29,7 @@ import os
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
+import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
 
 from .. import Plugin
@@ -206,15 +206,17 @@ class ProtImodTomoNormalization(ProtImodBase):
         fileName = os.path.splitext(location)[0]
 
         extraPrefix = self._getExtraPath(os.path.basename(fileName))
+        outputFileNameBase = os.path.basename(pwpath.replaceExt(location, "mrc"))
+        outputFile = os.path.join(extraPrefix, outputFileNameBase)
         tmpPrefix = self._getTmpPath(os.path.basename(fileName))
-        path.makePath(extraPrefix)
-        path.makePath(tmpPrefix)
+        pwpath.makePath(extraPrefix)
+        pwpath.makePath(tmpPrefix)
 
         runNewstack = False
 
         paramsNewstack = {
             'input': location,
-            'output': os.path.join(extraPrefix, os.path.basename(location)),
+            'output': outputFile,
             'imagebinned': 1.0,
         }
 
@@ -263,14 +265,14 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         if binning != 1:
             if runNewstack:
-                baseLoc = os.path.basename(location)
+                baseLoc = os.path.basename(outputFile)
                 tmpPath = os.path.join(tmpPrefix, baseLoc)
-                path.moveFile(os.path.join(extraPrefix, baseLoc), tmpPath)
+                pwpath.moveFile(os.path.join(extraPrefix, baseLoc), tmpPath)
                 inputTomoPath = tmpPath
 
                 if self.applyToOddEven(tomo):
-                    path.moveFile(oddEvenOutput[0], tmpPath)
-                    path.moveFile(oddEvenOutput[1], tmpPath)
+                    pwpath.moveFile(oddEvenOutput[0], tmpPath)
+                    pwpath.moveFile(oddEvenOutput[1], tmpPath)
                     inputTomoPath = tmpPath
                     inputOdd, inputEven = (os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
                                            os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
@@ -281,7 +283,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             paramsBinvol = {
                 'input': inputTomoPath,
-                'output': os.path.join(extraPrefix, os.path.basename(location)),
+                'output': outputFile,
                 'binning': binning,
                 'antialias': self.antialias.get() + 1
             }
@@ -311,13 +313,14 @@ class ProtImodTomoNormalization(ProtImodBase):
         if not runNewstack and binning == 1:
             newTomogram.setLocation(location)
         else:
-            location = os.path.join(extraPrefix, os.path.basename(location))
-            newTomogram.setLocation(location)
+            newTomogram.setLocation(outputFile)
 
         if binning > 1:
             sr = tomo.getSamplingRate() * binning
 
             newTomogram.setSamplingRate(sr)
+            # Fix the mrc tomogram
+            newTomogram.fixMRCVolume(setSamplingRate=True)
 
             # Set default tomogram origin
             newTomogram.setOrigin(newOrigin=None)
