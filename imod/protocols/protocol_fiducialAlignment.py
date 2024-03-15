@@ -689,10 +689,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
             prevTiltIm = 0
             chainId = 0
             indexFake = 0
+            firstExec = True
 
             for fiducial in fiducialNoGapList:
-                if int(float(fiducial[2])) <= prevTiltIm:
+                if (int(float(fiducial[2])) <= prevTiltIm) or firstExec:
                     chainId += 1
+                    firstExec = False
                 prevTiltIm = int(float(fiducial[2]))
 
                 if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
