@@ -61,6 +61,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def __init__(self, **args):
 
         # Possible outputs (synchronize these names with the constants)
+        self.tsDict = None
+        self.binning = None
+        self._failedTs = []
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
         self.FiducialModelGaps = None
@@ -107,7 +110,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         return os.path.join(tmpPrefix, tsId + suffix)
 
     def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False, oddEven=False):
+                         imodInterpolation=True, doSwap=False, oddEven=False, onlyEnabled=False):
         """
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -116,11 +119,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                   Pass None to cancel interpolation.
         :param doSwap: if applying alignment, consider swapping X/Y
         :param oddEven: process odd/even sets
+        :param onlyEnabled: flag used to include only the enabled tilt-images when generating the alignment (xf) file.
         """
-        if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
-            ts = self.inputSetOfTiltSeries[tsObjId]
-        elif isinstance(self.inputSetOfTiltSeries, Pointer):
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        if type(tsObjId) is str:
+            ts = self.tsDict[tsObjId]
+        else:
+            tsSet = self.inputSetOfTiltSeries,
+            ts = tsSet.get()[tsObjId] if isinstance(tsSet, Pointer) else tsSet[tsObjId]
 
         tsId = ts.getTsId()
 
@@ -153,7 +158,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             if firstItem.hasTransform():
                 # Generate transformation matrices file
                 outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-                utils.formatTransformFile(ts, outputTmFileName)
+                utils.formatTransformFile(ts, outputTmFileName, onlyEnabled=onlyEnabled)
 
                 def applyNewStack(outputTsFileName, fnIn):
 
@@ -189,9 +194,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         if generateAngleFile:
             """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix,
-                                         firstItem.parseFileName(extension=".tlt"))
-            ts.generateTltFile(angleFilePath)
+            angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
+            ts.generateTltFile(angleFilePath, excludeViews=True)
 
     def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
                                xfFile=None, firstItem=None, binning=1, doSwap=False):
@@ -245,8 +249,9 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def getOutputSetOfTiltSeries(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
 
-        if self.TiltSeries:
-            self.TiltSeries.enableAppend()
+        outputSetOfTiltSeries = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if outputSetOfTiltSeries:
+            outputSetOfTiltSeries.enableAppend()
 
         else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
@@ -270,7 +275,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
             self._defineSourceRelation(inputSet, outputSetOfTiltSeries)
 
-        return self.TiltSeries
+        return outputSetOfTiltSeries
 
     def getOutputInterpolatedSetOfTiltSeries(self, inputSet):
         """ Method to generate output interpolated classes of set of tilt-series"""
@@ -550,21 +555,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
-    def createOutputFailedSet(self, tsObjId):
+    def createOutputFailedSet(self, ts):
         # Check if the tilt-series ID is in the failed tilt-series
         # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self._getTiltSeries(tsObjId)
+        tsId = ts.getTsId()
+        if tsId in self._failedTs:
             tsSet = self._getSetOfTiltSeries()
-            tsId = ts.getTsId()
-
             output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = TiltSeries(tsId=tsId)
+            newTs = ts.clone()
             newTs.copyInfo(ts)
             output.append(newTs)
 
-            for index, tiltImage in enumerate(ts):
+            for tiltImage in ts:
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())

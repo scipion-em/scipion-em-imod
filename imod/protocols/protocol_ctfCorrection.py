@@ -1,6 +1,7 @@
 # *****************************************************************************
 # *
 # * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# *              Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,16 +24,13 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
+from os.path import join
 from pyworkflow import BETA
-from pyworkflow.object import Set
+from pyworkflow.object import Set, String
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
-
+from tomo.objects import TiltSeries, TiltImage
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME
 
@@ -46,6 +44,11 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     _label = 'CTF correction'
     _devStatus = BETA
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tsDict = None
+        self.ctfDict = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -135,74 +138,70 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get().iterItems():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.generateDefocusFile, ts.getObjId())
-            self._insertFunctionStep(self.ctfCorrection, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
+        nonMatchingTsIds = []
+        self._initialize()
+        for tsId in self.tsDict.keys():  # Stores the steps serializing the tsId instead of the whole ts object
+            matchingCtfTomoSeries = self.ctfDict.get(tsId, None)
+            if matchingCtfTomoSeries:
+                self._insertFunctionStep(self.convertInputStep, tsId)
+                self._insertFunctionStep(self.generateDefocusFile, tsId)
+                self._insertFunctionStep(self.ctfCorrection, tsId)
+                self._insertFunctionStep(self.createOutputStep, tsId)
+                self._insertFunctionStep(self.createOutputFailedSet, tsId)
+            else:
+                nonMatchingTsIds.append(tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
+        if nonMatchingTsIds:
+            self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series {nonMatchingTsIds}')
+            self._store(self.matchingMsg)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self.matchingMsg = String()  # Update the msg for each protocol execution to avoid duplicities in the summary
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
+
+    def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
 
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsObjId, doSwap=True, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag, onlyEnabled=True)
 
-    def tsToProcess(self, tsObjId) -> bool:
-        tsId = self.inputSetOfTiltSeries.get()[tsObjId].getTsId()
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
-        return ctfTomoSeries
+    def generateDefocusFile(self, tsId):
+        ts = self.tsDict[tsId]
+        ctfTomoSeries = self.ctfDict[tsId]
 
-    def generateDefocusFile(self, tsObjId):
-        if self.tsToProcess(tsObjId) is None:
-            return
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        self.debug(f"Generating defocus file for {tsObjId} (ObjId), {tsId} (TsId)")
-
+        self.debug(f"Generating defocus file for {tsId} (ObjId), {tsId} (TsId)")
+        # # At this step, a tlt file has been generated considering the excluded views in the current TS. If the no.
+        # # tilt images is different from the no. CTFTomos, the attribute _isEnabled of the elements that are not present
+        # # in the TS or are disabled tilt-images will be set to False and considered when generating the defocus IMOD
+        # # files
+        # if len(ts) != len(ctfTomoSeries):
+        #     ctfTomoSeries.updateCtfTomoEnableFromTs(ts)
         # Compose the defocus file path
         defocusFilePath = self.getDefocusFileName(ts)
-
         """Generate defocus file"""
-        ctfTomoSeries = self.getCtfTomoSeriesFromTsId(tsId)
         utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath, inputTiltSeries=ts)
 
-    def getDefocusFileName(self, ts):
-        """ Returns the path of the defocus filename based on
-         the tilt series and creates the folder/s"""
-
-        tmpPrefix = self._getTmpPath(ts.getTsId())
-        path.makePath(tmpPrefix)
-        defocusFn = ts.getFirstItem().parseFileName(extension=".defocus")
-        defocusFilePath = os.path.join(tmpPrefix, defocusFn)
-        return defocusFilePath
-
     @ProtImodBase.tryExceptDecorator
-    def ctfCorrection(self, tsObjId):
-        if self.tsToProcess(tsObjId) is None:
-            return
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+    def ctfCorrection(self, tsId):
+        ts = self.tsDict[tsId]
+        acq = ts.getAcquisition()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
         firstItem = ts.getFirstItem()
 
         """Run ctfphaseflip IMOD program"""
         paramsCtfPhaseFlip = {
-            'inputStack': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'angleFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
-            'outputFileName': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'inputStack': join(tmpPrefix, firstItem.parseFileName()),
+            'angleFile': join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'outputFileName': join(extraPrefix, firstItem.parseFileName()),
             'defocusFile': self.getDefocusFileName(ts),
-            'voltage': self.inputSetOfTiltSeries.get().getAcquisition().getVoltage(),
-            'sphericalAberration': self.inputSetOfTiltSeries.get().getAcquisition().getSphericalAberration(),
+            'voltage': acq.getVoltage(),
+            'sphericalAberration': ts.getAcquisition().getSphericalAberration(),
             'defocusTol': self.defocusTol.get(),
-            'pixelSize': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
-            'amplitudeContrast': self.inputSetOfTiltSeries.get().getAcquisition().getAmplitudeContrast(),
+            'pixelSize': ts.getSamplingRate() / 10,
+            'amplitudeContrast': acq.getAmplitudeContrast(),
             'interpolationWidth': self.interpolationWidth.get()
         }
 
@@ -222,77 +221,65 @@ class ProtImodCtfCorrection(ProtImodBase):
                                 "-ActionIfGPUFails 2,2 "
 
         if ts.getFirstItem().hasTransform():
-            paramsCtfPhaseFlip['xformFile'] = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+            paramsCtfPhaseFlip['xformFile'] = join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
             argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
         if self.applyToOddEven(ts):
-            #ODD
+            # ODD
             oddFn = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
             paramsCtfPhaseFlip['inputStack'] = oddFn
-            paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsCtfPhaseFlip['outputFileName'] = join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
             # EVEN
             evenFn = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
             paramsCtfPhaseFlip['inputStack'] = evenFn
-            paramsCtfPhaseFlip['outputFileName'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsCtfPhaseFlip['outputFileName'] = join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
-    def createOutputStep(self, tsObjId):
-        if self.tsToProcess(tsObjId) is None:
-            return
-        if tsObjId not in self._failedTs:
-            inputTs = self.inputSetOfTiltSeries.get()
-            output = self.getOutputSetOfTiltSeries(inputTs)
-            hasAlign = inputTs.getFirstItem().getFirstItem().hasTransform()
-
-            ts = inputTs[tsObjId]
-            tsId = ts.getTsId()
+    def createOutputStep(self, tsId):
+        if tsId not in self._failedTs:
+            inTsSet = self.inputSetOfTiltSeries.get()
+            outputSetOfTs = self.getOutputSetOfTiltSeries(inTsSet)
             extraPrefix = self._getExtraPath(tsId)
 
-            newTs = tomoObj.TiltSeries(tsId=tsId)
+            newTs = TiltSeries(tsId=tsId)
+            ts = self.tsDict[tsId]
             newTs.copyInfo(ts)
             newTs.setCtfCorrected(True)
             newTs.setInterpolated(True)
-            output.append(newTs)
+            acq = newTs.getAcquisition()
+            acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+            newTs.setAcquisition(acq)
+            outputSetOfTs.append(newTs)
 
             ih = ImageHandler()
 
             for index, tiltImage in enumerate(ts):
-                newTi = tomoObj.TiltImage()
+                newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 acq = tiltImage.getAcquisition()
-                if hasAlign:
-                    acq.setTiltAxisAngle(0.)
+                acq.setTiltAxisAngle(0.)  # Is interpolated
                 newTi.setAcquisition(acq)
-                newTi.setLocation(index + 1,
-                                  (os.path.join(extraPrefix,
-                                                tiltImage.parseFileName())))
+                newTi.setLocation(index + 1, (join(extraPrefix, tiltImage.parseFileName())))
                 if self.applyToOddEven(ts):
-                    locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                    locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                    locationOdd = index + 1, (join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
+                    locationEven = index + 1, (join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
                     newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
                 else:
                     newTi.setOddEven([])
-
                 newTs.append(newTi)
 
-            if hasAlign:
-                acq = newTs.getAcquisition()
-                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-                newTs.setAcquisition(acq)
-
             newTs.write(properties=False)
-            output.update(newTs)
-            output.write()
-            self._store()
+            outputSetOfTs.update(newTs)
+            outputSetOfTs.write()
+            self._store(outputSetOfTs)
 
-    def createOutputFailedSet(self, tsObjId):
-        if self.tsToProcess(tsObjId) is None:
-            return
-        super().createOutputFailedSet(tsObjId)
+    def createOutputFailedSet(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():
@@ -301,11 +288,15 @@ class ProtImodCtfCorrection(ProtImodBase):
         self._store()
 
     # --------------------------- UTILS functions -----------------------------
-    def getCtfTomoSeriesFromTsId(self, tsId):
-        for ctfTomoSeries in self.inputSetOfCtfTomoSeries.get():
-            if tsId == ctfTomoSeries.getTsId():
-                return ctfTomoSeries
-        return None
+    def getDefocusFileName(self, ts):
+        """ Returns the path of the defocus filename based on
+         the tilt series and creates the folder/s"""
+
+        tmpPrefix = self._getTmpPath(ts.getTsId())
+        path.makePath(tmpPrefix)
+        defocusFn = ts.getFirstItem().parseFileName(extension=".defocus")
+        defocusFilePath = join(tmpPrefix, defocusFn)
+        return defocusFilePath
 
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
@@ -328,6 +319,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                               self.TiltSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")
+        if self.matchingMsg.get():
+            summary.append(self.matchingMsg.get())
         return summary
 
     def _methods(self):

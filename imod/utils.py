@@ -29,6 +29,8 @@ This module contains utils functions for IMOD protocols
 import logging
 import os
 
+from tomo.objects import CTFTomo, TiltImage
+
 logger = logging.getLogger(__name__)
 import csv
 import math
@@ -39,7 +41,7 @@ import pyworkflow.utils as pwutils
 from imod import Plugin
 
 
-def formatTransformFile(ts, transformFilePath):
+def formatTransformFile(ts, transformFilePath, onlyEnabled=False):
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform
     file in the location indicated. """
@@ -47,6 +49,8 @@ def formatTransformFile(ts, transformFilePath):
     tsMatrixTransformList = []
 
     for ti in ts:
+        if onlyEnabled and not ti.isEnabled():
+            continue
         transform = ti.getTransform().getMatrix().flatten()
         transformIMOD = ['%.7f' % transform[0],
                          '%.7f' % transform[1],
@@ -822,26 +826,23 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         with open(defocusFilePath, 'w') as f:
             lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
+            for index, ti in enumerate(tiltSeries):
+                ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
+                if ctfTomo:
+                    tiltAngle = ti.getTiltAngle()
 
-            # CtfTomoSeries is iterated inversely because IMOD set indexes
-            # upside down Scipion (highest index for
-            # the tilt-image with the highest negative angle)
-            for ctfTomo in ctfTomoSeries:
-                index = ctfTomo.getIndex().get()
+                    newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
+                        index,
+                        index,
+                        tiltAngle,
+                        tiltAngle,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        ctfTomo.getDefocusU()/10,
+                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                        ctfTomo.getDefocusV()/10,
+                        ctfTomo.getDefocusAngle()))
 
-                newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
-                    index,
-                    index,
-                    tiltSeries[index].getTiltAngle(),
-                    tiltSeries[index].getTiltAngle(),
-                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                    ctfTomo.getDefocusU()/10,
-                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                    ctfTomo.getDefocusV()/10,
-                    ctfTomo.getDefocusAngle())
-                           )
-
-                lines.append(newLine)
+                    lines.append(newLine)
             f.writelines(lines)
 
 
@@ -857,7 +858,7 @@ def generateDefocusUDictionary(ctfTomoSeries):
             else ctfTomo.getDefocusVList()
         defocusInfoList = defocusInfoList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusUDict[index] = defocusInfoList
 
@@ -875,7 +876,7 @@ def generateDefocusVDictionary(ctfTomoSeries):
         defocusInfoList = ctfTomo.getDefocusVList()
         defocusInfoList = defocusInfoList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusVDict[index] = defocusInfoList
 
@@ -893,7 +894,7 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
         defocusAngleList = ctfTomo.getDefocusAngleList()
         defocusAngleList = defocusAngleList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusAngleDict[index] = defocusAngleList
 
@@ -911,7 +912,7 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
         phaseShiftList = ctfTomo.getPhaseShiftList()
         phaseShiftList = phaseShiftList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         phaseShiftDict[index] = phaseShiftList
 
@@ -929,7 +930,7 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
         cutOnFreqList = ctfTomo.getCutOnFreqList()
         cutOnFreqList = cutOnFreqList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         cutOnFreqDict[index] = cutOnFreqList
 
