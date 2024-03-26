@@ -1,3 +1,10 @@
+3.5.0:
+ Users:
+  - Protocol CTF correction:
+    * Now it can deal with excluded views in the CTF and/or in the TS.
+    * The xf, defocus, and tlt files are generated inside each TS extra sub-directory.
+3.4.1: # TODO: Someone forgot to fill this.
+3.4.0: # TODO: Someone forgot to fill this.
 3.3.0:
   - bugfix for import ctf, set missing defocus flag
   - move plugin-specific import CTF protocol to the core
