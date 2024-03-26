@@ -113,8 +113,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return os.path.join(tmpPrefix, tsId + suffix)
 
-    def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False, oddEven=False, onlyEnabled=False):
+    def convertInputStep(self, tsObjId, generateAngleFile=True, imodInterpolation=True, doSwap=False, oddEven=False):
         """
         :param tsObjId: Tilt series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -123,7 +122,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                                   Pass None to cancel interpolation.
         :param doSwap: if applying alignment, consider swapping X/Y
         :param oddEven: process odd/even sets
-        :param onlyEnabled: flag used to include only the enabled tilt-images when generating the alignment (xf) file.
         """
         if type(tsObjId) is str:
             ts = self.tsDict[tsObjId]
@@ -163,14 +161,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             if firstTi.hasTransform():
                 # Generate transformation matrices file (xf)
                 xfFile = os.path.join(extraPrefix, firstTi.parseFileName(extension=".xf"))
-                utils.formatTransformFile(ts, xfFile, onlyEnabled=onlyEnabled)
+                utils.formatTransformFile(ts, xfFile)
 
                 # Generate the interpolated TS with IMOD's newstack program
                 logger.info("Tilt-series interpolated with IMOD [%s]" % tsId)
-                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName, xfFile, doSwap)
+                tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.isEnabled()]
+                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName, xfFile, doSwap,
+                                        tsExcludedIndices=tsExcludedIndices)
                 if oddEven:
-                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd, xfFile, doSwap)
-                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven, xfFile, doSwap)
+                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd, xfFile, doSwap,
+                                            tsExcludedIndices=tsExcludedIndices)
+                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven, xfFile, doSwap,
+                                            tsExcludedIndices=tsExcludedIndices)
 
             else:
                 logger.info("Tilt-series linked [%s]" % tsId)
@@ -193,18 +195,19 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             angleFilePath = os.path.join(extraPrefix, firstTi.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath, excludeViews=True)
 
-    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap):
+    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap, tsExcludedIndices=None):
         argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                      outputTsFileName,
                                                                      inputTsFileName=inputTsFileName,
                                                                      xfFile=xfFile,
                                                                      firstItem=ts.getFirstItem(),
-                                                                     doSwap=doSwap)
+                                                                     doSwap=doSwap,
+                                                                     tsExcludedIndices=tsExcludedIndices)
         Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     @staticmethod
     def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
-                               xfFile=None, firstItem=None, binning=1, doSwap=False):
+                               xfFile=None, firstItem=None, binning=1, doSwap=False, tsExcludedIndices=None):
         """ Returns basic newstack arguments
         
         :param ts: Title Series object
@@ -214,7 +217,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
         :param doSwap: Default False.
-        
+        :param tsExcludedIndices: List of indices to be excluded in the tilt-series
         """
 
         if firstItem is None:
@@ -248,6 +251,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                     })
 
                     argsAlignment += "-size %(size)s "
+
+        if tsExcludedIndices:
+            paramsAlignment["exclude"] = ",".join(map(str, tsExcludedIndices))
+            argsAlignment += "-exclude %(exclude)s "
 
         return argsAlignment, paramsAlignment
 

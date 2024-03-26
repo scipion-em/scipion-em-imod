@@ -824,11 +824,11 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         with open(defocusFilePath, 'w') as f:
             lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
-            for index, ti in enumerate(tiltSeries):
+            ind = 1
+            for ti in tiltSeries:
                 ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
                 if ctfTomo:
                     tiltAngle = ti.getTiltAngle()
-                    ind = index + 1
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         ind,
                         ind,
@@ -841,6 +841,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         ctfTomo.getDefocusAngle()))
 
                     lines.append(newLine)
+                    ind += 1
             f.writelines(lines)
 
 

@@ -164,19 +164,13 @@ class ProtImodCtfCorrection(ProtImodBase):
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag, onlyEnabled=True)
+        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
 
     def generateDefocusFile(self, tsId):
         ts = self.tsDict[tsId]
         ctfTomoSeries = self.ctfDict[tsId]
 
         self.debug(f"Generating defocus file for {tsId} (ObjId), {tsId} (TsId)")
-        # # At this step, a tlt file has been generated considering the excluded views in the current TS. If the no.
-        # # tilt images is different from the no. CTFTomos, the attribute _isEnabled of the elements that are not present
-        # # in the TS or are disabled tilt-images will be set to False and considered when generating the defocus IMOD
-        # # files
-        # if len(ts) != len(ctfTomoSeries):
-        #     ctfTomoSeries.updateCtfTomoEnableFromTs(ts)
         # Compose the defocus file path
         defocusFilePath = self.getDefocusFileName(ts)
         """Generate defocus file"""
