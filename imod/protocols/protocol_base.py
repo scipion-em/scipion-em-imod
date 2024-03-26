@@ -23,7 +23,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
+import logging
 import os
 
 from pyworkflow.object import Set, CsvList, Pointer
@@ -33,10 +33,12 @@ from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage)
-
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltImage)
 from .. import Plugin, utils
+
+
+logger = logging.getLogger(__name__)
+
 
 OUTPUT_TS_COORDINATES_NAME = "TiltSeriesCoordinates"
 OUTPUT_FIDUCIAL_NO_GAPS_NAME = "FiducialModelNoGaps"
@@ -62,7 +64,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         # Possible outputs (synchronize these names with the constants)
         self.tsDict = None
-        self.binning = None
+        self.binning = 1
         self._failedTs = []
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
@@ -78,7 +80,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
     @classmethod
     def worksInStreaming(cls):
-        """ So far none of them work in streaming. Since this inherits from the import they were considered as "streamers". """
+        """ So far none of them work in streaming. Since this inherits from the import they were considered as
+        "streamers"."""
         return False
 
     def defineExecutionPararell(self):
@@ -103,6 +106,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 self._failedTs.append(tsId)
 
         return wrapper
+
     def getTmpTSFile(self, tsId, tmpPrefix=None, suffix=".mrcs"):
         if tmpPrefix is None:
             tmpPrefix = self._getTmpPath(tsId)
@@ -128,58 +132,49 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             ts = tsSet.get()[tsObjId] if isinstance(tsSet, Pointer) else tsSet[tsObjId]
 
         tsId = ts.getTsId()
-
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
-
         path.makePath(tmpPrefix)
         path.makePath(extraPrefix)
 
-        firstItem = ts.getFirstItem()
+        firstTi = ts.getFirstItem()
+        inTsFileName = firstTi.getFileName()
+        outputTsFileName = os.path.join(tmpPrefix, firstTi.parseFileName())
 
-        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-
-        if oddEven:
-            fnOdd = ts.getOddFileName()
-            fnEven = ts.getEvenFileName()
-
-            outputOddTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
-            outputEvenTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
-
-        # .. Interpolation cancelled
+        # Interpolation
         if imodInterpolation is None:
-            self.info("Tilt series %s linked." % tsId)
-            path.createLink(firstItem.getFileName(), outputTsFileName)
-
+            logger.info("Tilt series %s linked." % tsId)
+            path.createLink(inTsFileName, outputTsFileName)
         elif imodInterpolation:
-            """Apply the transformation form the input tilt-series"""
+            logger.info("Apply the transformation form the input tilt-series")
+
+            # Odd / Even
+            outputOddTsFileName = None
+            outputEvenTsFileName = None
+            fnOdd = None
+            fnEven = None
+            if oddEven:
+                fnOdd = ts.getOddFileName()
+                fnEven = ts.getEvenFileName()
+                outputOddTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
+                outputEvenTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
 
             # Use IMOD newstack interpolation
-            if firstItem.hasTransform():
-                # Generate transformation matrices file
-                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-                utils.formatTransformFile(ts, outputTmFileName, onlyEnabled=onlyEnabled)
+            if firstTi.hasTransform():
+                # Generate transformation matrices file (xf)
+                xfFile = os.path.join(extraPrefix, firstTi.parseFileName(extension=".xf"))
+                utils.formatTransformFile(ts, xfFile, onlyEnabled=onlyEnabled)
 
-                def applyNewStack(outputTsFileName, fnIn):
-
-                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                                 outputTsFileName,
-                                                                                 inputTsFileName=fnIn,
-                                                                                 xfFile=outputTmFileName,
-                                                                                 firstItem=firstItem,
-                                                                                 doSwap=doSwap)
-                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
-                self.info("Interpolating tilt series %s with imod" % tsId)
-                applyNewStack(outputTsFileName, None)
-
+                # Generate the interpolated TS with IMOD's newstack program
+                logger.info("Tilt-series interpolated with IMOD [%s]" % tsId)
+                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName, xfFile, doSwap)
                 if oddEven:
-                    applyNewStack(outputOddTsFileName, fnOdd)
-                    applyNewStack(outputEvenTsFileName, fnEven)
+                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd, xfFile, doSwap)
+                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven, xfFile, doSwap)
 
             else:
-                self.info("Linking tilt series %s" % tsId)
-                path.createLink(firstItem.getFileName(), outputTsFileName)
+                logger.info("Tilt-series linked [%s]" % tsId)
+                path.createLink(firstTi.getFileName(), outputTsFileName)
 
                 if oddEven:
                     path.createLink(fnOdd, outputOddTsFileName)
@@ -187,17 +182,28 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         # Use Xmipp interpolation via Scipion
         else:
-            self.info("Interpolating tilt series %s with emlib" % tsId)
+            logger.info("Tilt-series interpolated with emlib [%s]" % tsId)
             ts.applyTransform(outputTsFileName)
 
-        self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
+        logger.info("Tilt-series [%s] available for processing at %s." % (tsId, outputTsFileName))
 
+        # Generate the tlt file
         if generateAngleFile:
-            """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
+            logger.info("Generate angle file for the tilt-series [%s]" % tsId)
+            angleFilePath = os.path.join(extraPrefix, firstTi.parseFileName(extension=".tlt"))
             ts.generateTltFile(angleFilePath, excludeViews=True)
 
-    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
+    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap):
+        argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                     outputTsFileName,
+                                                                     inputTsFileName=inputTsFileName,
+                                                                     xfFile=xfFile,
+                                                                     firstItem=ts.getFirstItem(),
+                                                                     doSwap=doSwap)
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+    @staticmethod
+    def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
                                xfFile=None, firstItem=None, binning=1, doSwap=False):
         """ Returns basic newstack arguments
         

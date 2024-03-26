@@ -28,17 +28,15 @@ This module contains utils functions for IMOD protocols
 """
 import logging
 import os
-
-from tomo.objects import CTFTomo, TiltImage
-
-logger = logging.getLogger(__name__)
 import csv
 import math
 import numpy as np
-
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
+
+
+logger = logging.getLogger(__name__)
 
 
 def formatTransformFile(ts, transformFilePath, onlyEnabled=False):
@@ -822,7 +820,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
     else:
         # There is no information available as list (not an IMOD CTF estimation)
 
-        logger.debug("Defocus file generated form a defocus attributes.")
+        logger.info("Defocus file generated from defocus attributes.")
 
         with open(defocusFilePath, 'w') as f:
             lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
@@ -830,10 +828,10 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
                 if ctfTomo:
                     tiltAngle = ti.getTiltAngle()
-
+                    ind = index + 1
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
-                        index,
-                        index,
+                        ind,
+                        ind,
                         tiltAngle,
                         tiltAngle,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)

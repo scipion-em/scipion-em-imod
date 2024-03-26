@@ -163,7 +163,6 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
-
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag, onlyEnabled=True)
 
@@ -194,7 +193,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         """Run ctfphaseflip IMOD program"""
         paramsCtfPhaseFlip = {
             'inputStack': join(tmpPrefix, firstItem.parseFileName()),
-            'angleFile': join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'angleFile': join(extraPrefix, firstItem.parseFileName(extension=".tlt")),
             'outputFileName': join(extraPrefix, firstItem.parseFileName()),
             'defocusFile': self.getDefocusFileName(ts),
             'voltage': acq.getVoltage(),
@@ -221,7 +220,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                                 "-ActionIfGPUFails 2,2 "
 
         if ts.getFirstItem().hasTransform():
-            paramsCtfPhaseFlip['xformFile'] = join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+            paramsCtfPhaseFlip['xformFile'] = join(extraPrefix, firstItem.parseFileName(extension=".xf"))
             argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
         Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
@@ -292,10 +291,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         """ Returns the path of the defocus filename based on
          the tilt series and creates the folder/s"""
 
-        tmpPrefix = self._getTmpPath(ts.getTsId())
-        path.makePath(tmpPrefix)
+        extraPrefix = self._getExtraPath(ts.getTsId())
+        path.makePath(extraPrefix)
         defocusFn = ts.getFirstItem().parseFileName(extension=".defocus")
-        defocusFilePath = join(tmpPrefix, defocusFn)
+        defocusFilePath = join(extraPrefix, defocusFn)
         return defocusFilePath
 
     # --------------------------- INFO functions ------------------------------
