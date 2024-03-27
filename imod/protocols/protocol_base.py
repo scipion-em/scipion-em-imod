@@ -494,6 +494,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             tiObjId = ti.getObjId()
             newCTFTomo = CTFTomo()
             newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
+            newCTFTomo.setIndex(ti.getIndex())
 
             if tiObjId not in defocusUDict.keys() and not ti.isEnabled():
                 raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
