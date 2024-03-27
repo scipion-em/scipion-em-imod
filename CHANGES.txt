@@ -1,3 +1,6 @@
+3.4.2:
+ Developers:
+  - Update the acquisition order in the CTFTomo objects (field added to that class in scipion-em-tomo v3.7.0).
 3.3.0:
   - bugfix for import ctf, set missing defocus flag
   - move plugin-specific import CTF protocol to the core

@@ -827,7 +827,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
             # upside down Scipion (highest index for
             # the tilt-image with the highest negative angle)
             for ctfTomo in ctfTomoSeries:
-                index = ctfTomo.getIndex().get()
+                index = ctfTomo.getIndex()
 
                 newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                     index,
@@ -857,7 +857,7 @@ def generateDefocusUDictionary(ctfTomoSeries):
             else ctfTomo.getDefocusVList()
         defocusInfoList = defocusInfoList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusUDict[index] = defocusInfoList
 
@@ -875,7 +875,7 @@ def generateDefocusVDictionary(ctfTomoSeries):
         defocusInfoList = ctfTomo.getDefocusVList()
         defocusInfoList = defocusInfoList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusVDict[index] = defocusInfoList
 
@@ -893,7 +893,7 @@ def generateDefocusAngleDictionary(ctfTomoSeries):
         defocusAngleList = ctfTomo.getDefocusAngleList()
         defocusAngleList = defocusAngleList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         defocusAngleDict[index] = defocusAngleList
 
@@ -911,7 +911,7 @@ def generatePhaseShiftDictionary(ctfTomoSeries):
         phaseShiftList = ctfTomo.getPhaseShiftList()
         phaseShiftList = phaseShiftList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         phaseShiftDict[index] = phaseShiftList
 
@@ -929,7 +929,7 @@ def generateCutOnFreqDictionary(ctfTomoSeries):
         cutOnFreqList = ctfTomo.getCutOnFreqList()
         cutOnFreqList = cutOnFreqList.split(",")
 
-        index = ctfTomo.getIndex().get()
+        index = ctfTomo.getIndex()
 
         cutOnFreqDict[index] = cutOnFreqList
 
