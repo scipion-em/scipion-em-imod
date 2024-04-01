@@ -30,11 +30,13 @@ import logging
 import os
 import csv
 import math
+from typing import Set, Union
+
 import numpy as np
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
-
+from tomo.objects import TiltSeries
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,33 @@ def formatTransformFile(ts, transformFilePath, onlyEnabled=False):
     with open(transformFilePath, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')
         csvW.writerows(tsMatrixTransformList)
+
+
+def genXfFile(ts: TiltSeries, outXfName: str, presentAcqOrders: Union[set, None] = None) -> None:
+    """ This method takes a tilt series and the output transformation file path
+    and creates an IMOD-based transform file in the location indicated. The transformation matrix
+    of a tilt-image is only added if its acquisition order is contained in a set composed of the
+    acquisition orders present in both the given tilt-series and the CTFTomoSeries.
+    """
+
+    def formatMatrix(tiltImage):
+        transform = tiltImage.getTransform().getMatrix().flatten()
+        transformIMOD = ['%.7f' % transform[0],
+                         '%.7f' % transform[1],
+                         '%.7f' % transform[3],
+                         '%.7f' % transform[4],
+                         "{:>6}".format('%.3g' % transform[2]),
+                         "{:>6}".format('%.3g' % transform[5])]
+        return transformIMOD
+
+    if presentAcqOrders:
+        tsMatrixList = [formatMatrix(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
+    else:
+        tsMatrixList = [formatMatrix(ti) for ti in ts]
+
+    with open(outXfName, 'w') as f:
+        csvW = csv.writer(f, delimiter='\t')
+        csvW.writerows(tsMatrixList)
 
 
 def formatTransformFileFromTransformList(transformMatrixList, transformFilePath):
@@ -167,7 +196,7 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
     for vector in infoTable:
         outputLines.append("\t%s\t%s\t%s\t%s\n" % (vector[3], vector[0],
-                                                   vector[1], int(vector[2])-1))
+                                                   vector[1], int(vector[2]) - 1))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
@@ -649,7 +678,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        int(float(defocusUDict[index][0])/10)
+                        int(float(defocusUDict[index][0]) / 10)
                     ))
 
                     lines.append(newLine)
@@ -688,9 +717,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                     ))
 
@@ -724,7 +753,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         float(phaseShiftDict[index][0]),
                     ))
 
@@ -745,7 +774,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
             with open(defocusFilePath, 'w') as f:
                 # This line is added at the beginning of the file in order
                 # to match the IMOD defocus file format
-                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"] 
+                lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"]
 
                 for index in defocusUDict.keys():
 
@@ -761,9 +790,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0])
                     ))
@@ -801,9 +830,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
                         round(tiltSeries[index].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0])/10,
+                        float(defocusUDict[index][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0])/10,
+                        float(defocusVDict[index][0]) / 10,
                         float(defocusAngleDict[index][0]),
                         float(phaseShiftDict[index][0]),
                         float(cutOnFreqDict[index][0])
@@ -835,9 +864,9 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                         tiltAngle,
                         tiltAngle,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        ctfTomo.getDefocusU()/10,
+                        ctfTomo.getDefocusU() / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        ctfTomo.getDefocusV()/10,
+                        ctfTomo.getDefocusV() / 10,
                         ctfTomo.getDefocusAngle()))
 
                     lines.append(newLine)
@@ -966,7 +995,7 @@ def calculateRotationAngleFromTM(ts):
         tm = ti.getTransform().getMatrix()
         cosRotationAngle = tm[0][0]
         sinRotationAngle = tm[1][0]
-        avgRotationAngle += math.degrees(math.atan(sinRotationAngle/cosRotationAngle))
+        avgRotationAngle += math.degrees(math.atan(sinRotationAngle / cosRotationAngle))
 
     avgRotationAngle = avgRotationAngle / ts.getSize()
 
@@ -984,7 +1013,7 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
 
     for ti in ts:
         acq = ti.getAcquisition()
-        doseInfoList.append((acq.getAccumDose()-acq.getDosePerFrame(), acq.getDosePerFrame()))
+        doseInfoList.append((acq.getAccumDose() - acq.getDosePerFrame(), acq.getDosePerFrame()))
 
     np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
 

@@ -31,6 +31,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
+from tomo.utils import getCommonTsAndCtfElements
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME
 
@@ -162,9 +163,10 @@ class ProtImodCtfCorrection(ProtImodBase):
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
 
     def convertInputStep(self, tsId, **kwargs):
+        presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag, presentAcqOrders=presentAcqOrders)
 
     def generateDefocusFile(self, tsId):
         ts = self.tsDict[tsId]
