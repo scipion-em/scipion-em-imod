@@ -633,7 +633,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
-                                      isRelion=False, inputTiltSeries=None):
+                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None):
     """ This method takes a ctfTomoSeries object a generate a
     defocus information file in IMOD formatting containing
     the same information in the specified location. """
@@ -857,6 +857,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
             for ti in tiltSeries:
                 ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
                 if ctfTomo:
+                    if presentAcqOrders and ctfTomo.getAcquisitionOrder() not in presentAcqOrders:
+                        continue
                     tiltAngle = ti.getTiltAngle()
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         ind,
