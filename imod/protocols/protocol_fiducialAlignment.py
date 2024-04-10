@@ -36,7 +36,7 @@ from tomo.objects import (LandmarkModel, SetOfTiltSeries, TiltImage,
                           TiltSeries, TiltSeriesCoordinate)
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -236,80 +236,59 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._initialize()
+        for lm in self.inputSetOfLandmarkModels.get():
+            lmTsId = lm.getTsId()
+            self.fiducialDiameterPixel = lm.getSize()
+            self._insertFunctionStep(self.convertInputStep, lmTsId)
+            self._insertFunctionStep(self.computeFiducialAlignmentStep, lmTsId)
+            self._insertFunctionStep(self.translateFiducialPointModelStep, lmTsId)
+            self._insertFunctionStep(self.computeOutputStackStep, lmTsId)
+
+            if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
+                self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
+                                         lmTsId)
+
+            if self.eraseGoldBeads.get() == 0:
+                self._insertFunctionStep(self.eraseGoldBeadsStep, lmTsId)
+
+            self._insertFunctionStep(self.computeOutputModelsStep, lmTsId)
+            self._insertFunctionStep(self.createOutputFailedStep, lmTsId)
+
+        self._insertFunctionStep(self.createOutputStep)
+
+    # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
         self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
 
         tsIds = self.inputSetOfLandmarkModels.get().aggregate(["COUNT"], "_tsId", ["_tsId"])
         tsIds = set([d['_tsId'] for d in tsIds])
 
-        tsIdsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in
-                     self.inputSetOfTiltSeries.get() if
-                     ts.getTsId() in tsIds}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in
+                       self.inputSetOfTiltSeries.get() if
+                       ts.getTsId() in tsIds}
 
         self._failedTs = []
 
-        for lm in self.inputSetOfLandmarkModels.get():
-            lmTsId = lm.getTsId()
-            self.fiducialDiameterPixel = lm.getSize()
-
-            tsObjId = tsIdsDict[lmTsId].getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId)
-            self._insertFunctionStep(self.computeFiducialAlignmentStep, tsObjId)
-            self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
-            self._insertFunctionStep(self.computeOutputStackStep, tsObjId)
-
-            if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
-                                         tsObjId)
-
-            if self.eraseGoldBeads.get() == 0:
-                self._insertFunctionStep(self.eraseGoldBeadsStep, tsObjId)
-
-            self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
-            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
-
-        self._insertFunctionStep(self.createOutputStep)
-
-    # --------------------------- STEPS functions -----------------------------
     @ProtImodBase.tryExceptDecorator
-    def computeFiducialAlignmentStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
+    def computeFiducialAlignmentStep(self, tsId):
+        ts = self.tsDict[tsId]
         lm = self.inputSetOfLandmarkModels.get().getLandmarkModelFromTsId(tsId=tsId)
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        firstItem = ts.getFirstItem()
 
         paramsTiltAlign = {
             'modelFile': lm.getModelName(),
-            'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'imageFile': self.getTmpOutFile(tsId),
             'imagesAreBinned': 1,
             'unbinnedPixelSize': ts.getSamplingRate() / 10,
-            'outputModelFile': os.path.join(extraPrefix,
-                                            firstItem.parseFileName(suffix="_fidxyz",
-                                                                    extension=".mod")),
-            'outputResidualFile': os.path.join(extraPrefix,
-                                               firstItem.parseFileName(suffix="_resid",
-                                                                       extension=".txt")),
-            'outputFidXYZFile': os.path.join(extraPrefix,
-                                             firstItem.parseFileName(suffix="_fid",
-                                                                     extension=".xyz")),
-            'outputTiltFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_interpolated",
-                                                                   extension=".tlt")),
-            'outputXAxisTiltFile': os.path.join(extraPrefix,
-                                                firstItem.parseFileName(extension=".xtilt")),
-            'outputTransformFile': os.path.join(extraPrefix,
-                                                firstItem.parseFileName(suffix="_fid",
-                                                                        extension=".xf")),
-            'outputFilledInModel': os.path.join(extraPrefix,
-                                                firstItem.parseFileName(suffix="_noGaps",
-                                                                        extension=".fid")),
+            'outputModelFile': self.getExtraOutFile(tsId, suffix="fidxyz", ext="mod"),
+            'outputResidualFile': self.getExtraOutFile(tsId, suffix="resid", ext="txt"),
+            'outputFidXYZFile': self.getExtraOutFile(tsId, suffix="fid", ext="xyz"),
+            'outputTiltFile': self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
+            'outputXAxisTiltFile': self.getExtraOutFile(tsId, ext="xtilt"),
+            'outputTransformFile': self.getExtraOutFile(tsId, suffix="fid", ext="xf"),
+            'outputFilledInModel': self.getExtraOutFile(tsId, suffix="noGaps", ext="fid"),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
-            'tiltFile': os.path.join(tmpPrefix,
-                                     firstItem.parseFileName(extension=".tlt")),
+            'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'angleOffset': 0.0,
             'rotOption': self.getRotationType(),
             'rotDefaultGrouping': self.groupRotationSize.get(),
@@ -334,9 +313,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'axisZShift': 0.0,
             'shiftZFromOriginal': 1,
             'localAlignments': 0,
-            'outputLocalFile': os.path.join(extraPrefix,
-                                            firstItem.parseFileName(suffix="_local",
-                                                                    extension=".xf")),
+            'outputLocalFile': self.getExtraOutFile(tsId, suffix="local", ext=XF_EXT),
             'targetPatchSizeXandY': '700,700',
             'minSizeOrOverlapXandY': '0.5,0.5',
             'minFidsTotalAndEachSurface': '8,3',
@@ -353,7 +330,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'localXStretchDefaultGrouping': 7,
             'localSkewOption': 0,
             'localSkewDefaultGrouping': 11,
-            'outputTiltAlignFileText': os.path.join(extraPrefix, "align.log"),
+            'outputTiltAlignFileText': self._getExtraPath("align.log"),
         }
 
         argsTiltAlign = "-ModelFile %(modelFile)s " \
@@ -420,28 +397,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
         argsTiltAlign += "2>&1 | tee %(outputTiltAlignFileText)s "
 
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
-        Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=extraPrefix)
+        Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=self._getExtraPath())
 
     @ProtImodBase.tryExceptDecorator
-    def translateFiducialPointModelStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
-
+    def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_noGaps",
-                                                               extension=".fid"))):
+        noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext="fid")
+        if os.path.exists(noGapsFid):
             paramsNoGapModel2Point = {
-                'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_noGaps",
-                                                                  extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_noGaps_fid",
-                                                                   extension=".txt"))
+                'inputFile': noGapsFid,
+                'outputFile': self.getExtraOutFile(tsId, suffix="noGaps_fid", ext="txt")
             }
             argsNoGapModel2Point = "-InputFile %(inputFile)s " \
                                    "-OutputFile %(outputFile)s"
@@ -449,32 +414,15 @@ class ProtImodFiducialAlignment(ProtImodBase):
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
     @ProtImodBase.tryExceptDecorator
-    def computeOutputStackStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
+    def computeOutputStackStep(self, tsId):
+        ts = self.tsDict[tsId]
 
         # Check that previous steps have been completed satisfactorily
-        tmpFileName = os.path.join(extraPrefix,
-                                   firstItem.parseFileName(suffix="_fid",
-                                                           extension=".xf"))
-        if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-            tltFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_interpolated", extension=".tlt")
-            )
+        transformationMatricesFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
+        if os.path.exists(transformationMatricesFilePath) and os.stat(transformationMatricesFilePath).st_size != 0:
+            tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
             tltList = utils.formatAngleList(tltFilePath)
-
-            transformationMatricesFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_fid", extension=".xf")
-            )
-
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
-
             output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
@@ -514,30 +462,23 @@ class ProtImodFiducialAlignment(ProtImodBase):
         else:
             raise FileNotFoundError(
                 "Error (computeOutputStackStep): \n Imod output file "
-                "%s does not exist or it is empty" % tmpFileName)
+                "%s does not exist or it is empty" % transformationMatricesFilePath)
 
     @ProtImodBase.tryExceptDecorator
-    def computeOutputInterpolatedStackStep(self, tsObjId):
-        tsIn = self.inputSetOfTiltSeries.get()[tsObjId]
+    def computeOutputInterpolatedStackStep(self, tsId):
+        tsIn = self.tsDict[tsId]
         tsId = tsIn.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
         firstItem = tsIn.getFirstItem()
 
         # Check that previous steps have been completed satisfactorily
-        tmpFileName = os.path.join(extraPrefix,
-                                   firstItem.parseFileName(suffix="_fid",
-                                                           extension=".xf"))
+        tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
         if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
             output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
             paramsAlignment = {
-                'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
-                'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-                'xform': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_fid",
-                                                                           extension=".xf")),
+                'input': self.getTmpOutFile(tsId),
+                'output': self.getExtraOutFile(tsId),
+                'xform': tmpFileName,
                 'bin': self.binning.get(),
                 'imagebinned': 1.0}
 
@@ -570,11 +511,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             newTs.setInterpolated(True)
             output.append(newTs)
 
-            tltFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_interpolated", extension=".tlt")
-            )
-
+            tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
             tltList = utils.formatAngleList(tltFilePath)
 
             if self.binning > 1:
@@ -584,7 +521,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(index + 1, os.path.join(extraPrefix, tiltImage.parseFileName()))
+                newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
                 newTi.setTiltAngle(float(tltList[index]))
                 if self.binning > 1:
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
@@ -604,22 +541,15 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Imod output file %s does not exist or it is empty" % tmpFileName)
 
     @ProtImodBase.tryExceptDecorator
-    def eraseGoldBeadsStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+    def eraseGoldBeadsStep(self, tsId):
+        ts = self.tsDict[tsId]
         tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        firstItem = ts.getFirstItem()
 
         # Erase gold beads on aligned stack
         paramsCcderaser = {
-            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'modelFile': os.path.join(extraPrefix,
-                                      firstItem.parseFileName(suffix="_noGaps",
-                                                              extension=".fid")),
+            'inputFile': self.getTmpOutFile(tsId),
+            'outputFile': self.getExtraOutFile(tsId),
+            'modelFile': self.getExtraOutFile(tsId, suffix="noGaps", ext="fid"),
             'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
@@ -639,44 +569,19 @@ class ProtImodFiducialAlignment(ProtImodBase):
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     @ProtImodBase.tryExceptDecorator
-    def computeOutputModelsStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+    def computeOutputModelsStep(self, tsId):
+        ts = self.tsDict[tsId]
         tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
 
         # Create the output set of landmark models with no gaps
-        if os.path.exists(
-                os.path.join(extraPrefix,
-                             ts.getFirstItem().parseFileName(suffix="_noGaps_fid",
-                                                             extension=".txt"))):
-
+        fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext='txt')
+        if os.path.exists(fiducialNoGapFilePath):
             output = self.getOutputFiducialModelNoGaps()
-
             output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-            fiducialNoGapFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps_fid", extension=".txt")
-            )
-
             fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-
-            fiducialModelNoGapPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps", extension=".fid")
-            )
-
-            landmarkModelNoGapsFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_noGaps", extension=".sfid")
-            )
-
-            landmarkModelNoGapsResidPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_resid", extension=".txt")
-            )
+            fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext="fid")
+            landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext="sfid")
+            landmarkModelNoGapsResidPath = self.getExtraOutFile(tsId, suffix="resid", ext="txt")
 
             fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
@@ -719,9 +624,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             output.write()
 
         # Create the output set of 3D coordinates
-        coordFilePath = os.path.join(extraPrefix,
-                                     firstItem.parseFileName(suffix="_fid",
-                                                             extension=".xyz"))
+        coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext="xyz")
 
         if os.path.exists(coordFilePath):
 
@@ -754,6 +657,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self.FailedTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     # --------------------------- UTILS functions -----------------------------
     def getRotationType(self):

@@ -32,11 +32,12 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, OUTPUT_TILTSERIES_NAME
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, OUTPUT_TILTSERIES_NAME, XF_EXT, \
+    ODD, EVEN, MRCS_EXT
 from ..utils import formatTransformFile
 
 
-class ProtImodTSNormalization(ProtImodBase):
+class ProtImodTsPreprocess(ProtImodBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:
@@ -45,7 +46,7 @@ class ProtImodTSNormalization(ProtImodBase):
 
     _label = 'Tilt-series preprocess'
     _devStatus = BETA
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME:tomoObj.SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -200,42 +201,42 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self._failedTs = []
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Interpolation will be done in the generateOutputStep
-        super().convertInputStep(tsObjId, imodInterpolation=None,
-                                 generateAngleFile=False, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId,
+                                 imodInterpolation=None,
+                                 generateAngleFile=False,
+                                 oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
     def generateOutputStackStep(self, tsObjId):
         ts = self.inputSetOfTiltSeries.get()[tsObjId]
         tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
         firstItem = ts.getFirstItem()
-
         xfFile = None
 
         if self.applyAlignment.get() and ts.hasAlignment():
-            xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             formatTransformFile(ts, xfFile)
 
         binning = self.binning.get()
 
         argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
-                                                                   os.path.join(extraPrefix, firstItem.parseFileName()),
-                                                                   inputTsFileName=os.path.join(tmpPrefix,
-                                                                                                firstItem.parseFileName()),
+                                                                   self.getExtraOutFile(tsId),
+                                                                   inputTsFileName=self.getTmpOutFile(tsId),
                                                                    xfFile=xfFile,
                                                                    firstItem=firstItem,
                                                                    binning=binning,
@@ -275,10 +276,10 @@ class ProtImodTSNormalization(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
             paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
@@ -304,14 +305,14 @@ class ProtImodTSNormalization(ProtImodBase):
 
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])
 
-            newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
+            newTi.setLocation(index + 1,  self.getExtraOutFile(tsId))
+
             if binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
             newTs.append(newTi)
@@ -324,6 +325,10 @@ class ProtImodTSNormalization(ProtImodBase):
         output.update(newTs)
         output.write()
         self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():

@@ -33,7 +33,7 @@ from tomo.objects import Tomogram
 
 from .. import Plugin
 from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
-                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME)
+                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, TLT_EXT, ODD, MRCS_EXT, EVEN)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -177,35 +177,31 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.computeReconstructionStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.computeReconstructionStep, tsId)
+            self._insertFunctionStep(self.createOutputStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self._failedTs = []
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
-        super().convertInputStep(tsObjId, doSwap=True, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
-    def computeReconstructionStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        firstItem = ts.getFirstItem()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
+    def computeReconstructionStep(self, tsId):
+        ts = self.tsDict[tsId]
         paramsTilt = {
-            'InputProjections': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'OutputFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
-            'TiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'InputProjections': self.getTmpOutFile(tsId),
+            'OutputFile': self.getTmpOutFile(tsId, ext="rec"),
+            'TiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
             'Radial': str(self.radialFirstParameter.get()) + "," + str(self.radialSecondParameter.get()),
@@ -255,21 +251,19 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            oddFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
-            paramsTilt['InputProjections'] = oddFn
-            oddEvenTmp[0] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_odd.rec"))
+            paramsTilt['InputProjections'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext="rec")
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-            evenFn = os.path.join(tmpPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
-            paramsTilt['InputProjections'] = evenFn
-            oddEvenTmp[1] = os.path.join(tmpPrefix, firstItem.parseFileName(extension="_even.rec"))
+            paramsTilt['InputProjections'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext="rec")
             paramsTilt['OutputFile'] = oddEvenTmp[1]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsTrimVol = {
-            'input': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".rec")),
-            'output': os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc")),
+            'input': self.getTmpOutFile(tsId, ext="rec"),
+            'output': self.getExtraOutFile(tsId),
             'options': getArgs()
         }
 
@@ -281,21 +275,16 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         if self.applyToOddEven(ts):
             paramsTrimVol['input'] = oddEvenTmp[0]
-            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
             paramsTrimVol['input'] = oddEvenTmp[1]
-            paramsTrimVol['output'] = os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
-    def createOutputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        firstItem = ts.getFirstItem()
-
-        extraPrefix = self._getExtraPath(tsId)
-
-        tomoLocation = os.path.join(extraPrefix, firstItem.parseFileName(extension=".mrc"))
+    def createOutputStep(self, tsId):
+        ts = self.tsDict[tsId]
+        tomoLocation = self.getExtraOutFile(tsId)
 
         if os.path.exists(tomoLocation):
             output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
@@ -304,8 +293,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
             newTomogram.setLocation(tomoLocation)
 
             if self.applyToOddEven(ts):
-                halfMapsList = [os.path.join(extraPrefix, tsId + EXT_MRC_ODD_NAME),
-                                os.path.join(extraPrefix, tsId + EXT_MRC_EVEN_NAME)]
+                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT),
+                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)]
                 newTomogram.setHalfMaps(halfMapsList)
 
             newTomogram.setTsId(tsId)
@@ -324,6 +313,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
             output.update(newTomogram)
             output.write()
             self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():

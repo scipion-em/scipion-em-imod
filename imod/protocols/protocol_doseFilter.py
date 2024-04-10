@@ -34,7 +34,7 @@ import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, ODD, MRCS_EXT, EVEN
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -101,29 +101,26 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.doseFilterStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.doseFilterStep, tsId)
+            self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def doseFilterStep(self, tsObjId):
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
+        self.genTsPaths(tsId)
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
         paramsMtffilter = {
             'input': firstItem.getFileName(),
-            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'output': self.getExtraOutFile(tsId),
             'pixsize': ts.getSamplingRate(),
             'voltage': ts.getAcquisition().getVoltage(),
         }
@@ -137,9 +134,7 @@ class ProtImodDoseFilter(ProtImodBase):
             argsMtffilter += f"-InitialDose {self.initialDose.get():f} "
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            outputDoseFilePath = os.path.join(tmpPrefix,
-                                              firstItem.parseFileName(extension=".dose"))
-
+            outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose"),
             utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
 
             paramsMtffilter.update({
@@ -162,27 +157,22 @@ class ProtImodDoseFilter(ProtImodBase):
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsMtffilter['input'] = oddFn
-            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
 
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
             evenFn = firstItem.getEven().split('@')[1]
             paramsMtffilter['input'] = evenFn
-            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
-    def createOutputStep(self, tsObjId):
+    def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
+        ts = self.tsDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-
         output.append(newTs)
-
         ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
@@ -190,14 +180,13 @@ class ProtImodDoseFilter(ProtImodBase):
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])
 
-            locationTi = index + 1, (os.path.join(extraPrefix,
-                                                  tiltImage.parseFileName()))
+            locationTi = index + 1, self.getExtraOutFile(tsId)
             newTi.setLocation(locationTi)
             newTs.append(newTi)
             newTs.update(newTi)

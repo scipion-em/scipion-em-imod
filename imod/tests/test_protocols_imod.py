@@ -108,7 +108,7 @@ class TestImodBase(BaseTest):
                             modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean,
                             scaleSd, scaleMax, scaleMin):
-        cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
+        cls.protTSNormalization = cls.newProtocol(ProtImodTsPreprocess,
                                                   inputSetOfTiltSeries=inputSoTS,
                                                   binning=binning,
                                                   floatDensities=floatDensities,

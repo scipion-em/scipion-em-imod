@@ -43,7 +43,7 @@ from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
 from .protocol_tomoNormalization import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_tomoReconstruction import ProtImodTomoReconstruction
-from .protocol_tsNormalization import ProtImodTSNormalization
+from .protocol_tsPreprocess import ProtImodTsPreprocess
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
 

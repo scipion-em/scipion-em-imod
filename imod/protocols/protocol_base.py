@@ -154,6 +154,16 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile, imodInterpolation=imodInterpolation,
                                doSwap=doSwap, oddEven=oddEven, presentAcqOrders=presentAcqOrders)
 
+    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap, tsExcludedIndices=None):
+        argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                     outputTsFileName,
+                                                                     inputTsFileName=inputTsFileName,
+                                                                     xfFile=xfFile,
+                                                                     firstItem=ts.getFirstItem(),
+                                                                     doSwap=doSwap,
+                                                                     tsExcludedIndices=tsExcludedIndices)
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
     def genAlignmentFiles(self, ts, generateAngleFile=True, imodInterpolation=True, doSwap=False,
                           oddEven=False, presentAcqOrders=None):
         """
@@ -198,7 +208,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                 # Generate the interpolated TS with IMOD's newstack program
                 logger.info("Tilt-series interpolated with IMOD [%s]" % tsId)
-                tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                if presentAcqOrders:
+                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                else:
+                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder()]
                 self.applyNewStackBasic(ts, outputTsFileName, inTsFileName, xfFile, doSwap,
                                         tsExcludedIndices=tsExcludedIndices)
                 if oddEven:
@@ -209,7 +222,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                 # If some views were excluded to generate the new stack, a new xfFile containing them should be
                 # generated
-                if len(ts) != len(presentAcqOrders):
+                if presentAcqOrders and len(ts) != len(presentAcqOrders):
                     utils.genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
 
             else:
@@ -232,17 +245,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         if generateAngleFile:
             logger.info("Generate angle file for the tilt-series [%s]" % tsId)
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.genTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
-
-    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap, tsExcludedIndices=None):
-        argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                     outputTsFileName,
-                                                                     inputTsFileName=inputTsFileName,
-                                                                     xfFile=xfFile,
-                                                                     firstItem=ts.getFirstItem(),
-                                                                     doSwap=doSwap,
-                                                                     tsExcludedIndices=tsExcludedIndices)
-        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+            ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
     @staticmethod
     def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
