@@ -33,6 +33,9 @@ from ..protocols import *
 
 
 class TestImodBase(BaseTest):
+    atsId = 'a'
+    btsId = 'b'
+
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
@@ -308,7 +311,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
 
-        cls.excludeViewsOutputSizes = {'a': 57, 'b': 56}
+        cls.excludeViewsOutputSizes = {cls.atsId: 57, cls.btsId: 56}
 
         cls.binningTsNormalization = 2
 
@@ -594,7 +597,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
