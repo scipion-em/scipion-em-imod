@@ -711,8 +711,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                                     yCoor=fiducial[1],
                                                     tiltIm=fiducial[2] + 1,
                                                     chainId=chainId,
-                                                    xResid='0',
-                                                    yResid='0')
+                                                    xResid=float('nan'),
+                                                    yResid=float('nan'))
 
             output.append(landmarkModelNoGaps)
             output.update(landmarkModelNoGaps)
