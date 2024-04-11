@@ -222,9 +222,8 @@ class ProtImodTsPreprocess(ProtImodBase):
                                  oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
-    def generateOutputStackStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+    def generateOutputStackStep(self, tsId):
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
         xfFile = None
 

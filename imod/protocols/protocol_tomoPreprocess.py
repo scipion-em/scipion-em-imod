@@ -33,10 +33,10 @@ import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, OUTPUT_TOMOGRAMS_NAME
+from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
-class ProtImodTomoNormalization(ProtImodBase):
+class ProtImodTomoPreProcess(ProtImodBase):
     """
     Normalize input tomogram and change its storing formatting.
     More info:
@@ -194,23 +194,20 @@ class ProtImodTomoNormalization(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep(self.generateOutputStackStep,
-                                     tomo.getObjId())
+        self._initialize()
+        for tsId in self.tomoDict.keys():
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def generateOutputStackStep(self, tsObjId):
-        tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFileName()
-        fileName = os.path.splitext(location)[0]
+    def _initialize(self):
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
 
-        extraPrefix = self._getExtraPath(os.path.basename(fileName))
-        outputFileNameBase = os.path.basename(pwpath.replaceExt(location, "mrc"))
-        outputFile = os.path.join(extraPrefix, outputFileNameBase)
-        tmpPrefix = self._getTmpPath(os.path.basename(fileName))
-        pwpath.makePath(extraPrefix)
-        pwpath.makePath(tmpPrefix)
+    def generateOutputStackStep(self, tsId):
+        self.genTsPaths(tsId)
+        tomo = self.tomoDict[tsId]
+        location = tomo.getFileName()
+        outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
         runNewstack = False
 
@@ -253,11 +250,11 @@ class ProtImodTomoNormalization(ProtImodBase):
             if self.applyToOddEven(tomo):
                 oddFn, evenFn = tomo.getHalfMaps().split(',')
                 paramsNewstack['input'] = oddFn
-                oddEvenOutput[0] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
+                oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 paramsNewstack['output'] = oddEvenOutput[0]
                 Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
                 paramsNewstack['input'] = evenFn
-                oddEvenOutput[1] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)
+                oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                 paramsNewstack['output'] = oddEvenOutput[1]
                 Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
@@ -265,17 +262,16 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         if binning != 1:
             if runNewstack:
-                baseLoc = os.path.basename(outputFile)
-                tmpPath = os.path.join(tmpPrefix, baseLoc)
-                pwpath.moveFile(os.path.join(extraPrefix, baseLoc), tmpPath)
+                tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
+                pwpath.moveFile(outputFile, tmpPath)
                 inputTomoPath = tmpPath
 
                 if self.applyToOddEven(tomo):
                     pwpath.moveFile(oddEvenOutput[0], tmpPath)
                     pwpath.moveFile(oddEvenOutput[1], tmpPath)
                     inputTomoPath = tmpPath
-                    inputOdd, inputEven = (os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
-                                           os.path.join(tmpPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME))
+                    inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                           self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
             else:
                 inputTomoPath = location
                 if self.applyToOddEven(tomo):
@@ -297,10 +293,10 @@ class ProtImodTomoNormalization(ProtImodBase):
 
             if self.applyToOddEven(tomo):
                 paramsBinvol['input'] = inputOdd
-                paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME)
+                paramsBinvol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
                 paramsBinvol['input'] = inputEven
-                paramsBinvol['output'] = os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)
+                paramsBinvol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                 Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
 
         output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(),
@@ -329,8 +325,8 @@ class ProtImodTomoNormalization(ProtImodBase):
             newTomogram.copyAttributes(tomo, '_origin')
 
         if self.applyToOddEven(tomo):
-            halfMapsList = [os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_ODD_NAME),
-                            os.path.join(extraPrefix, tomo.getTsId() + EXT_MRC_EVEN_NAME)]
+            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
             newTomogram.setHalfMaps(halfMapsList)
 
         output.append(newTomogram)

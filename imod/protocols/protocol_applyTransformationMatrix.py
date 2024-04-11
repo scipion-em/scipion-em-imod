@@ -25,16 +25,13 @@
 # *****************************************************************************
 
 import os
-
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 from pyworkflow.object import Set
 from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
-
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, XF_EXT, ODD, EVEN, MRCS_EXT
+from .protocol_base import ProtImodBase,XF_EXT, ODD, EVEN, MRCS_EXT
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):

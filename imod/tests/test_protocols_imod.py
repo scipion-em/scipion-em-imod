@@ -197,9 +197,9 @@ class TestImodBase(BaseTest):
                               inputSetOfTomograms, binning, floatDensities,
                               modeToOutput, scaleRangeToggle,
                               scaleRangeMax, scaleRangeMin, meanSdToggle,
-                              scaleMean, scaleSd, scaleMax, scaleMin) -> ProtImodTomoNormalization:
+                              scaleMean, scaleSd, scaleMax, scaleMin) -> ProtImodTomoPreProcess:
 
-        cls.protTomoNormalization = cls.newProtocol(ProtImodTomoNormalization,
+        cls.protTomoNormalization = cls.newProtocol(ProtImodTomoPreProcess,
                                                     inputSetOfTomograms=inputSetOfTomograms,
                                                     binning=binning,
                                                     floatDensities=floatDensities,
@@ -449,7 +449,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".st")))
 
     def test_xRaysEraserOutputTS(self):
 
@@ -459,7 +459,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protXRaysEraser._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".st")))
 
     def test_excludeViewsOutputTS(self):
 
@@ -469,7 +469,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".st")))
 
         for index, tsOut in enumerate(ts):
             self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
@@ -482,7 +482,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".st")))
 
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = ts.getSamplingRate()
@@ -496,7 +496,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -510,7 +510,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -526,9 +526,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocationImod = os.path.join(self.protFiducialModels._getExtraPath(tsId),
-                                          "BB" + tsId + "_gaps.fid")
+                                          tsId + "_gaps.fid")
         outputLocationScipion = os.path.join(self.protFiducialModels._getExtraPath(tsId),
-                                             "BB" + tsId + "_gaps.sfid")
+                                             tsId + "_gaps.sfid")
 
         self.assertTrue(os.path.exists(outputLocationImod))
         self.assertTrue(os.path.exists(outputLocationScipion))
@@ -541,7 +541,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -554,7 +554,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".st")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -570,7 +570,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + "_noGaps.sfid")
+                                      tsId + "_noGaps.sfid")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -580,7 +580,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + "_fid.xyz")
+                                      tsId + "_fid.xyz")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -613,7 +613,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tomoId = self.protTomoReconstruction.inputSetOfTiltSeries.get().getFirstItem().getTsId()
         outputLocation = os.path.join(self.protTomoReconstruction._getExtraPath(tomoId),
-                                      "BB" + tomoId + ".mrc")
+                                      tomoId + ".mrc")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -629,10 +629,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(output, size=52, diffDelta=30)
 
         tomoId = self.protGoldBeadPicker3D.inputSetOfTomograms.get().getFirstItem().getTsId()
-        location = self.protGoldBeadPicker3D._getExtraPath("BB" + tomoId)
+        location = self.protGoldBeadPicker3D._getExtraPath(tomoId)
 
         self.assertTrue(os.path.exists(os.path.join(location,
-                                                    "BB" + tomoId + ".mod")))
+                                                    tomoId + ".mod")))
 
     def test_tomoNormalizationOutput(self):
 

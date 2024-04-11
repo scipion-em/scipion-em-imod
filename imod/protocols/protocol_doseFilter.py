@@ -23,18 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, ODD, MRCS_EXT, EVEN
+from .protocol_base import ProtImodBase, ODD, MRCS_EXT, EVEN
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1

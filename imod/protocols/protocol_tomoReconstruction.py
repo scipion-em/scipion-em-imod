@@ -33,7 +33,7 @@ from tomo.objects import Tomogram
 
 from .. import Plugin
 from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
-                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, TLT_EXT, ODD, MRCS_EXT, EVEN)
+                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, TLT_EXT, ODD, MRCS_EXT, EVEN, MRC_EXT)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -195,7 +195,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
 
-    @ProtImodBase.tryExceptDecorator
+    # @ProtImodBase.tryExceptDecorator
     def computeReconstructionStep(self, tsId):
         ts = self.tsDict[tsId]
         paramsTilt = {
@@ -263,7 +263,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         paramsTrimVol = {
             'input': self.getTmpOutFile(tsId, ext="rec"),
-            'output': self.getExtraOutFile(tsId),
+            'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
             'options': getArgs()
         }
 
@@ -284,7 +284,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        tomoLocation = self.getExtraOutFile(tsId)
+        tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
         if os.path.exists(tomoLocation):
             output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())

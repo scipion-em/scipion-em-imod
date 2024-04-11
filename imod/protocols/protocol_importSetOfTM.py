@@ -83,25 +83,23 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.generateTransformFileStep,
-                                     ts.getObjId())
-            self._insertFunctionStep(self.assignTransformationMatricesStep,
-                                     ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.generateTransformFileStep, tsId)
+            self._insertFunctionStep(self.assignTransformationMatricesStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def generateTransformFileStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+    def _initialize(self):
+        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
 
+    def generateTransformFileStep(self, tsId):
+        self.genTsPaths(tsId)
+        ts = self.tsDict[tsId]
         tsFileName = ts.getFirstItem().parseFileName(extension='')
-
         extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
 
         outputTransformFile = os.path.join(extraPrefix,
                                            ts.getFirstItem().parseFileName(extension=".xf"))
@@ -147,12 +145,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
                 else:
                     path.createLink(tmFilePath, outputTransformFile)
 
-    def assignTransformationMatricesStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
+    def assignTransformationMatricesStep(self, tsId):
+        ts = self.tsDict[tsId]
         extraPrefix = self._getExtraPath(tsId)
-
         outputTransformFile = os.path.join(extraPrefix,
                                            ts.getFirstItem().parseFileName(extension=".xf"))
 

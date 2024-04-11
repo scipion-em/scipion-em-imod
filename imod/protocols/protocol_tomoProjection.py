@@ -35,7 +35,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, MRC_EXT
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -91,26 +91,23 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep(self.projectTomogram, tomo.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._initialize()
+        for tsId in self.tomoDict.keys():
+            self._insertFunctionStep(self.projectTomogram, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def projectTomogram(self, tomoObjId):
-        tomo = self.inputSetOfTomograms.get()[tomoObjId]
+    def _initialize(self):
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
 
-        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
-
-        extraPrefix = self._getExtraPath(tomoId)
-        tmpPrefix = self._getTmpPath(tomoId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
+    def projectTomogram(self, tsId):
+        self.genTsPaths(tsId)
+        tomo = self.tomoDict[tsId]
 
         paramsXYZproj = {
             'input': tomo.getFileName(),
-            'output': os.path.join(extraPrefix,
-                                   os.path.basename(tomo.getFileName())),
+            'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
             'axis': self.getRotationAxis(),
             'angles': str(self.minAngle.get()) + ',' +
                       str(self.maxAngle.get()) + ',' +
@@ -124,35 +121,25 @@ class ProtImodTomoProjection(ProtImodBase):
 
         Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
 
-    def generateOutputStackStep(self, tomoObjId):
-        tomo = self.inputSetOfTomograms.get()[tomoObjId]
-
-        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
-
-        extraPrefix = self._getExtraPath(tomoId)
-
+    def generateOutputStackStep(self, tsId):
+        tomo = self.tomoDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTomograms.get())
-
-        newTs = tomoObj.TiltSeries(tsId=tomoId)
-
+        newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.setTsId(tomo.getTsId())
         newTs.setAcquisition(tomo.getAcquisition())
-        newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
         output.append(newTs)
-
         tiltAngleList = self.getTiltAngleList()
-
+        sRate = self.inputSetOfTomograms.get().getSamplingRate()
         for index in range(self.getProjectionRange()):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
-            newTi.setTsId(tomoId)
+            newTi.setTsId(tsId)
             newTi.setAcquisitionOrder(index + 1)
             newTi.setLocation(index + 1,
-                              os.path.join(extraPrefix,
-                                           os.path.basename(tomo.getFileName())))
-            newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
+                              self.getExtraOutFile(tsId, ext=MRC_EXT))
+            newTi.setSamplingRate(sRate)
             newTs.append(newTi)
 
         ih = ImageHandler()
