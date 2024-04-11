@@ -30,8 +30,7 @@ import logging
 import os
 import csv
 import math
-from typing import Set, Union
-
+from typing import Union
 import numpy as np
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
@@ -41,35 +40,15 @@ from tomo.objects import TiltSeries
 logger = logging.getLogger(__name__)
 
 
-def formatTransformFile(ts, transformFilePath, onlyEnabled=False):
-    """ This method takes a tilt series and the output transformation file path
-    and creates an IMOD-based transform
-    file in the location indicated. """
-
-    tsMatrixTransformList = []
-
-    for ti in ts:
-        if onlyEnabled and not ti.isEnabled():
-            continue
-        transform = ti.getTransform().getMatrix().flatten()
-        transformIMOD = ['%.7f' % transform[0],
-                         '%.7f' % transform[1],
-                         '%.7f' % transform[3],
-                         '%.7f' % transform[4],
-                         "{:>6}".format('%.3g' % transform[2]),
-                         "{:>6}".format('%.3g' % transform[5])]
-        tsMatrixTransformList.append(transformIMOD)
-
-    with open(transformFilePath, 'w') as f:
-        csvW = csv.writer(f, delimiter='\t')
-        csvW.writerows(tsMatrixTransformList)
-
-
-def genXfFile(ts: TiltSeries, outXfName: str, presentAcqOrders: Union[set, None] = None) -> None:
+def genXfFile(ts: TiltSeries, outXfName: str,
+              presentAcqOrders: Union[set, None] = None,
+              onlyEnabled: bool = False) -> None:
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform file in the location indicated. The transformation matrix
     of a tilt-image is only added if its acquisition order is contained in a set composed of the
-    acquisition orders present in both the given tilt-series and the CTFTomoSeries.
+    acquisition orders present in both the given tilt-series and the CTFTomoSeries. If presentAcqOrders
+    is not None, it is considered before the attribute onlyEnabled, as presentAcqOrders may also have been
+    generated considering the enabled elements of the intersection.
     """
 
     def formatMatrix(tiltImage):
@@ -85,7 +64,11 @@ def genXfFile(ts: TiltSeries, outXfName: str, presentAcqOrders: Union[set, None]
     if presentAcqOrders:
         tsMatrixList = [formatMatrix(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
     else:
-        tsMatrixList = [formatMatrix(ti) for ti in ts]
+        tsMatrixList = []
+        for ti in ts:
+            if onlyEnabled and not ti.isEnabled():
+                continue
+            tsMatrixList.append(formatMatrix(ti))
 
     with open(outXfName, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')

@@ -23,18 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
-
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, OUTPUT_TILTSERIES_NAME, XF_EXT, \
-    ODD, EVEN, MRCS_EXT
-from ..utils import formatTransformFile
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN, MRCS_EXT
+from ..utils import genXfFile
 
 
 class ProtImodTsPreprocess(ProtImodBase):
@@ -229,7 +225,7 @@ class ProtImodTsPreprocess(ProtImodBase):
 
         if self.applyAlignment.get() and ts.hasAlignment():
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            formatTransformFile(ts, xfFile)
+            genXfFile(ts, xfFile)
 
         binning = self.binning.get()
 

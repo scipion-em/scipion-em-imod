@@ -87,7 +87,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def generateTransformFileStep(self, tsId):
         ts = self.tsDict[tsId]
         self.genTsPaths(tsId)
-        utils.formatTransformFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
+        utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
 
     @ProtImodBase.tryExceptDecorator
     def computeAlignmentStep(self, tsId):
