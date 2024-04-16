@@ -61,7 +61,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series to applied the transformation matrix')
+                      label='Tilt-series to apply the transformation matrix')
 
         form.addParam('binning', params.IntParam,
                       default=1,
