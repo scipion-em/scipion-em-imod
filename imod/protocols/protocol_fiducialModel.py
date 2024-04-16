@@ -79,7 +79,7 @@ class ProtImodFiducialModel(ProtImodBase, CommonIMODforms):
 
         patchtrack.addParam('sizeOfPatches', params.NumericListParam,
                             label='Size of the patches (X,Y)',
-                            allowsNull=True,
+                            default='100 100',
                             expertLevel=levelType,
                             help="Size of the  patches to track by correlation. In imod documentation "
                                  "(tiltxcorr: SizeOfPatchesXandY)")
@@ -110,6 +110,7 @@ class ProtImodFiducialModel(ProtImodBase, CommonIMODforms):
 
         patchtrack.addParam('iterationsSubpixel',
                             params.IntParam,
+                            default=1,
                             label='Iterations to increase subpixel accuracy',
                             help="Number of iteration of each correlation to reduce interpolation of the peak position"
                                  "In imod documentation: (tiltxcorr: IterateCorrelations)")
