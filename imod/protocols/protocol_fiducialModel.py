@@ -34,10 +34,9 @@ import tomo.objects as tomoObj
 
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase
-from .protocol_forms import CommonIMODforms
 
 
-class ProtImodFiducialModel(ProtImodBase, CommonIMODforms):
+class ProtImodFiducialModel(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.

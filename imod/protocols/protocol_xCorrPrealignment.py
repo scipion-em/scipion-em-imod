@@ -36,10 +36,9 @@ import tomo.objects as tomoObj
 
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase
-from .protocol_forms import CommonIMODforms
 
 
-class ProtImodXcorrPrealignment(ProtImodBase, CommonIMODforms):
+class ProtImodXcorrPrealignment(ProtImodBase):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
