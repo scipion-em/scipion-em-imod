@@ -45,6 +45,16 @@ class ProtImodDoseFilter(ProtImodBase):
     Tilt-series dose filtering based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/mtffilter.html
+
+    A specialized filter can be applied to perform dose weight-filtering of
+    cryoEM images, particularly ones from tilt series.  The filter is as
+    described in Grant and Grigorieff, 2015 (DOI: 10.7554/eLife.06980) and
+    the implementation follows that in their "unblur" program.  At any fre-
+    quency, the filter follows an exponential decay with dose, where the
+    exponential is of the dose divided by 2 times a "critical dose" for
+    that frequency.  This critical dose was empirically found to be approx-
+    imated by a * k^b + c, where k is frequency; the values of a, b, c in
+    that paper are used by default.
     """
 
     _label = 'Dose filter'
@@ -58,13 +68,15 @@ class ProtImodDoseFilter(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Tilt Series',
+                      help='This input tilt-series will be low pass filtered according'
+                           'to their cumulated dose')
 
         form.addParam('initialDose',
                       params.FloatParam,
                       default=0.0,
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='Initial dose (e/sq. Å)',
+                      label='Initial dose (e/Å^2)',
                       help='Dose applied before any of the images in the '
                            'input file were taken; this value will be '
                            'added to all the dose values.')
@@ -81,12 +93,12 @@ class ProtImodDoseFilter(ProtImodBase):
                            'during import of the tilt-series\n'
                            '- Fixed dose: manually input fixed dose '
                            'for each image of the input file, '
-                           'in electrons/square Ångstrom.')
+                           'in electrons/Å^2.')
 
         form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=FIXED_DOSE,
-                      label='Fixed dose (e/sq Å)',
+                      label='Fixed dose (e/Å^2)',
                       condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')

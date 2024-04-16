@@ -43,6 +43,14 @@ class ProtImodTomoProjection(ProtImodBase):
     Re-project a tomogram given a geometric description (axis and angles).
     More info:
         https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
+
+    This program will compute projections of a tomogram at a series of
+    tilts around either the X, the Y or the Z axis.\n
+
+    A projection along a ray line is simply the average of the pixels in
+    the block along that line.  However, rather than taking the values of
+    the pixels that lie near the ray, interpolation is used to sample den-
+    sity at points evenly spaced at one pixel intervals along the ray.
     """
 
     _label = 'Tomo projection'
@@ -59,25 +67,26 @@ class ProtImodTomoProjection(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tomograms')
+                      label='Input set of tomograms to be projected')
 
-        form.addParam('minAngle',
+        line = form.addLine('Tilt angles  (deg)',
+                            help='Starting, ending, and increment tilt angle.  Enter the same value for '
+                                 'starting and ending angle to get only one image')
+
+        line.addParam('minAngle',
                       params.FloatParam,
                       default=-60.0,
-                      label='Minimum angle of rotation',
-                      help='Minimum angle of the projection range')
+                      label='Minimum rotation')
 
-        form.addParam('maxAngle',
+        line.addParam('maxAngle',
                       params.FloatParam,
                       default=60.0,
-                      label='Maximum angle of rotation',
-                      help='Maximum angle of the projection range')
+                      label='Maximum rotation')
 
-        form.addParam('stepAngle',
+        line.addParam('stepAngle',
                       params.FloatParam,
                       default=2.0,
-                      label='Step angle',
-                      help='Step angle of the projection range')
+                      label='Step angle')
 
         form.addParam('rotationAxis',
                       params.EnumParam,

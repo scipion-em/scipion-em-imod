@@ -36,13 +36,24 @@ import tomo.objects as tomoObj
 
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase
+from .protocol_forms import CommonIMODforms
 
 
-class ProtImodXcorrPrealignment(ProtImodBase):
+class ProtImodXcorrPrealignment(ProtImodBase, CommonIMODforms):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
+
+    Tiltxcorr uses cross-correlation to find an initial translational
+    alignment between successive images of a tilt series.  For a given pair
+    of images, it stretches the image with the larger tilt angle perpendic-
+    ular to the tilt axis, by an amount equal to the ratio of the cosines
+    of the two tilt angles (cosine stretch).  The stretched image is corre-
+    lated with the other image, and the position of the peak of the corre-
+    lation indicates the relative shift between the images.
+
+
     """
 
     _label = 'Coarse prealignment'
@@ -57,7 +68,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Tilt-series to be prealigned')
 
         form.addParam('cumulativeCorr',
                       params.EnumParam,
@@ -65,7 +76,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       default=1,
                       label='Use cumulative correlation?',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='With this option, the program will take the image at zero tilt as the first'
+                      help='The program will take the image at zero tilt as the first'
                            'reference, and correlate it with the image at the next most negative tilt.'
                            'It will then add the aligned image to the first reference to make the '
                            'reference for the next tilt.  At each tilt, the reference will be the sum of '
@@ -79,18 +90,25 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series '
-                           'applying the obtained transformation matrices.')
+                      help='Generate and save the interpolated tilt-series applying the obtained transformation '
+                           'matrices.\n'
+                           'By default, the output of this protocol will be a tilseries that will have associated'
+                           'the alignment information as a transformation matrix. When this option is set as Yes, '
+                           'then a second output, called interpolated tilt series, is generated. The interpolated tilt '
+                           'series should be used for visualization purpose but not for image processing')
 
         form.addParam('binning',
                       params.IntParam,
                       condition='computeAlignment==0',
                       default=1,
                       label='Binning for the interpolated',
-                      help='Binning to be applied to the interpolated '
-                           'tilt-series in IMOD convention. Images will be '
-                           'binned by the given factor. Must be an integer '
-                           'bigger than 1')
+                      help='Binning to be applied to the interpolated  tilt-series in IMOD '
+                           'convention. \n'
+                           'Binning is an scaling factor given by an integer greater than 1. '
+                           'IMOD uses ordinary binning to reduce images in size by the given factor. '
+                           'The value of a binned pixel is the average of pixel values in each block '
+                           'of pixels being binned. Binning is applied before all other image '
+                           'transformations.')
 
         form.addParam('Trimming parameters', params.LabelParam,
                       label='Tilt axis angle detected from import. In case another value is desired please adjust the '
@@ -106,108 +124,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'Usually, it will be 90 degrees less than the RotationAngle in a '
                            'system with no axis inversions')
 
-        trimming = form.addGroup('Trimming parameters',
-                                 expertLevel=params.LEVEL_ADVANCED)
+        trimming = form.addGroup('Trimming parameters', expertLevel=params.LEVEL_ADVANCED)
 
-        xtrimming = trimming.addLine('Horizontal: Number of pixels to avoid from the',
-                                     expertLevel=params.LEVEL_ADVANCED,
-                                     help="Starting and ending X coordinates of a region to correlate, "
-                                          "based on the position of the region at zero tilt.")
-
-        xtrimming.addParam('xmin',
-                           params.IntParam,
-                           label='left',
-                           allowsNull=True,
-                           expertLevel=params.LEVEL_ADVANCED)
-
-        xtrimming.addParam('xmax',
-                           params.IntParam,
-                           label='right',
-                           allowsNull=True,
-                           expertLevel=params.LEVEL_ADVANCED)
-
-        ytrimming = trimming.addLine('Vertical: Number of pixels to avoid from the',
-                                     expertLevel=params.LEVEL_ADVANCED,
-                                     help="Starting and ending Y coordinates of a region to correlate.")
-
-        ytrimming.addParam('ymin',
-                           params.IntParam,
-                           label='top',
-                           allowsNull=True,
-                           expertLevel=params.LEVEL_ADVANCED)
-
-        ytrimming.addParam('ymax',
-                           params.IntParam,
-                           label='botton',
-                           allowsNull=True,
-                           expertLevel=params.LEVEL_ADVANCED)
-
-        filtering = form.addGroup('Filtering parameters',
-                                  expertLevel=params.LEVEL_ADVANCED)
-
-        line1 = filtering.addLine('High pass filter',
-                                  expertLevel=params.LEVEL_ADVANCED,
-                                  help="Some high pass filtering, using a small value of Sigma1 such "
-                                       "as 0.03, may be needed to keep the program from being misled by very "
-                                       "large scale features in the images.  If the images are noisy, some low "
-                                       "pass filtering with Sigma2 and Radius2 is appropriate (e.g. 0.05 for "
-                                       " Sigma2, 0.25 for Radius2).  If the images are binned, these values "
-                                       "specify frequencies in the binned image, so a higher cutoff (less filtering) "
-                                       "might be appropriate.\n\n"
-                                       ""
-                                       "*FilterRadius1*: Low spatial frequencies in the cross-correlation "
-                                       "will be attenuated by a Gaussian curve that is 1 "
-                                       "at this cutoff radius and falls off below this "
-                                       "radius with a standard deviation specified by "
-                                       "FilterSigma2. Spatial frequency units range from "
-                                       "0 to 0.5.\n"
-                                       "*Filter sigma 1*: Sigma value to filter low frequencies in the "
-                                       "correlations with a curve that is an inverted "
-                                       "Gaussian.  This filter is 0 at 0 frequency and "
-                                       "decays up to 1 with the given sigma value. "
-                                       "However, if a negative value of radius1 is entered, "
-                                       "this filter will be zero from 0 to "
-                                       "|radius1| then decay up to 1.")
-
-        line1.addParam('filterRadius1',
-                       params.FloatParam,
-                       label='Filter radius 1',
-                       default='0.0',
-                       expertLevel=params.LEVEL_ADVANCED)
-
-        line1.addParam('filterSigma1',
-                       params.FloatParam,
-                       label='Filter sigma 1',
-                       default='0.03',
-                       expertLevel=params.LEVEL_ADVANCED)
-
-        line2 = filtering.addLine('Low pass filter',
-                                  expertLevel=params.LEVEL_ADVANCED,
-                                  help="If the images are noisy, some low "
-                                       "pass filtering with Sigma2 and Radius2 is appropriate (e.g. 0.05 for "
-                                       " Sigma2, 0.25 for Radius2).  If the images are binned, these values "
-                                       "specify frequencies in the binned image, so a higher cutoff (less filtering) "
-                                       "might be appropriate.\n\n"
-                                       "*Filter radius 2*: High spatial frequencies in the cross-correlation "
-                                       "will be attenuated by a Gaussian curve that is 1 "
-                                       "at this cutoff radius and falls off above this "
-                                       "radius with a standard deviation specified by "
-                                       "FilterSigma2.\n"
-                                       "*Filter sigma 2*: Sigma value for the Gaussian rolloff below and "
-                                       "above the cutoff frequencies specified by "
-                                       "FilterRadius1 and FilterRadius2")
-
-        line2.addParam('filterRadius2',
-                       params.FloatParam,
-                       label='Filter radius 2',
-                       default='0.25',
-                       expertLevel=params.LEVEL_ADVANCED)
-
-        line2.addParam('filterSigma2',
-                       params.FloatParam,
-                       label='Filter sigma 2',
-                       default='0.05',
-                       expertLevel=params.LEVEL_ADVANCED)
+        self.trimimgForm(trimming, pxTrimCondition='False', correlationCondition='True', levelType=params.LEVEL_ADVANCED)
+        self.filteringParametersForm(form, condition='True', levelType=params.LEVEL_ADVANCED)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
