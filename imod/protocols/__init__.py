@@ -40,10 +40,10 @@ from .protocol_excludeViews import ProtImodExcludeViews
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_fiducialModel import ProtImodFiducialModel
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
-from .protocol_tomoPreprocess import ProtImodTomoPreProcess
+from .protocol_tomoPreprocess import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_tomoReconstruction import ProtImodTomoReconstruction
-from .protocol_tsPreprocess import ProtImodTsPreprocess
+from .protocol_tsPreprocess import ProtImodTsNormalization
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
 

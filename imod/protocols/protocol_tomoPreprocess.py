@@ -23,20 +23,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
-
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME, OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from .protocol_base import ProtImodBase,OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
-class ProtImodTomoPreProcess(ProtImodBase):
+class ProtImodTomoNormalization(ProtImodBase):
     """
     Normalize input tomogram and change its storing formatting.
     More info:

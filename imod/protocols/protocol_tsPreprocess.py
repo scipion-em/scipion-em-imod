@@ -33,7 +33,7 @@ from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EV
 from ..utils import genXfFile
 
 
-class ProtImodTsPreprocess(ProtImodBase):
+class ProtImodTsNormalization(ProtImodBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:

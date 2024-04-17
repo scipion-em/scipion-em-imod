@@ -111,7 +111,7 @@ class TestImodBase(BaseTest):
                             modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean,
                             scaleSd, scaleMax, scaleMin):
-        cls.protTSNormalization = cls.newProtocol(ProtImodTsPreprocess,
+        cls.protTSNormalization = cls.newProtocol(ProtImodTsNormalization,
                                                   inputSetOfTiltSeries=inputSoTS,
                                                   binning=binning,
                                                   floatDensities=floatDensities,
@@ -197,9 +197,9 @@ class TestImodBase(BaseTest):
                               inputSetOfTomograms, binning, floatDensities,
                               modeToOutput, scaleRangeToggle,
                               scaleRangeMax, scaleRangeMin, meanSdToggle,
-                              scaleMean, scaleSd, scaleMax, scaleMin) -> ProtImodTomoPreProcess:
+                              scaleMean, scaleSd, scaleMax, scaleMin) -> ProtImodTomoNormalization:
 
-        cls.protTomoNormalization = cls.newProtocol(ProtImodTomoPreProcess,
+        cls.protTomoNormalization = cls.newProtocol(ProtImodTomoNormalization,
                                                     inputSetOfTomograms=inputSetOfTomograms,
                                                     binning=binning,
                                                     floatDensities=floatDensities,
