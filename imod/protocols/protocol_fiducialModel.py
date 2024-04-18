@@ -40,6 +40,7 @@ class ProtImodFiducialModel(ProtImodBase):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
+
     More info:
         https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
         https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
@@ -49,65 +50,124 @@ class ProtImodFiducialModel(ProtImodBase):
     _label = 'Generate fiducial model'
     _devStatus = BETA
 
+    FIDUCIAL_MODEL = 0
+    PATCH_TRACKING = 1
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection('Input')
+
+        form.addParam('typeOfModel',
+                      params.EnumParam,
+                      choices=["Make seed and Track", "Patch Tracking"],
+                      default=0,
+                      important=True,
+                      label='Model generation')
 
         form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Tilt Series')
 
-        form.addParam('fiducialDiameter',
-                      params.FloatParam,
-                      label='Fiducial diameter (nm)',
-                      default='10',
-                      important=True,
-                      help="Fiducials diameter to be tracked for alignment.")
+        self._patchTrackingForm(form, 'typeOfModel==%d' % self.PATCH_TRACKING)
+        self._fiducialSeedForm(form, 'typeOfModel==%d' % self.FIDUCIAL_MODEL)
 
-        form.addParam('twoSurfaces',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
-                      label='Find beads on two surfaces?',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help="Track fiducials differentiating in which side "
-                           "of the sample are located.")
+    def _patchTrackingForm(self, form, condition, levelType=params.LEVEL_NORMAL):
+        patchtrack = form.addGroup('Patch Tracking', expertLevel=levelType, condition=condition)
 
-        form.addParam('numberFiducial',
-                      params.IntParam,
-                      label='Number of fiducials',
-                      default='25',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Number of fiducials to be tracked for alignment.")
+        patchtrack.addParam('sizeOfPatches', params.NumericListParam,
+                            label='Size of the patches (X,Y)',
+                            default='100 100',
+                            expertLevel=levelType,
+                            help="Size of the  patches to track by correlation. In imod documentation "
+                                 "(tiltxcorr: SizeOfPatchesXandY)")
 
-        form.addParam('doTrackWithModel', params.BooleanParam,
-                      default=True,
-                      label="Track with fiducial model as seed",
-                      help="Turn the tracked model into new seed and "
-                           "repeat tracking.")
+        patchtrack.addParam('patchLayout',
+                            params.EnumParam,
+                            choices=['Fractional overlap of patches',
+                                     'Number of patches'],
+                            default=0,
+                            label='Patch layout',
+                            display=params.EnumParam.DISPLAY_HLIST,
+                            help='To be added')
 
-        form.addParam('shiftsNearZeroFraction',
-                      params.FloatParam,
-                      label='Shifts near zero fraction',
-                      default='0.2',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="Fraction of the tracking box size above which to "
-                           "supply shifts near zero tilt to Beadtrack. The "
-                           "dominant net shifts in the bead positions between "
-                           "views are found as described above, and if one of "
-                           "the shifts is larger than this fraction of the "
-                           "-BoxSizeXandY entry to Beadtrack, then the shifts "
-                           "are provided when running Beadtrack on the initial "
-                           "seed models. Also, a command file will be written "
-                           "with modified parameters, named as the root name "
-                           "of the input command file followed by '_adjusted' "
-                           "and its extension. Enter 0 or a large value to "
-                           "disable this analysis.")
+        patchtrack.addParam('overlapPatches',
+                            params.NumericListParam,
+                            default='0.33 0.33',
+                            condition='patchLayout==0',
+                            label='Fractional overlap of the patches (X,Y)',
+                            help="Fractional overlap in X and Y to track by correlation. In imod documentation"
+                                 "(tiltxcorr: NumberOfPatchesXandY)")
+
+        patchtrack.addParam('numberOfPatches',
+                            params.NumericListParam,
+                            condition='patchLayout==1',
+                            label='Number of patches (X,Y)',
+                            help="Number of patches in X and Y of the patches. In imod documentation"
+                                 "(tiltxcorr: OverlapOfPatchesXandY)")
+
+        patchtrack.addParam('iterationsSubpixel',
+                            params.IntParam,
+                            default=1,
+                            label='Iterations to increase subpixel accuracy',
+                            help="Number of iteration of each correlation to reduce interpolation of the peak position"
+                                 "In imod documentation: (tiltxcorr: IterateCorrelations)")
+
+        self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',levelType=params.LEVEL_ADVANCED)
+        self.filteringParametersForm(form, condition=condition, levelType=params.LEVEL_ADVANCED)
+
+    def _fiducialSeedForm(self, form, condition, levelType=params.LEVEL_NORMAL):
+        seedModel = form.addGroup('"Make seed and Track', expertLevel=levelType, condition=condition)
+        seedModel.addParam('fiducialDiameter',
+                           params.FloatParam,
+                           label='Fiducial diameter (nm)',
+                           default='10',
+                           important=True,
+                           help="Fiducials diameter to be tracked for alignment.")
+
+        seedModel.addParam('twoSurfaces',
+                           params.EnumParam,
+                           choices=['Yes', 'No'],
+                           default=1,
+                           label='Find beads on two surfaces?',
+                           display=params.EnumParam.DISPLAY_HLIST,
+                           help="Track fiducials differentiating in which side "
+                                "of the sample are located.")
+
+        seedModel.addParam('numberFiducial',
+                           params.IntParam,
+                           label='Number of fiducials',
+                           default='25',
+                           expertLevel=params.LEVEL_ADVANCED,
+                           help="Number of fiducials to be tracked for alignment.")
+
+        seedModel.addParam('doTrackWithModel', params.BooleanParam,
+                           default=True,
+                           label="Track with fiducial model as seed",
+                           help="Turn the tracked model into new seed and "
+                                "repeat tracking.")
+
+        seedModel.addParam('shiftsNearZeroFraction',
+                           params.FloatParam,
+                           label='Shifts near zero fraction',
+                           default='0.2',
+                           expertLevel=params.LEVEL_ADVANCED,
+                           help="Fraction of the tracking box size above which to "
+                                "supply shifts near zero tilt to Beadtrack. The "
+                                "dominant net shifts in the bead positions between "
+                                "views are found as described above, and if one of "
+                                "the shifts is larger than this fraction of the "
+                                "-BoxSizeXandY entry to Beadtrack, then the shifts "
+                                "are provided when running Beadtrack on the initial "
+                                "seed models. Also, a command file will be written "
+                                "with modified parameters, named as the root name "
+                                "of the input command file followed by '_adjusted' "
+                                "and its extension. Enter 0 or a large value to "
+                                "disable this analysis.")
 
         groupGlobalVariables = form.addGroup('Filter variables',
-                                             expertLevel=params.LEVEL_ADVANCED)
+                                             expertLevel=params.LEVEL_ADVANCED, condition=condition)
 
         groupGlobalVariables.addParam('refineSobelFilter',
                                       params.EnumParam,
@@ -141,9 +201,13 @@ class ProtImodFiducialModel(ProtImodBase):
         for ts in self.inputSetOfTiltSeries.get():
             tsObjId = ts.getObjId()
             self._insertFunctionStep(self.convertInputStep, tsObjId)
-            self._insertFunctionStep(self.generateTrackComStep, tsObjId)
-            self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
-            self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+            if self.typeOfModel == self.FIDUCIAL_MODEL:
+                self._insertFunctionStep(self.generateTrackComStep, tsObjId)
+                self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
+                self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+            else:
+                self._insertFunctionStep(self.xcorrStep, tsObjId)
+                self._insertFunctionStep(self.chopcontsStep, tsObjId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
             self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
             self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
@@ -420,6 +484,115 @@ class ProtImodFiducialModel(ProtImodBase):
             output.append(landmarkModelGaps)
             output.update(landmarkModelGaps)
             output.write()
+
+    def xcorrStep(self, tsObjId):
+        '''
+        Imod uses the next command line for the xcorr alignment
+        $tiltxcorr                  -StandardInput
+        InputFile	                cryo_preali.mrc
+        OutputFile	                cryo_pt.fid
+        RotationAngle	            -12.6
+        TiltFile	                cryo.rawtlt
+        FilterRadius2	            0.125
+        FilterSigma1	            0.03
+        FilterSigma2	            0.03
+        BordersInXandY	            102,102
+        IterateCorrelations	        1
+        SizeOfPatchesXandY	        680,680
+        OverlapOfPatchesXandY	    0.33,0.33
+        PrealignmentTransformFile	cryo.prexg
+        ImagesAreBinned	            1
+        '''
+        ts = self._getTiltSeries(tsObjId)
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+        tmpPrefix = self._getTmpPath(tsId)
+
+        firstItem = ts.getFirstItem()
+        angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
+
+        xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+        ts.writeXfFile(xfFile)
+
+        borders = self.pxTrim.getListFromValues()
+        sizePatches = self.sizeOfPatches.getListFromValues()
+
+
+        BordersInXandY = '%d,%d' % (borders[0], borders[1])
+        SizeOfPatchesXandY = '%d,%d'  % (sizePatches[0], sizePatches[1])
+
+        paramsTiltXCorr = {
+            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
+            'RotationAngle': ts.getAcquisition().getTiltAxisAngle(),
+            'TiltFile': angleFilePath,
+            'FilterRadius2': self.filterRadius2.get(),
+            'FilterSigma1': self.filterSigma1.get(),
+            'FilterSigma2': self.filterSigma2.get(),
+            'BordersInXandY': BordersInXandY,
+            'IterateCorrelations': self.iterationsSubpixel.get(),
+            'SizeOfPatchesXandY': SizeOfPatchesXandY,
+            'PrealignmentTransformFile': xfFile,
+
+            'ImagesAreBinned': 1,
+        }
+        argsTiltXCorr = " " \
+                        "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-RotationAngle %(RotationAngle)s " \
+                        "-TiltFile %(TiltFile)s " \
+                        "-FilterRadius2 %(FilterRadius2)s " \
+                        "-FilterSigma1 %(FilterSigma1)s " \
+                        "-FilterSigma2 %(FilterSigma2)s " \
+                        "-BordersInXandY %(BordersInXandY)s " \
+                        "-IterateCorrelations %(IterateCorrelations)s " \
+                        "-SizeOfPatchesXandY %(SizeOfPatchesXandY)s " \
+                        "-PrealignmentTransformFile %(PrealignmentTransformFile)s " \
+                        "-ImagesAreBinned %(ImagesAreBinned)s "
+
+        if self.patchLayout.get() == 0:
+            patchesXY = self.overlapPatches.getListFromValues(caster=float)
+            OverlapOfPatchesXandY = '%f,%f' % (patchesXY[0], patchesXY[1])
+            argsTiltXCorr += ' -OverlapOfPatchesXandY %s ' % OverlapOfPatchesXandY
+        else:
+            numberPatchesXY = self.numberOfPatches.getListFromValues()
+            argsTiltXCorr += ' -NumberOfPatchesXandY %d,%d ' % (numberPatchesXY[0], numberPatchesXY[1])
+
+        Plugin.runImod(self, 'tiltxcorr', argsTiltXCorr % paramsTiltXCorr)
+
+    def chopcontsStep(self, tsObjId):
+        '''
+        $imodchopconts -StandardInput
+        InputModel cryo_pt.fid
+        OutputModel cryo.fid
+        MinimumOverlap	4
+        AssignSurfaces 1
+        '''
+
+        ts = self._getTiltSeries(tsObjId)
+        tsId = ts.getTsId()
+        extraPrefix = self._getExtraPath(tsId)
+
+        firstItem = ts.getFirstItem()
+        MinimumOverlap = 4
+        AssignSurfaces = 1
+        LengthOfPieces = -1
+
+        paramschopconts = {
+            'inputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
+            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
+            'MinimumOverlap': MinimumOverlap,
+            'AssignSurfaces': AssignSurfaces,
+            'LengthOfPieces': LengthOfPieces
+        }
+        argschopconts = " " \
+                        "-InputModel %(inputFile)s " \
+                        "-OutputModel %(outputFile)s " \
+                        "-MinimumOverlap %(MinimumOverlap)s " \
+                        "-AssignSurfaces %(AssignSurfaces)s " \
+                        "-LengthOfPieces %(LengthOfPieces)s "
+
+        Plugin.runImod(self, 'imodchopconts', argschopconts % paramschopconts)
 
     def createOutputStep(self):
         if self.FiducialModelGaps:

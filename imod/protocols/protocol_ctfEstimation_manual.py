@@ -40,6 +40,13 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     More info:
         https://bio3d.colorado.edu/imod/doc/man/ctfplotter.html
 
+    This GUI program will plot the logarithm of a rotationally averaged
+    power spectrum of an input tilt series after subtracting the noise
+    floor.  The method is based on periodogram averaging; namely, averaging
+    of spectra from small, overlapping areas of the images, referred to as
+    tiles.  The user can interactively choose which projection views are
+    included in the averaging.  It is also possible to run the program non-
+    interactively for automatic fitting.
     """
 
     _label = 'CTF estimation (manual)'

@@ -142,12 +142,21 @@ class TestImodBase(BaseTest):
                            numberFiducial, rotationAngle,
                            shiftsNearZeroFraction) -> ProtImodFiducialModel:
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
+                                                    typeOfModel=0,
                                                     inputSetOfTiltSeries=inputSoTS,
                                                     twoSurfaces=twoSurfaces,
                                                     fiducialRadius=fiducialRadius,
                                                     numberFiducial=numberFiducial,
                                                     rotationAngle=rotationAngle,
                                                     shiftsNearZeroFraction=shiftsNearZeroFraction)
+        cls.launchProtocol(cls.protFiducialAlignment)
+        return cls.protFiducialAlignment
+
+    @classmethod
+    def _runFiducialModelsPT(cls,  inputSoTS) -> ProtImodFiducialModel:
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
+                                                    typeOfModel=1,
+                                                    inputSetOfTiltSeries=inputSoTS)
         cls.launchProtocol(cls.protFiducialAlignment)
         return cls.protFiducialAlignment
 
@@ -381,6 +390,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                         numberFiducial=25,
                                                         rotationAngle=-12.5,
                                                         shiftsNearZeroFraction=0.2)
+
+        cls.protFiducialModelsPT = cls._runFiducialModelsPT(inputSoTS=cls.protXcorr.TiltSeries)
 
         cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.FiducialModelGaps,
                                                               twoSurfaces=0,

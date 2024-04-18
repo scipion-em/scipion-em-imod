@@ -45,10 +45,70 @@ class ProtImodFiducialAlignment(ProtImodBase):
     on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
-        https://bio3d.colorado.edu/imod/doc/man/model2point.html
-        https://bio3d.colorado.edu/imod/doc/man/imodtrans.html
-        https://bio3d.colorado.edu/imod/doc/man/newstack.html
-        https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
+
+    This program will solve for the displacements, rotations, tilts, and
+    magnification differences relating a set of tilted views of an object.
+    It uses a set of fiducial points that have been identified in a series
+    of views. These input data are read from a model in which each fiducial
+    point is a separate contour.
+
+    This program has several notable features:
+
+    1) Any given fiducial point need not be present in every view. Thus,
+    one can track each fiducial point only through the set of views in
+    which it can be reliably identified, and one can even skip views in the
+    middle of that set.
+
+    2) The program can solve for distortion (stretching) in the plane of
+    the section.
+
+    3) It is possible to constrain several views to have the same unknown
+    value of rotation, tilt angle, magnification, compression, or distor-
+    tion.  This can reduce the number of unknowns and can give more accu-
+    rate overall solutions.
+
+    4) If the fiducial points are supposed to lie in one or two planes,
+    then after the minimization procedure is complete, the program can ana-
+    lyze the solved point positions and determine the slope of this plane.
+    It uses this slope to estimate how to adjust tilt angles so as to make
+    the planes be horizontal in a reconstruction.
+
+    5) The program can use a robust fitting method to give different
+    weights to different modeled points based on their individual fitting
+    errors.  Points with the most extreme errors are eliminated from the
+    fit, and ones with high but less extreme errors are down-weighted.
+    This fitting provides a substitute for fixing many modeled point posi-
+    tions based on their errors.
+
+    _On the alignment model_:\n
+    The program implements the following model for the imaging of the spec-
+    imen in each individual view:
+       1) The specimen itself changes by
+         a) an isotropic size change (magnification variable);
+         b) additional thinning in the Z dimension (compression variable); and
+         c) linear stretch along one axis in the specimen plane, implemented by
+            variables representing stretch along the X axis and skew between
+            the X and Y axes;
+       2) The specimen is tilted slightly around the X axis (X tilt variable)
+       3) The specimen is tilted around the X axis by the negative of the beam
+          tilt, if any (one variable for all views)
+       4) The specimen is tilted around the Y axis (tilt variable)
+       5) The specimen is tilted back around the X axis by the beam tilt, if any
+       6) The projected image rotates in the plane of the camera (rotation
+          variable)
+       7) The projected image may stretch along an axis midway between the
+          original X and Y axes (one variable for all views)
+       8) The image shifts on the camera
+
+    The complete model is summarized in:
+       Mastronarde, D. N. 2008.  Correction for non-perpendicularity of beam
+       and tilt axis in tomographic reconstructions with the IMOD package. J.
+       Microsc.  230: 212-217.
+    The version of the model prior to the addition of beam tilt is described
+    in more detail in:
+       Mastronarde, D. N.  2007.  Fiducial marker and hybrid alignment methods
+       for single- and double-axis tomography.  In: Electron Tomography, Ed.
+       J. Frank, 2nd edition, pp 163-185. Springer, New York.
     """
 
     _label = 'Fiducial alignment'
@@ -63,7 +123,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfLandmarkModels',
                       important=True,
-                      label='Input set of fiducial models.')
+                      label='Fiducial model')
 
         # TODO: Allow for a different set of tilt-series input source than the one from the landmark model. This is not
         # TODO: possible due to a change of data type when applying the transformation with scipion applyTransform
@@ -91,17 +151,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.EnumParam,
                       choices=['Yes', 'No'],
                       default=1,
-                      label='Find beads on two surfaces?',
+                      label='Assume beads on two surfaces?',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help="Track fiducials differentiating in which side of "
-                           "the sample are located.\nIMPORTANT: It is highly "
-                           "recommended to match the option selected in the "
-                           "generation of the fiducial models. In case they "
-                           "do not match, it is not intended to fail but could "
-                           "be missing the whole potential of the algorithm. "
-                           "In case the algorithm used fot he calculation"
-                           "of the fiducial models does not consider this "
-                           "option it is algo recomended to set this "
+                      help="Track fiducials differentiating in which side of the sample are located.\n"
+                           "IMPORTANT: It is highly recommended to match the option selected in the "
+                           "generation of the fiducial models. In case they  do not match, it is not "
+                           "intended to fail but could be missing the whole potential of the algorithm. "
+                           "In case the algorithm used for the calculation of the fiducial models does "
+                           "not consider this option it is algo recommended to set this "
                            "option to 'No'.")
 
         form.addParam('computeAlignment',
@@ -111,8 +168,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Generate and save the interpolated tilt-series '
-                           'applying the obtained transformation matrices.')
+                      help='Generate and save the interpolated tilt-series applying the obtained transformation '
+                           'matrices.\n'
+                           'By default, the output of this protocol will be a tilseries that will have associated'
+                           'the alignment information as a transformation matrix. When this option is set as Yes, '
+                           'then a second output, called interpolated tilt series, is generated. The interpolated tilt '
+                           'series should be used for visualization purpose but not for image processing')
 
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment==0')
@@ -120,12 +181,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupInterpolation.addParam('binning',
                                     params.IntParam,
                                     default=1,
-                                    label='Binning',
-                                    help='Binning to be applied to the '
-                                         'interpolated tilt-series in IMOD '
-                                         'convention. Images will be binned '
-                                         'by the given factor. Must be an '
-                                         'integer bigger than 1')
+                                    label='Binning for the interpolated',
+                                    help='Binning to be applied to the interpolated  tilt-series in IMOD '
+                                         'convention. \n'
+                                         'Binning is an scaling factor given by an integer greater than 1. '
+                                         'IMOD uses ordinary binning to reduce images in size by the given factor. '
+                                         'The value of a binned pixel is the average of pixel values in each block '
+                                         'of pixels being binned. Binning is applied before all other image '
+                                         'transformations.')
 
         form.addSection('Global variables')
 
@@ -136,14 +199,19 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=3,
                       label='Rotation solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of rotation solution.')
+                      help='Type of rotation solution: See rotOption in tiltalign IMOD command \n'
+                        '* No rotation: The in-plane rotation will not be estimated\n'
+                        '* One rotation: To solve for a single rotation variable \n'
+                        '* Group rotations: Group views to solve for fewer rotations variables. Automapping of '
+                           'rotation variables linearly changing values\n'
+                        '* Solve for all rotations: for each view having an independent rotation\n')
 
         form.addParam('groupRotationSize',
                       params.IntParam,
                       default=5,
                       condition='rotationSolutionType==2',
                       label='Group size',
-                      help='Size of the rotation group')
+                      help='Default group size when automapping rotation variables')
 
         form.addParam('magnificationSolutionType',
                       params.EnumParam,
@@ -153,14 +221,18 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=1,
                       label='Magnification solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of magnification solution.')
+                      help='Type of magnification solution: See MagOption in tiltaling IMOD command\n'
+                           '* Fixed magnification: Do not solve magnification. This fixes all magnifications at 1.0.\n'
+                           '* Group magnifications: Group views to solve for fewer magnifications variables. '
+                           'Automapping of variables (linearly changing values)  \n'
+                           '* Solve for all magnifications: to vary all magnifications  of each view independently\n')
 
         form.addParam('groupMagnificationSize',
                       params.IntParam,
                       default=4,
                       condition='magnificationSolutionType==1',
                       label='Group size',
-                      help='Size of the magnification group')
+                      help='Group size when automapping magnification variables')
 
         form.addParam('tiltAngleSolutionType',
                       params.EnumParam,
@@ -169,14 +241,18 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=1,
                       label='Tilt angle solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of tilt angle solution.')
+                      help='Type of tilt angle solution: See TiltOption in tiltalign IMOD command\n'
+                           ' * Fixed tilt angles: To fix all tilt angles at their initial (input) values \n'
+                           ' * Group tilt angles: To automap groups of tilt angles (linearly changing values) \n'
+                           ' * Solve for all except minimum tilt:to solve for all tilt angles except for the view '
+                           'at minimum tilt \n')
 
         form.addParam('groupTiltAngleSize',
                       params.IntParam,
                       default=5,
                       condition='tiltAngleSolutionType==1',
                       label='Group size',
-                      help='Size of the tilt angle group')
+                      help='Average default group size when automapping tilt variables')
 
         form.addParam('distortionSolutionType',
                       params.EnumParam,
@@ -184,7 +260,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=0,
                       label='Distortion solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of distortion solution.')
+                      help='Type of skew solution:'
+                           '* 0 to fix all skew angles at 0.0 \n'
+                           '* 1 to vary all skew angles independently\n '
+                           '* 2 to specify a mapping of skew variables, or\n '
+                           '* 3 or 4 for automapping of variables (3 for linearly changing values or 4 for values all '
+                           'the same within a group)..')
 
         form.addParam('xStretchGroupSize',
                       params.IntParam,
