@@ -37,8 +37,15 @@ from .protocol_base import ProtImodBase,XF_EXT, ODD, EVEN, MRCS_EXT
 class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
     Compute the interpolated tilt-series from its transform matrix.
+    The protocol makes use of the IMod command newstack
     More info:
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
+
+    Generally, the tilt series has an associated transformation matrix
+    which contains the alignment information. The transformation matrix
+    is usually associated but not applied to avoid to accumulate interpolation
+    errors during the image processing. This protocol allows to apply
+    the transformation matrix to the tilt series
     """
 
     _label = 'Apply transformation'
@@ -51,15 +58,18 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Tilt-series to apply the transformation matrix')
 
         form.addParam('binning', params.IntParam,
                       default=1,
-                      label='Binning',
-                      help='Binning to be applied to the interpolated '
-                           'tilt-series in IMOD convention. Images will be '
-                           'binned by the given factor. Must be an integer '
-                           'bigger than 1')
+                      label='Binning for the interpolated',
+                      help='Binning to be applied to the interpolated  tilt-series in IMOD '
+                           'convention. \n'
+                           'Binning is an scaling factor given by an integer greater than 1. '
+                           'IMOD uses ordinary binning to reduce images in size by the given factor. '
+                           'The value of a binned pixel is the average of pixel values in each block '
+                           'of pixels being binned. Binning is applied before all other image '
+                           'transformations.')
 
         form.addParam('processOddEven',
                       params.BooleanParam,

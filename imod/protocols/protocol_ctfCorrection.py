@@ -39,6 +39,33 @@ class ProtImodCtfCorrection(ProtImodBase):
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/ctfphaseflip.html
+
+    This program will correct the CTF of an input tilt series by phase
+    flipping, with an option to attenuate frequencies near the zeros of the
+    CTF.
+
+    Ctfphaseflip corrects each view strip by strip.  A strip is defined as
+    an image region whose defocus difference is less than a user specified
+    value, the defocus tolerance.  Normally, the strips are vertically ori-
+    ented and defocus is assumed to be the same along a vertical line.
+    Thus, the tilt series must be aligned so that the tilt axis is vertical
+    before applying this correction.  The original thinking was that an
+    image region with defocus difference less than the tolerance could be
+    considered to have constant defocus and could be corrected as one
+    strip.  However, the validity of the correction at the center of the
+    strip probably does not depend on whether it contains material beyond
+    this focus range, since only vertical lines near or at the center are
+    used in the corrected image.  The program may limit the width further
+    to reduce computation time, or expand it to retain enough resolution
+    between successive zeros in the X direction of frequency space.
+
+    Through most of the image, each strip is corrected based on the defocus
+    at the center of the strip.  However, the strips at the left and right
+    edges of the image may be corrected repeatedly, at different defocus
+    values, in order to extend the correction close enough to the edges of
+    the image.
+
+
     """
 
     _label = 'CTF correction'

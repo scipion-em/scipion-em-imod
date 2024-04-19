@@ -60,7 +60,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         form.addParam('inputSet',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
-                      label='Input set of tilt-series',
+                      label='Tilt-series',
                       help='This should be a *raw stack*, not an aligned stack, '
                            'because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and '
