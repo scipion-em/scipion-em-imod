@@ -114,7 +114,8 @@ class ProtImodFiducialModel(ProtImodBase):
                             help="Number of iteration of each correlation to reduce interpolation of the peak position"
                                  "In imod documentation: (tiltxcorr: IterateCorrelations)")
 
-        self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',levelType=params.LEVEL_ADVANCED)
+        self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',
+                         levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition=condition, levelType=params.LEVEL_ADVANCED)
 
     def _fiducialSeedForm(self, form, condition, levelType=params.LEVEL_NORMAL):
@@ -199,33 +200,18 @@ class ProtImodFiducialModel(ProtImodBase):
         self._initialize()
         for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.generateTrackComStep, tsId)
-            self._insertFunctionStep(self.generateFiducialSeedStep, tsId)
-            self._insertFunctionStep(self.generateFiducialModelStep, tsId)
+            if self.typeOfModel == self.FIDUCIAL_MODEL:
+                self._insertFunctionStep(self.generateTrackComStep, tsId)
+                self._insertFunctionStep(self.generateFiducialSeedStep, tsId)
+                self._insertFunctionStep(self.generateFiducialModelStep, tsId)
+            else:
+                self._insertFunctionStep(self.xcorrStep, tsId)
+                self._insertFunctionStep(self.chopcontsStep, tsId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
             self._insertFunctionStep(self.computeOutputModelsStep, tsId)
             self._insertFunctionStep(self.createOutputFailedSetStep, tsId)
 
         self._insertFunctionStep(self.createOutputStep)
-
-        # VILAS
-        # self._failedTs = []
-        #
-        # for ts in self.inputSetOfTiltSeries.get():
-        #     tsObjId = ts.getObjId()
-        #     self._insertFunctionStep(self.convertInputStep, tsObjId)
-        #     if self.typeOfModel == self.FIDUCIAL_MODEL:
-        #         self._insertFunctionStep(self.generateTrackComStep, tsObjId)
-        #         self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
-        #         self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
-        #     else:
-        #         self._insertFunctionStep(self.xcorrStep, tsObjId)
-        #         self._insertFunctionStep(self.chopcontsStep, tsObjId)
-        #     self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
-        #     self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
-        #     self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
-        #
-        # self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -442,115 +428,101 @@ class ProtImodFiducialModel(ProtImodBase):
             output.update(landmarkModelGaps)
             output.write()
 
-    # VILAS
-    # def xcorrStep(self, tsObjId):
-    #     '''
-    #     Imod uses the next command line for the xcorr alignment
-    #     $tiltxcorr                  -StandardInput
-    #     InputFile	                cryo_preali.mrc
-    #     OutputFile	                cryo_pt.fid
-    #     RotationAngle	            -12.6
-    #     TiltFile	                cryo.rawtlt
-    #     FilterRadius2	            0.125
-    #     FilterSigma1	            0.03
-    #     FilterSigma2	            0.03
-    #     BordersInXandY	            102,102
-    #     IterateCorrelations	        1
-    #     SizeOfPatchesXandY	        680,680
-    #     OverlapOfPatchesXandY	    0.33,0.33
-    #     PrealignmentTransformFile	cryo.prexg
-    #     ImagesAreBinned	            1
-    #     '''
-    #     ts = self._getTiltSeries(tsObjId)
-    #     tsId = ts.getTsId()
-    #     extraPrefix = self._getExtraPath(tsId)
-    #     tmpPrefix = self._getTmpPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #     angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
-    #
-    #     xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-    #     ts.writeXfFile(xfFile)
-    #
-    #     borders = self.pxTrim.getListFromValues()
-    #     sizePatches = self.sizeOfPatches.getListFromValues()
-    #
-    #
-    #     BordersInXandY = '%d,%d' % (borders[0], borders[1])
-    #     SizeOfPatchesXandY = '%d,%d'  % (sizePatches[0], sizePatches[1])
-    #
-    #     paramsTiltXCorr = {
-    #         'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-    #         'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
-    #         'RotationAngle': ts.getAcquisition().getTiltAxisAngle(),
-    #         'TiltFile': angleFilePath,
-    #         'FilterRadius2': self.filterRadius2.get(),
-    #         'FilterSigma1': self.filterSigma1.get(),
-    #         'FilterSigma2': self.filterSigma2.get(),
-    #         'BordersInXandY': BordersInXandY,
-    #         'IterateCorrelations': self.iterationsSubpixel.get(),
-    #         'SizeOfPatchesXandY': SizeOfPatchesXandY,
-    #         'PrealignmentTransformFile': xfFile,
-    #
-    #         'ImagesAreBinned': 1,
-    #     }
-    #     argsTiltXCorr = " " \
-    #                     "-InputFile %(inputFile)s " \
-    #                     "-OutputFile %(outputFile)s " \
-    #                     "-RotationAngle %(RotationAngle)s " \
-    #                     "-TiltFile %(TiltFile)s " \
-    #                     "-FilterRadius2 %(FilterRadius2)s " \
-    #                     "-FilterSigma1 %(FilterSigma1)s " \
-    #                     "-FilterSigma2 %(FilterSigma2)s " \
-    #                     "-BordersInXandY %(BordersInXandY)s " \
-    #                     "-IterateCorrelations %(IterateCorrelations)s " \
-    #                     "-SizeOfPatchesXandY %(SizeOfPatchesXandY)s " \
-    #                     "-PrealignmentTransformFile %(PrealignmentTransformFile)s " \
-    #                     "-ImagesAreBinned %(ImagesAreBinned)s "
-    #
-    #     if self.patchLayout.get() == 0:
-    #         patchesXY = self.overlapPatches.getListFromValues(caster=float)
-    #         OverlapOfPatchesXandY = '%f,%f' % (patchesXY[0], patchesXY[1])
-    #         argsTiltXCorr += ' -OverlapOfPatchesXandY %s ' % OverlapOfPatchesXandY
-    #     else:
-    #         numberPatchesXY = self.numberOfPatches.getListFromValues()
-    #         argsTiltXCorr += ' -NumberOfPatchesXandY %d,%d ' % (numberPatchesXY[0], numberPatchesXY[1])
-    #
-    #     Plugin.runImod(self, 'tiltxcorr', argsTiltXCorr % paramsTiltXCorr)
-    #
-    # def chopcontsStep(self, tsObjId):
-    #     '''
-    #     $imodchopconts -StandardInput
-    #     InputModel cryo_pt.fid
-    #     OutputModel cryo.fid
-    #     MinimumOverlap	4
-    #     AssignSurfaces 1
-    #     '''
-    #
-    #     ts = self._getTiltSeries(tsObjId)
-    #     tsId = ts.getTsId()
-    #     extraPrefix = self._getExtraPath(tsId)
-    #
-    #     firstItem = ts.getFirstItem()
-    #     MinimumOverlap = 4
-    #     AssignSurfaces = 1
-    #     LengthOfPieces = -1
-    #
-    #     paramschopconts = {
-    #         'inputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
-    #         'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
-    #         'MinimumOverlap': MinimumOverlap,
-    #         'AssignSurfaces': AssignSurfaces,
-    #         'LengthOfPieces': LengthOfPieces
-    #     }
-    #     argschopconts = " " \
-    #                     "-InputModel %(inputFile)s " \
-    #                     "-OutputModel %(outputFile)s " \
-    #                     "-MinimumOverlap %(MinimumOverlap)s " \
-    #                     "-AssignSurfaces %(AssignSurfaces)s " \
-    #                     "-LengthOfPieces %(LengthOfPieces)s "
-    #
-    #     Plugin.runImod(self, 'imodchopconts', argschopconts % paramschopconts)
+    def xcorrStep(self, tsId):
+        """
+        Imod uses the next command line for the xcorr alignment
+        $tiltxcorr                  -StandardInput
+        InputFile	                cryo_preali.mrc
+        OutputFile	                cryo_pt.fid
+        RotationAngle	            -12.6
+        TiltFile	                cryo.rawtlt
+        FilterRadius2	            0.125
+        FilterSigma1	            0.03
+        FilterSigma2	            0.03
+        BordersInXandY	            102,102
+        IterateCorrelations	        1
+        SizeOfPatchesXandY	        680,680
+        OverlapOfPatchesXandY	    0.33,0.33
+        PrealignmentTransformFile	cryo.prexg
+        ImagesAreBinned	            1
+        """
+        ts = self.tsDict[tsId]
+        angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+        ts.writeXfFile(xfFile)
+
+        borders = self.pxTrim.getListFromValues()
+        sizePatches = self.sizeOfPatches.getListFromValues()
+
+        BordersInXandY = '%d,%d' % (borders[0], borders[1])
+        SizeOfPatchesXandY = '%d,%d' % (sizePatches[0], sizePatches[1])
+
+        paramsTiltXCorr = {
+            'inputFile': self.getTmpOutFile(tsId),
+            'outputFile': self.getExtraOutFile(tsId, suffix="pt", ext=".fid"),
+            'RotationAngle': ts.getAcquisition().getTiltAxisAngle(),
+            'TiltFile': angleFilePath,
+            'FilterRadius2': self.filterRadius2.get(),
+            'FilterSigma1': self.filterSigma1.get(),
+            'FilterSigma2': self.filterSigma2.get(),
+            'BordersInXandY': BordersInXandY,
+            'IterateCorrelations': self.iterationsSubpixel.get(),
+            'SizeOfPatchesXandY': SizeOfPatchesXandY,
+            'PrealignmentTransformFile': xfFile,
+
+            'ImagesAreBinned': 1,
+        }
+        argsTiltXCorr = " " \
+                        "-InputFile %(inputFile)s " \
+                        "-OutputFile %(outputFile)s " \
+                        "-RotationAngle %(RotationAngle)s " \
+                        "-TiltFile %(TiltFile)s " \
+                        "-FilterRadius2 %(FilterRadius2)s " \
+                        "-FilterSigma1 %(FilterSigma1)s " \
+                        "-FilterSigma2 %(FilterSigma2)s " \
+                        "-BordersInXandY %(BordersInXandY)s " \
+                        "-IterateCorrelations %(IterateCorrelations)s " \
+                        "-SizeOfPatchesXandY %(SizeOfPatchesXandY)s " \
+                        "-PrealignmentTransformFile %(PrealignmentTransformFile)s " \
+                        "-ImagesAreBinned %(ImagesAreBinned)s "
+
+        if self.patchLayout.get() == 0:
+            patchesXY = self.overlapPatches.getListFromValues(caster=float)
+            OverlapOfPatchesXandY = '%f,%f' % (patchesXY[0], patchesXY[1])
+            argsTiltXCorr += ' -OverlapOfPatchesXandY %s ' % OverlapOfPatchesXandY
+        else:
+            numberPatchesXY = self.numberOfPatches.getListFromValues()
+            argsTiltXCorr += ' -NumberOfPatchesXandY %d,%d ' % (numberPatchesXY[0], numberPatchesXY[1])
+
+        Plugin.runImod(self, 'tiltxcorr', argsTiltXCorr % paramsTiltXCorr)
+
+    def chopcontsStep(self, tsId):
+        """
+        $imodchopconts -StandardInput
+        InputModel cryo_pt.fid
+        OutputModel cryo.fid
+        MinimumOverlap	4
+        AssignSurfaces 1
+        """
+        MinimumOverlap = 4
+        AssignSurfaces = 1
+        LengthOfPieces = -1
+
+        paramschopconts = {
+            'inputFile': self.getExtraOutFile(tsId, suffix="pt", ext=".fid"),
+            'outputFile': self.getExtraOutFile(tsId, suffix="gaps", ext=".fid"),
+            'MinimumOverlap': MinimumOverlap,
+            'AssignSurfaces': AssignSurfaces,
+            'LengthOfPieces': LengthOfPieces
+        }
+        argschopconts = " " \
+                        "-InputModel %(inputFile)s " \
+                        "-OutputModel %(outputFile)s " \
+                        "-MinimumOverlap %(MinimumOverlap)s " \
+                        "-AssignSurfaces %(AssignSurfaces)s " \
+                        "-LengthOfPieces %(LengthOfPieces)s "
+
+        Plugin.runImod(self, 'imodchopconts', argschopconts % paramschopconts)
 
     def createOutputStep(self):
         if self.FiducialModelGaps:
