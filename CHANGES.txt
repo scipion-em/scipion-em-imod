@@ -10,6 +10,8 @@
     * The xf, defocus, and tlt files are generated inside each TS extra sub-directory.
  Developers:
   - Update the acquisition order in the CTFTomo objects (field added to that class in scipion-em-tomo v3.7.0).
+  - Refactorization: avoid the excesive usage of getFirstItem.
+  - File generation methods (most of them in utils) adapted to the CTF-TS intersection functionality.
 3.3.0:
   - bugfix for import ctf, set missing defocus flag
   - move plugin-specific import CTF protocol to the core
