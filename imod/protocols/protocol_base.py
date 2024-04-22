@@ -58,6 +58,15 @@ MRC_EXT = 'mrc'
 XF_EXT = 'xf'
 TLT_EXT = 'tlt'
 DEFOCUS_EXT = 'defocus'
+FID_EXT = 'fid'
+TXT_EXT = 'txt'
+REC_EXT = 'rec'
+XYZ_EXT = 'xyz'
+MOD_EXT = 'mod'
+SEED_EXT = 'seed'
+PREXF_EXT = 'prexf'
+PREXG_EXT = 'prexg'
+SFID_EXT = 'sfid'
 
 
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -246,13 +255,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
 
     @staticmethod
-    def getOutTsFileName(tsId, suffix=None, ext='st'):
+    def getOutTsFileName(tsId, suffix=None, ext='mrc'):
         return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'
 
-    def getTmpOutFile(self, tsId, suffix=None, ext='st'):
+    def getTmpOutFile(self, tsId, suffix=None, ext='mrc'):
         return self._getTmpPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
-    def getExtraOutFile(self, tsId, suffix=None, ext='st'):
+    def getExtraOutFile(self, tsId, suffix=None, ext='mrc'):
         return self._getExtraPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
     def convertInputStep(self, tsObjId, generateAngleFile=True, imodInterpolation=True, doSwap=False,

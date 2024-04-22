@@ -34,7 +34,7 @@ import tomo.objects as tomoObj
 
 from .. import Plugin
 from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME, ODD, \
-    MRCS_EXT, EVEN
+    MRCS_EXT, EVEN, MOD_EXT
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -216,7 +216,7 @@ class ProtImodXraysEraser(ProtImodBase):
             'annulusWidth': 2.0,
             'xyScanSize': 100,
             'edgeExclusionWidth': 4,
-            'pointModel': self.getExtraOutFile(tsId, suffix="fid", ext="mod"),
+            'pointModel': self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
             'borderSize': 2,
             'polynomialOrder': 2,
         }

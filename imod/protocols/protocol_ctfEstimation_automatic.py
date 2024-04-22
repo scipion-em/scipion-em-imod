@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE, TLT_EXT
+from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -326,7 +326,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         paramsCtfPlotter = {
             'inputStack': self.getTmpOutFile(tsId),
             'angleFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
-            'defocusFile': self.getExtraOutFile(tsId, ext="defocus"),
+            'defocusFile': self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
             'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
             'pixelSize': self.sRate / 10,  # nm
             'voltage': self.acq.getVoltage(),
@@ -437,7 +437,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
-        defocusFilePath = self.getExtraOutFile(tsId, ext="defocus")
+        defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
         if os.path.exists(defocusFilePath):
             output = self.getOutputSetOfCTFTomoSeries(outputSetName)
             defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)

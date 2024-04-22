@@ -33,7 +33,7 @@ import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT
+from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT, SFID_EXT
 
 
 class ProtImodFiducialModel(ProtImodBase):
@@ -227,8 +227,8 @@ class ProtImodFiducialModel(ProtImodBase):
 
         paramsDict = {
             'imageFile': self.getTmpOutFile(tsId),
-            'inputSeedModel': self.getExtraOutFile(tsId, ext="seed"),
-            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext="fid"),
+            'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
+            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
@@ -282,8 +282,8 @@ class ProtImodFiducialModel(ProtImodBase):
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsBeadtrack = {
-            'inputSeedModel': self.getExtraOutFile(tsId, ext="seed"),
-            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext="fid"),
+            'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
+            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'imageFile': self.getTmpOutFile(tsId),
             'imagesAreBinned': 1,
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
@@ -363,7 +363,7 @@ class ProtImodFiducialModel(ProtImodBase):
         if self.doTrackWithModel:
             # repeat tracking with the current model as seed
             path.copyFile(paramsBeadtrack['inputSeedModel'],
-                          self.getExtraOutFile(tsId, suffix="orig", ext="seed"))
+                          self.getExtraOutFile(tsId, suffix="orig", ext=SEED_EXT))
             path.moveFile(paramsBeadtrack['outputModel'],
                           paramsBeadtrack['inputSeedModel'])
 
@@ -373,11 +373,11 @@ class ProtImodFiducialModel(ProtImodBase):
         ts = self.tsDict[tsId]
 
         # Check that previous steps have been completed satisfactorily
-        gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext='fid')
+        gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
         if os.path.exists(gapsFidFile):
             paramsGapModel2Point = {
                 'inputFile': gapsFidFile,
-                'outputFile': self.getExtraOutFile(tsId, suffix="gaps_fid", ext="txt")
+                'outputFile': self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
             }
             argsGapModel2Point = "-InputFile %(inputFile)s " \
                                  "-OutputFile %(outputFile)s"
@@ -389,11 +389,11 @@ class ProtImodFiducialModel(ProtImodBase):
 
         # Create the output set of landmark models with gaps
         # Check that previous steps have been completed satisfactorily
-        fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext='fid')
+        fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
         if os.path.exists(fiducialModelGapPath):
             output = self.getOutputFiducialModelGaps()
-            landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext='sfid')
-            fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext="txt")
+            landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
+            fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
             fiducialDiameterPixel = self.fiducialDiameter.get() / (
@@ -459,7 +459,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         paramsTiltXCorr = {
             'inputFile': self.getTmpOutFile(tsId),
-            'outputFile': self.getExtraOutFile(tsId, suffix="pt", ext=".fid"),
+            'outputFile': self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
             'RotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'TiltFile': angleFilePath,
             'FilterRadius2': self.filterRadius2.get(),
@@ -509,8 +509,8 @@ class ProtImodFiducialModel(ProtImodBase):
         LengthOfPieces = -1
 
         paramschopconts = {
-            'inputFile': self.getExtraOutFile(tsId, suffix="pt", ext=".fid"),
-            'outputFile': self.getExtraOutFile(tsId, suffix="gaps", ext=".fid"),
+            'inputFile': self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+            'outputFile': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'MinimumOverlap': MinimumOverlap,
             'AssignSurfaces': AssignSurfaces,
             'LengthOfPieces': LengthOfPieces

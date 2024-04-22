@@ -35,7 +35,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, TLT_EXT
+from .protocol_base import ProtImodBase, TLT_EXT, PREXF_EXT, PREXG_EXT
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):
@@ -150,7 +150,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         paramsXcorr = {
             'input': self.getTmpOutFile(tsId),
-            'output': self.getExtraOutFile(tsId, ext='prexf'),
+            'output': self.getExtraOutFile(tsId, ext=PREXF_EXT),
             'tiltfile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': tiltAxisAngle,
             'filterSigma1': self.filterSigma1.get(),
@@ -198,8 +198,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
-            'input': self.getExtraOutFile(tsId, ext='prexf'),
-            'goutput': self.getExtraOutFile(tsId, ext='prexg'),
+            'input': self.getExtraOutFile(tsId, ext=PREXF_EXT),
+            'goutput': self.getExtraOutFile(tsId, ext=PREXG_EXT),
         }
         argsXftoxg = "-input %(input)s " \
                      "-NumberToFit 0 " \
@@ -210,7 +210,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         """ Generate tilt-serie with the associated transform matrix """
         ts = self.tsDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-        alignmentMatrix = utils.formatTransformationMatrix(self.getExtraOutFile(tsId, ext='prexg'))
+        alignmentMatrix = utils.formatTransformationMatrix(self.getExtraOutFile(tsId, ext=PREXG_EXT))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
@@ -256,7 +256,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         paramsAlignment = {
             'input': self.getTmpOutFile(tsId),
             'output': self.getExtraOutFile(tsId),
-            'xform': self.getExtraOutFile(tsId, ext='prexg'),
+            'xform': self.getExtraOutFile(tsId, ext=PREXG_EXT),
             'bin': self.binning.get(),
             'imagebinned': 1.0
         }

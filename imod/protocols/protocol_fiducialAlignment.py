@@ -36,7 +36,7 @@ from tomo.objects import (LandmarkModel, SetOfTiltSeries, TiltImage,
                           TiltSeries, TiltSeriesCoordinate)
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT
+from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT, MOD_EXT, SFID_EXT
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -361,13 +361,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'imageFile': self.getTmpOutFile(tsId),
             'imagesAreBinned': 1,
             'unbinnedPixelSize': ts.getSamplingRate() / 10,
-            'outputModelFile': self.getExtraOutFile(tsId, suffix="fidxyz", ext="mod"),
-            'outputResidualFile': self.getExtraOutFile(tsId, suffix="resid", ext="txt"),
-            'outputFidXYZFile': self.getExtraOutFile(tsId, suffix="fid", ext="xyz"),
+            'outputModelFile': self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
+            'outputResidualFile': self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
+            'outputFidXYZFile': self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
             'outputTiltFile': self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
             'outputXAxisTiltFile': self.getExtraOutFile(tsId, ext="xtilt"),
-            'outputTransformFile': self.getExtraOutFile(tsId, suffix="fid", ext="xf"),
-            'outputFilledInModel': self.getExtraOutFile(tsId, suffix="noGaps", ext="fid"),
+            'outputTransformFile': self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
+            'outputFilledInModel': self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'angleOffset': 0.0,
@@ -483,11 +483,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
     @ProtImodBase.tryExceptDecorator
     def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
-        noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext="fid")
+        noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
         if os.path.exists(noGapsFid):
             paramsNoGapModel2Point = {
                 'inputFile': noGapsFid,
-                'outputFile': self.getExtraOutFile(tsId, suffix="noGaps_fid", ext="txt")
+                'outputFile': self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             }
             argsNoGapModel2Point = "-InputFile %(inputFile)s " \
                                    "-OutputFile %(outputFile)s"
@@ -630,7 +630,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         paramsCcderaser = {
             'inputFile': self.getTmpOutFile(tsId),
             'outputFile': self.getExtraOutFile(tsId),
-            'modelFile': self.getExtraOutFile(tsId, suffix="noGaps", ext="fid"),
+            'modelFile': self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
             'betterRadius': self.betterRadius.get() / 2,
             'polynomialOrder': 0,
             'circleObjects': "/"
@@ -655,14 +655,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
         tsId = ts.getTsId()
 
         # Create the output set of landmark models with no gaps
-        fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext='txt')
+        fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
         if os.path.exists(fiducialNoGapFilePath):
             output = self.getOutputFiducialModelNoGaps()
             output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
             fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
-            fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext="fid")
-            landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext="sfid")
-            landmarkModelNoGapsResidPath = self.getExtraOutFile(tsId, suffix="resid", ext="txt")
+            fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
+            landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
+            landmarkModelNoGapsResidPath = self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT)
 
             fiducialNoGapsResidList = utils.formatFiducialResidList(landmarkModelNoGapsResidPath)
 
@@ -705,7 +705,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             output.write()
 
         # Create the output set of 3D coordinates
-        coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext="xyz")
+        coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT)
 
         if os.path.exists(coordFilePath):
 

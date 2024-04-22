@@ -34,7 +34,7 @@ import tomo.objects as tomoObj
 import tomo.constants as constants
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, XYZ_EXT, MOD_EXT
 
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
@@ -139,7 +139,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         """ Run findbeads3d IMOD program """
         paramsFindbeads3d = {
             'inputFile': tomo.getFileName(),
-            'outputFile': self.getExtraOutFile(tsId, ext='mod'),
+            'outputFile': self.getExtraOutFile(tsId, ext=MOD_EXT),
             'beadSize': self.beadDiameter.get(),
             'minRelativeStrength': self.minRelativeStrength.get(),
             'minSpacing': self.minSpacing.get(),
@@ -160,8 +160,8 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     def convertModelToCoordinatesStep(self, tsId):
         """ Run model2point IMOD program """
         paramsModel2Point = {
-            'inputFile': self.getExtraOutFile(tsId, ext='mod'),
-            'outputFile': self.getExtraOutFile(tsId, ext='xyz'),
+            'inputFile': self.getExtraOutFile(tsId, ext=MOD_EXT),
+            'outputFile': self.getExtraOutFile(tsId, ext=XYZ_EXT),
         }
 
         argsModel2Point = "-InputFile %(inputFile)s " \
@@ -176,7 +176,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         output = self.getOutputSetOfCoordinates3Ds(self.inputSetOfTomograms.get(),
                                                    self.inputSetOfTomograms.get())
 
-        coordFilePath = self.getExtraOutFile(tsId, ext='xyz')
+        coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
         coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
 
         with self._lock:
