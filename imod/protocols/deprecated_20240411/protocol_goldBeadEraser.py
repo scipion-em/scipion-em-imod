@@ -34,8 +34,8 @@ from pwem.protocols import EMProtocol
 from tomo.protocols import ProtTomoBase
 import tomo.objects as tomoObj
 
-from .. import Plugin, utils
-from .protocol_base import OUTPUT_TILTSERIES_NAME
+from imod import Plugin, utils
+from imod.protocols.protocol_base import OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):

@@ -34,7 +34,7 @@ import tomo.objects as tomoObj
 import tomo.constants as constants
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, XYZ_EXT, MOD_EXT
 
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
@@ -107,39 +107,39 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self.defineExecutionPararell()
-
         allOutputId = []
-
-        for ts in self.inputSetOfTomograms.get():
+        self._initialize()
+        for tsId in self.tomoDict.keys():
             pickId = self._insertFunctionStep(self.pickGoldBeadsStep,
-                                              ts.getObjId(),
+                                              tsId,
                                               prerequisites=[])
 
             convertId = self._insertFunctionStep(self.convertModelToCoordinatesStep,
-                                                 ts.getObjId(),
+                                                 tsId,
                                                  prerequisites=[pickId])
 
             outputID = self._insertFunctionStep(self.createOutputStep,
-                                                ts.getObjId(),
+                                                tsId,
                                                 prerequisites=[convertId])
 
             allOutputId.append(outputID)
 
-        self._insertFunctionStep('closeOutputSetStep',
+        self._insertFunctionStep(self.closeOutputSetStep,
                                  prerequisites=allOutputId)
 
     # --------------------------- STEPS functions -----------------------------
-    def pickGoldBeadsStep(self, tsObjId):
-        tomo = self.inputSetOfTomograms.get()[tsObjId]
-        fileName = removeBaseExt(tomo.getFileName())
-        extraPrefix = self._getExtraPath(fileName)
-        path.makePath(extraPrefix)
+    def _initialize(self):
+        self.defineExecutionPararell()
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
+
+    def pickGoldBeadsStep(self, tsId):
+        self.genTsPaths(tsId)
+        tomo = self.tomoDict[tsId]
 
         """ Run findbeads3d IMOD program """
         paramsFindbeads3d = {
             'inputFile': tomo.getFileName(),
-            'outputFile': os.path.join(extraPrefix, "%s.mod" % fileName),
+            'outputFile': self.getExtraOutFile(tsId, ext=MOD_EXT),
             'beadSize': self.beadDiameter.get(),
             'minRelativeStrength': self.minRelativeStrength.get(),
             'minSpacing': self.minSpacing.get(),
@@ -157,17 +157,11 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         Plugin.runImod(self, 'findbeads3d', argsFindbeads3d % paramsFindbeads3d)
 
-    def convertModelToCoordinatesStep(self, tsObjId):
-        tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFileName()
-        fileName, _ = os.path.splitext(location)
-
-        extraPrefix = self._getExtraPath(os.path.basename(fileName))
-
+    def convertModelToCoordinatesStep(self, tsId):
         """ Run model2point IMOD program """
         paramsModel2Point = {
-            'inputFile': os.path.join(extraPrefix, "%s.mod" % os.path.basename(fileName)),
-            'outputFile': os.path.join(extraPrefix, "%s.xyz" % os.path.basename(fileName)),
+            'inputFile': self.getExtraOutFile(tsId, ext=MOD_EXT),
+            'outputFile': self.getExtraOutFile(tsId, ext=XYZ_EXT),
         }
 
         argsModel2Point = "-InputFile %(inputFile)s " \
@@ -175,20 +169,14 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         Plugin.runImod(self, 'model2point', argsModel2Point % paramsModel2Point)
 
-    def createOutputStep(self, tsObjId):
-        tomo = self.inputSetOfTomograms.get()[tsObjId]
-        location = tomo.getFileName()
-        fileName, _ = os.path.splitext(location)
-
-        extraPrefix = self._getExtraPath(os.path.basename(fileName))
+    def createOutputStep(self, tsId):
+        tomo = self.tomoDict[tsId]
 
         """ Create the output set of coordinates 3D from gold beads detected """
         output = self.getOutputSetOfCoordinates3Ds(self.inputSetOfTomograms.get(),
                                                    self.inputSetOfTomograms.get())
 
-        coordFilePath = os.path.join(extraPrefix,
-                                     "%s.xyz" % os.path.basename(fileName))
-
+        coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
         coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
 
         with self._lock:
@@ -199,7 +187,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 newCoord3D.setY(element[1], constants.BOTTOM_LEFT_CORNER)
                 newCoord3D.setZ(element[2], constants.BOTTOM_LEFT_CORNER)
 
-                newCoord3D.setVolId(tsObjId)
+                # newCoord3D.setVolId(tsObjId)
                 output.append(newCoord3D)
                 output.update(newCoord3D)
 

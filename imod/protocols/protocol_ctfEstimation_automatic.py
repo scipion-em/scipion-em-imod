@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE
+from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -48,6 +48,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     defocusUTolerance = 20
     defocusVTolerance = 20
     _interactiveMode = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.sRate = None
+        self.acq = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -292,45 +297,41 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        # This assignment is needed to use methods from base class
-        self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
+        self._initialize()
         expDefoci = self.getExpectedDefocus()
-
-        for item in self.inputSet.get():
-            tsObjId = item.getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId)
-            self._insertFunctionStep(self.ctfEstimation, tsObjId, expDefoci)
-            self._insertFunctionStep(self.createOutputStep, tsObjId)
-            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.ctfEstimation, tsId, expDefoci)
+            self._insertFunctionStep(self.createOutputStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self._failedTs = []
+        tsSet = self._getSetOfTiltSeries()
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
+        self.sRate = tsSet.getSamplingRate()
+        self.acq = tsSet.getAcquisition()
+
+    def convertInputStep(self, tsId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsObjId, imodInterpolation=None)
+        super().convertInputStep(tsId, imodInterpolation=None)
 
     @ProtImodBase.tryExceptDecorator
-    def ctfEstimation(self, tsObjId, expDefoci):
+    def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
-        ts = self._getTiltSeries(tsObjId)
-        tsSet = self._getSetOfTiltSeries()
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        firstTi = ts.getFirstItem()
+        ts = self.tsDict[tsId]
 
         paramsCtfPlotter = {
-            'inputStack': os.path.join(tmpPrefix, firstTi.parseFileName()),
-            'angleFile': os.path.join(tmpPrefix, firstTi.parseFileName(extension=".tlt")),
-            'defocusFile': os.path.join(extraPrefix, firstTi.parseFileName(extension=".defocus")),
+            'inputStack': self.getTmpOutFile(tsId),
+            'angleFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
+            'defocusFile': self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
             'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
-            'pixelSize': tsSet.getSamplingRate() / 10,
-            'voltage': tsSet.getAcquisition().getVoltage(),
-            'sphericalAberration': tsSet.getAcquisition().getSphericalAberration(),
-            'amplitudeContrast': tsSet.getAcquisition().getAmplitudeContrast(),
+            'pixelSize': self.sRate / 10,  # nm
+            'voltage': self.acq.getVoltage(),
+            'sphericalAberration': self.acq.getSphericalAberration(),
+            'amplitudeContrast': self.acq.getAmplitudeContrast(),
             'defocusTol': self.defocusTol.get(),
             'psResolution': 101,
             'leftDefTol': self.leftDefTol.get(),
@@ -434,13 +435,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
 
-    def createOutputStep(self, tsObjId, outputSetName=OUTPUT_CTF_SERIE):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        defocusFilePath = os.path.join(extraPrefix,
-                                       ts.getFirstItem().parseFileName(extension=".defocus"))
+    def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
+        ts = self.tsDict[tsId]
+        defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
         if os.path.exists(defocusFilePath):
             output = self.getOutputSetOfCTFTomoSeries(outputSetName)
             defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
@@ -448,7 +445,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             newCTFTomoSeries = tomoObj.CTFTomoSeries()
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
-            newCTFTomoSeries.setObjId(tsObjId)
+            # newCTFTomoSeries.setObjId(tsObjId)
             newCTFTomoSeries.setTsId(tsId)
             newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
             newCTFTomoSeries.setNumberOfEstimationsInRange(None)
@@ -463,6 +460,10 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             output.update(newCTFTomoSeries)
             output.write()
             self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():

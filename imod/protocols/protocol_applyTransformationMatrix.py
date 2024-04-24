@@ -25,16 +25,13 @@
 # *****************************************************************************
 
 import os
-
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 from pyworkflow.object import Set
 from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
-
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import ProtImodBase,XF_EXT, ODD, EVEN, MRCS_EXT
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -84,37 +81,34 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.generateTransformFileStep, ts.getObjId())
-            self._insertFunctionStep(self.computeAlignmentStep, ts.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.generateTransformFileStep, tsId)
+            self._insertFunctionStep(self.computeAlignmentStep, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ------------------------------
-    def generateTransformFileStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
-        utils.formatTransformFile(ts,
-                                  os.path.join(extraPrefix,
-                                               ts.getFirstItem().parseFileName(extension=".xf")))
+    def _initialize(self):
+        self._failedTs = []
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def generateTransformFileStep(self, tsId):
+        ts = self.tsDict[tsId]
+        self.genTsPaths(tsId)
+        utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
 
     @ProtImodBase.tryExceptDecorator
-    def computeAlignmentStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
+    def computeAlignmentStep(self, tsId):
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
         binning = self.binning.get()
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
-            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
-            'xform': os.path.join(extraPrefix, firstItem.parseFileName(extension=".xf")),
+            'output': self.getExtraOutFile(tsId),
+            'xform': self.getExtraOutFile(tsId, ext=XF_EXT),
             'bin': binning,
             'imagebinned': 1.0
         }
@@ -149,19 +143,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsAlignment['input'] = oddFn
-            paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
             paramsAlignment['input'] = evenFn
-            paramsAlignment['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
-    def generateOutputStackStep(self, tsObjId):
-
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
-        outputLocation = os.path.join(extraPrefix, ts.getFirstItem().parseFileName())
+    def generateOutputStackStep(self, tsId):
+        ts = self.tsDict[tsId]
+        outputLocation = self.getExtraOutFile(tsId)
 
         if os.path.exists(outputLocation):
             output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
@@ -191,8 +181,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     newTi.setAcquisition(acq)
                     newTi.setLocation(index, outputLocation)
                     if self.applyToOddEven(ts):
-                        locationOdd = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                        locationEven = index, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                        locationOdd = index, (self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT))
+                        locationEven = index, (self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT))
                         newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
                     else:
                         newTi.setOddEven([])
@@ -210,6 +200,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             output.update(newTs)
             output.write()
             self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():

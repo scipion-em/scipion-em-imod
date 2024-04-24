@@ -35,7 +35,7 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, TLT_EXT, PREXF_EXT, PREXG_EXT
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):
@@ -130,33 +130,28 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.computeXcorrStep, ts.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep,
-                                     ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.computeXcorrStep, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep,tsId)
             if self.computeAlignment.get() == 0:
-                self._insertFunctionStep(self.computeInterpolatedStackStep,
-                                         ts.getObjId())
+                self._insertFunctionStep(self.computeInterpolatedStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def computeXcorrStep(self, tsObjId):
-        """Compute transformation matrix for each tilt series"""
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
 
+    def computeXcorrStep(self, tsId):
+        """Compute transformation matrix for each tilt series"""
+        ts = self.tsDict[tsId]
         tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
         paramsXcorr = {
-            'input': os.path.join(tmpPrefix,
-                                  ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix,
-                                   ts.getFirstItem().parseFileName(extension=".prexf")),
-            'tiltfile': os.path.join(tmpPrefix,
-                                     ts.getFirstItem().parseFileName(extension=".tlt")),
+            'input': self.getTmpOutFile(tsId),
+            'output': self.getExtraOutFile(tsId, ext=PREXF_EXT),
+            'tiltfile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': tiltAxisAngle,
             'filterSigma1': self.filterSigma1.get(),
             'filterSigma2': self.filterSigma2.get(),
@@ -203,39 +198,22 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         Plugin.runImod(self, 'tiltxcorr', argsXcorr % paramsXcorr)
 
         paramsXftoxg = {
-            'input': os.path.join(extraPrefix,
-                                  ts.getFirstItem().parseFileName(extension=".prexf")),
-            'goutput': os.path.join(extraPrefix,
-                                    ts.getFirstItem().parseFileName(extension=".prexg")),
+            'input': self.getExtraOutFile(tsId, ext=PREXF_EXT),
+            'goutput': self.getExtraOutFile(tsId, ext=PREXG_EXT),
         }
         argsXftoxg = "-input %(input)s " \
                      "-NumberToFit 0 " \
                      "-goutput %(goutput)s "
         Plugin.runImod(self, 'xftoxg', argsXftoxg % paramsXftoxg)
 
-    def getTiltAxisOrientation(self, ts):
-        if self.tiltAxisAngle.get():
-            return self.tiltAxisAngle.get()
-        else:
-            return ts.getAcquisition().getTiltAxisAngle()
-
-    def generateOutputStackStep(self, tsObjId):
+    def generateOutputStackStep(self, tsId):
         """ Generate tilt-serie with the associated transform matrix """
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
+        ts = self.tsDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-        alignmentMatrix = utils.formatTransformationMatrix(
-            os.path.join(extraPrefix,
-                         ts.getFirstItem().parseFileName(extension=".prexg")))
-
+        alignmentMatrix = utils.formatTransformationMatrix(self.getExtraOutFile(tsId, ext=PREXG_EXT))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-
         output.append(newTs)
 
         for index, tiltImage in enumerate(ts):
@@ -271,20 +249,14 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         self._store()
 
-    def computeInterpolatedStackStep(self, tsObjId):
+    def computeInterpolatedStackStep(self, tsId):
         output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+        ts = self.tsDict[tsId]
 
         paramsAlignment = {
-            'input': os.path.join(tmpPrefix, ts.getFirstItem().parseFileName()),
-            'output': os.path.join(extraPrefix, ts.getFirstItem().parseFileName()),
-            'xform': os.path.join(extraPrefix,
-                                  ts.getFirstItem().parseFileName(extension=".prexg")),
+            'input': self.getTmpOutFile(tsId),
+            'output': self.getExtraOutFile(tsId),
+            'xform': self.getExtraOutFile(tsId, ext=PREXG_EXT),
             'bin': self.binning.get(),
             'imagebinned': 1.0
         }
@@ -311,9 +283,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True)
-            newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix,
-                                            tiltImage.parseFileName())))
+            newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
             if self.binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
             newTs.append(newTi)
@@ -336,6 +306,13 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self.InterpolatedTiltSeries.write()
 
         self._store()
+
+    # --------------------------- UTILS functions ------------------------------
+    def getTiltAxisOrientation(self, ts):
+        if self.tiltAxisAngle.get():
+            return self.tiltAxisAngle.get()
+        else:
+            return ts.getAcquisition().getTiltAxisAngle()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

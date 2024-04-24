@@ -5,9 +5,13 @@
   - New feature: patch tracking alignment added.
   - Trimming options in fiducial model added
   - The order of the parameters in the forms was slightly modified according to the user actions.
-3.4.2:
+  - Protocol CTF correction:
+    * Now it can deal with excluded views in the CTF and/or in the TS.
+    * The xf, defocus, and tlt files are generated inside each TS extra sub-directory.
  Developers:
   - Update the acquisition order in the CTFTomo objects (field added to that class in scipion-em-tomo v3.7.0).
+  - Refactorization: avoid the excesive usage of getFirstItem.
+  - File generation methods (most of them in utils) adapted to the CTF-TS intersection functionality.
 3.3.0:
   - bugfix for import ctf, set missing defocus flag
   - move plugin-specific import CTF protocol to the core

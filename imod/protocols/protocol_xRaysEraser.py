@@ -33,7 +33,8 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME, ODD, \
+    MRCS_EXT, EVEN, MOD_EXT
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -179,29 +180,30 @@ class ProtImodXraysEraser(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.eraseXraysStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.eraseXraysStep, tsId)
+            self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputStep)
 
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
-        super().convertInputStep(tsObjId, imodInterpolation=None,
-                                 generateAngleFile=False, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId,
+                                 imodInterpolation=None,
+                                 generateAngleFile=False,
+                                 oddEven=oddEvenFlag)
 
-    def eraseXraysStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
+    def eraseXraysStep(self, tsId):
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
         paramsCcderaser = {
-            'input': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'input': self.getTmpOutFile(tsId),
+            'output': self.getExtraOutFile(tsId),
             'findPeaks': 1,
             'peakCriterion': self.peakCriterion.get(),
             'diffCriterion': self.diffCriterion.get(),
@@ -214,9 +216,7 @@ class ProtImodXraysEraser(ProtImodBase):
             'annulusWidth': 2.0,
             'xyScanSize': 100,
             'edgeExclusionWidth': 4,
-            'pointModel': os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_fid",
-                                                               extension=".mod")),
+            'pointModel': self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
             'borderSize': 2,
             'polynomialOrder': 2,
         }
@@ -244,19 +244,16 @@ class ProtImodXraysEraser(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsCcderaser['input'] = oddFn
-            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
+            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
             paramsCcderaser['input'] = evenFn
-            paramsCcderaser['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
+            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
-    def createOutputStep(self, tsObjId):
+    def createOutputStep(self, tsId):
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
+        ts = self.tsDict[tsId]
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
@@ -267,12 +264,11 @@ class ProtImodXraysEraser(ProtImodBase):
             newTi = tomoObj.TiltImage()
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix,
-                                            tiltImage.parseFileName())))
+            newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
+
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])

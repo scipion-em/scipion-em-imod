@@ -33,7 +33,7 @@ import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT, SFID_EXT
 
 
 class ProtImodFiducialModel(ProtImodBase):
@@ -114,7 +114,8 @@ class ProtImodFiducialModel(ProtImodBase):
                             help="Number of iteration of each correlation to reduce interpolation of the peak position"
                                  "In imod documentation: (tiltxcorr: IterateCorrelations)")
 
-        self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',levelType=params.LEVEL_ADVANCED)
+        self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',
+                         levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition=condition, levelType=params.LEVEL_ADVANCED)
 
     def _fiducialSeedForm(self, form, condition, levelType=params.LEVEL_NORMAL):
@@ -196,47 +197,39 @@ class ProtImodFiducialModel(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            tsObjId = ts.getObjId()
-            self._insertFunctionStep(self.convertInputStep, tsObjId)
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
             if self.typeOfModel == self.FIDUCIAL_MODEL:
-                self._insertFunctionStep(self.generateTrackComStep, tsObjId)
-                self._insertFunctionStep(self.generateFiducialSeedStep, tsObjId)
-                self._insertFunctionStep(self.generateFiducialModelStep, tsObjId)
+                self._insertFunctionStep(self.generateTrackComStep, tsId)
+                self._insertFunctionStep(self.generateFiducialSeedStep, tsId)
+                self._insertFunctionStep(self.generateFiducialModelStep, tsId)
             else:
-                self._insertFunctionStep(self.xcorrStep, tsObjId)
-                self._insertFunctionStep(self.chopcontsStep, tsObjId)
-            self._insertFunctionStep(self.translateFiducialPointModelStep, tsObjId)
-            self._insertFunctionStep(self.computeOutputModelsStep, tsObjId)
-            self._insertFunctionStep(self.createOutputFailedSet, tsObjId)
+                self._insertFunctionStep(self.xcorrStep, tsId)
+                self._insertFunctionStep(self.chopcontsStep, tsId)
+            self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
+            self._insertFunctionStep(self.computeOutputModelsStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedSetStep, tsId)
 
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def generateTrackComStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
+    def _initialize(self):
+        self._failedTs = []
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
 
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        firstItem = ts.getFirstItem()
-
+    def generateTrackComStep(self, tsId):
+        ts = self.tsDict[tsId]
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
         boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
         boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsDict = {
-            'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'inputSeedModel': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(extension=".seed")),
-            'outputModel': os.path.join(extraPrefix,
-                                        firstItem.parseFileName(suffix="_gaps",
-                                                                extension=".fid")),
-            'tiltFile': os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt")),
+            'imageFile': self.getTmpOutFile(tsId),
+            'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
+            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
+            'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
@@ -252,16 +245,9 @@ class ProtImodFiducialModel(ProtImodBase):
         self.translateTrackCom(ts, paramsDict)
 
     @ProtImodBase.tryExceptDecorator
-    def generateFiducialSeedStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
+    def generateFiducialSeedStep(self, tsId):
         paramsAutofidseed = {
-            'trackCommandFile': os.path.join(extraPrefix,
-                                             ts.getFirstItem().parseFileName(suffix="_track",
-                                                                             extension=".com")),
+            'trackCommandFile': self.getExtraOutFile(tsId, suffix="track", ext="com"),
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
             'targetNumberOfBeads': self.numberFiducial.get(),
@@ -286,13 +272,8 @@ class ProtImodFiducialModel(ProtImodBase):
         path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
     @ProtImodBase.tryExceptDecorator
-    def generateFiducialModelStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
+    def generateFiducialModelStep(self, tsId):
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
         fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
@@ -301,15 +282,11 @@ class ProtImodFiducialModel(ProtImodBase):
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         paramsBeadtrack = {
-            'inputSeedModel': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(extension=".seed")),
-            'outputModel': os.path.join(extraPrefix,
-                                        firstItem.parseFileName(suffix="_gaps",
-                                                                extension=".fid")),
-            'imageFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
+            'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
+            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
+            'imageFile': self.getTmpOutFile(tsId),
             'imagesAreBinned': 1,
-            'tiltFile': os.path.join(tmpPrefix,
-                                     firstItem.parseFileName(extension=".tlt")),
+            'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'tiltDefaultGrouping': 7,
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
@@ -378,8 +355,7 @@ class ProtImodFiducialModel(ProtImodBase):
             argsBeadtrack += f"-SkipViews {','.join(excludedViews)} "
 
         if firstItem.hasTransform():
-            XfFileName = os.path.join(tmpPrefix,
-                                      firstItem.parseFileName(extension=".xf"))
+            XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
             argsBeadtrack += f"-prexf {XfFileName} "
 
         Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
@@ -387,74 +363,41 @@ class ProtImodFiducialModel(ProtImodBase):
         if self.doTrackWithModel:
             # repeat tracking with the current model as seed
             path.copyFile(paramsBeadtrack['inputSeedModel'],
-                          os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_orig",
-                                                               extension=".seed")))
+                          self.getExtraOutFile(tsId, suffix="orig", ext=SEED_EXT))
             path.moveFile(paramsBeadtrack['outputModel'],
                           paramsBeadtrack['inputSeedModel'])
 
             Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
-    def translateFiducialPointModelStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
+    def translateFiducialPointModelStep(self, tsId):
+        ts = self.tsDict[tsId]
 
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(os.path.join(extraPrefix,
-                                       firstItem.parseFileName(suffix="_gaps",
-                                                               extension=".fid"))):
+        gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
+        if os.path.exists(gapsFidFile):
             paramsGapModel2Point = {
-                'inputFile': os.path.join(extraPrefix,
-                                          firstItem.parseFileName(suffix="_gaps",
-                                                                  extension=".fid")),
-                'outputFile': os.path.join(extraPrefix,
-                                           firstItem.parseFileName(suffix="_gaps_fid",
-                                                                   extension=".txt"))
+                'inputFile': gapsFidFile,
+                'outputFile': self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
             }
             argsGapModel2Point = "-InputFile %(inputFile)s " \
                                  "-OutputFile %(outputFile)s"
 
             Plugin.runImod(self, 'model2point', argsGapModel2Point % paramsGapModel2Point)
 
-    def computeOutputModelsStep(self, tsObjId):
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
+    def computeOutputModelsStep(self, tsId):
+        ts = self.tsDict[tsId]
 
         # Create the output set of landmark models with gaps
         # Check that previous steps have been completed satisfactorily
-        if os.path.exists(
-                os.path.join(extraPrefix,
-                             firstItem.parseFileName(suffix="_gaps",
-                                                     extension=".fid"))):
-
+        fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
+        if os.path.exists(fiducialModelGapPath):
             output = self.getOutputFiducialModelGaps()
-
-            landmarkModelGapsFilePath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_gaps", extension=".sfid")
-            )
-
-            fiducialModelGapPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_gaps", extension=".fid")
-            )
-
-            fiducialModelGapTxtPath = os.path.join(
-                extraPrefix,
-                firstItem.parseFileName(suffix="_gaps_fid", extension=".txt")
-            )
+            landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
+            fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
             fiducialDiameterPixel = self.fiducialDiameter.get() / (
-                        self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+                    self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
 
             landmarkModelGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                       tiltSeriesPointer=ts,
@@ -485,8 +428,8 @@ class ProtImodFiducialModel(ProtImodBase):
             output.update(landmarkModelGaps)
             output.write()
 
-    def xcorrStep(self, tsObjId):
-        '''
+    def xcorrStep(self, tsId):
+        """
         Imod uses the next command line for the xcorr alignment
         $tiltxcorr                  -StandardInput
         InputFile	                cryo_preali.mrc
@@ -502,28 +445,21 @@ class ProtImodFiducialModel(ProtImodBase):
         OverlapOfPatchesXandY	    0.33,0.33
         PrealignmentTransformFile	cryo.prexg
         ImagesAreBinned	            1
-        '''
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        firstItem = ts.getFirstItem()
-        angleFilePath = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".tlt"))
-
-        xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
+        """
+        ts = self.tsDict[tsId]
+        angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         ts.writeXfFile(xfFile)
 
         borders = self.pxTrim.getListFromValues()
         sizePatches = self.sizeOfPatches.getListFromValues()
 
-
         BordersInXandY = '%d,%d' % (borders[0], borders[1])
-        SizeOfPatchesXandY = '%d,%d'  % (sizePatches[0], sizePatches[1])
+        SizeOfPatchesXandY = '%d,%d' % (sizePatches[0], sizePatches[1])
 
         paramsTiltXCorr = {
-            'inputFile': os.path.join(tmpPrefix, firstItem.parseFileName()),
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
+            'inputFile': self.getTmpOutFile(tsId),
+            'outputFile': self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
             'RotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'TiltFile': angleFilePath,
             'FilterRadius2': self.filterRadius2.get(),
@@ -560,27 +496,21 @@ class ProtImodFiducialModel(ProtImodBase):
 
         Plugin.runImod(self, 'tiltxcorr', argsTiltXCorr % paramsTiltXCorr)
 
-    def chopcontsStep(self, tsObjId):
-        '''
+    def chopcontsStep(self, tsId):
+        """
         $imodchopconts -StandardInput
         InputModel cryo_pt.fid
         OutputModel cryo.fid
         MinimumOverlap	4
         AssignSurfaces 1
-        '''
-
-        ts = self._getTiltSeries(tsObjId)
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
-        firstItem = ts.getFirstItem()
+        """
         MinimumOverlap = 4
         AssignSurfaces = 1
         LengthOfPieces = -1
 
         paramschopconts = {
-            'inputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_pt", extension=".fid")),
-            'outputFile': os.path.join(extraPrefix, firstItem.parseFileName(suffix="_gaps", extension=".fid")),
+            'inputFile': self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+            'outputFile': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'MinimumOverlap': MinimumOverlap,
             'AssignSurfaces': AssignSurfaces,
             'LengthOfPieces': LengthOfPieces
@@ -601,6 +531,10 @@ class ProtImodFiducialModel(ProtImodBase):
             self.FailedTiltSeries.setStreamState(Set.STREAM_CLOSED)
 
         self._store()
+
+    def createOutputFailedSetStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     # --------------------------- UTILS functions -----------------------------
     def translateTrackCom(self, ts, paramsDict):
@@ -688,8 +622,7 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
             template += f"SkipViews {','.join(excludedViews)}"
 
         if firstItem.hasTransform():
-            XfFileName = os.path.join(tmpPrefix,
-                                      firstItem.parseFileName(extension=".xf"))
+            XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
             template += f"PrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:
