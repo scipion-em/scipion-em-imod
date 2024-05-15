@@ -71,10 +71,18 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'of pixels being binned. Binning is applied before all other image '
                            'transformations.')
 
-        form.addParam('linear',
+        form.addParam('taperInside',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
+                      label='Taper inwards from the edge?',
+                      help='When the image is transformed areas with no information are filled in (e.g. because of rotation).'
+                      'Decide whether tapering is done inwards or outwards from the edge.')
+        
+        form.addParam('linear',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=False,
                       label='Linear interpolation?',
                       help='From newstack man page: Use linear instead of cubic interpolation to transform images. '
                             'Linear interpolation is more suitable when images are very noisy, '
@@ -113,6 +121,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
         binning = self.binning.get()
+        taperIn = self.taperInside.get()
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
@@ -120,7 +129,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             'xform': self.getExtraOutFile(tsId, ext=XF_EXT),
             'bin': binning,
             'imagebinned': 1.0,
-            'taper': "1,0"
+            'taper': "1," + str(int(taperIn))
         }
 
         argsAlignment = "-input %(input)s " \
@@ -129,7 +138,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-bin %(bin)d " \
                         "-antialias -1 " \
                         "-imagebinned %(imagebinned)s " \
-                            "-taper %(taper)s "
+                        "-taper %(taper)s "
         
         if self.linear.get():
             argsAlignment += "-linear "
