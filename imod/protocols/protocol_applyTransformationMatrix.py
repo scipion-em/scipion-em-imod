@@ -63,14 +63,31 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         form.addParam('binning', params.IntParam,
                       default=1,
                       label='Binning for the interpolated',
-                      help='Binning to be applied to the interpolated  tilt-series in IMOD '
+                      help='Binning to be applied to the interpolated tilt-series in IMOD '
                            'convention. \n'
                            'Binning is an scaling factor given by an integer greater than 1. '
-                           'IMOD uses ordinary binning to reduce images in size by the given factor. '
+                           'IMOD uses ordinary binning (with antialiasing filter) to reduce images in size by the given factor. '
                            'The value of a binned pixel is the average of pixel values in each block '
                            'of pixels being binned. Binning is applied before all other image '
                            'transformations.')
 
+        form.addParam('taperInside',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Taper inwards from the edge?',
+                      help='When the image is transformed areas with no information are filled in (e.g. because of rotation).'
+                      'Decide whether tapering is done inwards or outwards from the edge.')
+        
+        form.addParam('linear',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=False,
+                      label='Linear interpolation?',
+                      help='From newstack man page: Use linear instead of cubic interpolation to transform images. '
+                            'Linear interpolation is more suitable when images are very noisy, '
+                            'but cubic interpolation will preserve fine detail better when noise is not an issue.')
+        
         form.addParam('processOddEven',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -110,7 +127,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             'output': self.getExtraOutFile(tsId),
             'xform': self.getExtraOutFile(tsId, ext=XF_EXT),
             'bin': binning,
-            'imagebinned': 1.0
+            'imagebinned': 1.0,
+            'taper': "1,1" if self.taperInside else "1,0"
         }
 
         argsAlignment = "-input %(input)s " \
@@ -118,7 +136,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         "-xform %(xform)s " \
                         "-bin %(bin)d " \
                         "-antialias -1 " \
-                        "-imagebinned %(imagebinned)s "
+                        "-imagebinned %(imagebinned)s " \
+                        "-taper %(taper)s "
+        
+        if self.linear.get():
+            argsAlignment += "-linear "
 
         rotationAngle = ts.getAcquisition().getTiltAxisAngle()
 
