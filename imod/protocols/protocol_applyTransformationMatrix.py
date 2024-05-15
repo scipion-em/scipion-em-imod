@@ -121,7 +121,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
         binning = self.binning.get()
-        taperIn = self.taperInside.get()
 
         paramsAlignment = {
             'input': firstItem.getFileName(),
@@ -129,7 +128,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             'xform': self.getExtraOutFile(tsId, ext=XF_EXT),
             'bin': binning,
             'imagebinned': 1.0,
-            'taper': "1," + str(int(taperIn))
+            'taper': "1,1" if self.taperInside else "1,0"
         }
 
         argsAlignment = "-input %(input)s " \
