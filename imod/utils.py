@@ -647,8 +647,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 lines = []
                 pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
 
-                for index in defocusUDict.keys():
-
+                for index in sorted(defocusUDict.keys()):
+                    print(index)
                     if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
@@ -686,7 +686,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 # order to match the IMOD defocus file format.
                 lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
 
-                for index in defocusUDict.keys():
+                for index in sorted(defocusUDict.keys()):
 
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
@@ -722,7 +722,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 # order to match the IMOD defocus file format.
                 lines = ["4\t0\t0.0\t0.0\t0.0\t3\n"]
 
-                for index in defocusUDict.keys():
+                for index in sorted(defocusUDict.keys()):
 
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
@@ -759,7 +759,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 # to match the IMOD defocus file format
                 lines = ["5\t0\t0.0\t0.0\t0.0\t3\n"]
 
-                for index in defocusUDict.keys():
+                for index in sorted(defocusUDict.keys()):
 
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
@@ -799,7 +799,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 # to match the IMOD defocus file format
                 lines = ["37\t0\t0.0\t0.0\t0.0\t3\n"]
 
-                for index in defocusUDict.keys():
+                for index in sorted(defocusUDict.keys()):
 
                     if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
                         break
