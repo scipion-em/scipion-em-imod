@@ -648,7 +648,6 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                 pattern = "%d\t%d\t%.2f\t%.2f\t%d\n"
 
                 for index in sorted(defocusUDict.keys()):
-                    print(index)
                     if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
