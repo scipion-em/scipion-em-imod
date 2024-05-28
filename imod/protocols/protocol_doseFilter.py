@@ -142,7 +142,7 @@ class ProtImodDoseFilter(ProtImodBase):
             argsMtffilter += f"-InitialDose {self.initialDose.get():f} "
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose"),
+            outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
             utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
 
             paramsMtffilter.update({
