@@ -261,7 +261,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         ts = self.tsDict[tsId]
         paramsTilt = {
             'InputProjections': self.getTmpOutFile(tsId),
-            'OutputFile': self.getTmpOutFile(tsId, ext=REC_EXT),
+            'OutputFile': self.getTmpOutFile(tsId, ext=MRC_EXT),
             'TiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
@@ -313,17 +313,17 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         if self.applyToOddEven(ts):
             paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-            oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=REC_EXT)
+            oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
             paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
-            oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=REC_EXT)
+            oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[1]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsTrimVol = {
-            'input': self.getTmpOutFile(tsId, ext=REC_EXT),
+            'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
             'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
             'options': getArgs()
         }
@@ -336,11 +336,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         if self.applyToOddEven(ts):
             paramsTrimVol['input'] = oddEvenTmp[0]
-            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
             paramsTrimVol['input'] = oddEvenTmp[1]
-            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsId):
@@ -354,8 +354,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
             newTomogram.setLocation(tomoLocation)
 
             if self.applyToOddEven(ts):
-                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT),
-                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)]
+                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                 newTomogram.setHalfMaps(halfMapsList)
 
             newTomogram.setTsId(tsId)
