@@ -31,7 +31,7 @@ from pyworkflow.object import Set
 from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase,XF_EXT, ODD, EVEN, MRCS_EXT
+from .protocol_base import ProtImodBase, XF_EXT, ODD, EVEN
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -165,10 +165,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsAlignment['input'] = oddFn
-            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
             paramsAlignment['input'] = evenFn
-            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsAlignment['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
 
     def generateOutputStackStep(self, tsId):
@@ -203,8 +203,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     newTi.setAcquisition(acq)
                     newTi.setLocation(index, outputLocation)
                     if self.applyToOddEven(ts):
-                        locationOdd = index, (self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT))
-                        locationEven = index, (self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT))
+                        locationOdd = index, (self.getExtraOutFile(tsId, suffix=ODD))
+                        locationEven = index, (self.getExtraOutFile(tsId, suffix=EVEN))
                         newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
                     else:
                         newTi.setOddEven([])

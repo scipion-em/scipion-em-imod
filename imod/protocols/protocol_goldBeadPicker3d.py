@@ -24,11 +24,8 @@
 # *
 # *****************************************************************************
 
-import os
-
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
-from pyworkflow.utils import path, removeBaseExt
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
 import tomo.constants as constants

@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
 from .. import Plugin
-from .protocol_base import ProtImodBase,OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from .protocol_base import ProtImodBase, OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
 class ProtImodTomoNormalization(ProtImodBase):
@@ -300,7 +300,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         if binning != 1:
             if runNewstack:
-                tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
+                tmpPath = self.getTmpOutFile(tsId)
                 pwpath.moveFile(outputFile, tmpPath)
                 inputTomoPath = tmpPath
 
@@ -308,8 +308,8 @@ class ProtImodTomoNormalization(ProtImodBase):
                     pwpath.moveFile(oddEvenOutput[0], tmpPath)
                     pwpath.moveFile(oddEvenOutput[1], tmpPath)
                     inputTomoPath = tmpPath
-                    inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                           self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
+                    inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD),
+                                           self.getTmpOutFile(tsId, suffix=EVEN))
             else:
                 inputTomoPath = location
                 if self.applyToOddEven(tomo):

@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN, MRCS_EXT
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from ..utils import genXfFile
 
 
@@ -309,10 +309,10 @@ class ProtImodTsNormalization(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
             paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
@@ -338,8 +338,8 @@ class ProtImodTsNormalization(ProtImodBase):
 
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])

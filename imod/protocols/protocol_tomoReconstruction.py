@@ -32,8 +32,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
-                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, TLT_EXT, ODD, MRCS_EXT, EVEN, MRC_EXT, REC_EXT)
+from .protocol_base import ProtImodBase, TLT_EXT, ODD, EVEN, MRC_EXT
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -89,25 +88,25 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       help='Number of pixels to cut out in X, centered on the middle in X. Leave 0 for default X.')
 
         lineShift = form.addLine('Tomogram shift (Å)',
-                             expertLevel=params.LEVEL_ADVANCED,
-                             help="This entry allows one to shift the reconstructed"
-                                  " slice in X or Z before it is output.  If the "
-                                  " X shift is positive, the slice will be shifted to "
-                                  " the right, and the output will contain the left "
-                                  " part of the whole potentially reconstructable area. "
-                                  " If the Z shift is positive, the slice is shifted "
-                                  " upward. The Z entry is optional and defaults to 0 when "
-                                  " omitted.")
+                                 expertLevel=params.LEVEL_ADVANCED,
+                                 help="This entry allows one to shift the reconstructed"
+                                      " slice in X or Z before it is output.  If the "
+                                      " X shift is positive, the slice will be shifted to "
+                                      " the right, and the output will contain the left "
+                                      " part of the whole potentially reconstructable area. "
+                                      " If the Z shift is positive, the slice is shifted "
+                                      " upward. The Z entry is optional and defaults to 0 when "
+                                      " omitted.")
 
         lineShift.addParam('tomoShiftX',
-                      params.FloatParam,
-                      default=0,
-                      label=' in X ')
+                           params.FloatParam,
+                           default=0,
+                           label=' in X ')
 
         lineShift.addParam('tomoShiftZ',
-                      params.FloatParam,
-                      default=0,
-                      label=' in Z ')
+                           params.FloatParam,
+                           default=0,
+                           label=' in Z ')
 
         lineoffSet = form.addLine('Offset (deg) of the ',
                                   expertLevel=params.LEVEL_ADVANCED,
@@ -117,25 +116,22 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                        "projection images, cutting the X-axis at NX/2 + offset instead of NX/2.")
 
         lineoffSet.addParam('angleOffset',
-                      params.FloatParam,
-                      default=0,
-                      label='Tilt angles ',
-                      help='Apply an angle offset in degrees to all tilt '
-                           'angles. This offset positively rotates the '
-                           'reconstructed sections anticlockwise.')
+                            params.FloatParam,
+                            default=0,
+                            label='Tilt angles ',
+                            help='Apply an angle offset in degrees to all tilt '
+                                 'angles. This offset positively rotates the '
+                                 'reconstructed sections anticlockwise.')
 
         lineoffSet.addParam('tiltAxisOffset',
-                      params.FloatParam,
-                      default=0,
-                      label='Tilt axis',
-                      help='Apply an offset to the tilt axis in a stack of '
-                           'full-sized projection images, cutting the '
-                           'X-axis at NX/2 + offset instead of NX/2. The '
-                           'DELXX entry is optional and defaults to 0 '
-                           'when omitted.')
-
-
-
+                            params.FloatParam,
+                            default=0,
+                            label='Tilt axis',
+                            help='Apply an offset to the tilt axis in a stack of '
+                                 'full-sized projection images, cutting the '
+                                 'X-axis at NX/2 + offset instead of NX/2. The '
+                                 'DELXX entry is optional and defaults to 0 '
+                                 'when omitted.')
 
         form.addParam('superSampleFactor',
                       params.IntParam,
@@ -261,7 +257,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         ts = self.tsDict[tsId]
         paramsTilt = {
             'InputProjections': self.getTmpOutFile(tsId),
-            'OutputFile': self.getTmpOutFile(tsId, ext=REC_EXT),
+            'OutputFile': self.getTmpOutFile(tsId, ext=MRC_EXT),
             'TiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'Thickness': self.tomoThickness.get(),
             'FalloffIsTrueSigma': 1,
@@ -312,18 +308,18 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-            oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=REC_EXT)
+            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
+            oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
-            oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=REC_EXT)
+            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
+            oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[1]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
         paramsTrimVol = {
-            'input': self.getTmpOutFile(tsId, ext=REC_EXT),
+            'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
             'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
             'options': getArgs()
         }
@@ -336,11 +332,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         if self.applyToOddEven(ts):
             paramsTrimVol['input'] = oddEvenTmp[0]
-            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
             paramsTrimVol['input'] = oddEvenTmp[1]
-            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
     def createOutputStep(self, tsId):
@@ -354,8 +350,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
             newTomogram.setLocation(tomoLocation)
 
             if self.applyToOddEven(ts):
-                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT),
-                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)]
+                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                 newTomogram.setHalfMaps(halfMapsList)
 
             newTomogram.setTsId(tsId)

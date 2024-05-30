@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import os
 
 from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL, params
@@ -244,24 +243,18 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return wrapper
 
-    def getTmpTSFile(self, tsId, tmpPrefix=None, suffix=".mrcs"):
-        if tmpPrefix is None:
-            tmpPrefix = self._getTmpPath(tsId)
-
-        return os.path.join(tmpPrefix, tsId + suffix)
-
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the current tilt-series in tmp and extra"""
         path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
 
     @staticmethod
-    def getOutTsFileName(tsId, suffix=None, ext='mrc'):
+    def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
         return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'
 
-    def getTmpOutFile(self, tsId, suffix=None, ext='mrc'):
+    def getTmpOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
         return self._getTmpPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
-    def getExtraOutFile(self, tsId, suffix=None, ext='mrc'):
+    def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
         return self._getExtraPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
     def convertInputStep(self, tsObjId, generateAngleFile=True, imodInterpolation=True, doSwap=False,
@@ -322,8 +315,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         if oddEven:
             fnOdd = ts.getOddFileName()
             fnEven = ts.getEvenFileName()
-            outputOddTsFileName = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-            outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            outputOddTsFileName = self.getTmpOutFile(tsId, suffix=ODD)
+            outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
 
         # Interpolation
         if imodInterpolation is None:
@@ -604,8 +597,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
-
-
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
 

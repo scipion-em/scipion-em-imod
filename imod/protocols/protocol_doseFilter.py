@@ -30,7 +30,7 @@ import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, ODD, MRCS_EXT, EVEN
+from .protocol_base import ProtImodBase, ODD, EVEN
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -165,12 +165,12 @@ class ProtImodDoseFilter(ProtImodBase):
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsMtffilter['input'] = oddFn
-            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=ODD)
 
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
             evenFn = firstItem.getEven().split('@')[1]
             paramsMtffilter['input'] = evenFn
-            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
     def createOutputStep(self, tsId):
@@ -188,8 +188,8 @@ class ProtImodDoseFilter(ProtImodBase):
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])

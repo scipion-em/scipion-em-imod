@@ -24,18 +24,15 @@
 # *
 # *****************************************************************************
 
-import os
-
 from pwem.objects import Transform
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, MRC_EXT
+from .protocol_base import ProtImodBase, MRCS_EXT
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -116,7 +113,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
         paramsXYZproj = {
             'input': tomo.getFileName(),
-            'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
+            'output': self.getExtraOutFile(tsId, ext=MRCS_EXT),
             'axis': self.getRotationAxis(),
             'angles': str(self.minAngle.get()) + ',' +
                       str(self.maxAngle.get()) + ',' +
@@ -147,7 +144,7 @@ class ProtImodTomoProjection(ProtImodBase):
             newTi.setTsId(tsId)
             newTi.setAcquisitionOrder(index + 1)
             newTi.setLocation(index + 1,
-                              self.getExtraOutFile(tsId, ext=MRC_EXT))
+                              self.getExtraOutFile(tsId, ext=MRCS_EXT))
             newTi.setSamplingRate(sRate)
             newTs.append(newTi)
 

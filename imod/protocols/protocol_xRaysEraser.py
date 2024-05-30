@@ -24,8 +24,6 @@
 # *
 # *****************************************************************************
 
-import os
-
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
@@ -33,8 +31,8 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME, ODD, \
-    MRCS_EXT, EVEN, MOD_EXT
+from .protocol_base import (ProtImodBase, OUTPUT_TILTSERIES_NAME,
+                            ODD, EVEN, MOD_EXT)
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -244,10 +242,10 @@ class ProtImodXraysEraser(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsCcderaser['input'] = oddFn
-            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
             paramsCcderaser['input'] = evenFn
-            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsId):
@@ -267,8 +265,8 @@ class ProtImodXraysEraser(ProtImodBase):
             newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
 
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])

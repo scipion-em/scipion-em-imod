@@ -31,7 +31,7 @@ from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
 from tomo.utils import getCommonTsAndCtfElements
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD, MRCS_EXT, EVEN
+from .protocol_base import ProtImodBase, DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD, EVEN
 
 
 class ProtImodCtfCorrection(ProtImodBase):
@@ -238,20 +238,19 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         if self.applyToOddEven(ts):
             # ODD
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD)
+            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
             # EVEN
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN)
+            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsId, presentAcqOrders):
         if tsId not in self._failedTs:
             inTsSet = self.inputSetOfTiltSeries.get()
             outputSetOfTs = self.getOutputSetOfTiltSeries(inTsSet)
-            extraPrefix = self._getExtraPath(tsId)
 
             newTs = TiltSeries(tsId=tsId)
             ts = self.tsDict[tsId]
@@ -274,8 +273,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                     newTi.setAcquisition(acq)
                     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
                     if self.applyToOddEven(ts):
-                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                         newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
                     else:
                         newTi.setOddEven([])

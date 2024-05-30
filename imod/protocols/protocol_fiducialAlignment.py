@@ -200,11 +200,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Rotation solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Type of rotation solution: See rotOption in tiltalign IMOD command \n'
-                        '* No rotation: The in-plane rotation will not be estimated\n'
-                        '* One rotation: To solve for a single rotation variable \n'
-                        '* Group rotations: Group views to solve for fewer rotations variables. Automapping of '
+                           '* No rotation: The in-plane rotation will not be estimated\n'
+                           '* One rotation: To solve for a single rotation variable \n'
+                           '* Group rotations: Group views to solve for fewer rotations variables. Automapping of '
                            'rotation variables linearly changing values\n'
-                        '* Solve for all rotations: for each view having an independent rotation\n')
+                           '* Solve for all rotations: for each view having an independent rotation\n')
 
         form.addParam('groupRotationSize',
                       params.IntParam,
