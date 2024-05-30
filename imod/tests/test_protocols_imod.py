@@ -670,7 +670,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         ih = ImageHandler()
         outputDimensions = ih.getDimensions(output.getFirstItem().getFirstItem().getFileName())
 
-        self.assertEqual(outputDimensions, (256, 256, 61, 1))
+        self.assertEqual(outputDimensions, (256, 256, 1, 61))
 
         # Sampling rate
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
