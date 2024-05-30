@@ -238,13 +238,13 @@ class ProtImodCtfCorrection(ProtImodBase):
 
         if self.applyToOddEven(ts):
             # ODD
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD)
+            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
             # EVEN
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN)
+            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
     def createOutputStep(self, tsId, presentAcqOrders):
@@ -274,8 +274,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                     newTi.setAcquisition(acq)
                     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
                     if self.applyToOddEven(ts):
-                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
-                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                         newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
                     else:
                         newTi.setOddEven([])

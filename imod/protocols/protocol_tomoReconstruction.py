@@ -32,8 +32,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
 
 from .. import Plugin
-from .protocol_base import (ProtImodBase, EXT_MRC_ODD_NAME, EXT_MRC_EVEN_NAME,
-                            EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, TLT_EXT, ODD, MRCS_EXT, EVEN, MRC_EXT, REC_EXT)
+from .protocol_base import ProtImodBase, TLT_EXT, ODD, EVEN, MRC_EXT
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -312,12 +311,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
         oddEvenTmp = [[], []]
 
         if self.applyToOddEven(ts):
-            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRCS_EXT)
+            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
             oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[0]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)
 
-            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRCS_EXT)
+            paramsTilt['InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
             oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             paramsTilt['OutputFile'] = oddEvenTmp[1]
             Plugin.runImod(self, 'tilt', argsTilt % paramsTilt)

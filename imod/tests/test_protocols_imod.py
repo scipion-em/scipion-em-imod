@@ -460,7 +460,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId),
-                                                    tsId + ".mrc")))
+                                                    tsId + ".mrcs")))
 
     def test_xRaysEraserOutputTS(self):
 
@@ -470,7 +470,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protXRaysEraser._getExtraPath(tsId),
-                                                    tsId + ".mrc")))
+                                                    tsId + ".mrcs")))
 
     def test_excludeViewsOutputTS(self):
 
@@ -480,7 +480,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId),
-                                                    tsId + ".mrc")))
+                                                    tsId + ".mrcs")))
 
         for index, tsOut in enumerate(ts):
             self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
@@ -493,7 +493,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId),
-                                                    tsId + ".mrc")))
+                                                    tsId + ".mrcs")))
 
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = ts.getSamplingRate()
@@ -507,7 +507,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      tsId + ".mrc")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -521,7 +521,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      tsId + ".mrc")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -552,7 +552,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      tsId + ".mrc")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -565,7 +565,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      tsId + ".mrc")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -608,7 +608,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId),
-                                      tsId + ".mrc")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -765,7 +765,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         for ts in output:
             tsId = ts.getTsId()
             outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId),
-                                          '%s.mrc' % tsId)
+                                          '%s.mrcs' % tsId)
 
             self.assertTrue(os.path.exists(outputLocation))
 
