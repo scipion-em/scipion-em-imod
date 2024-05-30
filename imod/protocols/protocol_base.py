@@ -756,7 +756,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 if hasattr(self, "binning") and self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning)
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
             ih = ImageHandler()
