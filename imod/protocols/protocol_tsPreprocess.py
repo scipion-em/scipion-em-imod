@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN, MRCS_EXT
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from ..utils import genXfFile
 
 

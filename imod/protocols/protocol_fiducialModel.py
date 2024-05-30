@@ -370,8 +370,6 @@ class ProtImodFiducialModel(ProtImodBase):
             Plugin.runImod(self, 'beadtrack', argsBeadtrack % paramsBeadtrack)
 
     def translateFiducialPointModelStep(self, tsId):
-        ts = self.tsDict[tsId]
-
         # Check that previous steps have been completed satisfactorily
         gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
         if os.path.exists(gapsFidFile):
@@ -540,7 +538,6 @@ class ProtImodFiducialModel(ProtImodBase):
     def translateTrackCom(self, ts, paramsDict):
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
 
         firstItem = ts.getFirstItem()
         trackFilePath = os.path.join(extraPrefix,

@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
 from .. import Plugin
-from .protocol_base import ProtImodBase,OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from .protocol_base import ProtImodBase, OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
 class ProtImodTomoNormalization(ProtImodBase):

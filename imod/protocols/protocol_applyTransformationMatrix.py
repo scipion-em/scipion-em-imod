@@ -31,7 +31,7 @@ from pyworkflow.object import Set
 from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase,XF_EXT, ODD, EVEN, MRCS_EXT
+from .protocol_base import ProtImodBase, XF_EXT, ODD, EVEN
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):

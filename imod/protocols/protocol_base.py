@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import os
 
 from pyworkflow.object import Set, CsvList, Pointer
 from pyworkflow.protocol import STEPS_PARALLEL, params
@@ -451,7 +450,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+                samplingRate *= self.binning
                 outputSetOfTiltSeries.setSamplingRate(samplingRate)
 
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
@@ -481,7 +480,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             if self.binning > 1:
                 samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+                samplingRate *= self.binning
                 outputInterpolatedSetOfTiltSeries.setSamplingRate(samplingRate)
 
             outputInterpolatedSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
@@ -598,8 +597,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
-
-
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
 
@@ -612,7 +609,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+                samplingRate *= self.binning
                 outputSetOfTomograms.setSamplingRate(samplingRate)
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
@@ -759,7 +756,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 newTi.setAcquisition(tiltImage.getAcquisition())
                 newTi.setLocation(tiltImage.getLocation())
                 if hasattr(self, "binning") and self.binning > 1:
-                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
+                    newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning)
                 newTs.append(newTi)
 
             ih = ImageHandler()

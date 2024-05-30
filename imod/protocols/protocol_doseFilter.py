@@ -30,7 +30,7 @@ import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, ODD, MRCS_EXT, EVEN
+from .protocol_base import ProtImodBase, ODD, EVEN
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1

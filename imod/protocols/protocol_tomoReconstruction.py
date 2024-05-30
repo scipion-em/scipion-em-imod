@@ -88,25 +88,25 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       help='Number of pixels to cut out in X, centered on the middle in X. Leave 0 for default X.')
 
         lineShift = form.addLine('Tomogram shift (Å)',
-                             expertLevel=params.LEVEL_ADVANCED,
-                             help="This entry allows one to shift the reconstructed"
-                                  " slice in X or Z before it is output.  If the "
-                                  " X shift is positive, the slice will be shifted to "
-                                  " the right, and the output will contain the left "
-                                  " part of the whole potentially reconstructable area. "
-                                  " If the Z shift is positive, the slice is shifted "
-                                  " upward. The Z entry is optional and defaults to 0 when "
-                                  " omitted.")
+                                 expertLevel=params.LEVEL_ADVANCED,
+                                 help="This entry allows one to shift the reconstructed"
+                                      " slice in X or Z before it is output.  If the "
+                                      " X shift is positive, the slice will be shifted to "
+                                      " the right, and the output will contain the left "
+                                      " part of the whole potentially reconstructable area. "
+                                      " If the Z shift is positive, the slice is shifted "
+                                      " upward. The Z entry is optional and defaults to 0 when "
+                                      " omitted.")
 
         lineShift.addParam('tomoShiftX',
-                      params.FloatParam,
-                      default=0,
-                      label=' in X ')
+                           params.FloatParam,
+                           default=0,
+                           label=' in X ')
 
         lineShift.addParam('tomoShiftZ',
-                      params.FloatParam,
-                      default=0,
-                      label=' in Z ')
+                           params.FloatParam,
+                           default=0,
+                           label=' in Z ')
 
         lineoffSet = form.addLine('Offset (deg) of the ',
                                   expertLevel=params.LEVEL_ADVANCED,
@@ -116,25 +116,22 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                        "projection images, cutting the X-axis at NX/2 + offset instead of NX/2.")
 
         lineoffSet.addParam('angleOffset',
-                      params.FloatParam,
-                      default=0,
-                      label='Tilt angles ',
-                      help='Apply an angle offset in degrees to all tilt '
-                           'angles. This offset positively rotates the '
-                           'reconstructed sections anticlockwise.')
+                            params.FloatParam,
+                            default=0,
+                            label='Tilt angles ',
+                            help='Apply an angle offset in degrees to all tilt '
+                                 'angles. This offset positively rotates the '
+                                 'reconstructed sections anticlockwise.')
 
         lineoffSet.addParam('tiltAxisOffset',
-                      params.FloatParam,
-                      default=0,
-                      label='Tilt axis',
-                      help='Apply an offset to the tilt axis in a stack of '
-                           'full-sized projection images, cutting the '
-                           'X-axis at NX/2 + offset instead of NX/2. The '
-                           'DELXX entry is optional and defaults to 0 '
-                           'when omitted.')
-
-
-
+                            params.FloatParam,
+                            default=0,
+                            label='Tilt axis',
+                            help='Apply an offset to the tilt axis in a stack of '
+                                 'full-sized projection images, cutting the '
+                                 'X-axis at NX/2 + offset instead of NX/2. The '
+                                 'DELXX entry is optional and defaults to 0 '
+                                 'when omitted.')
 
         form.addParam('superSampleFactor',
                       params.IntParam,

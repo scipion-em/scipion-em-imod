@@ -31,7 +31,7 @@ from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
 from tomo.utils import getCommonTsAndCtfElements
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD, MRCS_EXT, EVEN
+from .protocol_base import ProtImodBase, DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD, EVEN
 
 
 class ProtImodCtfCorrection(ProtImodBase):
@@ -251,7 +251,6 @@ class ProtImodCtfCorrection(ProtImodBase):
         if tsId not in self._failedTs:
             inTsSet = self.inputSetOfTiltSeries.get()
             outputSetOfTs = self.getOutputSetOfTiltSeries(inTsSet)
-            extraPrefix = self._getExtraPath(tsId)
 
             newTs = TiltSeries(tsId=tsId)
             ts = self.tsDict[tsId]

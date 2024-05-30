@@ -24,8 +24,6 @@
 # *
 # *****************************************************************************
 
-import os
-
 from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
@@ -33,8 +31,8 @@ from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, EXT_MRCS_TS_ODD_NAME, EXT_MRCS_TS_EVEN_NAME, ODD, \
-    MRCS_EXT, EVEN, MOD_EXT
+from .protocol_base import (ProtImodBase, OUTPUT_TILTSERIES_NAME,
+                            ODD, EVEN, MOD_EXT)
 
 
 class ProtImodXraysEraser(ProtImodBase):

@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 
-import os
 import numpy as np
 
 from pyworkflow import BETA
@@ -125,7 +124,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         trimming = form.addGroup('Trimming parameters', expertLevel=params.LEVEL_ADVANCED)
 
-        self.trimimgForm(trimming, pxTrimCondition='False', correlationCondition='True', levelType=params.LEVEL_ADVANCED)
+        self.trimimgForm(trimming, pxTrimCondition='False',
+                         correlationCondition='True', levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition='True', levelType=params.LEVEL_ADVANCED)
 
     # -------------------------- INSERT steps functions -----------------------
@@ -134,7 +134,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.convertInputStep, tsId)
             self._insertFunctionStep(self.computeXcorrStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep,tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
             if self.computeAlignment.get() == 0:
                 self._insertFunctionStep(self.computeInterpolatedStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
