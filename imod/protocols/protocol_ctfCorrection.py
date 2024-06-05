@@ -164,6 +164,18 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        # JORGE
+        import os
+        fname = "/home/jjimenez/test_JJ.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # JORGE_END
         nonMatchingTsIds = []
         self._initialize()
         for tsId in self.tsDict.keys():  # Stores the steps serializing the tsId instead of the whole ts object
@@ -196,7 +208,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
 
-    @ProtImodBase.tryExceptDecorator
+    # @ProtImodBase.tryExceptDecorator
     def ctfCorrection(self, tsId):
         ts = self.tsDict[tsId]
         acq = ts.getAcquisition()
