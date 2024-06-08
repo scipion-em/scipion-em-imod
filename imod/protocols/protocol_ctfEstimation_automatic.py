@@ -499,6 +499,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         if self.expectedDefocusOrigin.get() == 1:
             with open(self.expectedDefocusFile.get()) as f:
                 lines = f.readlines()
+                lines = filter(lambda x: x.strip(), lines)
             result = {line.split()[0]: line.split()[1] for line in lines}
             return result
         else:
