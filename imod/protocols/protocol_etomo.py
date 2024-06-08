@@ -67,7 +67,7 @@ class ProtImodEtomo(ProtImodBase):
         super().__init__(**kwargs)
         self.PrealignedTiltSeries = None
         self.FullTomograms = None
-        self.PostProcessedTomograms = None
+        self.PostProcessTomograms = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -645,7 +645,7 @@ ProcessTrack.TomogramCombination=Not started
         if self.FullTomograms:
             summary.append("- Raw reconstructed tomogram")
 
-        if self.PostProcessedTomograms:
+        if self.PostProcessTomograms:
             summary.append("- Post-processed tomogram")
 
         if len(summary) == 1:
