@@ -73,8 +73,10 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.matchingMsg = String()
         self.tsDict = None
         self.ctfDict = None
+        self.presentTsIds = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -164,28 +166,26 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        nonMatchingTsIds = []
         self._initialize()
-        for tsId in self.tsDict.keys():  # Stores the steps serializing the tsId instead of the whole ts object
-            matchingCtfTomoSeries = self.ctfDict.get(tsId, None)
-            if matchingCtfTomoSeries:
-                presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
-                self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders)
-                self._insertFunctionStep(self.ctfCorrection, tsId)
-                self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders)
-                self._insertFunctionStep(self.createOutputFailedStep, tsId, presentAcqOrders)
-            else:
-                nonMatchingTsIds.append(tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
-        if nonMatchingTsIds:
-            self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series {nonMatchingTsIds}')
-            self._store(self.matchingMsg)
+        for tsId in self.presentTsIds:  # Stores the steps serializing the tsId instead of the whole ts object
+            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
+            self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders)
+            self._insertFunctionStep(self.ctfCorrection, tsId)
+            self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.matchingMsg = String()  # Update the msg for each protocol execution to avoid duplicities in the summary
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
+        # Manage the present and not present tsIds
+        tsIds = list(self.tsDict.keys())
+        ctfTsIds = list(self.ctfDict.keys())
+        self.presentTsIds = set(tsIds) & set(ctfTsIds)
+        allTsIds = set(tsIds + ctfTsIds)
+        nonMatchingTsIds = [tsId for tsId in allTsIds if tsId not in self.presentTsIds]
+        # Update the msg for each protocol execution to avoid duplicities in the summary
+        self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series: {nonMatchingTsIds}')
+        self._store(self.matchingMsg)
 
     def convertInputsStep(self, tsId, presentAcqOrders):
         # Generate the alignment-related files: xf, tlt, and a possible mrc
@@ -196,62 +196,76 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
 
-    @ProtImodBase.tryExceptDecorator
     def ctfCorrection(self, tsId):
-        ts = self.tsDict[tsId]
-        acq = ts.getAcquisition()
+        try:
+            ts = self.tsDict[tsId]
+            acq = ts.getAcquisition()
 
-        """Run ctfphaseflip IMOD program"""
-        paramsCtfPhaseFlip = {
-            'inputStack': self.getTmpOutFile(tsId),
-            'angleFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
-            'outputFileName': self.getExtraOutFile(tsId),
-            'defocusFile': self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-            'voltage': acq.getVoltage(),
-            'sphericalAberration': acq.getSphericalAberration(),
-            'defocusTol': self.defocusTol.get(),
-            'pixelSize': ts.getSamplingRate() / 10,  # nm/px
-            'amplitudeContrast': acq.getAmplitudeContrast(),
-            'interpolationWidth': self.interpolationWidth.get()
-        }
+            """Run ctfphaseflip IMOD program"""
+            paramsCtfPhaseFlip = {
+                'inputStack': self.getTmpOutFile(tsId),
+                'angleFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
+                'outputFileName': self.getExtraOutFile(tsId),
+                'defocusFile': self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                'voltage': acq.getVoltage(),
+                'sphericalAberration': acq.getSphericalAberration(),
+                'defocusTol': self.defocusTol.get(),
+                'pixelSize': ts.getSamplingRate() / 10,  # nm/px
+                'amplitudeContrast': acq.getAmplitudeContrast(),
+                'interpolationWidth': self.interpolationWidth.get()
+            }
 
-        argsCtfPhaseFlip = "-InputStack %(inputStack)s " \
-                           "-AngleFile %(angleFile)s " \
-                           "-OutputFileName %(outputFileName)s " \
-                           "-DefocusFile %(defocusFile)s " \
-                           "-Voltage %(voltage)d " \
-                           "-SphericalAberration %(sphericalAberration)f " \
-                           "-DefocusTol %(defocusTol)d " \
-                           "-PixelSize %(pixelSize)f " \
-                           "-AmplitudeContrast %(amplitudeContrast)f " \
-                           "-InterpolationWidth %(interpolationWidth)d "
+            argsCtfPhaseFlip = "-InputStack %(inputStack)s " \
+                               "-AngleFile %(angleFile)s " \
+                               "-OutputFileName %(outputFileName)s " \
+                               "-DefocusFile %(defocusFile)s " \
+                               "-Voltage %(voltage)d " \
+                               "-SphericalAberration %(sphericalAberration)f " \
+                               "-DefocusTol %(defocusTol)d " \
+                               "-PixelSize %(pixelSize)f " \
+                               "-AmplitudeContrast %(amplitudeContrast)f " \
+                               "-InterpolationWidth %(interpolationWidth)d "
 
-        if self.usesGpu():
-            argsCtfPhaseFlip += f"-UseGPU {self.getGpuList()[0]} " \
-                                "-ActionIfGPUFails 2,2 "
+            if self.usesGpu():
+                argsCtfPhaseFlip += f"-UseGPU {self.getGpuList()[0]} " \
+                                    "-ActionIfGPUFails 2,2 "
 
-        if ts.getFirstItem().hasTransform():
-            paramsCtfPhaseFlip['xformFile'] = self.getExtraOutFile(tsId, ext=XF_EXT)
-            argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
+            if ts.getFirstItem().hasTransform():
+                paramsCtfPhaseFlip['xformFile'] = self.getExtraOutFile(tsId, ext=XF_EXT)
+                argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
-        Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
-
-        if self.applyToOddEven(ts):
-            # ODD
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
 
-            # EVEN
-            paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN)
-            paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+            if self.applyToOddEven(ts):
+                # ODD
+                paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=ODD)
+                paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=ODD)
+                Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+
+                # EVEN
+                paramsCtfPhaseFlip['inputStack'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                paramsCtfPhaseFlip['outputFileName'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                Plugin.runImod(self, 'ctfphaseflip', argsCtfPhaseFlip % paramsCtfPhaseFlip)
+
+        except Exception as e:
+            self._failedTs.append(tsId)
+            self.error('Ctf correction execution failed for tsId %s -> %s' % (tsId, e))
 
     def createOutputStep(self, tsId, presentAcqOrders):
-        if tsId not in self._failedTs:
-            inTsSet = self.inputSetOfTiltSeries.get()
+        inTsSet = self._getSetOfTiltSeries()
+        if tsId in self._failedTs:
+            outputSetOfFailedTs = self.getOutputFailedSetOfTiltSeries(inTsSet)
+            ts = self.tsDict[tsId]
+            newTs = ts.clone()
+            newTs.copyInfo(ts)
+            outputSetOfFailedTs.append(newTs)
+            newTs.copyItems(ts)
+            newTs.write(properties=False)
+            outputSetOfFailedTs.update(newTs)
+            outputSetOfFailedTs.write()
+            self._store(outputSetOfFailedTs)
+        else:
             outputSetOfTs = self.getOutputSetOfTiltSeries(inTsSet)
-
             newTs = TiltSeries(tsId=tsId)
             ts = self.tsDict[tsId]
             newTs.copyInfo(ts)
