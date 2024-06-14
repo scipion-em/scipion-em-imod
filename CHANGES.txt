@@ -7,6 +7,7 @@
   - The order of the parameters in the forms was slightly modified according to the user actions.
   - Protocol CTF correction:
     * Now it can deal with excluded views in the CTF and/or in the TS.
+    * The same when entering with interpolated or not aligned TS.
     * The xf, defocus, and tlt files are generated inside each TS extra sub-directory.
  Developers:
   - Update the acquisition order in the CTFTomo objects (field added to that class in scipion-em-tomo v3.7.0).

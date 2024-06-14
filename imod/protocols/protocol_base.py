@@ -280,7 +280,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile, imodInterpolation=imodInterpolation,
                                doSwap=doSwap, oddEven=oddEven, presentAcqOrders=presentAcqOrders)
 
-    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile, doSwap, tsExcludedIndices=None):
+    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile=None, doSwap=None, tsExcludedIndices=None):
         argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
                                                                      outputTsFileName,
                                                                      inputTsFileName=inputTsFileName,
@@ -324,26 +324,31 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             path.createLink(inTsFileName, outputTsFileName)
 
         elif imodInterpolation:
-            logger.info("Apply the transformation form the input tilt-series")
-
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             # Use IMOD newstack interpolation
             if firstTi.hasTransform():
                 # Generate transformation matrices file (xf)
-                xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
                 utils.genXfFile(ts, xfFile)
 
                 # Generate the interpolated TS with IMOD's newstack program
-                logger.info("Tilt-series interpolated with IMOD [%s]" % tsId)
+                logger.info("Tilt-series will be interpolated with IMOD [%s]" % tsId)
                 if presentAcqOrders:
+                    logger.info("Tilt-series re-stacked with IMOD")
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
                 else:
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder()]
-                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName, xfFile, doSwap,
+                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
+                                        xfFile=xfFile,
+                                        doSwap=doSwap,
                                         tsExcludedIndices=tsExcludedIndices)
                 if oddEven:
-                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd, xfFile, doSwap,
+                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
                                             tsExcludedIndices=tsExcludedIndices)
-                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven, xfFile, doSwap,
+                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
                                             tsExcludedIndices=tsExcludedIndices)
 
                 # If some views were excluded to generate the new stack, a new xfFile containing them should be
@@ -353,12 +358,28 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
             else:
                 # The given TS is interpolated
-                logger.info("Tilt-series linked [%s]" % tsId)
-                path.createLink(firstTi.getFileName(), outputTsFileName)
+                logger.info("The given TS is interpolated or not aligned [%s]" % tsId)
+                if presentAcqOrders:
+                    logger.info("Tilt-series re-stacked with IMOD")
+                    if len(presentAcqOrders) != len(ts):
+                        tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                        self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices)
+                        if oddEven:
+                            self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
+                                                    doSwap=doSwap,
+                                                    tsExcludedIndices=tsExcludedIndices)
+                            self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
+                                                    doSwap=doSwap,
+                                                    tsExcludedIndices=tsExcludedIndices)
+                else:
+                    logger.info("Tilt-series linked [%s]" % tsId)
+                    path.createLink(firstTi.getFileName(), outputTsFileName)
 
-                if oddEven:
-                    path.createLink(fnOdd, outputOddTsFileName)
-                    path.createLink(fnEven, outputEvenTsFileName)
+                    if oddEven:
+                        path.createLink(fnOdd, outputOddTsFileName)
+                        path.createLink(fnEven, outputEvenTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
