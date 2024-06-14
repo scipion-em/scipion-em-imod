@@ -24,12 +24,6 @@ This plugin provides wrappers for several programs of `IMOD <https://bio3d.color
         :target: https://pypi.python.org/pypi/scipion-em-imod
         :alt: Downloads
 
-Current development
--------------------
-
-This plugin is currently in **BETA** mode.
-
-
 Installation
 ------------
 
