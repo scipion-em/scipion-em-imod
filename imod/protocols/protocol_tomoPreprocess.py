@@ -178,7 +178,7 @@ class ProtImodTomoNormalization(ProtImodBase):
         form.addParam('scaleRangeToggle',
                       params.EnumParam,
                       choices=['Yes', 'No'],
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
+                      condition="floatDensities==1 or floatDensities==3",
                       default=0,
                       label='Set scaling range values?',
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -189,14 +189,14 @@ class ProtImodTomoNormalization(ProtImodBase):
 
         form.addParam('scaleRangeMax',
                       params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
                       default=255,
                       label='Max.',
                       help='Maximum value for the rescaling')
 
         form.addParam('scaleRangeMin',
                       params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')
@@ -207,6 +207,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                                'Lanczos 2 lobes', 'Lanczos 3 lobes'],
                       default=5,
                       label='Antialias method:',
+                      expertLevel=params.LEVEL_ADVANCED,
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='Type of antialiasing filter to use when reducing images.\n'
                            'The available types of filters are:\n\n'

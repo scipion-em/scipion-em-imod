@@ -179,8 +179,9 @@ class ProtImodTsNormalization(ProtImodBase):
 
         form.addParam('scaleRangeToggle',
                       params.EnumParam,
+
                       choices=['Yes', 'No'],
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
+                      condition="floatDensities==1 or floatDensities==3",
                       default=0,
                       label='Set scaling range values?',
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -189,19 +190,19 @@ class ProtImodTsNormalization(ProtImodBase):
                            'minimum and maximum density will be mapped '
                            'to the Min and Max values that are entered')
 
-        form.addParam('scaleRangeMax',
-                      params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=255,
-                      label='Max.',
-                      help='Maximum value for the rescaling')
-
         form.addParam('scaleRangeMin',
                       params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')
+
+        form.addParam('scaleRangeMax',
+                      params.FloatParam,
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      default=255,
+                      label='Max.',
+                      help='Maximum value for the rescaling')
 
         form.addParam('antialias',
                       params.EnumParam,
