@@ -23,29 +23,44 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
-
 from .. import Plugin
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME, OUTPUT_TILTSERIES_NAME
-from ..utils import formatTransformFile
+from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
+from ..utils import genXfFile
 
 
-class ProtImodTSNormalization(ProtImodBase):
+class ProtImodTsNormalization(ProtImodBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
+
+    IMOD tilt series preprocess makes use of the Newstack command.
+    In particular, three functionalities are possible:\n
+
+    _1 Binning_: The protocol also allows to bin tilt series. This
+    means to reduce the dimensions of the tilt series keeping but
+    keeping most of the information. The binning factor or simply
+    binning is an integer number and represent the scaling factor
+    of the images. Binning 2 means that the original images will
+    be twice the binned ones.
+    _2 Normalization_: This protocol allows to scale the gray values
+    of the images, also called normalization, to a common range or
+    mean of density. The most used normalization consists in zero
+    mean and standard deviation one.\n
+
+    _3 storage format_: IMOD is able to modify the number of bit of
+    the stored data in order to reduce the disc occupancy.
+
     """
 
     _label = 'Tilt-series preprocess'
     _devStatus = BETA
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME:tomoObj.SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -61,9 +76,12 @@ class ProtImodTSNormalization(ProtImodBase):
                       default=1,
                       label='Binning',
                       important=True,
-                      help='Binning to be applied to the normalized tilt-series '
-                           'in IMOD convention. Images will be binned by the '
-                           'given factor. Must be an integer bigger than 1')
+                      help='Binning is an scaling factor for the output images. '
+                           'Must be an integer greater than 1. IMOD uses ordinary'
+                           'binning to reduce images in size by the given factor. '
+                           'The value of a binned pixel is the average of pixel '
+                           'values in each block of pixels being binned. Binning '
+                           'is applied before all')
 
         form.addParam('applyAlignment',
                       params.BooleanParam,
@@ -73,87 +91,43 @@ class ProtImodTSNormalization(ProtImodBase):
 
         form.addParam('floatDensities',
                       params.EnumParam,
-                      choices=['default', '1', '2', '3', '4'],
+                      choices=['No adjust',
+                               'range between min and max',
+                               'scaled to common mean and standard deviation',
+                               'shifted to a common mean without scaling',
+                               'shifted to mean and rescaled to a min and max'],
                       default=0,
                       label='Adjust densities mode',
-                      display=params.EnumParam.DISPLAY_HLIST,
+                      display=params.EnumParam.DISPLAY_COMBO,
                       help='Adjust densities of sections individually:\n'
                            '-Default: no adjustment performed\n'
-                           '-Mode 1: sections fill the data range\n'
-                           '-Mode 2: sections scaled to common mean and standard deviation.\n'
-                           '-Mode 3: sections shifted to a common mean without scaling\n'
-                           '-Mode 4: sections shifted to a common mean and then '
-                           'rescale the resulting minimum and maximum densities '
-                           'to the Min and Max values specified')
-
-        form.addParam('modeToOutput',
-                      params.EnumParam,
-                      choices=['default', '4-bit', 'byte', 'signed 16-bit',
-                               'unsigned 16-bit', '32-bit float'],
-                      default=0,
-                      label='Storage data type',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Apply one density scaling to all sections to '
-                           'map current min and max to the given Min and '
-                           'Max. The storage mode of the output file. The '
-                           'default is the mode of the first input file, '
-                           'except for a 4-bit input file, where the default '
-                           'is to output as bytes')
-
-        form.addParam('scaleRangeToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      condition="floatDensities==0 or floatDensities==1 or floatDensities==3",
-                      default=1,
-                      label='Set scaling range values?',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='This option will rescale the densities of all '
-                           'sections by the same factors so that the original '
-                           'minimum and maximum density will be mapped '
-                           'to the Min and Max values that are entered')
-
-        form.addParam('scaleRangeMax',
-                      params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=255,
-                      label='Max.',
-                      help='Maximum value for the rescaling')
-
-        form.addParam('scaleRangeMin',
-                      params.FloatParam,
-                      condition="(floatDensities==0 or floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=0,
-                      label='Min.',
-                      help='Minimum value for the rescaling')
-
-        form.addParam('antialias',
-                      params.EnumParam,
-                      choices=['None', 'Blackman', 'Triangle', 'Mitchell',
-                               'Lanczos 2', 'Lanczos 3'],
-                      default=5,
-                      label='Antialias method:',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Type of antialiasing filter to use when reducing images.\n'
-                           'The available types of filters are:\n\n'
-                           'None\n'
-                           'Blackman - fast but not as good at antialiasing as slower filters\n'
-                           'Triangle - fast but smooths more than Blackman\n'
-                           'Mitchell - good at antialiasing, smooths a bit\n'
-                           'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
-                           'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
-                           'The default is Lanczos 3 as of IMOD 4.7. Although '
-                           'many people consider Lanczos 2 the best compromise '
-                           'among the various factors, that sentiment may be '
-                           'based on images of natural scenes where there are '
-                           'sharp edges.')
+                           
+                           '-Range between min and max: This option will scale the gray values'
+                           'to be in a range given by a minimum and a maximum values.'
+                           'This is the mode 1 in newstack flag -floatDensities.\n'
+                           
+                           '-Scaled to common mean and standard deviation: This is the most '
+                           'common normalization procedure. The new tilt series will have'
+                           'a meand and a standard deviation introduced by the user. Generaly,'
+                           'a zero meand and a standard deviation one is a good choice.'
+                           'This is the mode 2 in newstack flag -floatDensities.\n'
+                           
+                           '-Shifted to a common mean without scaling: This option only'
+                           'add an offset to the gray values of the images. The offset will'
+                           'be calculated such as the new images will present a mean gray value'
+                           'introduced by the user. This is the mode 3 in newstack flag '
+                           'floatDensities.\n'
+                           
+                           '-shifted to mean and rescaled to a min and max: In this case, an '
+                           'offset is added to the images in order to achieve a mean gray value'
+                           ' then they are rescale the resulting minimum and maximum densities '
+                           'to the Min and Max values specified. This is the mode 4 in newstack'
+                           ' flag -floatDensities.\n')
 
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
                                     help='Scale all images to the given mean '
-                                         'and standard deviation. This option '
-                                         'implies -float 2 and is incompatible '
-                                         'with all other scaling options. If no '
-                                         'values are set, mean=0 and SD=1 by default')
+                                         'and standard deviation.')
 
         groupMeanSd.addParam('meanSdToggle',
                              params.EnumParam,
@@ -190,6 +164,68 @@ class ProtImodTSNormalization(ProtImodBase):
                             label='Min.',
                             help='Minimum value for the rescaling')
 
+        form.addParam('modeToOutput',
+                      params.EnumParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      choices=['default', '4-bit', '8-bit', 'signed 16-bit',
+                               'unsigned 16-bit', '32-bit float'],
+                      default=0,
+                      label='Storage data type',
+                      display=params.EnumParam.DISPLAY_COMBO,
+                      help='The storage mode of the output file. The '
+                           'default is the mode of the first input file, '
+                           'except for a 4-bit input file, where the default '
+                           'is to output as bytes')
+
+        form.addParam('scaleRangeToggle',
+                      params.EnumParam,
+
+                      choices=['Yes', 'No'],
+                      condition="floatDensities==1 or floatDensities==3",
+                      default=0,
+                      label='Set scaling range values?',
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      help='This option will rescale the densities of all '
+                           'sections by the same factors so that the original '
+                           'minimum and maximum density will be mapped '
+                           'to the Min and Max values that are entered')
+
+        form.addParam('scaleRangeMin',
+                      params.FloatParam,
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      default=0,
+                      label='Min.',
+                      help='Minimum value for the rescaling')
+
+        form.addParam('scaleRangeMax',
+                      params.FloatParam,
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      default=255,
+                      label='Max.',
+                      help='Maximum value for the rescaling')
+
+        form.addParam('antialias',
+                      params.EnumParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      choices=['None', 'Blackman', 'Triangle', 'Mitchell',
+                               'Lanczos 2 lobes', 'Lanczos 3 lobes'],
+                      default=5,
+                      label='Antialias method:',
+                      display=params.EnumParam.DISPLAY_COMBO,
+                      help='Type of antialiasing filter to use when reducing images.\n'
+                           'The available types of filters are:\n\n'
+                           'None - Antialias will not be applied\n'
+                           'Blackman - fast but not as good at antialiasing as slower filters\n'
+                           'Triangle - fast but smooths more than Blackman\n'
+                           'Mitchell - good at antialiasing, smooths a bit\n'
+                           'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
+                           'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
+                           'The default is Lanczos 3 as of IMOD 4.7. Although '
+                           'many people consider Lanczos 2 the best compromise '
+                           'among the various factors, that sentiment may be '
+                           'based on images of natural scenes where there are '
+                           'sharp edges.')
+
         form.addParam('processOddEven',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -200,42 +236,41 @@ class ProtImodTSNormalization(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._failedTs = []
-
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.convertInputStep, ts.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputFailedSet, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.convertInputStep, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
+            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsObjId, **kwargs):
+    def _initialize(self):
+        self._failedTs = []
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Interpolation will be done in the generateOutputStep
-        super().convertInputStep(tsObjId, imodInterpolation=None,
-                                 generateAngleFile=False, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId,
+                                 imodInterpolation=None,
+                                 generateAngleFile=False,
+                                 oddEven=oddEvenFlag)
 
     @ProtImodBase.tryExceptDecorator
-    def generateOutputStackStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
+    def generateOutputStackStep(self, tsId):
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
-
         xfFile = None
 
         if self.applyAlignment.get() and ts.hasAlignment():
-            xfFile = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-            formatTransformFile(ts, xfFile)
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            genXfFile(ts, xfFile)
 
         binning = self.binning.get()
 
         argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
-                                                                   os.path.join(extraPrefix, firstItem.parseFileName()),
-                                                                   inputTsFileName=os.path.join(tmpPrefix,
-                                                                                                firstItem.parseFileName()),
+                                                                   self.getExtraOutFile(tsId),
+                                                                   inputTsFileName=self.getTmpOutFile(tsId),
                                                                    xfFile=xfFile,
                                                                    firstItem=firstItem,
                                                                    binning=binning,
@@ -275,10 +310,10 @@ class ProtImodTSNormalization(ProtImodBase):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
             paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME)
+            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
 
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
@@ -304,14 +339,14 @@ class ProtImodTSNormalization(ProtImodBase):
 
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId + EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])
 
-            newTi.setLocation(index + 1,
-                              (os.path.join(extraPrefix, tiltImage.parseFileName())))
+            newTi.setLocation(index + 1,  self.getExtraOutFile(tsId))
+
             if binning > 1:
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
             newTs.append(newTi)
@@ -324,6 +359,10 @@ class ProtImodTSNormalization(ProtImodBase):
         output.update(newTs)
         output.write()
         self._store()
+
+    def createOutputFailedStep(self, tsId):
+        ts = self.tsDict[tsId]
+        super().createOutputFailedSet(ts)
 
     def closeOutputSetsStep(self):
         for _, output in self.iterOutputAttributes():

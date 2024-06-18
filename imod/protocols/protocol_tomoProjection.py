@@ -24,18 +24,15 @@
 # *
 # *****************************************************************************
 
-import os
-
 from pwem.objects import Transform
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin
-from .protocol_base import ProtImodBase
+from .protocol_base import ProtImodBase, MRCS_EXT
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -43,6 +40,14 @@ class ProtImodTomoProjection(ProtImodBase):
     Re-project a tomogram given a geometric description (axis and angles).
     More info:
         https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
+
+    This program will compute projections of a tomogram at a series of
+    tilts around either the X, the Y or the Z axis.\n
+
+    A projection along a ray line is simply the average of the pixels in
+    the block along that line.  However, rather than taking the values of
+    the pixels that lie near the ray, interpolation is used to sample den-
+    sity at points evenly spaced at one pixel intervals along the ray.
     """
 
     _label = 'Tomo projection'
@@ -59,25 +64,26 @@ class ProtImodTomoProjection(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tomograms')
+                      label='Input set of tomograms to be projected')
 
-        form.addParam('minAngle',
+        line = form.addLine('Tilt angles  (deg)',
+                            help='Starting, ending, and increment tilt angle.  Enter the same value for '
+                                 'starting and ending angle to get only one image')
+
+        line.addParam('minAngle',
                       params.FloatParam,
                       default=-60.0,
-                      label='Minimum angle of rotation',
-                      help='Minimum angle of the projection range')
+                      label='Minimum rotation')
 
-        form.addParam('maxAngle',
+        line.addParam('maxAngle',
                       params.FloatParam,
                       default=60.0,
-                      label='Maximum angle of rotation',
-                      help='Maximum angle of the projection range')
+                      label='Maximum rotation')
 
-        form.addParam('stepAngle',
+        line.addParam('stepAngle',
                       params.FloatParam,
                       default=2.0,
-                      label='Step angle',
-                      help='Step angle of the projection range')
+                      label='Step angle')
 
         form.addParam('rotationAxis',
                       params.EnumParam,
@@ -91,26 +97,23 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for tomo in self.inputSetOfTomograms.get():
-            self._insertFunctionStep(self.projectTomogram, tomo.getObjId())
-            self._insertFunctionStep(self.generateOutputStackStep, tomo.getObjId())
+        self._initialize()
+        for tsId in self.tomoDict.keys():
+            self._insertFunctionStep(self.projectTomogram, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def projectTomogram(self, tomoObjId):
-        tomo = self.inputSetOfTomograms.get()[tomoObjId]
+    def _initialize(self):
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
 
-        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
-
-        extraPrefix = self._getExtraPath(tomoId)
-        tmpPrefix = self._getTmpPath(tomoId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
+    def projectTomogram(self, tsId):
+        self.genTsPaths(tsId)
+        tomo = self.tomoDict[tsId]
 
         paramsXYZproj = {
             'input': tomo.getFileName(),
-            'output': os.path.join(extraPrefix,
-                                   os.path.basename(tomo.getFileName())),
+            'output': self.getExtraOutFile(tsId, ext=MRCS_EXT),
             'axis': self.getRotationAxis(),
             'angles': str(self.minAngle.get()) + ',' +
                       str(self.maxAngle.get()) + ',' +
@@ -124,35 +127,25 @@ class ProtImodTomoProjection(ProtImodBase):
 
         Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
 
-    def generateOutputStackStep(self, tomoObjId):
-        tomo = self.inputSetOfTomograms.get()[tomoObjId]
-
-        tomoId = os.path.splitext(os.path.basename(tomo.getFileName()))[0]
-
-        extraPrefix = self._getExtraPath(tomoId)
-
+    def generateOutputStackStep(self, tsId):
+        tomo = self.tomoDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTomograms.get())
-
-        newTs = tomoObj.TiltSeries(tsId=tomoId)
-
+        newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.setTsId(tomo.getTsId())
         newTs.setAcquisition(tomo.getAcquisition())
-        newTs.setTsId(tomoId)
 
         # Add origin to output tilt-series
         output.append(newTs)
-
         tiltAngleList = self.getTiltAngleList()
-
+        sRate = self.inputSetOfTomograms.get().getSamplingRate()
         for index in range(self.getProjectionRange()):
             newTi = tomoObj.TiltImage()
             newTi.setTiltAngle(tiltAngleList[index])
-            newTi.setTsId(tomoId)
+            newTi.setTsId(tsId)
             newTi.setAcquisitionOrder(index + 1)
             newTi.setLocation(index + 1,
-                              os.path.join(extraPrefix,
-                                           os.path.basename(tomo.getFileName())))
-            newTi.setSamplingRate(self.inputSetOfTomograms.get().getSamplingRate())
+                              self.getExtraOutFile(tsId, ext=MRCS_EXT))
+            newTi.setSamplingRate(sRate)
             newTs.append(newTi)
 
         ih = ImageHandler()

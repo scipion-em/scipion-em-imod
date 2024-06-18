@@ -58,6 +58,7 @@ class ImodViewer(pwviewer.Viewer):
         tomoObj.SetOfLandmarkModels,
         tomoObj.LandmarkModel
     ]
+    _name = 'Imod'
 
     def _visualize(self, obj, **kwargs):
         env = Plugin.getEnviron()

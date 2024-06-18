@@ -33,6 +33,9 @@ from ..protocols import *
 
 
 class TestImodBase(BaseTest):
+    atsId = 'a'
+    btsId = 'b'
+
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
@@ -108,7 +111,7 @@ class TestImodBase(BaseTest):
                             modeToOutput, scaleRangeToggle, scaleRangeMax,
                             scaleRangeMin, meanSdToggle, scaleMean,
                             scaleSd, scaleMax, scaleMin):
-        cls.protTSNormalization = cls.newProtocol(ProtImodTSNormalization,
+        cls.protTSNormalization = cls.newProtocol(ProtImodTsNormalization,
                                                   inputSetOfTiltSeries=inputSoTS,
                                                   binning=binning,
                                                   floatDensities=floatDensities,
@@ -142,12 +145,21 @@ class TestImodBase(BaseTest):
                            numberFiducial, rotationAngle,
                            shiftsNearZeroFraction) -> ProtImodFiducialModel:
         cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
+                                                    typeOfModel=0,
                                                     inputSetOfTiltSeries=inputSoTS,
                                                     twoSurfaces=twoSurfaces,
                                                     fiducialRadius=fiducialRadius,
                                                     numberFiducial=numberFiducial,
                                                     rotationAngle=rotationAngle,
                                                     shiftsNearZeroFraction=shiftsNearZeroFraction)
+        cls.launchProtocol(cls.protFiducialAlignment)
+        return cls.protFiducialAlignment
+
+    @classmethod
+    def _runFiducialModelsPT(cls,  inputSoTS) -> ProtImodFiducialModel:
+        cls.protFiducialAlignment = cls.newProtocol(ProtImodFiducialModel,
+                                                    typeOfModel=1,
+                                                    inputSetOfTiltSeries=inputSoTS)
         cls.launchProtocol(cls.protFiducialAlignment)
         return cls.protFiducialAlignment
 
@@ -308,7 +320,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
 
-        cls.excludeViewsOutputSizes = {'a': 57, 'b': 56}
+        cls.excludeViewsOutputSizes = {cls.atsId: 57, cls.btsId: 56}
 
         cls.binningTsNormalization = 2
 
@@ -382,6 +394,8 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                         rotationAngle=-12.5,
                                                         shiftsNearZeroFraction=0.2)
 
+        cls.protFiducialModelsPT = cls._runFiducialModelsPT(inputSoTS=cls.protXcorr.TiltSeries)
+
         cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSoLM=cls.protFiducialModels.FiducialModelGaps,
                                                               twoSurfaces=0,
                                                               rotationAngle=-12.5,
@@ -446,7 +460,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protDoseFilter._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".mrcs")))
 
     def test_xRaysEraserOutputTS(self):
 
@@ -456,7 +470,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protXRaysEraser._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".mrcs")))
 
     def test_excludeViewsOutputTS(self):
 
@@ -466,7 +480,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protExcludeViews._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".mrcs")))
 
         for index, tsOut in enumerate(ts):
             self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
@@ -479,7 +493,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         tsId = ts.getFirstItem().getTsId()
 
         self.assertTrue(os.path.exists(os.path.join(self.protTSNormalization._getExtraPath(tsId),
-                                                    "BB" + tsId + ".st")))
+                                                    tsId + ".mrcs")))
 
         inSamplingRate = self.protTSNormalization.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = ts.getSamplingRate()
@@ -493,7 +507,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -507,7 +521,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protXcorr._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -523,9 +537,9 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocationImod = os.path.join(self.protFiducialModels._getExtraPath(tsId),
-                                          "BB" + tsId + "_gaps.fid")
+                                          tsId + "_gaps.fid")
         outputLocationScipion = os.path.join(self.protFiducialModels._getExtraPath(tsId),
-                                             "BB" + tsId + "_gaps.sfid")
+                                             tsId + "_gaps.sfid")
 
         self.assertTrue(os.path.exists(outputLocationImod))
         self.assertTrue(os.path.exists(outputLocationScipion))
@@ -538,7 +552,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -551,7 +565,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -567,7 +581,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + "_noGaps.sfid")
+                                      tsId + "_noGaps.sfid")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -577,7 +591,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protFiducialAlignment._getExtraPath(tsId),
-                                      "BB" + tsId + "_fid.xyz")
+                                      tsId + "_fid.xyz")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -594,7 +608,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tsId = output.getFirstItem().getTsId()
         outputLocation = os.path.join(self.protApplyTransformationMatrix._getExtraPath(tsId),
-                                      "BB" + tsId + ".st")
+                                      tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -610,7 +624,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         tomoId = self.protTomoReconstruction.inputSetOfTiltSeries.get().getFirstItem().getTsId()
         outputLocation = os.path.join(self.protTomoReconstruction._getExtraPath(tomoId),
-                                      "BB" + tomoId + ".mrc")
+                                      tomoId + ".mrc")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -626,10 +640,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(output, size=52, diffDelta=30)
 
         tomoId = self.protGoldBeadPicker3D.inputSetOfTomograms.get().getFirstItem().getTsId()
-        location = self.protGoldBeadPicker3D._getExtraPath("BB" + tomoId)
+        location = self.protGoldBeadPicker3D._getExtraPath(tomoId)
 
         self.assertTrue(os.path.exists(os.path.join(location,
-                                                    "BB" + tomoId + ".mod")))
+                                                    tomoId + ".mod")))
 
     def test_tomoNormalizationOutput(self):
 
@@ -656,7 +670,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         ih = ImageHandler()
         outputDimensions = ih.getDimensions(output.getFirstItem().getFirstItem().getFileName())
 
-        self.assertEqual(outputDimensions, (256, 256, 61, 1))
+        self.assertEqual(outputDimensions, (256, 256, 1, 61))
 
         # Sampling rate
         inSamplingRate = self.protTomoProjection.inputSetOfTomograms.get().getSamplingRate()
@@ -678,7 +692,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         # Create links to the input tilt-series and its associated mdoc file to test the protocols with a set of two
         # elements to make the tests more robust
         linkTs = os.path.join(os.path.split(cls.inputSoTS)[0],
-                              "WTI042413_1series4_copy.st")
+                              "WTI042413_1series4_copy.mrc")
 
         if not os.path.exists(linkTs):
             path.createLink(cls.inputSoTS, linkTs)
@@ -751,7 +765,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         for ts in output:
             tsId = ts.getTsId()
             outputLocation = os.path.join(self.protCTFCorrection._getExtraPath(tsId),
-                                          '%s.st' % tsId)
+                                          '%s.mrcs' % tsId)
 
             self.assertTrue(os.path.exists(outputLocation))
 

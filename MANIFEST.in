@@ -4,7 +4,7 @@ include *.rst
 # Include the license file
 include LICENSE
 
-# Include the changelog
+# Include the changelog and requirements
 include *.txt
 
 # Include conf file

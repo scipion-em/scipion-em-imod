@@ -46,6 +46,17 @@ class ProtImodEtomo(ProtImodBase):
 
     More info:
         https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+
+    Etomo is software tool for assisting users in the tomographic reconstruction
+    process of both single and dual axis tilt series. Throughout this procedure,
+    eTomo executes numerous program commands and frequently initiates 3dmod
+    and Midas to enable users to make precise adjustments. Some of the main features
+    are:\n
+    - Xray eraser\n
+    - dose filtering\n
+    - Tilt series alignment\n
+    - Gold beads detection and eraser\n
+    - Tomogram reconstruction\n
     """
 
     _label = 'Etomo interactive'
@@ -56,7 +67,7 @@ class ProtImodEtomo(ProtImodBase):
         super().__init__(**kwargs)
         self.PrealignedTiltSeries = None
         self.FullTomograms = None
-        self.PostProcessedTomograms = None
+        self.PostProcessTomograms = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -73,7 +84,9 @@ class ProtImodEtomo(ProtImodBase):
                       params.FloatParam,
                       default=10,
                       label='Fiducial markers diameter (nm)',
-                      help='Diameter of gold beads in nanometers.')
+                      help='Diameter of gold beads in nanometers. Note that fiducials are'
+                           'small gold beads that are used as marker elements in the images.'
+                           'They can be used as reference points to align the tilt series')
 
         form.addParam('applyAlignment',
                       params.BooleanParam,
@@ -632,7 +645,7 @@ ProcessTrack.TomogramCombination=Not started
         if self.FullTomograms:
             summary.append("- Raw reconstructed tomogram")
 
-        if self.PostProcessedTomograms:
+        if self.PostProcessTomograms:
             summary.append("- Post-processed tomogram")
 
         if len(summary) == 1:

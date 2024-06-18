@@ -23,20 +23,19 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
+import logging
 
 from pyworkflow.object import Set, CsvList, Pointer
-from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.protocol import STEPS_PARALLEL, params
 from pyworkflow.utils import path
 from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase, ProtTomoImportFiles
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage)
-
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltImage)
 from .. import Plugin, utils
+
+logger = logging.getLogger(__name__)
 
 OUTPUT_TS_COORDINATES_NAME = "TiltSeriesCoordinates"
 OUTPUT_FIDUCIAL_NO_GAPS_NAME = "FiducialModelNoGaps"
@@ -47,10 +46,26 @@ OUTPUT_TS_FAILED_NAME = "FailedTiltSeries"
 OUTPUT_CTF_SERIE = "CTFTomoSeries"
 OUTPUT_TOMOGRAMS_NAME = "Tomograms"
 OUTPUT_COORDINATES_3D_NAME = "Coordinates3D"
-EXT_MRCS_TS_EVEN_NAME = "_even.mrcs"
-EXT_MRCS_TS_ODD_NAME = "_odd.mrcs"
-EXT_MRC_EVEN_NAME = "_even.mrc"
-EXT_MRC_ODD_NAME = "_odd.mrc"
+EXT_MRCS_TS_EVEN_NAME = "even.mrcs"
+EXT_MRCS_TS_ODD_NAME = "odd.mrcs"
+EXT_MRC_EVEN_NAME = "even.mrc"
+EXT_MRC_ODD_NAME = "odd.mrc"
+EVEN = 'even'
+ODD = 'odd'
+MRCS_EXT = 'mrcs'
+MRC_EXT = 'mrc'
+XF_EXT = 'xf'
+TLT_EXT = 'tlt'
+DEFOCUS_EXT = 'defocus'
+FID_EXT = 'fid'
+TXT_EXT = 'txt'
+REC_EXT = 'rec'
+XYZ_EXT = 'xyz'
+MOD_EXT = 'mod'
+SEED_EXT = 'seed'
+PREXF_EXT = 'prexf'
+PREXG_EXT = 'prexg'
+SFID_EXT = 'sfid'
 
 
 class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
@@ -61,6 +76,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
     def __init__(self, **args):
 
         # Possible outputs (synchronize these names with the constants)
+        self.tsDict = None
+        self.tomoDict = None
+        self.binning = 1
+        self._failedTs = []
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
         self.FiducialModelGaps = None
@@ -73,18 +92,141 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         ProtTomoImportFiles.__init__(self, **args)
 
+    # -------------------------- DEFINE param functions -----------------------
+    def _defineImportParams(self, form):
+        """ Method to define import params in protocol form """
+        ProtTomoImportFiles._defineImportParams(self, form)
+
+    @staticmethod
+    def trimimgForm(form, pxTrimCondition='False', correlationCondition='True', levelType=params.LEVEL_ADVANCED):
+        """
+        Generally, this form will be integrated in a groupForm, the group form argument is form. A set of flags
+        control what elements are shown
+        """
+        form.addParam('pxTrim',
+                      params.NumericListParam,
+                      condition=pxTrimCondition,
+                      label='Pixels to trim (x y without coma separator)',
+                      default="0 0",
+                      help='Pixels to trim off each side in X and Y.\n'
+                           'Some trimming should be used for patch tracking',
+                      expertLevel=levelType)
+
+        xtrimming = form.addLine('Pixels to do correlation along X-axis',
+                                 expertLevel=levelType,
+                                 condition=correlationCondition,
+                                 help="Starting and ending X coordinates of a region to correlate, "
+                                      "based on the position of the region at zero tilt.")
+
+        xtrimming.addParam('xmin',
+                           params.IntParam,
+                           label='X axis min (left)',
+                           allowsNull=True,
+                           expertLevel=levelType)
+
+        xtrimming.addParam('xmax',
+                           params.IntParam,
+                           label='X axis max (right)',
+                           allowsNull=True,
+                           expertLevel=levelType)
+
+        ytrimming = form.addLine('Pixels to do correlation along Y-axis',
+                                 expertLevel=levelType,
+                                 condition=correlationCondition,
+                                 help="Starting and ending Y coordinates of a region to correlate, "
+                                      "based on the position of the region at zero tilt.")
+
+        ytrimming.addParam('ymin',
+                           params.IntParam,
+                           label='Y axis min (top)',
+                           allowsNull=True,
+                           expertLevel=levelType)
+
+        ytrimming.addParam('ymax',
+                           params.IntParam,
+                           label='Y axis max (botton)',
+                           allowsNull=True,
+                           expertLevel=levelType)
+
+    @staticmethod
+    def filteringParametersForm(form, condition, levelType=params.LEVEL_NORMAL):
+        filtering = form.addGroup('Filtering parameters',
+                                  condition=condition,
+                                  expertLevel=levelType)
+
+        line1 = filtering.addLine('High pass filter',
+                                  expertLevel=levelType,
+                                  help="Some high pass filtering, using a small value of Sigma1 such "
+                                       "as 0.03, may be needed to keep the program from being misled by very "
+                                       "large scale features in the images.  If the images are noisy, some low "
+                                       "pass filtering with Sigma2 and Radius2 is appropriate (e.g. 0.05 for "
+                                       " Sigma2, 0.25 for Radius2).  If the images are binned, these values "
+                                       "specify frequencies in the binned image, so a higher cutoff (less filtering) "
+                                       "might be appropriate.\n\n"
+                                       ""
+                                       "*FilterRadius1*: Low spatial frequencies in the cross-correlation "
+                                       "will be attenuated by a Gaussian curve that is 1 "
+                                       "at this cutoff radius and falls off below this "
+                                       "radius with a standard deviation specified by "
+                                       "FilterSigma2. Spatial frequency units range from "
+                                       "0 to 0.5.\n"
+                                       "*Filter sigma 1*: Sigma value to filter low frequencies in the "
+                                       "correlations with a curve that is an inverted "
+                                       "Gaussian.  This filter is 0 at 0 frequency and "
+                                       "decays up to 1 with the given sigma value. "
+                                       "However, if a negative value of radius1 is entered, "
+                                       "this filter will be zero from 0 to "
+                                       "|radius1| then decay up to 1.")
+
+        line1.addParam('filterRadius1',
+                       params.FloatParam,
+                       label='Filter radius 1',
+                       default='0.0',
+                       expertLevel=levelType)
+
+        line1.addParam('filterSigma1',
+                       params.FloatParam,
+                       label='Filter sigma 1',
+                       default='0.03',
+                       expertLevel=levelType)
+
+        line2 = filtering.addLine('Low pass filter',
+                                  expertLevel=levelType,
+                                  help="If the images are noisy, some low "
+                                       "pass filtering with Sigma2 and Radius2 is appropriate (e.g. 0.05 for "
+                                       " Sigma2, 0.25 for Radius2).  If the images are binned, these values "
+                                       "specify frequencies in the binned image, so a higher cutoff (less filtering) "
+                                       "might be appropriate.\n\n"
+                                       "*Filter radius 2*: High spatial frequencies in the cross-correlation "
+                                       "will be attenuated by a Gaussian curve that is 1 "
+                                       "at this cutoff radius and falls off above this "
+                                       "radius with a standard deviation specified by "
+                                       "FilterSigma2.\n"
+                                       "*Filter sigma 2*: Sigma value for the Gaussian rolloff below and "
+                                       "above the cutoff frequencies specified by "
+                                       "FilterRadius1 and FilterRadius2")
+
+        line2.addParam('filterRadius2',
+                       params.FloatParam,
+                       label='Filter radius 2',
+                       default='0.25',
+                       expertLevel=levelType)
+
+        line2.addParam('filterSigma2',
+                       params.FloatParam,
+                       label='Filter sigma 2',
+                       default='0.05',
+                       expertLevel=levelType)
+
     @classmethod
     def worksInStreaming(cls):
-        """ So far none of them work in streaming. Since this inherits from the import they were considered as "streamers". """
+        """ So far none of them work in streaming. Since this inherits from the import they were considered as
+        "streamers"."""
         return False
 
     def defineExecutionPararell(self):
 
         self.stepsExecutionMode = STEPS_PARALLEL
-
-    def _defineImportParams(self, form):
-        """ Method to define import params in protocol form """
-        ProtTomoImportFiles._defineImportParams(self, form)
 
     # --------------------------- CALCULUS functions ---------------------------
     def tryExceptDecorator(func):
@@ -100,101 +242,161 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 self._failedTs.append(tsId)
 
         return wrapper
-    def getTmpTSFile(self, tsId, tmpPrefix=None, suffix=".mrcs"):
-        if tmpPrefix is None:
-            tmpPrefix = self._getTmpPath(tsId)
 
-        return os.path.join(tmpPrefix, tsId + suffix)
+    def genTsPaths(self, tsId):
+        """Generate the subdirectories corresponding to the current tilt-series in tmp and extra"""
+        path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
 
-    def convertInputStep(self, tsObjId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False, oddEven=False):
+    @staticmethod
+    def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
+        return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'
+
+    def getTmpOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
+        return self._getTmpPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
+
+    def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
+        return self._getExtraPath(tsId, self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
+
+    def convertInputStep(self, tsObjId, generateAngleFile=True, imodInterpolation=True, doSwap=False,
+                         oddEven=False, presentAcqOrders=None):
         """
-        :param tsObjId: Tilt series identifier
+        :param tsObjId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
         :param imodInterpolation: Boolean (True) to interpolate the tilt series with
                                   imod in case there is a TM.
                                   Pass None to cancel interpolation.
         :param doSwap: if applying alignment, consider swapping X/Y
         :param oddEven: process odd/even sets
+        :param presentAcqOrders: set containing the present acq orders in both the given TS and CTFTomoSeries. Used
+        to generate the xf file, the tlt file, and the interpolated TS with IMOD's newstack program.
         """
-        if isinstance(self.inputSetOfTiltSeries, SetOfTiltSeries):
-            ts = self.inputSetOfTiltSeries[tsObjId]
-        elif isinstance(self.inputSetOfTiltSeries, Pointer):
-            ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        if type(tsObjId) is str:
+            ts = self.tsDict[tsObjId]
+        else:
+            tsSet = self.inputSetOfTiltSeries,
+            ts = tsSet.get()[tsObjId] if isinstance(tsSet, Pointer) else tsSet[tsObjId]
 
+        self.genTsPaths(ts.getTsId())
+        self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile, imodInterpolation=imodInterpolation,
+                               doSwap=doSwap, oddEven=oddEven, presentAcqOrders=presentAcqOrders)
+
+    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName, xfFile=None, doSwap=None, tsExcludedIndices=None):
+        argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
+                                                                     outputTsFileName,
+                                                                     inputTsFileName=inputTsFileName,
+                                                                     xfFile=xfFile,
+                                                                     firstItem=ts.getFirstItem(),
+                                                                     doSwap=doSwap,
+                                                                     tsExcludedIndices=tsExcludedIndices)
+        Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
+
+    def genAlignmentFiles(self, ts, generateAngleFile=True, imodInterpolation=True, doSwap=False,
+                          oddEven=False, presentAcqOrders=None):
+        """
+        :param ts: Tilt-series
+        :param generateAngleFile:  Boolean(True) to generate IMOD angle file
+        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+                                  imod in case there is a TM.
+                                  Pass None to cancel interpolation.
+        :param doSwap: if applying alignment, consider swapping X/Y
+        :param oddEven: process odd/even sets
+        :param presentAcqOrders: set containing the present acq orders in both the given TS and CTFTomoSeries. Used
+        to generate the xf file, the tlt file, and the interpolated TS with IMOD's newstack program.
+        """
+        # Initialization
         tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
-        firstItem = ts.getFirstItem()
-
-        outputTsFileName = os.path.join(tmpPrefix, firstItem.parseFileName())
-
+        firstTi = ts.getFirstItem()
+        inTsFileName = firstTi.getFileName()
+        outputTsFileName = self.getTmpOutFile(tsId)
+        fnOdd = None
+        fnEven = None
+        outputOddTsFileName = None
+        outputEvenTsFileName = None
         if oddEven:
             fnOdd = ts.getOddFileName()
             fnEven = ts.getEvenFileName()
+            outputOddTsFileName = self.getTmpOutFile(tsId, suffix=ODD)
+            outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
 
-            outputOddTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_ODD_NAME)
-            outputEvenTsFileName = self.getTmpTSFile(tsId, tmpPrefix=tmpPrefix, suffix=EXT_MRCS_TS_EVEN_NAME)
-
-        # .. Interpolation cancelled
+        # Interpolation
         if imodInterpolation is None:
-            self.info("Tilt series %s linked." % tsId)
-            path.createLink(firstItem.getFileName(), outputTsFileName)
+            logger.info("Tilt series %s linked." % tsId)
+            path.createLink(inTsFileName, outputTsFileName)
 
         elif imodInterpolation:
-            """Apply the transformation form the input tilt-series"""
-
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             # Use IMOD newstack interpolation
-            if firstItem.hasTransform():
-                # Generate transformation matrices file
-                outputTmFileName = os.path.join(tmpPrefix, firstItem.parseFileName(extension=".xf"))
-                utils.formatTransformFile(ts, outputTmFileName)
+            if firstTi.hasTransform():
+                # Generate transformation matrices file (xf)
+                utils.genXfFile(ts, xfFile)
 
-                def applyNewStack(outputTsFileName, fnIn):
-
-                    argsAlignment, paramsAlignment = self.getBasicNewstackParams(ts,
-                                                                                 outputTsFileName,
-                                                                                 inputTsFileName=fnIn,
-                                                                                 xfFile=outputTmFileName,
-                                                                                 firstItem=firstItem,
-                                                                                 doSwap=doSwap)
-                    Plugin.runImod(self, 'newstack', argsAlignment % paramsAlignment)
-
-                self.info("Interpolating tilt series %s with imod" % tsId)
-                applyNewStack(outputTsFileName, None)
-
+                # Generate the interpolated TS with IMOD's newstack program
+                logger.info("Tilt-series will be interpolated with IMOD [%s]" % tsId)
+                if presentAcqOrders:
+                    logger.info("Tilt-series re-stacked with IMOD")
+                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                else:
+                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder()]
+                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
+                                        xfFile=xfFile,
+                                        doSwap=doSwap,
+                                        tsExcludedIndices=tsExcludedIndices)
                 if oddEven:
-                    applyNewStack(outputOddTsFileName, fnOdd)
-                    applyNewStack(outputEvenTsFileName, fnEven)
+                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
+                                            tsExcludedIndices=tsExcludedIndices)
+                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
+                                            tsExcludedIndices=tsExcludedIndices)
+
+                # If some views were excluded to generate the new stack, a new xfFile containing them should be
+                # generated
+                if presentAcqOrders and len(ts) != len(presentAcqOrders):
+                    utils.genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
 
             else:
-                self.info("Linking tilt series %s" % tsId)
-                path.createLink(firstItem.getFileName(), outputTsFileName)
+                # The given TS is interpolated
+                logger.info("The given TS is interpolated or not aligned [%s]" % tsId)
+                if presentAcqOrders:
+                    logger.info("Tilt-series re-stacked with IMOD")
+                    if len(presentAcqOrders) != len(ts):
+                        tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                        self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices)
+                        if oddEven:
+                            self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
+                                                    doSwap=doSwap,
+                                                    tsExcludedIndices=tsExcludedIndices)
+                            self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
+                                                    doSwap=doSwap,
+                                                    tsExcludedIndices=tsExcludedIndices)
+                else:
+                    logger.info("Tilt-series linked [%s]" % tsId)
+                    path.createLink(firstTi.getFileName(), outputTsFileName)
 
-                if oddEven:
-                    path.createLink(fnOdd, outputOddTsFileName)
-                    path.createLink(fnEven, outputEvenTsFileName)
+                    if oddEven:
+                        path.createLink(fnOdd, outputOddTsFileName)
+                        path.createLink(fnEven, outputEvenTsFileName)
 
         # Use Xmipp interpolation via Scipion
         else:
-            self.info("Interpolating tilt series %s with emlib" % tsId)
+            logger.info("Tilt-series interpolated with emlib [%s]" % tsId)
             ts.applyTransform(outputTsFileName)
 
-        self.info("Tilt series %s available for processing at %s." % (tsId, outputTsFileName))
+        logger.info("Tilt-series [%s] available for processing at %s." % (tsId, outputTsFileName))
 
+        # Generate the tlt file
         if generateAngleFile:
-            """Generate angle file"""
-            angleFilePath = os.path.join(tmpPrefix,
-                                         firstItem.parseFileName(extension=".tlt"))
-            ts.generateTltFile(angleFilePath)
+            logger.info("Generate angle file for the tilt-series [%s]" % tsId)
+            angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+            ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
-    def getBasicNewstackParams(self, ts, outputTsFileName, inputTsFileName=None,
-                               xfFile=None, firstItem=None, binning=1, doSwap=False):
+    @staticmethod
+    def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
+                               xfFile=None, firstItem=None, binning=1, doSwap=False, tsExcludedIndices=None):
         """ Returns basic newstack arguments
         
         :param ts: Title Series object
@@ -204,7 +406,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
         :param doSwap: Default False.
-        
+        :param tsExcludedIndices: List of indices to be excluded in the tilt-series
         """
 
         if firstItem is None:
@@ -239,14 +441,21 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
                     argsAlignment += "-size %(size)s "
 
+        if tsExcludedIndices:
+            paramsAlignment["exclude"] = ",".join(map(str, tsExcludedIndices))
+            argsAlignment += "-exclude %(exclude)s "
+            # From IMOD's newstack doc: "sections are numbered from 0 unless -fromone is entered"
+            argsAlignment += "-fromone "
+
         return argsAlignment, paramsAlignment
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTiltSeries(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
 
-        if self.TiltSeries:
-            self.TiltSeries.enableAppend()
+        outputSetOfTiltSeries = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if outputSetOfTiltSeries:
+            outputSetOfTiltSeries.enableAppend()
 
         else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
@@ -270,7 +479,7 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
             self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
             self._defineSourceRelation(inputSet, outputSetOfTiltSeries)
 
-        return self.TiltSeries
+        return outputSetOfTiltSeries
 
     def getOutputInterpolatedSetOfTiltSeries(self, inputSet):
         """ Method to generate output interpolated classes of set of tilt-series"""
@@ -409,8 +618,6 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
-
-
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
 
@@ -450,7 +657,8 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
-    def parseTSDefocusFile(self, inputTs, defocusFilePath, newCTFTomoSeries):
+    @staticmethod
+    def parseTSDefocusFile(inputTs, defocusFilePath, newCTFTomoSeries):
         """ Parse tilt-series ctf estimation file.
         :param inputTs: input tilt-series
         :param defocusFilePath: input *.defocus file to be parsed
@@ -490,57 +698,57 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 f"Defocus file flag {defocusFileFlag} is not supported. Only supported formats "
                 "correspond to flags 0, 1, 4, 5, and 37.")
 
-        excludedViews = inputTs.getExcludedViewsIndex()
-        ids = inputTs.getIdSet()
-        for index in ids:
+        for ti in inputTs:
+            tiObjId = ti.getObjId()
             newCTFTomo = CTFTomo()
-            newCTFTomo.setIndex(index)
+            newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
+            newCTFTomo.setIndex(ti.getIndex())
 
-            if index not in defocusUDict.keys() and index not in excludedViews:
+            if tiObjId not in defocusUDict.keys() and not ti.isEnabled():
                 raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                    inputTs.getTsId(), index, inputTs[index].getTiltAngle()))
+                    inputTs.getTsId(), tiObjId, inputTs[tiObjId].getTiltAngle()))
 
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
-            newCTFTomo.setDefocusUList(defocusUDict.get(index, [0.]))
+            newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
 
             if defocusFileFlag == 1:
                 " Astigmatism estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
             elif defocusFileFlag == 4:
                 " Phase-shift information "
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
             elif defocusFileFlag == 5:
                 " Astigmatism and phase shift estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
             elif defocusFileFlag == 37:
                 " Astigmatism, phase shift and cut-on frequency estimation "
                 newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(index, [0.]))
+                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
                 newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(index, [0.]))
+                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
                 newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(index, [0.]))
+                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
                 newCTFTomo._cutOnFreqList = CsvList(pType=float)
-                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(index, [0.]))
+                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(tiObjId, [0.]))
 
             newCTFTomo.completeInfoFromList()
             newCTFTomoSeries.append(newCTFTomo)
@@ -550,21 +758,20 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
-    def createOutputFailedSet(self, tsObjId):
+    def createOutputFailedSet(self, ts, presentAcqOrders=None):
         # Check if the tilt-series ID is in the failed tilt-series
         # list to add it to the set
-        if tsObjId in self._failedTs:
-            ts = self._getTiltSeries(tsObjId)
+        tsId = ts.getTsId()
+        if tsId in self._failedTs:
             tsSet = self._getSetOfTiltSeries()
-            tsId = ts.getTsId()
-
             output = self.getOutputFailedSetOfTiltSeries(tsSet)
-
-            newTs = TiltSeries(tsId=tsId)
+            newTs = ts.clone()
             newTs.copyInfo(ts)
             output.append(newTs)
 
-            for index, tiltImage in enumerate(ts):
+            for tiltImage in ts:
+                if presentAcqOrders and tiltImage.getAcquisitionOrder() not in presentAcqOrders:
+                    continue
                 newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())

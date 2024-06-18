@@ -23,18 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
 from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 from pwem.emlib.image import ImageHandler
 
 from .. import Plugin, utils
-from .protocol_base import ProtImodBase, EXT_MRCS_TS_EVEN_NAME, EXT_MRCS_TS_ODD_NAME
+from .protocol_base import ProtImodBase, ODD, EVEN
 
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
@@ -45,6 +41,16 @@ class ProtImodDoseFilter(ProtImodBase):
     Tilt-series dose filtering based on the IMOD procedure.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/mtffilter.html
+
+    A specialized filter can be applied to perform dose weight-filtering of
+    cryoEM images, particularly ones from tilt series.  The filter is as
+    described in Grant and Grigorieff, 2015 (DOI: 10.7554/eLife.06980) and
+    the implementation follows that in their "unblur" program.  At any fre-
+    quency, the filter follows an exponential decay with dose, where the
+    exponential is of the dose divided by 2 times a "critical dose" for
+    that frequency.  This critical dose was empirically found to be approx-
+    imated by a * k^b + c, where k is frequency; the values of a, b, c in
+    that paper are used by default.
     """
 
     _label = 'Dose filter'
@@ -58,13 +64,15 @@ class ProtImodDoseFilter(ProtImodBase):
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
-                      label='Input set of tilt-series')
+                      label='Tilt Series',
+                      help='This input tilt-series will be low pass filtered according'
+                           'to their cumulated dose')
 
         form.addParam('initialDose',
                       params.FloatParam,
                       default=0.0,
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='Initial dose (e/sq. Å)',
+                      label='Initial dose (e/Å^2)',
                       help='Dose applied before any of the images in the '
                            'input file were taken; this value will be '
                            'added to all the dose values.')
@@ -81,12 +89,12 @@ class ProtImodDoseFilter(ProtImodBase):
                            'during import of the tilt-series\n'
                            '- Fixed dose: manually input fixed dose '
                            'for each image of the input file, '
-                           'in electrons/square Ångstrom.')
+                           'in electrons/Å^2.')
 
         form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=FIXED_DOSE,
-                      label='Fixed dose (e/sq Å)',
+                      label='Fixed dose (e/Å^2)',
                       condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
@@ -101,29 +109,26 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
-            self._insertFunctionStep(self.doseFilterStep, ts.getObjId())
-            self._insertFunctionStep(self.createOutputStep, ts.getObjId())
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            self._insertFunctionStep(self.doseFilterStep, tsId)
+            self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def doseFilterStep(self, tsObjId):
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+
+    def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
-
+        self.genTsPaths(tsId)
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
         paramsMtffilter = {
             'input': firstItem.getFileName(),
-            'output': os.path.join(extraPrefix, firstItem.parseFileName()),
+            'output': self.getExtraOutFile(tsId),
             'pixsize': ts.getSamplingRate(),
             'voltage': ts.getAcquisition().getVoltage(),
         }
@@ -137,9 +142,7 @@ class ProtImodDoseFilter(ProtImodBase):
             argsMtffilter += f"-InitialDose {self.initialDose.get():f} "
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            outputDoseFilePath = os.path.join(tmpPrefix,
-                                              firstItem.parseFileName(extension=".dose"))
-
+            outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
             utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
 
             paramsMtffilter.update({
@@ -162,27 +165,22 @@ class ProtImodDoseFilter(ProtImodBase):
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             paramsMtffilter['input'] = oddFn
-            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=ODD)
 
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
             evenFn = firstItem.getEven().split('@')[1]
             paramsMtffilter['input'] = evenFn
-            paramsMtffilter['output'] = os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME)
+            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
             Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
 
-    def createOutputStep(self, tsObjId):
+    def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-
+        ts = self.tsDict[tsId]
         output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-
         output.append(newTs)
-
         ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
@@ -190,14 +188,13 @@ class ProtImodDoseFilter(ProtImodBase):
             newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
             newTi.setAcquisition(tiltImage.getAcquisition())
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_ODD_NAME))
-                locationEven = index + 1, (os.path.join(extraPrefix, tsId+EXT_MRCS_TS_EVEN_NAME))
+                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                 newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
             else:
                 newTi.setOddEven([])
 
-            locationTi = index + 1, (os.path.join(extraPrefix,
-                                                  tiltImage.parseFileName()))
+            locationTi = index + 1, self.getExtraOutFile(tsId)
             newTi.setLocation(locationTi)
             newTs.append(newTi)
             newTs.update(newTi)
