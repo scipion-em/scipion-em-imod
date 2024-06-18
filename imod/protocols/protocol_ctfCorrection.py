@@ -172,6 +172,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders)
             self._insertFunctionStep(self.ctfCorrection, tsId)
             self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders)
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -184,8 +185,9 @@ class ProtImodCtfCorrection(ProtImodBase):
         allTsIds = set(tsIds + ctfTsIds)
         nonMatchingTsIds = [tsId for tsId in allTsIds if tsId not in self.presentTsIds]
         # Update the msg for each protocol execution to avoid duplicities in the summary
-        self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series: {nonMatchingTsIds}')
-        self._store(self.matchingMsg)
+        if nonMatchingTsIds:
+            self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series: {nonMatchingTsIds}')
+            self._store(self.matchingMsg)
 
     def convertInputsStep(self, tsId, presentAcqOrders):
         # Generate the alignment-related files: xf, tlt, and a possible mrc

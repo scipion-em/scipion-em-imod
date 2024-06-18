@@ -632,15 +632,14 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList() and not isRelion:
 
         logger.debug("Defocus file generated form a list.")
-
         flag = ctfTomoSeries.getIMODDefocusFileFlag()
+        nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
         if flag == 0:
             # Plain estimation
 
             logger.debug("Flag 0: Plain estimation.")
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
-            nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
             # Write IMOD defocus file
             with open(defocusFilePath, 'w') as f:
@@ -656,11 +655,11 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     # the tilt-image with the highest negative angle)
                     newLine = (pattern % (
                         index,
-                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        index + nEstimationsInRange,
                         round(tiltSeries[index].getTiltAngle(), 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        int(float(defocusUDict[index][0]) / 10)
+                        int(float(defocusUDict[index + nEstimationsInRange][0]) / 10)
                     ))
 
                     lines.append(newLine)
@@ -687,7 +686,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
                 for index in sorted(defocusUDict.keys()):
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes
@@ -695,14 +694,14 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         index,
-                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        index + nEstimationsInRange,
                         round(tiltSeries[index].getTiltAngle(), 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0]) / 10,
+                        float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0]) / 10,
-                        float(defocusAngleDict[index][0]),
+                        float(defocusVDict[index + nEstimationsInRange][0]) / 10,
+                        float(defocusAngleDict[index + nEstimationsInRange][0]),
                     ))
 
                     lines.append(newLine)
@@ -723,7 +722,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
                 for index in sorted(defocusUDict.keys()):
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes
@@ -731,12 +730,12 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.2f\n" % (
                         index,
-                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        index + nEstimationsInRange,
                         round(tiltSeries[index].getTiltAngle(), 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0]) / 10,
-                        float(phaseShiftDict[index][0]),
+                        float(defocusUDict[index + nEstimationsInRange][0]) / 10,
+                        float(phaseShiftDict[index + nEstimationsInRange][0]),
                     ))
 
                     lines.append(newLine)
@@ -760,7 +759,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
                 for index in sorted(defocusUDict.keys()):
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes
@@ -768,15 +767,15 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
                         index,
-                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        index + nEstimationsInRange,
                         round(tiltSeries[index].getTiltAngle(), 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0]) / 10,
+                        float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0]) / 10,
-                        float(defocusAngleDict[index][0]),
-                        float(phaseShiftDict[index][0])
+                        float(defocusVDict[index + nEstimationsInRange][0]) / 10,
+                        float(defocusAngleDict[index + nEstimationsInRange][0]),
+                        float(phaseShiftDict[index + nEstimationsInRange][0])
                     ))
 
                     lines.append(newLine)
@@ -800,7 +799,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
                 for index in sorted(defocusUDict.keys()):
 
-                    if index + ctfTomoSeries.getNumberOfEstimationsInRange() > len(defocusUDict.keys()):
+                    if index + nEstimationsInRange > len(defocusUDict.keys()):
                         break
 
                     # Dictionary keys is reversed because IMOD set indexes
@@ -808,16 +807,16 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     # the tilt-image with the highest negative angle)
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\t%.4f\n" % (
                         index,
-                        index + ctfTomoSeries.getNumberOfEstimationsInRange(),
-                        round(tiltSeries[index + ctfTomoSeries.getNumberOfEstimationsInRange()].getTiltAngle(), 2),
+                        index + nEstimationsInRange,
                         round(tiltSeries[index].getTiltAngle(), 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusUDict[index][0]) / 10,
+                        float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        float(defocusVDict[index][0]) / 10,
-                        float(defocusAngleDict[index][0]),
-                        float(phaseShiftDict[index][0]),
-                        float(cutOnFreqDict[index][0])
+                        float(defocusVDict[index + nEstimationsInRange][0]) / 10,
+                        float(defocusAngleDict[index + nEstimationsInRange][0]),
+                        float(phaseShiftDict[index + nEstimationsInRange][0]),
+                        float(cutOnFreqDict[index + nEstimationsInRange][0])
                     ))
 
                     lines.append(newLine)
