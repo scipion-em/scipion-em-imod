@@ -1,3 +1,8 @@
+3.5.1:
+  - CTF correction: get rid of the decorator. Manage the failed TS in the createOutputStep.
+  - Fix a bug in the base class for the generation of alignment files when there input TS are not aligned and there
+    aren't excluded views.
+  - Fix a bug in the generation of defocus files.
 3.5.0:
  Users:
   - Protocols' help added.
@@ -11,7 +16,7 @@
     * The xf, defocus, and tlt files are generated inside each TS extra sub-directory.
  Developers:
   - Update the acquisition order in the CTFTomo objects (field added to that class in scipion-em-tomo v3.7.0).
-  - Refactorization: avoid the excesive usage of getFirstItem.
+  - Refactorization: avoid the excessive usage of getFirstItem.
   - File generation methods (most of them in utils) adapted to the CTF-TS intersection functionality.
   - Fixing sorted dictionary in ctf correction. How to access the defocus list in utils.py
 3.3.0:

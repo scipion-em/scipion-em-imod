@@ -303,6 +303,30 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
         :param presentAcqOrders: set containing the present acq orders in both the given TS and CTFTomoSeries. Used
         to generate the xf file, the tlt file, and the interpolated TS with IMOD's newstack program.
         """
+        def _linkTs():
+            logger.info("Tilt-series linked [%s]" % tsId)
+            path.createLink(firstTi.getFileName(), outputTsFileName)
+
+            if oddEven:
+                path.createLink(fnOdd, outputOddTsFileName)
+                path.createLink(fnEven, outputEvenTsFileName)
+
+        def _applyNewStackBasic():
+            logger.info("Tilt-series re-stacked with IMOD")
+            self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
+                                    xfFile=xfFile,
+                                    doSwap=doSwap,
+                                    tsExcludedIndices=tsExcludedIndices)
+            if oddEven:
+                self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
+                                        xfFile=xfFile,
+                                        doSwap=doSwap,
+                                        tsExcludedIndices=tsExcludedIndices)
+                self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
+                                        xfFile=xfFile,
+                                        doSwap=doSwap,
+                                        tsExcludedIndices=tsExcludedIndices)
+
         # Initialization
         tsId = ts.getTsId()
         firstTi = ts.getFirstItem()
@@ -333,23 +357,10 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # Generate the interpolated TS with IMOD's newstack program
                 logger.info("Tilt-series will be interpolated with IMOD [%s]" % tsId)
                 if presentAcqOrders:
-                    logger.info("Tilt-series re-stacked with IMOD")
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
                 else:
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder()]
-                self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
-                                        xfFile=xfFile,
-                                        doSwap=doSwap,
-                                        tsExcludedIndices=tsExcludedIndices)
-                if oddEven:
-                    self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
-                                            xfFile=xfFile,
-                                            doSwap=doSwap,
-                                            tsExcludedIndices=tsExcludedIndices)
-                    self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
-                                            xfFile=xfFile,
-                                            doSwap=doSwap,
-                                            tsExcludedIndices=tsExcludedIndices)
+                _applyNewStackBasic()
 
                 # If some views were excluded to generate the new stack, a new xfFile containing them should be
                 # generated
@@ -360,26 +371,13 @@ class ProtImodBase(ProtTomoImportFiles, EMProtocol, ProtTomoBase):
                 # The given TS is interpolated
                 logger.info("The given TS is interpolated or not aligned [%s]" % tsId)
                 if presentAcqOrders:
-                    logger.info("Tilt-series re-stacked with IMOD")
-                    if len(presentAcqOrders) != len(ts):
-                        tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
-                        self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
-                                                doSwap=doSwap,
-                                                tsExcludedIndices=tsExcludedIndices)
-                        if oddEven:
-                            self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
-                                                    doSwap=doSwap,
-                                                    tsExcludedIndices=tsExcludedIndices)
-                            self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
-                                                    doSwap=doSwap,
-                                                    tsExcludedIndices=tsExcludedIndices)
+                    if len(presentAcqOrders) == len(ts):
+                        _linkTs()
+                    else:
+                        xfFile = None
+                        _applyNewStackBasic()
                 else:
-                    logger.info("Tilt-series linked [%s]" % tsId)
-                    path.createLink(firstTi.getFileName(), outputTsFileName)
-
-                    if oddEven:
-                        path.createLink(fnOdd, outputOddTsFileName)
-                        path.createLink(fnEven, outputEvenTsFileName)
+                    _linkTs()
 
         # Use Xmipp interpolation via Scipion
         else:
