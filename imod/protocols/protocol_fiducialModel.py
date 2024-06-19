@@ -540,10 +540,7 @@ class ProtImodFiducialModel(ProtImodBase):
         extraPrefix = self._getExtraPath(tsId)
 
         firstItem = ts.getFirstItem()
-        trackFilePath = os.path.join(extraPrefix,
-                                     firstItem.parseFileName(suffix="_track",
-                                                             extension=".com"))
-
+        trackFilePath = os.path.join(extraPrefix, tsId + '_track.com')
         template = """# Command file for running BEADTRACK
 #
 ####CreatedVersion####4.9.12
