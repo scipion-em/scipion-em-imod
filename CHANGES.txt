@@ -1,3 +1,8 @@
+3.5.1:
+  - CTF correction: get rid of the decorator. Manage the failed TS in the createOutputStep.
+  - Fix a bug in the base class for the generation of alignment files when there input TS are not aligned and there
+    aren't excluded views.
+  - Fix a bug in the generation of defocus files.
 3.5.0:
  Users:
   - Protocols' help added.
@@ -14,10 +19,6 @@
   - Refactorization: avoid the excessive usage of getFirstItem.
   - File generation methods (most of them in utils) adapted to the CTF-TS intersection functionality.
   - Fixing sorted dictionary in ctf correction. How to access the defocus list in utils.py
-  - CTF correction: get rid of the decorator. Manage the failed TS in the createOutputStep.
-  - Fix a bug in the base class for the generation of alignment files when there input TS are not aligned and there
-    aren't excluded views.
-  - Fix a bug in the generation of defocus files.
 3.3.0:
   - bugfix for import ctf, set missing defocus flag
   - move plugin-specific import CTF protocol to the core
