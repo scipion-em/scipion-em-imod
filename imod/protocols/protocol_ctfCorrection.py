@@ -231,7 +231,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                 argsCtfPhaseFlip += f"-UseGPU {self.getGpuList()[0]} " \
                                     "-ActionIfGPUFails 2,2 "
 
-            if ts.getFirstItem().hasTransform():
+            if ts.hasAlignment():
                 paramsCtfPhaseFlip['xformFile'] = self.getExtraOutFile(tsId, ext=XF_EXT)
                 argsCtfPhaseFlip += "-TransformFile %(xformFile)s "
 
@@ -324,13 +324,14 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
-        ts = self._getSetOfInputTS()
-        if not ts.getFirstItem().getFirstItem().hasTransform():
-            warnings.append("Input tilt-series do not have alignment "
-                            "information! The recommended workflow is to "
-                            "estimate CTF on raw tilt-series and then here "
-                            "provide tilt-series with alignment "
-                            "(non-interpolated).")
+        for ts in self._getSetOfInputTS():
+            if not ts.hasAlignment():
+                warnings.append("Input tilt-series do not have alignment "
+                                "information! The recommended workflow is to "
+                                "estimate CTF on raw tilt-series and then here "
+                                "provide tilt-series with alignment "
+                                "(non-interpolated).")
+                break
 
         return warnings
 

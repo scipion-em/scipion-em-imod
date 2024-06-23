@@ -971,7 +971,7 @@ def calculateRotationAngleFromTM(ts):
     angle from its associated transformation matrix."""
     avgRotationAngle = 0
 
-    if not ts.getFirstItem().hasTransform():
+    if not ts.hasAlignment():
         return avgRotationAngle
 
     for ti in ts:

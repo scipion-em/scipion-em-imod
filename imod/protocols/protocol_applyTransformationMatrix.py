@@ -30,7 +30,7 @@ import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage
 
-from imod import Plugin, utils
+from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import XF_EXT, ODD, EVEN
 
@@ -132,36 +132,32 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             if self.linear:
                 params["-linear"] = ""
 
-            args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-            Plugin.runImod(self, 'newstack', args)
+            self.runNewStack(params)
 
             if self.applyToOddEven(ts):
                 oddFn = firstItem.getOdd().split('@')[1]
                 evenFn = firstItem.getEven().split('@')[1]
                 params['-input'] = oddFn
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-                Plugin.runImod(self, 'newstack', args)
+                self.runNewStack(params)
 
                 params['-input'] = evenFn
                 params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-                Plugin.runImod(self, 'newstack', args)
+                self.runNewStack(params)
 
         except Exception as e:
             self._failedTs.append(tsId)
             self.error('Newstack execution failed for tsId %s -> %s' % (tsId, e))
 
     def generateOutputStackStep(self, tsId):
+        ts = self.getTsFromTsId(tsId)
         if tsId in self._failedTs:
-            self.createOutputFailedSet(tsId)
+            self.createOutputFailedSet(ts)
         else:
-            ts = self.getTsFromTsId(tsId)
             outputLocation = self.getExtraOutFile(tsId)
 
             if os.path.exists(outputLocation):
                 output = self.getOutputInterpolatedTS(self._getSetOfInputTS())
-                binning = self.binning.get()
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
@@ -171,10 +167,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTs.setAcquisition(acq)
                 output.append(newTs)
 
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
                 index = 1
+                oddEvenFlag = self.applyToOddEven(ts)
                 for tiltImage in ts:
                     if tiltImage.isEnabled():
                         newTi = TiltImage()
@@ -183,7 +177,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         acq.setTiltAxisAngle(0.)
                         newTi.setAcquisition(acq)
                         newTi.setLocation(index, outputLocation)
-                        if self.applyToOddEven(ts):
+                        if oddEvenFlag:
                             locationOdd = index, (self.getExtraOutFile(tsId, suffix=ODD))
                             locationEven = index, (self.getExtraOutFile(tsId, suffix=EVEN))
                             newTi.setOddEven([ih.locationToXmipp(locationOdd),
@@ -192,8 +186,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                             newTi.setOddEven([])
 
                         index += 1
-                        if binning > 1:
-                            newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
+                        newTi.setSamplingRate(self._getOutputSampling())
                         newTs.append(newTi)
 
                 dims = self._getOutputDim(newTi.getFileName())
@@ -202,7 +195,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTs.write(properties=False)
                 output.update(newTs)
                 output.write()
-                self._store()
+                self._store(output)
 
     def closeOutputSetsStep(self):
         self._closeOutputSet()
@@ -222,9 +215,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.InterpolatedTiltSeries:
-            summary.append("Input tilt-series: %d\nInterpolations applied: %d\n"
-                           % (self._getSetOfInputTS().getSize(),
-                              self.InterpolatedTiltSeries.getSize()))
+            summary.append(f"Input tilt-series: {self._getSetOfInputTS().getSize()}\n"
+                           f"Interpolations applied: {self.InterpolatedTiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
@@ -232,7 +224,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _methods(self):
         methods = []
         if self.InterpolatedTiltSeries:
-            methods.append("The interpolation has been computed for %d "
-                           "tilt-series using the IMOD *newstack* command.\n"
-                           % (self.InterpolatedTiltSeries.getSize()))
+            methods.append("The interpolation has been computed for "
+                           f"{self.InterpolatedTiltSeries.getSize()} "
+                           "tilt-series using the IMOD *newstack* command.")
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getOutputSampling(self) -> float:
+        return self._getSetOfInputTS().getSamplingRate() * self.binning.get()

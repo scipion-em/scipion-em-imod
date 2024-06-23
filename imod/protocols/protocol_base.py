@@ -50,7 +50,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         # Possible outputs (synchronize these names with the constants)
         #self.tsDict = None
         self.tomoDict = None
-        self.binning = 1
+        #self.binning = 1
         self._failedTs = []
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
@@ -238,6 +238,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                doSwap=doSwap, oddEven=oddEven,
                                presentAcqOrders=presentAcqOrders)
 
+    def runNewStack(self, params):
+        """ Shortcut method to run newstack command given input params dict. """
+        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+        Plugin.runImod(self, 'newstack', args)
+
     def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
                            xfFile=None, doSwap=None, tsExcludedIndices=None):
 
@@ -249,8 +254,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                              doSwap=doSwap,
                                              tsExcludedIndices=tsExcludedIndices)
 
-        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-        Plugin.runImod(self, 'newstack', args)
+        self.runNewStack(params)
 
     def genAlignmentFiles(self, ts, generateAngleFile=True,
                           imodInterpolation=True, doSwap=False,
@@ -458,10 +462,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             elif isinstance(inputSet, SetOfTomograms):
                 interpTS.setAcquisition(inputSet.getAcquisition())
-                interpTS.setSamplingRate(inputSet.getSamplingRate())
                 interpTS.setDim(inputSet.getDim())
 
-            if self.binning > 1:
+            if self.binning.get() > 1:
                 samplingRate = inputSet.getSamplingRate()
                 samplingRate *= self.binning.get()
                 interpTS.setSamplingRate(samplingRate)
@@ -709,33 +712,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
-    def createOutputFailedSet(self, tsId, presentAcqOrders=None):
-        #FIXME: this is broken for now
-        ts = self.getTsFromTsId(tsId)
+    def createOutputFailedSet(self, ts, presentAcqOrders=None):
+        """ Just copy input TS to the failed output set. """
         tsSet = self._getSetOfInputTS()
         output = self.getOutputFailedSetOfTiltSeries(tsSet)
         newTs = ts.clone()
         newTs.copyInfo(ts)
         output.append(newTs)
 
-        for tiltImage in ts:
-            if presentAcqOrders and tiltImage.getAcquisitionOrder() not in presentAcqOrders:
-                continue
-            newTi = TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(tiltImage.getLocation())
-            if hasattr(self, "binning") and self.binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
-            newTs.append(newTi)
-
-        dims = self._getOutputDim(newTi.getFileName())
-        newTs.setDim(dims)
+        newTs.copyItems(ts)
         newTs.write(properties=False)
-
         output.update(newTs)
         output.write()
-        self._store()
+        self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
     def genTsPaths(self, tsId):

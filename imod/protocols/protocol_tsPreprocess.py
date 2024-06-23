@@ -295,21 +295,18 @@ class ProtImodTsNormalization(ProtImodBase):
         if self.getModeToOutput() is not None:
             params["-ModeToOutput"] = self.getModeToOutput()
 
-        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-        Plugin.runImod(self, 'newstack', args)
+        self.runNewStack(params)
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             params['-input'] = oddFn
             params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-            args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-            Plugin.runImod(self, 'newstack', args)
+            self.runNewStack(params)
 
             params['-input'] = evenFn
             params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-            Plugin.runImod(self, 'newstack', args)
+            self.runNewStack(params)
 
         output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS(), self.binning.get())
 

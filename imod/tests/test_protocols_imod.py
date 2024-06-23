@@ -451,7 +451,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(tseries, size=2)
         self.assertTrue(tseries.hasAlignment(), "Tilt series does not have alignment flag")
         for ts in tseries:
-            self.assertTrue(ts.getFirstItem().hasTransform())
+            self.assertTrue(ts.hasAlignment())
 
     def test_doseFilterOutputTS(self):
         ts = self.protDoseFilter.TiltSeries
