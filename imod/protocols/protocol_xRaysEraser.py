@@ -24,10 +24,9 @@
 # *
 # *****************************************************************************
 
-from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 
 from .. import Plugin
@@ -111,7 +110,6 @@ class ProtImodXraysEraser(ProtImodBase):
     """
 
     _label = 'X-rays eraser'
-    _devStatus = BETA
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
@@ -127,7 +125,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         form.addParam('peakCriterion',
                       params.FloatParam,
-                      default=10.0,
+                      default=8.0,
                       label='Peak criterion (in std)',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Criterion # of SDs above local mean for erasing '
@@ -135,7 +133,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         form.addParam('diffCriterion',
                       params.FloatParam,
-                      default=8.0,
+                      default=6.0,
                       label='Difference criterion  (in std)',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Criterion # of SDs above mean pixel-to-pixel '
@@ -186,10 +184,10 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputStep)
 
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
@@ -249,14 +247,12 @@ class ProtImodXraysEraser(ProtImodBase):
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsId):
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
 
         ts = self.tsDict[tsId]
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
-
-        ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -290,7 +286,7 @@ class ProtImodXraysEraser(ProtImodBase):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nX-rays erased output "
                            "tilt series: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.TiltSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

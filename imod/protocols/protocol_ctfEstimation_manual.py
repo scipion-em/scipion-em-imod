@@ -25,7 +25,6 @@
 # *
 # **************************************************************************
 
-from pyworkflow import BETA
 from tomo.objects import SetOfCTFTomoSeries
 
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
@@ -50,7 +49,6 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     """
 
     _label = 'CTF estimation (manual)'
-    _devStatus = BETA
     _interactiveMode = True
 
     def __init__(self, **args):
@@ -65,7 +63,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def runCTFEtimationStep(self):
         from imod.viewers import ImodGenericView
-        self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
+        self.inputSetOfTiltSeries = self._getSetOfInputTS()
         view = ImodGenericView(None, self, self.inputSetOfTiltSeries,
                                createSetButton=True,
                                isInteractive=True)
@@ -82,7 +80,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
-        setOfTiltseries = self._getSetOfTiltSeries()
+        setOfTiltseries = self._getSetOfInputTS()
         for item in setOfTiltseries.iterItems(iterate=False):
             self.createOutputStep(item.getObjId(), outputSetName)
         self.closeOutputSetsStep()

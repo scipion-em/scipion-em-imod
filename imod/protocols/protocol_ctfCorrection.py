@@ -24,10 +24,10 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
+
 from pyworkflow.object import Set, String
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage
 from tomo.utils import getCommonTsAndCtfElements
 from .. import Plugin, utils
@@ -69,7 +69,6 @@ class ProtImodCtfCorrection(ProtImodBase):
     """
 
     _label = 'CTF correction'
-    _devStatus = BETA
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -176,7 +175,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
         tsIds = list(self.tsDict.keys())
@@ -193,7 +192,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Generate the alignment-related files: xf, tlt, and a possible mrc
         super().convertInputStep(tsId,  # Considering swapXY is required to make tilt axis vertical
                                  doSwap=True,
-                                 oddEven=self.applyToOddEven(self.inputSetOfTiltSeries.get()),
+                                 oddEven=self.applyToOddEven(self._getSetOfInputTS()),
                                  presentAcqOrders=presentAcqOrders)
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
@@ -254,7 +253,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             self.error('Ctf correction execution failed for tsId %s -> %s' % (tsId, e))
 
     def createOutputStep(self, tsId, presentAcqOrders):
-        inTsSet = self._getSetOfTiltSeries()
+        inTsSet = self._getSetOfInputTS()
         if tsId in self._failedTs:
             outputSetOfFailedTs = self.getOutputFailedSetOfTiltSeries(inTsSet)
             ts = self.tsDict[tsId]
@@ -277,8 +276,6 @@ class ProtImodCtfCorrection(ProtImodBase):
             acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
             newTs.setAcquisition(acq)
             outputSetOfTs.append(newTs)
-
-            ih = ImageHandler()
 
             for index, inTi in enumerate(ts):
                 if inTi.getAcquisitionOrder() in presentAcqOrders:
@@ -327,7 +324,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
-        ts = self.inputSetOfTiltSeries.get()
+        ts = self._getSetOfInputTS()
         if not ts.getFirstItem().getFirstItem().hasTransform():
             warnings.append("Input tilt-series do not have alignment "
                             "information! The recommended workflow is to "

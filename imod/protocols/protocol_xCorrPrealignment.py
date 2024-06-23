@@ -26,11 +26,9 @@
 
 import numpy as np
 
-from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from pwem.objects import Transform
-from pwem.emlib.image import ImageHandler
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
@@ -55,7 +53,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     """
 
     _label = 'Coarse prealignment'
-    _devStatus = BETA
     _possibleOutputs = {"TiltSeries": tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
@@ -141,7 +138,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series"""
@@ -209,7 +206,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def generateOutputStackStep(self, tsId):
         """ Generate tilt-serie with the associated transform matrix """
         ts = self.tsDict[tsId]
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
         alignmentMatrix = utils.formatTransformationMatrix(self.getExtraOutFile(tsId, ext=PREXG_EXT))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -250,7 +247,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         self._store()
 
     def computeInterpolatedStackStep(self, tsId):
-        output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputInterpolatedTS(self._getSetOfInputTS())
         ts = self.tsDict[tsId]
 
         paramsAlignment = {
@@ -288,10 +285,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
             newTs.append(newTi)
 
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-
+        dims = self._getOutputDim(newTi.getFileName())
+        newTs.setDim(dims)
         newTs.write(properties=False)
 
         output.update(newTs)
@@ -320,7 +315,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nTransformation matrices "
                            "calculated: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.TiltSeries.getSize()))
             if self.InterpolatedTiltSeries:
                 summary.append("Interpolated tilt-series: %d"

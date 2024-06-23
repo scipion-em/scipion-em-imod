@@ -23,7 +23,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
+
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
@@ -59,7 +59,6 @@ class ProtImodTomoNormalization(ProtImodBase):
     """
 
     _label = 'Tomo preprocess'
-    _devStatus = BETA
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
 
     # -------------------------- DEFINE param functions -----------------------

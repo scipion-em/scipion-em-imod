@@ -23,11 +23,11 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
+
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 
 from .. import Plugin, utils
 from .protocol_base import ProtImodBase, ODD, EVEN
@@ -54,7 +54,6 @@ class ProtImodDoseFilter(ProtImodBase):
     """
 
     _label = 'Dose filter'
-    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -117,7 +116,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
@@ -177,11 +176,10 @@ class ProtImodDoseFilter(ProtImodBase):
         """Generate output filtered tilt series"""
 
         ts = self.tsDict[tsId]
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
-        ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -216,7 +214,7 @@ class ProtImodDoseFilter(ProtImodBase):
         validateMsgs = []
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            for ts in self.inputSetOfTiltSeries.get():
+            for ts in self._getSetOfInputTS():
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append("%s has no dose information stored "
                                         "in Scipion Metadata. To solve this, import "
@@ -228,7 +226,7 @@ class ProtImodDoseFilter(ProtImodBase):
     def _summary(self):
         summary = []
 
-        summary.append("%d input tilt-series" % self.inputSetOfTiltSeries.get().getSize())
+        summary.append("%d input tilt-series" % self._getSetOfInputTS().getSize())
 
         if self.TiltSeries:
             summary.append("%d tilt-series dose-weighted" % self.TiltSeries.getSize())

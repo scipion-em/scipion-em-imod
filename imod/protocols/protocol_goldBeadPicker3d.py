@@ -24,8 +24,8 @@
 # *
 # *****************************************************************************
 
-from pyworkflow import BETA
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.object import Set
 import tomo.objects as tomoObj
 import tomo.constants as constants
@@ -42,7 +42,10 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     """
 
     _label = 'Gold bead picker 3D'
-    _devStatus = BETA
+
+    def __init__(self, **args):
+        super().__init__(**args)
+        self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -126,7 +129,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.defineExecutionPararell()
         self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
 
     def pickGoldBeadsStep(self, tsId):

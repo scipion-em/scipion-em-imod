@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from pyworkflow.object import Set
@@ -50,7 +49,6 @@ class ProtImodExcludeViews(ProtImodBase):
     """
 
     _label = 'Exclude views'
-    _devStatus = BETA
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     excludeViewsInfoMatrix = None
@@ -85,7 +83,7 @@ class ProtImodExcludeViews(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
 
-        for tsId in self.inputSetOfTiltSeries.get().getIdSet():
+        for tsId in self._getSetOfInputTS().getIdSet():
             self._insertFunctionStep(self.excludeViewsStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -117,9 +115,8 @@ class ProtImodExcludeViews(ProtImodBase):
         else:
             return ts._getExcludedViewsIndex()
 
-    def excludeViewsStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
+    def excludeViewsStep(self, tsId):
+        ts = self.getTsFromTsId(tsId)
 
         # Make folder to work with the tilt series
         extraPrefix = self._getExtraPath(tsId)
@@ -147,14 +144,11 @@ class ProtImodExcludeViews(ProtImodBase):
             self.info("No views to exclude for %s." % tsId)
             path.createLink(firstItem.getFileName(), outputFileName)
 
-    def generateOutputStackStep(self, tsObjId):
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+    def generateOutputStackStep(self, tsId):
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
-        tsId = ts.getTsId()
-
+        ts = self.getTsFromTsId(tsId)
         extraPrefix = self._getExtraPath(tsId)
-
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
@@ -207,7 +201,7 @@ class ProtImodExcludeViews(ProtImodBase):
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self.inputSetOfTiltSeries.get(), self.TiltSeries):
+            for tsIn, tsOut in zip(self._getSetOfInputTS(), self.TiltSeries):
                 summary.append("Tilt-series: %s; Size: %d ---> %d"
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),

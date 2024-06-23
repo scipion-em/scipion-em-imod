@@ -27,7 +27,6 @@
 import os
 import numpy as np
 
-from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 from pwem.objects import Transform
 from pwem.emlib.image import ImageHandler
@@ -112,7 +111,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     """
 
     _label = 'Fiducial alignment'
-    _devStatus = BETA
     _possibleOutputs = {"outputSetOfTiltSeries": SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
@@ -346,7 +344,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         tsIds = set([d['_tsId'] for d in tsIds])
 
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in
-                       self.inputSetOfTiltSeries.get() if
+                       self._getSetOfInputTS() if
                        ts.getTsId() in tsIds}
 
         self._failedTs = []
@@ -393,24 +391,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             'noSeparateTiltGroups': 1,
             'axisZShift': 0.0,
             'shiftZFromOriginal': 1,
-            'localAlignments': 0,
-            'outputLocalFile': self.getExtraOutFile(tsId, suffix="local", ext=XF_EXT),
             'targetPatchSizeXandY': '700,700',
             'minSizeOrOverlapXandY': '0.5,0.5',
             'minFidsTotalAndEachSurface': '8,3',
             'fixXYZCoordinates': 0,
-            'localOutputOptions': '1,0,1',
-            'localRotOption': 3,
-            'localRotDefaultGrouping': 6,
-            'localTiltOption': 5,
-            'localTiltDefaultGrouping': 6,
-            'localMagReferenceView': 1,
-            'localMagOption': 3,
-            'localMagDefaultGrouping': 7,
-            'localXStretchOption': 0,
-            'localXStretchDefaultGrouping': 7,
-            'localSkewOption': 0,
-            'localSkewDefaultGrouping': 11,
             'outputTiltAlignFileText': self._getExtraPath("align.log"),
         }
 
@@ -450,24 +434,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
                         "-NoSeparateTiltGroups %(noSeparateTiltGroups)d " \
                         "-AxisZShift %(axisZShift)f " \
                         "-ShiftZFromOriginal %(shiftZFromOriginal)d " \
-                        "-LocalAlignments %(localAlignments)d " \
-                        "-OutputLocalFile %(outputLocalFile)s " \
                         "-TargetPatchSizeXandY %(targetPatchSizeXandY)s " \
                         "-MinSizeOrOverlapXandY %(minSizeOrOverlapXandY)s " \
                         "-MinFidsTotalAndEachSurface %(minFidsTotalAndEachSurface)s " \
                         "-FixXYZCoordinates %(fixXYZCoordinates)d " \
-                        "-LocalOutputOptions %(localOutputOptions)s " \
-                        "-LocalRotOption %(localRotOption)d " \
-                        "-LocalRotDefaultGrouping %(localRotDefaultGrouping)d " \
-                        "-LocalTiltOption %(localTiltOption)d " \
-                        "-LocalTiltDefaultGrouping %(localTiltDefaultGrouping)d " \
-                        "-LocalMagReferenceView %(localMagReferenceView)d " \
-                        "-LocalMagOption %(localMagOption)d " \
-                        "-LocalMagDefaultGrouping %(localMagDefaultGrouping)d " \
-                        "-LocalXStretchOption %(localXStretchOption)d " \
-                        "-LocalXStretchDefaultGrouping %(localXStretchDefaultGrouping)s " \
-                        "-LocalSkewOption %(localSkewOption)d " \
-                        "-LocalSkewDefaultGrouping %(localSkewDefaultGrouping)d " \
                         "-RobustFitting "
 
         # Excluded views
@@ -504,7 +474,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
             tltList = utils.formatAngleList(tltFilePath)
             newTransformationMatricesList = utils.formatTransformationMatrix(transformationMatricesFilePath)
-            output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
             newTs = TiltSeries(tsId=tsId)
             newTs.copyInfo(ts)
             output.append(newTs)
@@ -554,7 +524,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         # Check that previous steps have been completed satisfactorily
         tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
         if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-            output = self.getOutputInterpolatedSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output = self.getOutputInterpolatedTS(self._getSetOfInputTS())
 
             paramsAlignment = {
                 'input': self.getTmpOutFile(tsId),
@@ -608,9 +578,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                     newTi.setSamplingRate(tiltImage.getSamplingRate() * self.binning.get())
                 newTs.append(newTi)
 
-            ih = ImageHandler()
-            x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-            newTs.setDim((x, y, z))
+            dims = self._getOutputDim(newTi.getFileName())
+            newTs.setDim(dims)
             newTs.write(properties=False)
 
             output.update(newTs)
@@ -658,7 +627,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
         if os.path.exists(fiducialNoGapFilePath):
             output = self.getOutputFiducialModelNoGaps()
-            output.setSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+            output.setSetOfTiltSeries(self._getSetOfInputTS())
             fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
             fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
             landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
@@ -709,7 +678,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         if os.path.exists(coordFilePath):
 
-            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputSetOfTiltSeries.get())
+            output = self.getOutputSetOfTiltSeriesCoordinates(self._getSetOfInputTS())
 
             coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 

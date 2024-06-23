@@ -25,10 +25,9 @@
 # *****************************************************************************
 
 from pwem.objects import Transform
-from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 
 from .. import Plugin
@@ -51,7 +50,6 @@ class ProtImodTomoProjection(ProtImodBase):
     """
 
     _label = 'Tomo projection'
-    _devStatus = BETA
 
     AXIS_X = 0
     AXIS_Y = 1
@@ -148,7 +146,6 @@ class ProtImodTomoProjection(ProtImodBase):
             newTi.setSamplingRate(sRate)
             newTs.append(newTi)
 
-        ih = ImageHandler()
         x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
         newTs.setDim((x, y, z))
 

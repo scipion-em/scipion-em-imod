@@ -27,29 +27,27 @@
 import os
 import numpy as np
 
-from pyworkflow import BETA
 from pyworkflow.object import Set
 from pyworkflow.utils import path
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-from pwem.emlib.image import ImageHandler
 from tomo.objects import TiltSeries, TiltImage
+from tomo.protocols.protocol_base import ProtTomoImportFiles
 
 from .. import utils
 from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
-class ProtImodImportTransformationMatrix(ProtImodBase):
+class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     """
     Import the transformation matrices assigned to an input set of tilt-series
     """
 
     _label = 'Import transformation matrix'
-    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        self._defineImportParams(form)
+        ProtTomoImportFiles._defineImportParams(self, form)
 
         form.addParam('exclusionWords', params.StringParam,
                       label='Exclusion words:',
@@ -93,7 +91,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def generateTransformFileStep(self, tsId):
         self.genTsPaths(tsId)
@@ -151,7 +149,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         outputTransformFile = os.path.join(extraPrefix,
                                            ts.getFirstItem().parseFileName(extension=".xf"))
 
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -183,10 +181,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
             newTs.append(newTi)
 
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-
+        dims = self._getOutputDim(newTi.getFileName())
+        newTs.setDim(dims)
         newTs.write(properties=False)
 
         output.update(newTs)
@@ -208,7 +204,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
 
         match = False
 
-        for ts in self.inputSetOfTiltSeries.get():
+        for ts in self._getSetOfInputTS():
             tsFileName = ts.getFirstItem().parseFileName(extension='')
 
             for tmFilePath, _ in self.iterFiles():
@@ -231,6 +227,45 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nTransformation matrices "
                            "assigned: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.TiltSeries.getSize()))
         return summary
+
+    # --------------------------- UTILS functions -----------------------------
+    def iterFiles(self):
+        """ Iterate through the files matched with the pattern.
+        Returns the fileName and fileId.
+        """
+        filePaths = self.getMatchFiles()
+        filePaths = self._excludeByWords(filePaths)
+
+        for fileName in filePaths:
+            if self._idRegex:
+                # Try to match the file id from filename
+                # this is set by the user by using #### format in the pattern
+                match = self._idRegex.match(fileName)
+                if match is None:
+                    raise ValueError("File '%s' doesn't match the pattern '%s'"
+                                     % (fileName, self.getPattern()))
+                fileId = int(match.group(1))
+            else:
+                fileId = None
+
+            yield fileName, fileId
+
+    def _excludeByWords(self, files):
+        exclusionWords = self.exclusionWords.get()
+
+        if exclusionWords is None:
+            return files
+
+        exclusionWordList = exclusionWords.split()
+        allowedFiles = []
+
+        for file in files:
+            if any(bannedWord in file for bannedWord in exclusionWordList):
+                print(f"{file} excluded. Contains any of {exclusionWords}")
+                continue
+            allowedFiles.append(file)
+
+        return allowedFiles

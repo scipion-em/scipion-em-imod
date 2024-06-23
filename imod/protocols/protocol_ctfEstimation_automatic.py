@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import tomo.objects as tomoObj
@@ -43,7 +42,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     """
 
     _label = 'CTF estimation (auto)'
-    _devStatus = BETA
 
     defocusUTolerance = 20
     defocusVTolerance = 20
@@ -309,7 +307,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        tsSet = self._getSetOfTiltSeries()
+        tsSet = self._getSetOfInputTS()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
@@ -476,7 +474,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         summary = []
         if self.CTFTomoSeries:
             summary.append("Input tilt-series: %d\nNumber of CTF estimated: %d"
-                           % (self._getSetOfTiltSeries().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.CTFTomoSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")
@@ -505,17 +503,17 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         else:
             return None
 
-    def _getSetOfTiltSeries(self, pointer=False):
+    def _getSetOfInputTS(self, pointer=False):
         """ Reimplemented from the base class for CTF case. """
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
 
         return self.inputSet.get() if not pointer else self.inputSet
 
-    def _getTiltSeries(self, itemId):
+    def _getInputTS(self, itemId):
         """ Reimplemented from the base class for CTF case. """
         obj = None
-        inputSetOfTiltseries = self._getSetOfTiltSeries()
+        inputSetOfTiltseries = self._getSetOfInputTS()
         for item in inputSetOfTiltseries.iterItems(iterate=False):
             if item.getObjId() == itemId:
                 obj = item

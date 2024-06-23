@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram
@@ -61,7 +60,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
     """
 
     _label = 'Tomo reconstruction'
-    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -229,8 +227,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Reconstruct odd/even?',
-                      help='If True, the full tilt series and the associated odd/even tilt series will be reconstructed. '
-                           'The alignment applied to the odd/even tilt series will be exactly the same.')
+                      help='If True, the full tilt series and the associated '
+                           'odd/even tilt series will be reconstructed. '
+                           'The alignment applied to the odd/even tilt series '
+                           'will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -245,11 +245,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
         super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
 
     # @ProtImodBase.tryExceptDecorator
@@ -344,7 +344,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
         if os.path.exists(tomoLocation):
-            output = self.getOutputSetOfTomograms(self.inputSetOfTiltSeries.get())
+            output = self.getOutputSetOfTomograms(self._getSetOfInputTS())
 
             newTomogram = Tomogram()
             newTomogram.setLocation(tomoLocation)
@@ -386,7 +386,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         summary = []
         if self.Tomograms:
             summary.append("Input tilt-series: %d\nTomograms reconstructed: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.Tomograms.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

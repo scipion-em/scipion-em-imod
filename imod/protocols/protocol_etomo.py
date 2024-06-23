@@ -29,10 +29,9 @@
 import os
 
 import pyworkflow as pw
-from pyworkflow import BETA
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 
 from .. import Plugin, utils
@@ -60,7 +59,6 @@ class ProtImodEtomo(ProtImodBase):
     """
 
     _label = 'Etomo interactive'
-    _devStatus = BETA
 
     def __init__(self, **kwargs):
 
@@ -110,14 +108,14 @@ class ProtImodEtomo(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericView
-        setOftiltSeries = self.inputSetOfTiltSeries.get()
+        setOftiltSeries = self._getSetOfInputTS()
         view = ImodGenericView(None, self, setOftiltSeries,
                                isInteractive=True)
         view.show()
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self.inputSetOfTiltSeries.get():
+        for item in self._getSetOfInputTS():
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
@@ -218,8 +216,7 @@ class ProtImodEtomo(ProtImodBase):
         setOfTSCoords = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
-        setOfTiltSeries = self.inputSetOfTiltSeries.get()
-        ih = ImageHandler()
+        setOfTiltSeries = self._getSetOfInputTS()
 
         for ts in setOfTiltSeries:
             self.inputTiltSeries = ts
@@ -228,7 +225,7 @@ class ProtImodEtomo(ProtImodBase):
             """Prealigned tilt-series"""
             prealiFilePath = self.getFilePath(ts, suffix="_preali", extension=".mrc")
             if os.path.exists(prealiFilePath):
-                xPrealiDims, newPixSize = self.getNewPixAndDim(ih, prealiFilePath)
+                xPrealiDims, newPixSize = self.getNewPixAndDim(prealiFilePath)
                 self.debug(f"{prealiFilePath}: pix = {newPixSize}, dims = {xPrealiDims}")
                 if outputPrealiSetOfTiltSeries is None:
                     outputPrealiSetOfTiltSeries = self._createSetOfTiltSeries(suffix='_prealigned')
@@ -272,7 +269,7 @@ class ProtImodEtomo(ProtImodBase):
             """Aligned tilt-series"""
             aligFilePath = self.getFilePath(ts, suffix="_ali", extension=".mrc")
             if os.path.exists(aligFilePath):
-                aliDims, newPixSize = self.getNewPixAndDim(ih, aligFilePath)
+                aliDims, newPixSize = self.getNewPixAndDim(aligFilePath)
                 self.debug(f"{aligFilePath}: pix = {newPixSize}, dims = {aliDims}")
 
                 if outputAliSetOfTiltSeries is None:
@@ -423,7 +420,7 @@ class ProtImodEtomo(ProtImodBase):
             reconstructTomoFilePath = self.getFilePath(ts, suffix="_full_rec",
                                                        extension=".mrc")
             if os.path.exists(reconstructTomoFilePath):
-                tomoDims, newPixSize = self.getNewPixAndDim(ih, reconstructTomoFilePath)
+                tomoDims, newPixSize = self.getNewPixAndDim(reconstructTomoFilePath)
                 self.debug(f"{reconstructTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfFullTomograms is None:
                     outputSetOfFullTomograms = self._createSetOfTomograms(suffix='_raw')
@@ -453,7 +450,7 @@ class ProtImodEtomo(ProtImodBase):
             posprocessedRecTomoFilePath = self.getFilePath(ts, suffix="_rec",
                                                            extension=".mrc")
             if os.path.exists(posprocessedRecTomoFilePath):
-                tomoDims, newPixSize = self.getNewPixAndDim(ih, posprocessedRecTomoFilePath)
+                tomoDims, newPixSize = self.getNewPixAndDim(posprocessedRecTomoFilePath)
                 self.debug(f"{posprocessedRecTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
                 if outputSetOfPostProcessTomograms is None:
                     outputSetOfPostProcessTomograms = self._createSetOfTomograms()
@@ -594,7 +591,7 @@ ProcessTrack.TomogramCombination=Not started
         with open(fn, 'w') as f:
             f.write(template % paramsDict)
 
-    def getNewPixAndDim(self, ih, fn):
+    def getNewPixAndDim(self, fn):
         dims = ih.getDimensions(fn)
         dims = dims[:-1]
         origDimX, origDimY, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())

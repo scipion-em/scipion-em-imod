@@ -23,10 +23,10 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
+
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 from .. import Plugin
 from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
@@ -59,7 +59,6 @@ class ProtImodTsNormalization(ProtImodBase):
     """
 
     _label = 'Tilt-series preprocess'
-    _devStatus = BETA
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
@@ -96,7 +95,7 @@ class ProtImodTsNormalization(ProtImodBase):
                                'scaled to common mean and standard deviation',
                                'shifted to a common mean without scaling',
                                'shifted to mean and rescaled to a min and max'],
-                      default=0,
+                      default=2,
                       label='Adjust densities mode',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='Adjust densities of sections individually:\n'
@@ -139,12 +138,14 @@ class ProtImodTsNormalization(ProtImodBase):
 
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
+                             condition='meanSdToggle==0',
                              default=0,
                              label='Mean',
                              help='Mean value for the rescaling')
 
         groupMeanSd.addParam('scaleSd',
                              params.FloatParam,
+                             condition='meanSdToggle==0',
                              default=1,
                              label='SD',
                              help='Standard deviation value for the rescaling')
@@ -246,10 +247,10 @@ class ProtImodTsNormalization(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
+        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
@@ -267,56 +268,50 @@ class ProtImodTsNormalization(ProtImodBase):
             genXfFile(ts, xfFile)
 
         binning = self.binning.get()
-
-        argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
-                                                                   self.getExtraOutFile(tsId),
-                                                                   inputTsFileName=self.getTmpOutFile(tsId),
-                                                                   xfFile=xfFile,
-                                                                   firstItem=firstItem,
-                                                                   binning=binning,
-                                                                   )
-        paramsNewstack.update({
-            'bin': binning,
-            'imagebinned': 1.0,
-            'antialias': self.antialias.get() + 1
-        })
-
-        argsNewstack += "-bin %(bin)d " \
-                        "-antialias %(antialias)d " \
-                        "-imagebinned %(imagebinned)s "
+        norm = self.floatDensities.get()
+        params = self.getBasicNewstackParams(ts,
+                                             self.getExtraOutFile(tsId),
+                                             inputTsFileName=self.getTmpOutFile(tsId),
+                                             xfFile=xfFile,
+                                             firstItem=firstItem,
+                                             binning=binning,
+                                             doNorm=norm != 0)
+        params["-antialias"] = self.antialias.get() + 1
 
         if self.floatDensities.get() != 0:
-            argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
+            params["-FloatDensities"] = norm
 
-            if self.floatDensities.get() == 2:
+            if norm == 2:
                 if self.meanSdToggle.get() == 0:
-                    argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                    str(self.scaleSd.get())
+                    params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()}, {self.scaleSd.get()}"
 
-            elif self.floatDensities.get() == 4:
-                argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
+            elif norm == 4:
+                params["-ScaleMinAndMax"] = f"{self.scaleMax.get()}, {self.scaleMin.get()}"
 
             else:
                 if self.scaleRangeToggle.get() == 0:
-                    argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                    str(self.scaleRangeMin.get())
+                    params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()}, {self.scaleRangeMin.get()}"
 
         if self.getModeToOutput() is not None:
-            argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
+            params["-ModeToOutput"] = self.getModeToOutput()
 
-        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+        Plugin.runImod(self, 'newstack', args)
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
-            paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD)
-            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-            paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+            params['-input'] = oddFn
+            params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+            args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+            Plugin.runImod(self, 'newstack', args)
 
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
+            params['-input'] = evenFn
+            params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+            args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+            Plugin.runImod(self, 'newstack', args)
+
+        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS(), self.binning.get())
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -324,8 +319,6 @@ class ProtImodTsNormalization(ProtImodBase):
 
         if binning > 1:
             newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
-        ih = ImageHandler()
 
         for index, tiltImage in enumerate(ts):
             newTi = tomoObj.TiltImage()
@@ -351,9 +344,8 @@ class ProtImodTsNormalization(ProtImodBase):
                 newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
             newTs.append(newTi)
 
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
+        dims = self._getOutputDim(newTi.getFileName())
+        newTs.setDim(dims)
 
         newTs.write(properties=False)
         output.update(newTs)
@@ -397,7 +389,7 @@ class ProtImodTsNormalization(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         errors = []
-        hasAlign = self.inputSetOfTiltSeries.get().getFirstItem().getFirstItem().hasTransform()
+        hasAlign = self._getSetOfInputTS().getFirstItem().hasAlignment()
         if self.applyAlignment.get() and not hasAlign:
             errors.append("Input tilt-series do not have alignment information")
 
@@ -407,7 +399,7 @@ class ProtImodTsNormalization(ProtImodBase):
         summary = []
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nInterpolations applied: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.TiltSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

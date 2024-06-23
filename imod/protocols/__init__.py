@@ -1,7 +1,7 @@
 # *****************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
 # * [2] Centro Nacional de Biotecnologia, CSIC, Spain
@@ -26,10 +26,6 @@
 # *
 # *****************************************************************************
 
-# Base protocols
-from .protocol_base import ProtImodBase
-
-# Calculus protocols
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
@@ -40,16 +36,10 @@ from .protocol_excludeViews import ProtImodExcludeViews
 from .protocol_fiducialAlignment import ProtImodFiducialAlignment
 from .protocol_fiducialModel import ProtImodFiducialModel
 from .protocol_goldBeadPicker3d import ProtImodGoldBeadPicker3d
+from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
 from .protocol_tomoPreprocess import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_tomoReconstruction import ProtImodTomoReconstruction
 from .protocol_tsPreprocess import ProtImodTsNormalization
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
-
-# Import protocols
-from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
-
-# Deprecated protocols
-# from .protocol_auto3d import ProtImodAuto3D
-# from .protocol_goldBeadEraser import ProtImodGoldBeadEraser

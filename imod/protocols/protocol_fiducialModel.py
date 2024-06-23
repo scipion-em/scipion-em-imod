@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -48,7 +47,6 @@ class ProtImodFiducialModel(ProtImodBase):
     """
 
     _label = 'Generate fiducial model'
-    _devStatus = BETA
 
     FIDUCIAL_MODEL = 0
     PATCH_TRACKING = 1
@@ -78,7 +76,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
         patchtrack.addParam('sizeOfPatches', params.NumericListParam,
                             label='Size of the patches (X,Y)',
-                            default='100 100',
+                            default='680 680',
                             expertLevel=levelType,
                             help="Size of the  patches to track by correlation. In imod documentation "
                                  "(tiltxcorr: SizeOfPatchesXandY)")
@@ -117,6 +115,8 @@ class ProtImodFiducialModel(ProtImodBase):
         self.trimimgForm(patchtrack, pxTrimCondition='True', correlationCondition='True',
                          levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition=condition, levelType=params.LEVEL_ADVANCED)
+        form.getParam("filterRadius2").setDefault(0.125)
+        form.getParam("filterSigma2").setDefault(0.03)
 
     def _fiducialSeedForm(self, form, condition, levelType=params.LEVEL_NORMAL):
         seedModel = form.addGroup('"Make seed and Track', expertLevel=levelType, condition=condition)
@@ -216,11 +216,12 @@ class ProtImodFiducialModel(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
 
     def generateTrackComStep(self, tsId):
         ts = self.tsDict[tsId]
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getSetOfInputTS().getSamplingRate() / 10)
+        # formulas from bin/copytomocoms
         boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
         boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
@@ -232,7 +233,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
-            'samplingRate': self.inputSetOfTiltSeries.get().getSamplingRate() / 10,
+            'samplingRate': self._getSetOfInputTS().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
             'distanceRescueCriterion': 10 * scaling,
@@ -251,15 +252,14 @@ class ProtImodFiducialModel(ProtImodBase):
             'minSpacing': 0.85,
             'peakStorageFraction': 1.0,
             'targetNumberOfBeads': self.numberFiducial.get(),
-            'shiftsNearZeroFraction': self.shiftsNearZeroFraction.get()
+            #'shiftsNearZeroFraction': self.shiftsNearZeroFraction.get()
         }
 
         argsAutofidseed = "-TrackCommandFile %(trackCommandFile)s " \
                           "-MinSpacing %(minSpacing)f " \
+                          "-AdjustSizes " \
                           "-PeakStorageFraction %(peakStorageFraction)f " \
-                          "-TargetNumberOfBeads %(targetNumberOfBeads)d " \
-                          "-ShiftsNearZeroFraction %(shiftsNearZeroFraction)f " \
-                          "-AdjustSizes "
+                          "-TargetNumberOfBeads %(targetNumberOfBeads)d "
 
         if self.twoSurfaces.get() == 0:
             argsAutofidseed += " -TwoSurfaces "
@@ -276,7 +276,7 @@ class ProtImodFiducialModel(ProtImodBase):
         ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getSetOfInputTS().getSamplingRate() / 10)
         boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
         boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
@@ -285,8 +285,10 @@ class ProtImodFiducialModel(ProtImodBase):
             'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
             'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'imageFile': self.getTmpOutFile(tsId),
+            'samplingRate': self._getSetOfInputTS().getSamplingRate() / 10,
             'imagesAreBinned': 1,
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
+            'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'tiltDefaultGrouping': 7,
             'magDefaultGrouping': 5,
             'rotDefaultGrouping': 1,
@@ -303,7 +305,6 @@ class ProtImodFiducialModel(ProtImodBase):
             'minBeadsInArea': 8,
             'minOverlapBeads': 5,
             'maxBeadsToAverage': 4,
-            'sobelFilterCentering': 1,
             'pointsToFitMaxAndMin': '7,3',
             'densityRescueFractionAndSD': '0.6,1.0',
             'distanceRescueCriterion': 10 * scaling,
@@ -313,7 +314,9 @@ class ProtImodFiducialModel(ProtImodBase):
             'maxRescueDistance': 2.5 * scaling,
             'residualsToAnalyzeMaxAndMin': '9,5',
             'deletionCriterionMinAndSD': f"{0.04 * scaling:0.3f},2.0",
-            'minDiamForParamScaling': 12.5
+            'minDiamForParamScaling': 12.5,
+            'sobelFilterCentering': 1 if self.refineSobelFilter.get() == 0 else 0,
+            'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
         }
 
         argsBeadtrack = "-InputSeedModel %(inputSeedModel)s " \
@@ -321,6 +324,7 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-ImageFile %(imageFile)s " \
                         "-ImagesAreBinned %(imagesAreBinned)d " \
                         "-TiltFile %(tiltFile)s " \
+                        "-RotationAngle	%(rotationAngle).2f " \
                         "-TiltDefaultGrouping %(tiltDefaultGrouping)d " \
                         "-MagDefaultGrouping %(magDefaultGrouping)d " \
                         "-RotDefaultGrouping %(rotDefaultGrouping)d " \
@@ -337,7 +341,8 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-MinBeadsInArea %(minBeadsInArea)d " \
                         "-MinOverlapBeads %(minOverlapBeads)d " \
                         "-MaxBeadsToAverage %(maxBeadsToAverage)d " \
-                        "-SobelFilterCentering %(sobelFilterCentering)d " \
+                        "-PixelSize %(samplingRate)f " \
+                        "-LowPassCutoffInverseNm 0.3 " \
                         "-PointsToFitMaxAndMin %(pointsToFitMaxAndMin)s " \
                         "-DensityRescueFractionAndSD %(densityRescueFractionAndSD)s " \
                         "-DistanceRescueCriterion %(distanceRescueCriterion).2f " \
@@ -348,6 +353,9 @@ class ProtImodFiducialModel(ProtImodBase):
                         "-ResidualsToAnalyzeMaxAndMin %(residualsToAnalyzeMaxAndMin)s " \
                         "-DeletionCriterionMinAndSD %(deletionCriterionMinAndSD)s " \
                         "-MinDiamForParamScaling %(minDiamForParamScaling).1f "
+
+        if self.refineSobelFilter.get() == 0:
+            argsBeadtrack += "-SobelFilterCentering -ScalableSigmaForSobel %(scalableSigmaForSobelFilter)f "
 
         # Excluded views
         excludedViews = ts.getExcludedViewsIndex(caster=str)
@@ -394,14 +402,13 @@ class ProtImodFiducialModel(ProtImodBase):
             fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 
             fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
-            fiducialDiameterPixel = self.fiducialDiameter.get() / (
-                    self.inputSetOfTiltSeries.get().getSamplingRate() / 10)
+            fiducialDiameter = self.fiducialDiameter.get() * 10  # Angstroms
 
             landmarkModelGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                       tiltSeriesPointer=ts,
                                                       fileName=landmarkModelGapsFilePath,
                                                       modelName=fiducialModelGapPath,
-                                                      size=fiducialDiameterPixel,
+                                                      size=fiducialDiameter,
                                                       hasResidualInfo=False)
 
             landmarkModelGaps.setTiltSeries(ts)
@@ -628,7 +635,7 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
         if self.FiducialModelGaps:
             summary.append("Input tilt-series: %d\nFiducial models "
                            "(with gaps) generated: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
+                           % (self._getSetOfInputTS().getSize(),
                               self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:
