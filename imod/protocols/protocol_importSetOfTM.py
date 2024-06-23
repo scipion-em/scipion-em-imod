@@ -24,26 +24,29 @@
 # *
 # *****************************************************************************
 
-import os
 import numpy as np
 
-from pyworkflow.object import Set
-from pyworkflow.utils import path
+import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pwem.objects as data
 from tomo.objects import TiltSeries, TiltImage
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 
-from .. import utils
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from imod import utils
+from imod.constants import XF_EXT
+from imod.protocols.protocol_base import ProtImodBase
 
 
 class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     """
     Import the transformation matrices assigned to an input set of tilt-series
     """
-
     _label = 'Import transformation matrix'
+
+    def __init__(self, **kwargs):
+        ProtImodBase().__init__(**kwargs)
+        ProtTomoImportFiles.__init__(self, **kwargs)
+        self.matchingFiles = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -81,39 +84,28 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._initialize()
-        for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.generateTransformFileStep, tsId)
-            self._insertFunctionStep(self.assignTransformationMatricesStep, tsId)
+        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
+        for tsId in self._getInputSetOfTS().getTSIds():
+            self._insertFunctionStep(self.generateTransformFileStep,
+                                     tsId)
+            self._insertFunctionStep(self.assignTransformationMatricesStep,
+                                     tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
-
     def generateTransformFileStep(self, tsId):
         self.genTsPaths(tsId)
-        ts = self.tsDict[tsId]
-        tsFileName = ts.getFirstItem().parseFileName(extension='')
-        extraPrefix = self._getExtraPath(tsId)
-
-        outputTransformFile = os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(extension=".xf"))
+        ts = self.getTsFromTsId(tsId)
+        ids = ts.getIdSet()
+        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+        self.debug(f"Matching files: {self.matchingFiles}")
 
         for tmFilePath, _ in self.iterFiles():
-            tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-
-            if tsFileName == tmFileName:
+            if pwutils.removeBaseExt(tmFilePath) in self.matchingFiles:
 
                 if self.matchBinningFactor != 1:
-
                     inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
-
-                    extraPrefix = self._getExtraPath(tsId)
-                    path.makePath(extraPrefix)
-
                     # Update shifts from the transformation matrix considering
                     # the matching binning between the input tilt
                     # series and the transformation matrix. We create an empty
@@ -121,7 +113,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     # with transform information.
                     transformMatrixList = []
 
-                    ids = ts.getIdSet()
                     for index in ids:
                         inputTransformMatrix = inputTransformMatrixList[:, :, index-1]
 
@@ -141,19 +132,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
 
                 else:
-                    path.createLink(tmFilePath, outputTransformFile)
+                    pwutils.createLink(tmFilePath, outputTransformFile)
 
     def assignTransformationMatricesStep(self, tsId):
-        ts = self.tsDict[tsId]
-        extraPrefix = self._getExtraPath(tsId)
-        outputTransformFile = os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(extension=".xf"))
-
+        ts = self.getTsFromTsId(tsId)
+        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         output = self.getOutputSetOfTS(self._getInputSetOfTS())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
-
         output.append(newTs)
 
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
@@ -181,54 +168,37 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
             newTs.append(newTi)
 
-        dims = self._getOutputDim(newTi.getFileName())
-        newTs.setDim(dims)
         newTs.write(properties=False)
-
         output.update(newTs)
         output.write()
-
-        self._store()
-
-    def closeOutputSetsStep(self):
-
-        output = getattr(self, OUTPUT_TILTSERIES_NAME)
-        output.setStreamState(Set.STREAM_CLOSED)
-        output.write()
-
-        self._store()
+        self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
-        validateMsgs = []
+        errorMsg = []
+        matchingFiles = self.getMatchFiles()
+        if matchingFiles:
+            tsIdList = self._getInputSetOfTS().getTSIds()
+            tmFileList = [pwutils.removeBaseExt(fn) for fn, _ in self.iterFiles()]
+            self.matchingFiles = list(set(tsIdList) & set(tmFileList))
+            if not self.matchingFiles:
+                errorMsg.append("No matching files found.\n\n"
+                                "\tThe tsIds detected are: {tsIdList}\n"
+                                "\tThe transform files base names detected are: "
+                                f"{tmFileList}")
+        else:
+            errorMsg.append("Unable to find the files provided:\n\n"
+                            f"\t-filePath = {self.filesPath.get()}\n"
+                            f"\t-pattern = {self.filesPattern.get()}")
 
-        match = False
-
-        for ts in self._getInputSetOfTS():
-            tsFileName = ts.getFirstItem().parseFileName(extension='')
-
-            for tmFilePath, _ in self.iterFiles():
-                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-
-                if tsFileName == tmFileName:
-                    match = True
-                    break
-
-            if not match:
-                validateMsgs.append("No xf file found for tilt-series %s: image file is %s and have not found its "
-                                    "exact match." % (ts.getTsId(), tsFileName, ))
-
-            match = False
-
-        return validateMsgs
+        return errorMsg
 
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input tilt-series: %d\nTransformation matrices "
-                           "assigned: %d"
-                           % (self._getInputSetOfTS().getSize(),
-                              self.TiltSeries.getSize()))
+            summary.append(f"Input tilt-series: {self._getInputSetOfTS().getSize()}\n"
+                           "Transformation matrices assigned: "
+                           f"{self.TiltSeries.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------
@@ -245,8 +215,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                 # this is set by the user by using #### format in the pattern
                 match = self._idRegex.match(fileName)
                 if match is None:
-                    raise ValueError("File '%s' doesn't match the pattern '%s'"
-                                     % (fileName, self.getPattern()))
+                    raise ValueError(f"File {fileName} doesn't match the "
+                                     f"pattern '{self.getPattern()}'")
                 fileId = int(match.group(1))
             else:
                 fileId = None
