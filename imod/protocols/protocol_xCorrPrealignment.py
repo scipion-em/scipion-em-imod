@@ -138,7 +138,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series"""
@@ -206,7 +206,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def generateOutputStackStep(self, tsId):
         """ Generate tilt-serie with the associated transform matrix """
         ts = self.tsDict[tsId]
-        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
+        output = self.getOutputSetOfTS(self._getInputSetOfTS())
         alignmentMatrix = utils.formatTransformationMatrix(self.getExtraOutFile(tsId, ext=PREXG_EXT))
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -247,7 +247,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         self._store()
 
     def computeInterpolatedStackStep(self, tsId):
-        output = self.getOutputInterpolatedTS(self._getSetOfInputTS())
+        output = self.getOutputInterpolatedTS(self._getInputSetOfTS())
         ts = self.tsDict[tsId]
 
         paramsAlignment = {
@@ -315,7 +315,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nTransformation matrices "
                            "calculated: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.TiltSeries.getSize()))
             if self.InterpolatedTiltSeries:
                 summary.append("Interpolated tilt-series: %d"

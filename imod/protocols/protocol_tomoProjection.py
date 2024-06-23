@@ -127,7 +127,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     def generateOutputStackStep(self, tsId):
         tomo = self.tomoDict[tsId]
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTomograms.get())
+        output = self.getOutputSetOfTS(self.inputSetOfTomograms.get())
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.setTsId(tomo.getTsId())
         newTs.setAcquisition(tomo.getAcquisition())

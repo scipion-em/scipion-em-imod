@@ -307,7 +307,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        tsSet = self._getSetOfInputTS()
+        tsSet = self._getInputSetOfTS()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
@@ -474,7 +474,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         summary = []
         if self.CTFTomoSeries:
             summary.append("Input tilt-series: %d\nNumber of CTF estimated: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.CTFTomoSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")
@@ -503,7 +503,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         else:
             return None
 
-    def _getSetOfInputTS(self, pointer=False):
+    def _getInputSetOfTS(self, pointer=False):
         """ Reimplemented from the base class for CTF case. """
         if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
@@ -513,7 +513,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def _getInputTS(self, itemId):
         """ Reimplemented from the base class for CTF case. """
         obj = None
-        inputSetOfTiltseries = self._getSetOfInputTS()
+        inputSetOfTiltseries = self._getInputSetOfTS()
         for item in inputSetOfTiltseries.iterItems(iterate=False):
             if item.getObjId() == itemId:
                 obj = item

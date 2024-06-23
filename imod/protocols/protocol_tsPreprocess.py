@@ -247,10 +247,10 @@ class ProtImodTsNormalization(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
+        oddEvenFlag = self.applyToOddEven(self._getInputSetOfTS())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
@@ -295,20 +295,20 @@ class ProtImodTsNormalization(ProtImodBase):
         if self.getModeToOutput() is not None:
             params["-ModeToOutput"] = self.getModeToOutput()
 
-        self.runNewStack(params)
+        self.runProgram("newstack", params)
 
         if self.applyToOddEven(ts):
             oddFn = firstItem.getOdd().split('@')[1]
             evenFn = firstItem.getEven().split('@')[1]
             params['-input'] = oddFn
             params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-            self.runNewStack(params)
+            self.runProgram("newstack", params)
 
             params['-input'] = evenFn
             params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            self.runNewStack(params)
+            self.runProgram("newstack", params)
 
-        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS(), self.binning.get())
+        output = self.getOutputSetOfTS(self._getInputSetOfTS(), self.binning.get())
 
         newTs = tomoObj.TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -386,7 +386,7 @@ class ProtImodTsNormalization(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         errors = []
-        hasAlign = self._getSetOfInputTS().getFirstItem().hasAlignment()
+        hasAlign = self._getInputSetOfTS().getFirstItem().hasAlignment()
         if self.applyAlignment.get() and not hasAlign:
             errors.append("Input tilt-series do not have alignment information")
 
@@ -396,7 +396,7 @@ class ProtImodTsNormalization(ProtImodBase):
         summary = []
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nInterpolations applied: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.TiltSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

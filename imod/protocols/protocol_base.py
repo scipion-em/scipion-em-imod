@@ -238,10 +238,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                doSwap=doSwap, oddEven=oddEven,
                                presentAcqOrders=presentAcqOrders)
 
-    def runNewStack(self, params):
-        """ Shortcut method to run newstack command given input params dict. """
+    def closeOutputSetsStep(self):
+        self._closeOutputSet()
+
+    def runProgram(self, program, params):
+        """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-        Plugin.runImod(self, 'newstack', args)
+        Plugin.runImod(self, program, args)
 
     def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
                            xfFile=None, doSwap=None, tsExcludedIndices=None):
@@ -254,7 +257,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                              doSwap=doSwap,
                                              tsExcludedIndices=tsExcludedIndices)
 
-        self.runNewStack(params)
+        self.runProgram("newstack", params)
 
     def genAlignmentFiles(self, ts, generateAngleFile=True,
                           imodInterpolation=True, doSwap=False,
@@ -418,7 +421,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return params
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTiltSeries(self, inputSet, binning=1) -> SetOfTiltSeries:
+    def getOutputSetOfTS(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
 
         outputSetOfTiltSeries = getattr(self, OUTPUT_TILTSERIES_NAME, None)
@@ -527,7 +530,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
-            fidModelGaps.copyInfo(self._getSetOfInputTS())
+            fidModelGaps.copyInfo(self._getInputSetOfTS())
             fidModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
             fidModelGaps.setHasResidualInfo(False)
             fidModelGaps.setStreamState(Set.STREAM_OPEN)
@@ -603,7 +606,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            ts = self._getSetOfInputTS(pointer=True)
+            ts = self._getInputSetOfTS(pointer=True)
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
@@ -714,7 +717,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def createOutputFailedSet(self, ts, presentAcqOrders=None):
         """ Just copy input TS to the failed output set. """
-        tsSet = self._getSetOfInputTS()
+        tsSet = self._getInputSetOfTS()
         output = self.getOutputFailedSetOfTiltSeries(tsSet)
         newTs = ts.clone()
         newTs.copyInfo(ts)
@@ -744,11 +747,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self._getExtraPath(tsId,
                                   self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
-    def _getSetOfInputTS(self, pointer=False):
+    def _getInputSetOfTS(self, pointer=False):
         return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
     def getTsFromTsId(self, tsId):
-        tsSet = self._getSetOfInputTS()
+        tsSet = self._getInputSetOfTS()
         return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def applyToOddEven(self, ts):

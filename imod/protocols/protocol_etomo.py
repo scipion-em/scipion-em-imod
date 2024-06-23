@@ -108,14 +108,14 @@ class ProtImodEtomo(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericView
-        setOftiltSeries = self._getSetOfInputTS()
+        setOftiltSeries = self._getInputSetOfTS()
         view = ImodGenericView(None, self, setOftiltSeries,
                                isInteractive=True)
         view.show()
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self._getSetOfInputTS():
+        for item in self._getInputSetOfTS():
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
@@ -216,7 +216,7 @@ class ProtImodEtomo(ProtImodBase):
         setOfTSCoords = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
-        setOfTiltSeries = self._getSetOfInputTS()
+        setOfTiltSeries = self._getInputSetOfTS()
 
         for ts in setOfTiltSeries:
             self.inputTiltSeries = ts

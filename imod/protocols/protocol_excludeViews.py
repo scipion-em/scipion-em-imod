@@ -83,7 +83,7 @@ class ProtImodExcludeViews(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
 
-        for tsId in self._getSetOfInputTS().getIdSet():
+        for tsId in self._getInputSetOfTS().getIdSet():
             self._insertFunctionStep(self.excludeViewsStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -145,7 +145,7 @@ class ProtImodExcludeViews(ProtImodBase):
             path.createLink(firstItem.getFileName(), outputFileName)
 
     def generateOutputStackStep(self, tsId):
-        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
+        output = self.getOutputSetOfTS(self._getInputSetOfTS())
 
         ts = self.getTsFromTsId(tsId)
         extraPrefix = self._getExtraPath(tsId)
@@ -201,7 +201,7 @@ class ProtImodExcludeViews(ProtImodBase):
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self._getSetOfInputTS(), self.TiltSeries):
+            for tsIn, tsOut in zip(self._getInputSetOfTS(), self.TiltSeries):
                 summary.append("Tilt-series: %s; Size: %d ---> %d"
                                % (tsIn.getTsId(),
                                   tsIn.getSize(),

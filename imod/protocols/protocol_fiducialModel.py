@@ -216,11 +216,11 @@ class ProtImodFiducialModel(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def generateTrackComStep(self, tsId):
         ts = self.tsDict[tsId]
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getSetOfInputTS().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getInputSetOfTS().getSamplingRate() / 10)
         # formulas from bin/copytomocoms
         boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
         boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
@@ -233,7 +233,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
-            'samplingRate': self._getSetOfInputTS().getSamplingRate() / 10,
+            'samplingRate': self._getInputSetOfTS().getSamplingRate() / 10,
             'scalableSigmaForSobelFilter': self.scalableSigmaForSobelFilter.get(),
             'boxSizeXandY': boxSizeXandY,
             'distanceRescueCriterion': 10 * scaling,
@@ -276,7 +276,7 @@ class ProtImodFiducialModel(ProtImodBase):
         ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
 
-        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getSetOfInputTS().getSamplingRate() / 10)
+        fiducialDiameterPixel = self.fiducialDiameter.get() / (self._getInputSetOfTS().getSamplingRate() / 10)
         boxSizeXandY = max(3.3 * fiducialDiameterPixel + 2, 2 * fiducialDiameterPixel + 20, 32)
         boxSizeXandY = min(512, 2 * int(boxSizeXandY / 2))
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
@@ -285,7 +285,7 @@ class ProtImodFiducialModel(ProtImodBase):
             'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
             'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'imageFile': self.getTmpOutFile(tsId),
-            'samplingRate': self._getSetOfInputTS().getSamplingRate() / 10,
+            'samplingRate': self._getInputSetOfTS().getSamplingRate() / 10,
             'imagesAreBinned': 1,
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
             'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
@@ -635,7 +635,7 @@ ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f
         if self.FiducialModelGaps:
             summary.append("Input tilt-series: %d\nFiducial models "
                            "(with gaps) generated: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.FiducialModelGaps.getSize()))
 
         if self.FailedTiltSeries:

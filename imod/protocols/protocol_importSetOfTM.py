@@ -91,7 +91,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def generateTransformFileStep(self, tsId):
         self.genTsPaths(tsId)
@@ -149,7 +149,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         outputTransformFile = os.path.join(extraPrefix,
                                            ts.getFirstItem().parseFileName(extension=".xf"))
 
-        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
+        output = self.getOutputSetOfTS(self._getInputSetOfTS())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -204,7 +204,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
         match = False
 
-        for ts in self._getSetOfInputTS():
+        for ts in self._getInputSetOfTS():
             tsFileName = ts.getFirstItem().parseFileName(extension='')
 
             for tmFilePath, _ in self.iterFiles():
@@ -227,7 +227,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nTransformation matrices "
                            "assigned: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.TiltSeries.getSize()))
         return summary
 

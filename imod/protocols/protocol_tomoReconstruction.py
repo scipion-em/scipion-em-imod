@@ -245,11 +245,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
+        oddEvenFlag = self.applyToOddEven(self._getInputSetOfTS())
         super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
 
     # @ProtImodBase.tryExceptDecorator
@@ -344,7 +344,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
         if os.path.exists(tomoLocation):
-            output = self.getOutputSetOfTomograms(self._getSetOfInputTS())
+            output = self.getOutputSetOfTomograms(self._getInputSetOfTS())
 
             newTomogram = Tomogram()
             newTomogram.setLocation(tomoLocation)
@@ -386,7 +386,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         summary = []
         if self.Tomograms:
             summary.append("Input tilt-series: %d\nTomograms reconstructed: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.Tomograms.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

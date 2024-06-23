@@ -184,10 +184,10 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputStep)
 
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self._getSetOfInputTS())
+        oddEvenFlag = self.applyToOddEven(self._getInputSetOfTS())
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
@@ -247,7 +247,7 @@ class ProtImodXraysEraser(ProtImodBase):
             Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
     def createOutputStep(self, tsId):
-        output = self.getOutputSetOfTiltSeries(self._getSetOfInputTS())
+        output = self.getOutputSetOfTS(self._getInputSetOfTS())
 
         ts = self.tsDict[tsId]
         newTs = tomoObj.TiltSeries(tsId=tsId)
@@ -286,7 +286,7 @@ class ProtImodXraysEraser(ProtImodBase):
         if self.TiltSeries:
             summary.append("Input tilt-series: %d\nX-rays erased output "
                            "tilt series: %d"
-                           % (self._getSetOfInputTS().getSize(),
+                           % (self._getInputSetOfTS().getSize(),
                               self.TiltSeries.getSize()))
         else:
             summary.append("Outputs are not ready yet.")

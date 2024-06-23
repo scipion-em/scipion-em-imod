@@ -105,7 +105,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self._getSetOfInputTS():
+        for ts in self._getInputSetOfTS():
             tsId = ts.getTsId()
             self._insertFunctionStep(self.computeAlignmentStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
@@ -132,18 +132,18 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             if self.linear:
                 params["-linear"] = ""
 
-            self.runNewStack(params)
+            self.runProgram("newstack", params)
 
             if self.applyToOddEven(ts):
                 oddFn = firstItem.getOdd().split('@')[1]
                 evenFn = firstItem.getEven().split('@')[1]
                 params['-input'] = oddFn
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runNewStack(params)
+                self.runProgram("newstack", params)
 
                 params['-input'] = evenFn
                 params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runNewStack(params)
+                sself.runProgram("newstack", params)
 
         except Exception as e:
             self._failedTs.append(tsId)
@@ -157,7 +157,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             outputLocation = self.getExtraOutFile(tsId)
 
             if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self._getSetOfInputTS())
+                output = self.getOutputInterpolatedTS(self._getInputSetOfTS())
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
@@ -167,25 +167,23 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTs.setAcquisition(acq)
                 output.append(newTs)
 
-                index = 1
                 oddEvenFlag = self.applyToOddEven(ts)
-                for tiltImage in ts:
+                for index, tiltImage in enumerate(ts):
                     if tiltImage.isEnabled():
                         newTi = TiltImage()
                         newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
                         acq = tiltImage.getAcquisition()
                         acq.setTiltAxisAngle(0.)
                         newTi.setAcquisition(acq)
-                        newTi.setLocation(index, outputLocation)
+                        newTi.setLocation(index+1, outputLocation)
                         if oddEvenFlag:
-                            locationOdd = index, (self.getExtraOutFile(tsId, suffix=ODD))
-                            locationEven = index, (self.getExtraOutFile(tsId, suffix=EVEN))
+                            locationOdd = index+1, (self.getExtraOutFile(tsId, suffix=ODD))
+                            locationEven = index+1, (self.getExtraOutFile(tsId, suffix=EVEN))
                             newTi.setOddEven([ih.locationToXmipp(locationOdd),
                                               ih.locationToXmipp(locationEven)])
                         else:
                             newTi.setOddEven([])
 
-                        index += 1
                         newTi.setSamplingRate(self._getOutputSampling())
                         newTs.append(newTi)
 
@@ -204,7 +202,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _validate(self):
         validateMsgs = []
 
-        for ts in self._getSetOfInputTS():
+        for ts in self._getInputSetOfTS():
             if not ts.hasAlignment():
                 validateMsgs.append("Some tilt-series from the input set "
                                     "are missing a transformation matrix.")
@@ -215,7 +213,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.InterpolatedTiltSeries:
-            summary.append(f"Input tilt-series: {self._getSetOfInputTS().getSize()}\n"
+            summary.append(f"Input tilt-series: {self._getInputSetOfTS().getSize()}\n"
                            f"Interpolations applied: {self.InterpolatedTiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -231,4 +229,4 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def _getOutputSampling(self) -> float:
-        return self._getSetOfInputTS().getSamplingRate() * self.binning.get()
+        return self._getInputSetOfTS().getSamplingRate() * self.binning.get()

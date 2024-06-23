@@ -175,7 +175,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getSetOfInputTS()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
         tsIds = list(self.tsDict.keys())
@@ -192,7 +192,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Generate the alignment-related files: xf, tlt, and a possible mrc
         super().convertInputStep(tsId,  # Considering swapXY is required to make tilt axis vertical
                                  doSwap=True,
-                                 oddEven=self.applyToOddEven(self._getSetOfInputTS()),
+                                 oddEven=self.applyToOddEven(self._getInputSetOfTS()),
                                  presentAcqOrders=presentAcqOrders)
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
@@ -253,7 +253,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             self.error('Ctf correction execution failed for tsId %s -> %s' % (tsId, e))
 
     def createOutputStep(self, tsId, presentAcqOrders):
-        inTsSet = self._getSetOfInputTS()
+        inTsSet = self._getInputSetOfTS()
         if tsId in self._failedTs:
             outputSetOfFailedTs = self.getOutputFailedSetOfTiltSeries(inTsSet)
             ts = self.tsDict[tsId]
@@ -266,7 +266,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             outputSetOfFailedTs.write()
             self._store(outputSetOfFailedTs)
         else:
-            outputSetOfTs = self.getOutputSetOfTiltSeries(inTsSet)
+            outputSetOfTs = self.getOutputSetOfTS(inTsSet)
             newTs = TiltSeries(tsId=tsId)
             ts = self.tsDict[tsId]
             newTs.copyInfo(ts)
@@ -324,7 +324,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
-        for ts in self._getSetOfInputTS():
+        for ts in self._getInputSetOfTS():
             if not ts.hasAlignment():
                 warnings.append("Input tilt-series do not have alignment "
                                 "information! The recommended workflow is to "
