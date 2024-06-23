@@ -108,8 +108,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self._getInputSetOfTS():
-            tsId = ts.getTsId()
+        for tsId in self._getInputSetOfTS().getTSIds():
             self._insertFunctionStep(self.doseFilterStep, tsId)
             self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)

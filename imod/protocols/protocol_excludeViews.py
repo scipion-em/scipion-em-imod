@@ -24,15 +24,13 @@
 # *
 # *****************************************************************************
 
-import os
-
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 import pyworkflow.utils.path as path
-from pyworkflow.object import Set
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from .. import Plugin, utils
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from imod import utils
+from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodExcludeViews(ProtImodBase):
@@ -49,9 +47,12 @@ class ProtImodExcludeViews(ProtImodBase):
     """
 
     _label = 'Exclude views'
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
-    excludeViewsInfoMatrix = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_PARALLEL
+        self.excludedViewsFromFile = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -82,74 +83,47 @@ class ProtImodExcludeViews(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        if self.excludeViewsFile.get():
+            self.excludedViewsFromFile = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
-        for tsId in self._getInputSetOfTS().getIdSet():
-            self._insertFunctionStep(self.excludeViewsStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+        closeSetStepDeps = []
+        for tsId in self._getInputSetOfTS().getTSIds():
+            exclStepId = self._insertFunctionStep(self.excludeViewsStep,
+                                                  tsId,
+                                                  prerequisites=[])
+            outStepId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                 tsId,
+                                                 prerequisites=[exclStepId])
+            closeSetStepDeps.append(outStepId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
-    def getExcludedViewsFromFile(self):
-        if self.excludeViewsInfoMatrix is None:
-            self.excludeViewsInfoMatrix = utils.readExcludeViewsFile(self.excludeViewsFile.get())
-
-        return self.excludeViewsInfoMatrix
-
-    def getExcludedViewsFromMatrix(self, ts):
-        """ Returns the indexes of the tilt to exclude for a
-        specified tilt series read from de input file """
-        matrix = self.getExcludedViewsFromFile()
-
-        pattern = matrix.get(ts.getTsId(), "")
-
-        views = self.makeExclusionPatternAsList(pattern)
-
-        # Return the matrix or an empty list
-        return views
-
-    def getExcludedViews(self, ts):
-        """ Returns the indexes of the tilt to exclude for a
-        specified tilt series"""
-        if self.excludeViewsFile.get():
-            return self.getExcludedViewsFromMatrix(ts)
-        else:
-            return ts._getExcludedViewsIndex()
-
     def excludeViewsStep(self, tsId):
         ts = self.getTsFromTsId(tsId)
-
-        # Make folder to work with the tilt series
-        extraPrefix = self._getExtraPath(tsId)
-        path.makePath(extraPrefix)
-
-        # Get the ts stack filename and coy it
         firstItem = ts.getFirstItem()
-        outputFileName = os.path.join(extraPrefix, firstItem.parseFileName())
+        self.genTsPaths(tsId)
+
+        outputFileName = self.getExtraOutFile(tsId)
         excludedViews = self.getExcludedViews(ts)
 
         if excludedViews:
             path.copyFile(firstItem.getFileName(), outputFileName)
-
-            paramsAlignment = {
-                'stackName': outputFileName,
-                'viewsToExclude': ",".join([str(index) for index in excludedViews]),
+            params = {
+                '-StackName': outputFileName,
+                '-ViewsToExclude': ",".join([str(index) for index in excludedViews]),
             }
-
-            argsAlignment = "-StackName %(stackName)s " \
-                            "-ViewsToExclude %(viewsToExclude)s "
-
-            Plugin.runImod(self, 'excludeviews', argsAlignment % paramsAlignment)
+            self.runProgram("excludeviews", params)
         else:
             # Just create the link
-            self.info("No views to exclude for %s." % tsId)
+            self.info(f"No views to exclude for {tsId}")
             path.createLink(firstItem.getFileName(), outputFileName)
 
     def generateOutputStackStep(self, tsId):
+        ts = self.getTsFromTsId(tsId)
         output = self.getOutputSetOfTS(self._getInputSetOfTS())
 
-        ts = self.getTsFromTsId(tsId)
-        extraPrefix = self._getExtraPath(tsId)
-        newTs = tomoObj.TiltSeries(tsId=tsId)
+        newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
         output.append(newTs)
 
@@ -158,42 +132,17 @@ class ProtImodExcludeViews(ProtImodBase):
         i = 1
         for index, tiltImage in enumerate(ts):
             if (index + 1) not in excludedViews:
-                newTi = tomoObj.TiltImage()
+                newTi = TiltImage()
                 newTi.copyInfo(tiltImage, copyId=False, copyTM=True)
                 newTi.setAcquisition(tiltImage.getAcquisition())
-                newTi.setLocation(i, (os.path.join(extraPrefix,
-                                                   tiltImage.parseFileName())))
+                newTi.setLocation(i, self.getExtraOutFile(tsId))
                 newTs.append(newTi)
                 i += 1
-        newTs.write(properties=False)
 
+        newTs.write(properties=False)
         output.update(newTs)
         output.write()
-        self._store()
-
-    def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
-        self._store()
-
-    # --------------------------- UTILS functions -----------------------------
-
-    def makeExclusionPatternAsList(self, excludedViews):
-        excludedViewsAsList = []
-
-        if excludedViews:
-            vector = excludedViews.split(',')
-
-            for element in vector:
-                elementVector = element.split('-')
-
-                if len(elementVector) > 1:
-                    for i in range(int(elementVector[0]), int(elementVector[1]) + 1):
-                        excludedViewsAsList.append(int(i))
-                else:
-                    excludedViewsAsList.append(int(elementVector[0]))
-
-        return excludedViewsAsList
+        self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -202,11 +151,19 @@ class ProtImodExcludeViews(ProtImodBase):
             summary.append("Excluded views:\n")
 
             for tsIn, tsOut in zip(self._getInputSetOfTS(), self.TiltSeries):
-                summary.append("Tilt-series: %s; Size: %d ---> %d"
-                               % (tsIn.getTsId(),
-                                  tsIn.getSize(),
-                                  tsOut.getSize()))
+                summary.append(f"Tilt-series: {tsIn.getTsId()}; "
+                               f"Size: {tsIn.getSize()} ---> {tsOut.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
 
         return summary
+
+    # --------------------------- UTILS functions -----------------------------
+    def getExcludedViews(self, ts):
+        """ Returns the indexes of the tilt to exclude for a
+        specific tilt series"""
+        if self.excludeViewsFile.get():
+            matrix = self.excludedViewsFromFile
+            return matrix.get(ts.getTsId(), [])
+        else:
+            return ts._getExcludedViewsIndex()

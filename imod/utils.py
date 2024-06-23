@@ -32,10 +32,12 @@ import csv
 import math
 from typing import Union
 import numpy as np
+
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
-from imod import Plugin
 from tomo.objects import TiltSeries
+
+from imod import Plugin
 
 logger = logging.getLogger(__name__)
 
@@ -1033,8 +1035,8 @@ def readExcludeViewsFile(excludeViewsFilePath):
         for line in lines:
             vector = line.split()
             tsId = vector[0]
-            views = vector[1]
-            logger.info("For %s found excluded views: %s" % (tsId, views))
+            views = pwutils.getListFromRangeString(vector[1])
+            logger.info(f"For {tsId} found excluded views: {views}")
             excludedViews[tsId] = views
 
     return excludedViews

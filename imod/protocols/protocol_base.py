@@ -46,7 +46,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     """ Base class with methods used in the rest of the imod protocols. """
     _label = None
 
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         # Possible outputs (synchronize these names with the constants)
         #self.tsDict = None
         self.tomoDict = None
@@ -62,7 +62,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.Tomograms = None
         self.Coordinates3D = None
 
-        EMProtocol.__init__(self, **args)
+        EMProtocol.__init__(self, **kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
@@ -441,7 +441,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+                samplingRate *= binning
                 outputSetOfTiltSeries.setSamplingRate(samplingRate)
 
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)

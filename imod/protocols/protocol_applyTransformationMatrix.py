@@ -105,8 +105,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self._getInputSetOfTS():
-            tsId = ts.getTsId()
+        for tsId in self._getInputSetOfTS().getTSIds():
             self._insertFunctionStep(self.computeAlignmentStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -143,7 +142,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
                 params['-input'] = evenFn
                 params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                sself.runProgram("newstack", params)
+                self.runProgram("newstack", params)
 
         except Exception as e:
             self._failedTs.append(tsId)
