@@ -28,7 +28,7 @@ from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
-from .. import Plugin
+
 from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from ..utils import genXfFile
 
@@ -278,7 +278,7 @@ class ProtImodTsNormalization(ProtImodBase):
                                              doNorm=norm != 0)
         params["-antialias"] = self.antialias.get() + 1
 
-        if self.floatDensities.get() != 0:
+        if norm != 0:
             params["-FloatDensities"] = norm
 
             if norm == 2:

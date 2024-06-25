@@ -372,7 +372,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         
         :param ts: Title Series object
         :param outputTsFileName: tilt series output file name after newstack
-        :param inputTsFileName: Input tilt series file name. Default to firsItem.getFilename()
+        :param inputTsFileName: Input tilt series file name. Default to firstItem.getFilename()
         :param xfFile: xf file name, if passed, alignment will be generated and used
         :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
