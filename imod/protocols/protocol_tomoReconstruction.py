@@ -73,7 +73,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       label='Tilt Series')
 
         form.addParam('tomoThickness',
-                      params.FloatParam,
+                      params.IntParam,
                       default=1000,
                       label='Tomogram thickness (voxels)',
                       important=True,
@@ -99,12 +99,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                       " omitted.")
 
         lineShift.addParam('tomoShiftX',
-                           params.FloatParam,
+                           params.IntParam,
                            default=0,
                            label=' in X ')
 
         lineShift.addParam('tomoShiftZ',
-                           params.FloatParam,
+                           params.IntParam,
                            default=0,
                            label=' in Z ')
 

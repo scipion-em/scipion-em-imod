@@ -222,8 +222,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     newTi = TiltImage()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
 
+                    transform = Transform()
+
                     if tiltImage.hasTransform():
-                        transform = Transform()
                         previousTransform = tiltImage.getTransform().getMatrix()
                         newTransform = alignmentMatrix[:, :, index]
                         previousTransformArray = np.array(previousTransform)
@@ -231,9 +232,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                         outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
                         transform.setMatrix(outputTransformMatrix)
                         newTi.setTransform(transform)
-
                     else:
-                        transform = Transform()
                         newTransform = alignmentMatrix[:, :, index]
                         newTransformArray = np.array(newTransform)
                         transform.setMatrix(newTransformArray)
@@ -245,7 +244,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     newTs.append(newTi)
 
                 newTs.write(properties=False)
-
                 output.update(newTs)
                 output.write()
                 self._store(output)

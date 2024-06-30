@@ -48,13 +48,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     def __init__(self, **kwargs):
-        # Possible outputs (synchronize these names with the constants)
         self.tsDict = None
         self.tomoDict = None
-        #self.binning = 1
         self._failedTs = []
         self._failedTomos = []
 
+        # Possible outputs (synchronize these names with the constants)
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
         self.FiducialModelGaps = None
