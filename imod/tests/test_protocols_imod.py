@@ -26,7 +26,7 @@
 
 from pyworkflow.tests import *
 from pyworkflow.utils import path
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
 import tomo
 
 from ..protocols import *
@@ -451,7 +451,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(tseries, size=2)
         self.assertTrue(tseries.hasAlignment(), "Tilt series does not have alignment flag")
         for ts in tseries:
-            self.assertTrue(ts.getFirstItem().hasTransform())
+            self.assertTrue(ts.hasAlignment())
 
     def test_doseFilterOutputTS(self):
         ts = self.protDoseFilter.TiltSeries
@@ -629,7 +629,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(outputLocation))
 
         # Dimensions
-        ih = ImageHandler()
         outputDimensions = ih.getDimensions(output.getFirstItem())
 
         self.assertEqual(outputDimensions, (512, 512, self.thicknessTomo, 1))
@@ -667,7 +666,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(output, size=2)
 
         # Dimensions
-        ih = ImageHandler()
         outputDimensions = ih.getDimensions(output.getFirstItem().getFirstItem().getFileName())
 
         self.assertEqual(outputDimensions, (256, 256, 1, 61))

@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 import pyworkflow.utils.path as path
 import pyworkflow.protocol.params as params
 from pyworkflow.object import Set
@@ -46,7 +45,6 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     """
 
     _label = 'Gold bead eraser'
-    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -85,7 +83,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for ts in self.inputSetOfTiltSeries.get():
+        for ts in self._getSetOfTiltSeries():
             self._insertFunctionStep('convertInputStep', ts.getObjId())
             self._insertFunctionStep('generateFiducialModelStep', ts.getObjId())
             self._insertFunctionStep('eraseXraysStep', ts.getObjId())
@@ -93,7 +91,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         self._insertFunctionStep('closeOutputStep')
 
     def convertInputStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
         tmpPrefix = self._getTmpPath(tsId)
@@ -108,7 +106,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     def generateFiducialModelStep(self, tsObjId):
         # TODO: check si es el landmark model correcto
         lm = self.inputSetOfLandmarkModels.get()[tsObjId]
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
 
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -139,7 +137,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, 'point2model', argsPoint2Model % paramsPoint2Model)
 
     def eraseXraysStep(self, tsObjId):
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
 
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
@@ -171,7 +169,7 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
     def createOutputStep(self, tsObjId):
         outputXraysErasedSetOfTiltSeries = self.getOutputSetOfXraysErasedTiltSeries()
 
-        ts = self.inputSetOfTiltSeries.get()[tsObjId]
+        ts = self._getTiltSeries(tsObjId)
         tsId = ts.getTsId()
         extraPrefix = self._getExtraPath(tsId)
 
@@ -203,8 +201,8 @@ class ProtImodGoldBeadEraser(EMProtocol, ProtTomoBase):
             self.TiltSeries.enableAppend()
         else:
             outputSetOfTiltSeries = self._createSetOfTiltSeries()
-            outputSetOfTiltSeries.copyInfo(self.inputSetOfTiltSeries.get())
-            outputSetOfTiltSeries.setDim(self.inputSetOfTiltSeries.get().getDim())
+            outputSetOfTiltSeries.copyInfo(self._getSetOfTiltSeries())
+            outputSetOfTiltSeries.setDim(self._getSetOfTiltSeries().getDim())
             outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
             self._defineSourceRelation(self.inputSetOfTiltSeries,

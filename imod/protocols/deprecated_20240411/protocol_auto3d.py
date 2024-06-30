@@ -26,7 +26,6 @@
 
 import os
 
-from pyworkflow import BETA
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from tomo.protocols import ProtTomoReconstruct
@@ -40,7 +39,6 @@ class ProtImodAuto3D(ProtTomoReconstruct):
     """
 
     _label = 'auto3d'
-    _devStatus = BETA
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
