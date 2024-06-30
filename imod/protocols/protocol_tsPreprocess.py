@@ -131,23 +131,22 @@ class ProtImodTsNormalization(ProtImodBase):
                                          'and standard deviation.')
 
         groupMeanSd.addParam('meanSdToggle',
-                             params.EnumParam,
-                             choices=['Yes', 'No'],
-                             default=1,
+                             params.BooleanParam,
+                             default=False,
                              label='Set mean and SD?',
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
 
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
-                             condition='meanSdToggle==0',
+                             condition='meanSdToggle',
                              default=0,
                              label='Mean',
                              help='Mean value for the rescaling')
 
         groupMeanSd.addParam('scaleSd',
                              params.FloatParam,
-                             condition='meanSdToggle==0',
+                             condition='meanSdToggle',
                              default=1,
                              label='SD',
                              help='Standard deviation value for the rescaling')
@@ -181,10 +180,9 @@ class ProtImodTsNormalization(ProtImodBase):
                            'is to output as bytes')
 
         form.addParam('scaleRangeToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
+                      params.BooleanParam,
                       condition="floatDensities==1 or floatDensities==3",
-                      default=0,
+                      default=True,
                       label='Set scaling range values?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
@@ -194,14 +192,14 @@ class ProtImodTsNormalization(ProtImodBase):
 
         form.addParam('scaleRangeMin',
                       params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')
 
         form.addParam('scaleRangeMax',
                       params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
                       default=255,
                       label='Max.',
                       help='Maximum value for the rescaling')
@@ -286,14 +284,14 @@ class ProtImodTsNormalization(ProtImodBase):
                 params["-FloatDensities"] = norm
 
                 if norm == 2:
-                    if self.meanSdToggle.get() == 0:
+                    if self.meanSdToggle:
                         params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()}, {self.scaleSd.get()}"
 
                 elif norm == 4:
                     params["-ScaleMinAndMax"] = f"{self.scaleMax.get()}, {self.scaleMin.get()}"
 
                 else:
-                    if self.scaleRangeToggle.get() == 0:
+                    if self.scaleRangeToggle:
                         params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()}, {self.scaleRangeMin.get()}"
 
             if self.getModeToOutput() is not None:

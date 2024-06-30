@@ -71,7 +71,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
-    def trimimgForm(form, pxTrimCondition='False',
+    def trimingForm(form, pxTrimCondition='False',
                     correlationCondition='True',
                     levelType=params.LEVEL_ADVANCED):
         """
@@ -533,7 +533,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self.FiducialModelNoGaps
 
     def getOutputFiducialModelGaps(self):
-
         if self.FiducialModelGaps:
             self.FiducialModelGaps.enableAppend()
         else:

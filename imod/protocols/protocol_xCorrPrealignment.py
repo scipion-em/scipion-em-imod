@@ -67,9 +67,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       label='Tilt-series to be prealigned')
 
         form.addParam('cumulativeCorr',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
+                      params.BooleanParam,
+                      default=False,
                       label='Use cumulative correlation?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='The program will take the image at zero tilt as the first'
@@ -82,9 +81,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'from the zero-tilt view to more positive tilt angles.')
 
         form.addParam('computeAlignment',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
+                      params.BooleanParam,
+                      default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -99,7 +97,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
         form.addParam('binning',
                       params.IntParam,
-                      condition='computeAlignment==0',
+                      condition='computeAlignment',
                       default=1,
                       label='Binning for the interpolated',
                       help='Binning to be applied to the interpolated tilt-series '
@@ -130,7 +128,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         trimming = form.addGroup('Trimming parameters',
                                  expertLevel=params.LEVEL_ADVANCED)
 
-        self.trimimgForm(trimming, pxTrimCondition='False',
+        self.trimingForm(trimming, pxTrimCondition='False',
                          correlationCondition='True',
                          levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition='True',
@@ -144,7 +142,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self._insertFunctionStep(self.convertInputStep, tsId)
             self._insertFunctionStep(self.computeXcorrStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
-            if self.computeAlignment.get() == 0:
+            if self.computeAlignment:
                 self._insertFunctionStep(self.computeInterpolatedStackStep,
                                          tsId, binning)
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -174,7 +172,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                 "-FilterRadius2": self.filterRadius2.get()
             }
 
-            if self.cumulativeCorr.get() == 0:
+            if self.cumulativeCorr:
                 paramsXcorr["-CumulativeCorrelation"] = ""
 
             xdim, ydim, _ = ts.getDim()

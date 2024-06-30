@@ -29,13 +29,14 @@ import numpy as np
 
 import pyworkflow.protocol.params as params
 from pwem.objects import Transform
-from pwem.emlib.image import ImageHandler
-from pyworkflow.object import Set
-from tomo.objects import (LandmarkModel, SetOfTiltSeries, TiltImage,
-                          TiltSeries, TiltSeriesCoordinate)
+from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
+                          TiltImage, TiltSeries, TiltSeriesCoordinate)
 
-from .. import Plugin, utils
-from .protocol_base import ProtImodBase, TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT, MOD_EXT, SFID_EXT
+from imod import utils
+from imod.protocols.protocol_base import ProtImodBase
+from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
+                            MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME)
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -111,7 +112,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
     """
 
     _label = 'Fiducial alignment'
-    _possibleOutputs = {"outputSetOfTiltSeries": SetOfTiltSeries}
+    _possibleOutputs = {
+        OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
+        OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels
+    }
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -146,9 +150,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
         #               label='Input set of tilt-series.')
 
         form.addParam('twoSurfaces',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
+                      params.BooleanParam,
+                      default=False,
                       label='Assume beads on two surfaces?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
@@ -160,9 +163,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            "option to 'No'.")
 
         form.addParam('computeAlignment',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
+                      params.BooleanParam,
+                      default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -174,7 +176,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            'series should be used for visualization purpose but not for image processing')
 
         groupInterpolation = form.addGroup('Interpolated tilt-series',
-                                           condition='computeAlignment==0')
+                                           condition='computeAlignment')
 
         groupInterpolation.addParam('binning',
                                     params.IntParam,
@@ -282,9 +284,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addSection('Erase gold beads')
 
         form.addParam('eraseGoldBeads',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      default=1,
+                      params.BooleanParam,
+                      default=False,
                       label='Erase gold beads',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Remove the gold beads detected during fiducial '
@@ -295,7 +296,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            'the alignment.')
 
         groupEraseGoldBeads = form.addGroup('Gold bead eraser',
-                                            condition='eraseGoldBeads==0')
+                                            condition='eraseGoldBeads')
 
         groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
                                      params.IntParam,
@@ -324,11 +325,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self._insertFunctionStep(self.translateFiducialPointModelStep, lmTsId)
             self._insertFunctionStep(self.computeOutputStackStep, lmTsId)
 
-            if self.computeAlignment.get() == 0 or self.eraseGoldBeads.get() == 0:
+            if self.computeAlignment or self.eraseGoldBeads:
                 self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
                                          lmTsId, binning)
 
-            if self.eraseGoldBeads.get() == 0:
+            if self.eraseGoldBeads:
                 self._insertFunctionStep(self.eraseGoldBeadsStep, lmTsId)
 
             self._insertFunctionStep(self.computeOutputModelsStep, lmTsId)
@@ -338,7 +339,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.inputSetOfTiltSeries = self.inputSetOfLandmarkModels.get().getSetOfTiltSeries(pointer=True)
+        self.inputSetOfTiltSeries = self.getInputSet().getSetOfTiltSeries(pointer=True)
 
         tsIds = self.inputSetOfLandmarkModels.get().aggregate(["COUNT"], "_tsId", ["_tsId"])
         tsIds = set([d['_tsId'] for d in tsIds])
@@ -347,9 +348,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                        self.getInputSet() if
                        ts.getTsId() in tsIds}
 
-        self._failedTs = []
-
-    @ProtImodBase.tryExceptDecorator
     def computeFiducialAlignmentStep(self, tsId):
         ts = self.tsDict[tsId]
         lm = self.inputSetOfLandmarkModels.get().getLandmarkModelFromTsId(tsId=tsId)
@@ -450,7 +448,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         Plugin.runImod(self, 'tiltalign', argsTiltAlign % paramsTiltAlign)
         Plugin.runImod(self, 'alignlog', '-s > taSolution.log', cwd=self._getExtraPath())
 
-    @ProtImodBase.tryExceptDecorator
     def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
         noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
@@ -464,7 +461,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
             Plugin.runImod(self, 'model2point', argsNoGapModel2Point % paramsNoGapModel2Point)
 
-    @ProtImodBase.tryExceptDecorator
     def computeOutputStackStep(self, tsId):
         ts = self.tsDict[tsId]
 
@@ -515,7 +511,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Error (computeOutputStackStep): \n Imod output file "
                 "%s does not exist or it is empty" % transformationMatricesFilePath)
 
-    @ProtImodBase.tryExceptDecorator
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         tsIn = self.tsDict[tsId]
         tsId = tsIn.getTsId()
@@ -590,7 +585,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 "Error (computeOutputInterpolatedStackStep): \n "
                 "Imod output file %s does not exist or it is empty" % tmpFileName)
 
-    @ProtImodBase.tryExceptDecorator
     def eraseGoldBeadsStep(self, tsId):
         ts = self.tsDict[tsId]
         tsId = ts.getTsId()
@@ -618,7 +612,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
 
-    @ProtImodBase.tryExceptDecorator
     def computeOutputModelsStep(self, tsId):
         ts = self.tsDict[tsId]
         tsId = ts.getTsId()
@@ -713,6 +706,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
         super().createOutputFailedSet(ts)
 
     # --------------------------- UTILS functions -----------------------------
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
+
     def getRotationType(self):
         if self.rotationSolutionType.get() == 0:
             return 0
@@ -752,10 +748,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             return 3
 
     def getSurfaceToAnalyze(self):
-        if self.twoSurfaces.get() == 0:
-            return 2
-        elif self.twoSurfaces.get() == 1:
-            return 1
+        return 2 if self.twoSurfaces else 1
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

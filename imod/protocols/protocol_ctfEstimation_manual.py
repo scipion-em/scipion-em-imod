@@ -27,8 +27,8 @@
 
 from tomo.objects import SetOfCTFTomoSeries
 
-from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
-from .protocol_base import OUTPUT_CTF_SERIE
+from imod.protocols.protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from imod.constants import OUTPUT_CTF_SERIE
 
 
 class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
@@ -50,6 +50,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     _label = 'CTF estimation (manual)'
     _interactiveMode = True
+    _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
@@ -71,18 +72,17 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        objId = obj.getObjId()
-        # DO not use this to avoid interpolation. CTF will be done on the input TS (hopefully non interpolated).
-        self.convertInputStep(objId)
+        tsId = obj.getObjId()
+        self.convertInputStep(tsId)
         expDefoci = self.getExpectedDefocus()
-        self.ctfEstimation(objId, expDefoci)
+        self.ctfEstimation(tsId, expDefoci)
 
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
         setOfTiltseries = self.getInputSet()
-        for item in setOfTiltseries.iterItems(iterate=False):
-            self.createOutputStep(item.getObjId(), outputSetName)
+        for ts in setOfTiltseries.iterItems(iterate=False):
+            self.createOutputStep(ts.getTsId(), outputSetName)
         self.closeOutputSetsStep()
 
     def _summary(self):
