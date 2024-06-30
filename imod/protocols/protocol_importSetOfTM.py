@@ -29,11 +29,11 @@ import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-from tomo.objects import TiltSeries, TiltImage
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 
 from imod import utils
-from imod.constants import XF_EXT
+from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
 from imod.protocols.protocol_base import ProtImodBase
 
 
@@ -42,6 +42,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     Import the transformation matrices assigned to an input set of tilt-series
     """
     _label = 'Import transformation matrix'
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     def __init__(self, **kwargs):
         ProtImodBase().__init__(**kwargs)
@@ -84,19 +85,23 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-        for tsId in self._getInputSetOfTS().getTSIds():
+        self._initialize()
+        matchBinningFactor = self.binningTM.get() / self.binningTS.get()
+        for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.generateTransformFileStep,
-                                     tsId)
+                                     tsId, matchBinningFactor)
             self._insertFunctionStep(self.assignTransformationMatricesStep,
                                      tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def generateTransformFileStep(self, tsId):
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+
+    def generateTransformFileStep(self, tsId, matchBinningFactor):
         self.genTsPaths(tsId)
-        ts = self.getTsFromTsId(tsId)
+        ts = self.tsDict[tsId]
         ids = ts.getIdSet()
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         self.debug(f"Matching files: {self.matchingFiles}")
@@ -104,7 +109,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         for tmFilePath, _ in self.iterFiles():
             if pwutils.removeBaseExt(tmFilePath) in self.matchingFiles:
 
-                if self.matchBinningFactor != 1:
+                if matchBinningFactor != 1:
                     inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
                     # Update shifts from the transformation matrix considering
                     # the matching binning between the input tilt
@@ -119,10 +124,10 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                         outputTransformMatrix = inputTransformMatrix
                         outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
                         outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * self.matchBinningFactor
+                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
                         outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
                         outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * self.matchBinningFactor
+                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
                         outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
                         outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
                         outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
@@ -135,9 +140,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     pwutils.createLink(tmFilePath, outputTransformFile)
 
     def assignTransformationMatricesStep(self, tsId):
-        ts = self.getTsFromTsId(tsId)
+        ts = self.tsDict[tsId]
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        output = self.getOutputSetOfTS(self._getInputSetOfTS())
+        output = self.getOutputSetOfTS(self.getInputSet())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -178,7 +183,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         errorMsg = []
         matchingFiles = self.getMatchFiles()
         if matchingFiles:
-            tsIdList = self._getInputSetOfTS().getTSIds()
+            tsIdList = self.getInputSet().getTSIds()
             tmFileList = [pwutils.removeBaseExt(fn) for fn, _ in self.iterFiles()]
             self.matchingFiles = list(set(tsIdList) & set(tmFileList))
             if not self.matchingFiles:
@@ -196,7 +201,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self._getInputSetOfTS().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            "Transformation matrices assigned: "
                            f"{self.TiltSeries.getSize()}")
         return summary

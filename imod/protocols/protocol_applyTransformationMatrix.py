@@ -24,15 +24,15 @@
 # *
 # *****************************************************************************
 
-import os.path
+import os
 
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
-from tomo.objects import TiltSeries, TiltImage
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import XF_EXT, ODD, EVEN
+from imod.constants import XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -50,6 +50,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
 
     _label = 'Apply transformation'
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -105,15 +106,19 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for tsId in self._getInputSetOfTS().getTSIds():
+        self._initialize()
+        for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.computeAlignmentStep, tsId)
             self._insertFunctionStep(self.generateOutputStackStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions ------------------------------
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+
     def computeAlignmentStep(self, tsId):
         try:
-            ts = self.getTsFromTsId(tsId)
+            ts = self.tsDict[tsId]
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
             utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
@@ -146,17 +151,16 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         except Exception as e:
             self._failedTs.append(tsId)
-            self.error('Newstack execution failed for tsId %s -> %s' % (tsId, e))
+            self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
-        ts = self.getTsFromTsId(tsId)
+        ts = self.tsDict[tsId]
         if tsId in self._failedTs:
             self.createOutputFailedSet(ts)
         else:
             outputLocation = self.getExtraOutFile(tsId)
-
             if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self._getInputSetOfTS())
+                output = self.getOutputInterpolatedTS(self.getInputSet())
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
@@ -186,7 +190,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         newTi.setSamplingRate(self._getOutputSampling())
                         newTs.append(newTi)
 
-                dims = self._getOutputDim(newTi.getFileName())
+                dims = self._getOutputDim(outputLocation)
                 newTs.setDim(dims)
 
                 newTs.write(properties=False)
@@ -194,14 +198,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 output.write()
                 self._store(output)
 
-    def closeOutputSetsStep(self):
-        self._closeOutputSet()
-
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
 
-        for ts in self._getInputSetOfTS():
+        for ts in self.getInputSet():
             if not ts.hasAlignment():
                 validateMsgs.append("Some tilt-series from the input set "
                                     "are missing a transformation matrix.")
@@ -212,7 +213,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _summary(self):
         summary = []
         if self.InterpolatedTiltSeries:
-            summary.append(f"Input tilt-series: {self._getInputSetOfTS().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            f"Interpolations applied: {self.InterpolatedTiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -228,4 +229,4 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def _getOutputSampling(self) -> float:
-        return self._getInputSetOfTS().getSamplingRate() * self.binning.get()
+        return self.getInputSet().getSamplingRate() * self.binning.get()

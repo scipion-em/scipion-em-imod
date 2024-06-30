@@ -63,7 +63,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def runCTFEtimationStep(self):
         from imod.viewers import ImodGenericView
-        self.inputSetOfTiltSeries = self._getInputSetOfTS()
+        self.inputSetOfTiltSeries = self.getInputSet()
         view = ImodGenericView(None, self, self.inputSetOfTiltSeries,
                                createSetButton=True,
                                isInteractive=True)
@@ -80,7 +80,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
-        setOfTiltseries = self._getInputSetOfTS()
+        setOfTiltseries = self.getInputSet()
         for item in setOfTiltseries.iterItems(iterate=False):
             self.createOutputStep(item.getObjId(), outputSetName)
         self.closeOutputSetsStep()

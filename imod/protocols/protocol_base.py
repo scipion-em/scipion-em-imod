@@ -45,22 +45,27 @@ logger = logging.getLogger(__name__)
 class ProtImodBase(EMProtocol, ProtTomoBase):
     """ Base class with methods used in the rest of the imod protocols. """
     _label = None
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     def __init__(self, **kwargs):
         # Possible outputs (synchronize these names with the constants)
-        #self.tsDict = None
+        self.tsDict = None
         self.tomoDict = None
         #self.binning = 1
         self._failedTs = []
+        self._failedTomos = []
+
         self.TiltSeriesCoordinates = None
         self.FiducialModelNoGaps = None
         self.FiducialModelGaps = None
         self.TiltSeries = None
         self.InterpolatedTiltSeries = None
         self.CTFTomoSeries = None
-        self.FailedTiltSeries = None
         self.Tomograms = None
         self.Coordinates3D = None
+
+        self.FailedTiltSeries = None
+        self.FailedTomograms = None
 
         EMProtocol.__init__(self, **kwargs)
 
@@ -451,7 +456,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSetOfTiltSeries
 
-    def getOutputInterpolatedTS(self, inputSet):
+    def getOutputInterpolatedTS(self, inputSet, binning=1):
         """ Method to generate output interpolated classes of set of tilt-series"""
 
         if self.InterpolatedTiltSeries:
@@ -467,9 +472,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 interpTS.setAcquisition(inputSet.getAcquisition())
                 interpTS.setDim(inputSet.getDim())
 
-            if self.binning.get() > 1:
-                samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+            if binning > 1:
+                samplingRate = inputSet.getSamplingRate() * binning
                 interpTS.setSamplingRate(samplingRate)
 
             interpTS.setStreamState(Set.STREAM_OPEN)
@@ -479,26 +483,31 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return self.InterpolatedTiltSeries
 
-    def getOutputFailedSetOfTiltSeries(self, inputSet):
-        if self.FailedTiltSeries:
-            self.FailedTiltSeries.enableAppend()
-        else:
-            failedTS = self._createSetOfTiltSeries(suffix='Failed')
-
-            if isinstance(inputSet, SetOfTiltSeries):
-                failedTS.copyInfo(inputSet)
-                failedTS.setDim(inputSet.getDim())
+    def getOutputFailedSet(self, inputSet):
+        """ Create output set for failed TS or tomograms. """
+        if isinstance(inputSet, SetOfTiltSeries):
+            if self.FailedTiltSeries:
+               self.FailedTiltSeries.enableAppend()
             else:
-                failedTS.setAcquisition(inputSet.getAcquisition())
-                failedTS.setSamplingRate(inputSet.getSamplingRate())
-                failedTS.setDim(inputSet.getDim())
+                failedSet = self._createSetOfTiltSeries(suffix='Failed')
+                failedSet.copyInfo(inputSet)
+                failedSet.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedSet})
+                self._defineSourceRelation(inputSet, failedSet)
 
-            failedTS.setStreamState(Set.STREAM_OPEN)
+            return self.FailedTiltSeries
 
-            self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedTS})
-            self._defineSourceRelation(inputSet, failedTS)
+        elif isinstance(inputSet, SetOfTomograms):
+            if self.FailedTomograms:
+                self.FailedTomograms.enableAppend()
+            else:
+                failedSet = self._createSetOfTomograms(suffix='Failed')
+                failedSet.copyInfo(inputSet)
+                failedSet.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TOMOS_FAILED_NAME: failedSet})
+                self._defineSourceRelation(inputSet, failedSet)
 
-        return self.FailedTiltSeries
+            return self.FailedTomograms
 
     def getOutputFiducialModelNoGaps(self, tiltSeries=None):
 
@@ -530,7 +539,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
-            fidModelGaps.copyInfo(self._getInputSetOfTS())
+            fidModelGaps.copyInfo(self.getInputSet())
             fidModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
             fidModelGaps.setHasResidualInfo(False)
             fidModelGaps.setStreamState(Set.STREAM_OPEN)
@@ -606,7 +615,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            ts = self._getInputSetOfTS(pointer=True)
+            ts = self.getInputSet(pointer=True)
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
@@ -715,17 +724,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
-    def createOutputFailedSet(self, ts, presentAcqOrders=None):
-        """ Just copy input TS to the failed output set. """
-        tsSet = self._getInputSetOfTS()
-        output = self.getOutputFailedSetOfTiltSeries(tsSet)
-        newTs = ts.clone()
-        newTs.copyInfo(ts)
-        output.append(newTs)
+    def createOutputFailedSet(self, item, presentAcqOrders=None):
+        """ Just copy input item to the failed output set. """
+        inputSet = self.getInputSet()
+        output = self.getOutputFailedSet(inputSet)
+        newItem = item.clone()
+        newItem.copyInfo(item)
+        output.append(newItem)
 
-        newTs.copyItems(ts)
-        newTs.write(properties=False)
-        output.update(newTs)
+        if isinstance(item, TiltSeries):
+            newItem.copyItems(item)
+
+        newItem.write(properties=False)
+        output.update(newItem)
         output.write()
         self._store(output)
 
@@ -747,11 +758,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self._getExtraPath(tsId,
                                   self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
 
-    def _getInputSetOfTS(self, pointer=False):
+    def getInputSet(self, pointer=False):
         return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
     def getTsFromTsId(self, tsId):
-        tsSet = self._getInputSetOfTS()
+        tsSet = self.getInputSet()
         return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def applyToOddEven(self, ts):

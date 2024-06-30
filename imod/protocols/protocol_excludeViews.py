@@ -30,7 +30,8 @@ import pyworkflow.utils.path as path
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from imod.protocols.protocol_base import ProtImodBase
+from imod.constants import OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodExcludeViews(ProtImodBase):
@@ -83,11 +84,12 @@ class ProtImodExcludeViews(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        self._initialize()
         if self.excludeViewsFile.get():
             self.excludedViewsFromFile = utils.readExcludeViewsFile(self.excludeViewsFile.get())
 
         closeSetStepDeps = []
-        for tsId in self._getInputSetOfTS().getTSIds():
+        for tsId in self.tsDict.keys():
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
                                                   prerequisites=[])
@@ -99,8 +101,11 @@ class ProtImodExcludeViews(ProtImodBase):
                                  prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+
     def excludeViewsStep(self, tsId):
-        ts = self.getTsFromTsId(tsId)
+        ts = self.tsDict[tsId]
         firstItem = ts.getFirstItem()
         self.genTsPaths(tsId)
 
@@ -120,8 +125,8 @@ class ProtImodExcludeViews(ProtImodBase):
             path.createLink(firstItem.getFileName(), outputFileName)
 
     def generateOutputStackStep(self, tsId):
-        ts = self.getTsFromTsId(tsId)
-        output = self.getOutputSetOfTS(self._getInputSetOfTS())
+        ts = self.tsDict[tsId]
+        output = self.getOutputSetOfTS(self.getInputSet())
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
@@ -150,7 +155,7 @@ class ProtImodExcludeViews(ProtImodBase):
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self._getInputSetOfTS(), self.TiltSeries):
+            for tsIn, tsOut in zip(self.getInputSet(), self.TiltSeries):
                 summary.append(f"Tilt-series: {tsIn.getTsId()}; "
                                f"Size: {tsIn.getSize()} ---> {tsOut.getSize()}")
         else:

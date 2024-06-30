@@ -23,15 +23,15 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import os
 
 from pwem.objects import Transform
-from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from .. import Plugin
-from .protocol_base import ProtImodBase, MRCS_EXT
+from imod.protocols.protocol_base import ProtImodBase
+from imod.constants import OUTPUT_TILTSERIES_NAME
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -50,6 +50,7 @@ class ProtImodTomoProjection(ProtImodBase):
     """
 
     _label = 'Tomo projection'
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     AXIS_X = 0
     AXIS_Y = 1
@@ -65,8 +66,9 @@ class ProtImodTomoProjection(ProtImodBase):
                       label='Input set of tomograms to be projected')
 
         line = form.addLine('Tilt angles  (deg)',
-                            help='Starting, ending, and increment tilt angle.  Enter the same value for '
-                                 'starting and ending angle to get only one image')
+                            help='Starting, ending, and increment tilt angle. '
+                                 'Enter the same value for starting and '
+                                 'ending angle to get only one image.')
 
         line.addParam('minAngle',
                       params.FloatParam,
@@ -103,91 +105,63 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo
+                         in self.inputSetOfTomograms.get()}
 
     def projectTomogram(self, tsId):
-        self.genTsPaths(tsId)
-        tomo = self.tomoDict[tsId]
+        try:
+            self.genTsPaths(tsId)
+            tomo = self.tomoDict[tsId]
 
-        paramsXYZproj = {
-            'input': tomo.getFileName(),
-            'output': self.getExtraOutFile(tsId, ext=MRCS_EXT),
-            'axis': self.getRotationAxis(),
-            'angles': str(self.minAngle.get()) + ',' +
-                      str(self.maxAngle.get()) + ',' +
-                      str(self.stepAngle.get()),
-        }
+            paramsXYZproj = {
+                '-input': tomo.getFileName(),
+                '-output': self.getExtraOutFile(tsId),
+                '-axis': self.getRotationAxis(),
+                '-angles': ",".join([self.minAngle.get(),
+                                     self.maxAngle.get(),
+                                     self.stepAngle.get()])
+            }
 
-        argsXYZproj = "-input %(input)s " \
-                      "-output %(output)s " \
-                      "-axis %(axis)s " \
-                      "-angles %(angles)s "
+            self.runProgram('xyzproj', paramsXYZproj)
 
-        Plugin.runImod(self, 'xyzproj', argsXYZproj % paramsXYZproj)
+        except Exception as e:
+            self._failedTomos.append(tsId)
+            self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
         tomo = self.tomoDict[tsId]
-        output = self.getOutputSetOfTS(self.inputSetOfTomograms.get())
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.setTsId(tomo.getTsId())
-        newTs.setAcquisition(tomo.getAcquisition())
+        if tsId in self._failedTomos:
+            self.createOutputFailedSet(tomo)
+        else:
+            outputFn = self.getExtraOutFile(tsId)
+            if os.path.exists(outputFn):
+                inputTomos = self.getInputSet()
+                output = self.getOutputSetOfTS(inputTomos)
+                newTs = TiltSeries(tsId=tsId)
+                newTs.setAcquisition(tomo.getAcquisition())
+                output.append(newTs)
 
-        # Add origin to output tilt-series
-        output.append(newTs)
-        tiltAngleList = self.getTiltAngleList()
-        sRate = self.inputSetOfTomograms.get().getSamplingRate()
-        for index in range(self.getProjectionRange()):
-            newTi = tomoObj.TiltImage()
-            newTi.setTiltAngle(tiltAngleList[index])
-            newTi.setTsId(tsId)
-            newTi.setAcquisitionOrder(index + 1)
-            newTi.setLocation(index + 1,
-                              self.getExtraOutFile(tsId, ext=MRCS_EXT))
-            newTi.setSamplingRate(sRate)
-            newTs.append(newTi)
+                tiltAngleList = self.getTiltAngleList()
+                sRate = inputTomos.getSamplingRate()
+                for index in range(self.getProjectionRange()):
+                    newTi = TiltImage(tsId=tsId, tiltAngle=tiltAngleList[index],
+                                      acquisitionOrder=index+1)
+                    newTi.setLocation(index + 1, outputFn)
+                    newTi.setSamplingRate(sRate)
+                    newTs.append(newTi)
 
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
+                x, y, z, _ = ih.getDimensions(outputFn)
+                newTs.setDim((x, y, z))
 
-        # Set origin to output tilt-series
-        origin = Transform()
-        origin.setShifts(x / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
-                         y / -2. * self.inputSetOfTomograms.get().getSamplingRate(),
-                         0)
+                # Set origin to output tilt-series
+                origin = Transform()
+                origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
+                newTs.setOrigin(origin)
 
-        newTs.setOrigin(origin)
-        newTs.write(properties=False)
-
-        output.update(newTs)
-        output.write()
-        self._store()
-
-    def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
-        self._store()
-
-    # --------------------------- UTILS functions -----------------------------
-    def getRotationAxis(self):
-        parseParamsRotationAxis = {
-            self.AXIS_X: 'X',
-            self.AXIS_Y: 'Y',
-            self.AXIS_Z: 'Z',
-        }
-        return parseParamsRotationAxis[self.rotationAxis.get()]
-
-    def getProjectionRange(self):
-        return int((self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()) + 1
-
-    def getTiltAngleList(self):
-        tiltAngleList = []
-
-        angle = self.minAngle.get()
-        while angle <= self.maxAngle.get():
-            tiltAngleList.append(angle)
-            angle += self.stepAngle.get()
-
-        return tiltAngleList
+                newTs.write(properties=False)
+                output.update(newTs)
+                output.write()
+                self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -209,9 +183,8 @@ class ProtImodTomoProjection(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input tomograms: %d\nTilt-series generated: %d"
-                           % (self.inputSetOfTomograms.get().getSize(),
-                              self.TiltSeries.getSize()))
+            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+                           f"Tilt-series generated: {self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
@@ -219,7 +192,32 @@ class ProtImodTomoProjection(ProtImodBase):
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("%d tilt-series have been generated by projecting "
-                           "the input tomogram using IMOD *xyzproj* command.\n"
-                           % (self.TiltSeries.getSize()))
+            methods.append(f"{self.TiltSeries.getSize()} tilt-series have been "
+                           "generated by projecting the input tomogram using "
+                           "IMOD *xyzproj* command.")
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms
+
+    def getRotationAxis(self):
+        parseParamsRotationAxis = {
+            self.AXIS_X: 'X',
+            self.AXIS_Y: 'Y',
+            self.AXIS_Z: 'Z',
+        }
+        return parseParamsRotationAxis[self.rotationAxis.get()]
+
+    def getProjectionRange(self):
+        return int((self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()) + 1
+
+    def getTiltAngleList(self):
+        tiltAngleList = []
+
+        angle = self.minAngle.get()
+        while angle <= self.maxAngle.get():
+            tiltAngleList.append(angle)
+            angle += self.stepAngle.get()
+
+        return tiltAngleList

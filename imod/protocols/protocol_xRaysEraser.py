@@ -23,15 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import os
 
 import pyworkflow.protocol.params as params
-from pyworkflow.object import Set
 from pwem.emlib.image import ImageHandler as ih
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from .. import Plugin
-from .protocol_base import (ProtImodBase, OUTPUT_TILTSERIES_NAME,
-                            ODD, EVEN, MOD_EXT)
+from imod.protocols.protocol_base import ProtImodBase
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -110,7 +109,7 @@ class ProtImodXraysEraser(ProtImodBase):
     """
 
     _label = 'X-rays eraser'
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
 
@@ -171,8 +170,10 @@ class ProtImodXraysEraser(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
-                           'The filter applied to the odd/even tilt series will be exactly the same.')
+                      help='If True, the full tilt series and the associated '
+                           'odd/even tilt series will be processed. The filter '
+                           'applied to the odd/even tilt series will be exactly '
+                           'the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -181,113 +182,98 @@ class ProtImodXraysEraser(ProtImodBase):
             self._insertFunctionStep(self.convertInputStep, tsId)
             self._insertFunctionStep(self.eraseXraysStep, tsId)
             self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputStep)
+        self._insertFunctionStep(self.closeOutputSetsStep)
 
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self._getInputSetOfTS()}
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self._getInputSetOfTS())
+        oddEvenFlag = self.applyToOddEven(self.getInputSet())
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
                                  oddEven=oddEvenFlag)
 
     def eraseXraysStep(self, tsId):
-        ts = self.tsDict[tsId]
-        firstItem = ts.getFirstItem()
+        try:
+            ts = self.tsDict[tsId]
 
-        paramsCcderaser = {
-            'input': self.getTmpOutFile(tsId),
-            'output': self.getExtraOutFile(tsId),
-            'findPeaks': 1,
-            'peakCriterion': self.peakCriterion.get(),
-            'diffCriterion': self.diffCriterion.get(),
-            'growCriterion': 4.,
-            'scanCriterion': 3.,
-            'maximumRadius': self.maximumRadius.get(),
-            'giantCriterion': 12.,
-            'extraLargeRadius': 8.,
-            'bigDiffCriterion': self.bigDiffCriterion.get(),
-            'annulusWidth': 2.0,
-            'xyScanSize': 100,
-            'edgeExclusionWidth': 4,
-            'pointModel': self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
-            'borderSize': 2,
-            'polynomialOrder': 2,
-        }
+            paramsCcderaser = {
+                "-InputFile": self.getTmpOutFile(tsId),
+                "-OutputFile": self.getExtraOutFile(tsId),
+                "-FindPeaks": 1,
+                "-PeakCriterion": self.peakCriterion.get(),
+                "-DiffCriterion": self.diffCriterion.get(),
+                "-GrowCriterion": 4.,
+                "-ScanCriterion": 3.,
+                "-MaximumRadius": self.maximumRadius.get(),
+                "-GiantCriterion": 12.,
+                "-ExtraLargeRadius": 8.,
+                "-BigDiffCriterion": self.bigDiffCriterion.get(),
+                "-AnnulusWidth": 2.0,
+                "-XYScanSize": 100,
+                "-EdgeExclusionWidth": 4,
+                "-PointModel": self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
+                "-BorderSize": 2,
+                "-PolynomialOrder": 2,
+            }
 
-        argsCcderaser = "-InputFile %(input)s " \
-                        "-OutputFile %(output)s " \
-                        "-FindPeaks %(findPeaks)d " \
-                        "-PeakCriterion %(peakCriterion).2f " \
-                        "-DiffCriterion %(diffCriterion).2f " \
-                        "-GrowCriterion %(growCriterion).2f " \
-                        "-ScanCriterion %(scanCriterion).2f " \
-                        "-MaximumRadius %(maximumRadius).2f " \
-                        "-GiantCriterion %(giantCriterion).2f " \
-                        "-ExtraLargeRadius %(extraLargeRadius).2f " \
-                        "-BigDiffCriterion %(bigDiffCriterion).2f " \
-                        "-AnnulusWidth %(annulusWidth).2f " \
-                        "-XYScanSize %(xyScanSize)d " \
-                        "-EdgeExclusionWidth %(edgeExclusionWidth)d " \
-                        "-BorderSize %(borderSize)d " \
-                        "-PolynomialOrder %(polynomialOrder)d "
-
-        Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
-
-        if self.applyToOddEven(ts):
-            oddFn = firstItem.getOdd().split('@')[1]
-            evenFn = firstItem.getEven().split('@')[1]
-            paramsCcderaser['input'] = oddFn
-            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=ODD)
-            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
-            paramsCcderaser['input'] = evenFn
-            paramsCcderaser['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            Plugin.runImod(self, 'ccderaser', argsCcderaser % paramsCcderaser)
-
-    def createOutputStep(self, tsId):
-        output = self.getOutputSetOfTS(self._getInputSetOfTS())
-
-        ts = self.tsDict[tsId]
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        output.append(newTs)
-
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
+            self.runProgram('ccderaser', paramsCcderaser)
 
             if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
+                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=ODD)
+                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram('ccderaser', paramsCcderaser)
 
-            newTs.append(newTi)
+                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram('ccderaser', paramsCcderaser)
 
-        newTs.write(properties=False)
-        output.update(newTs)
-        output.write()
-        self._store()
+        except Exception as e:
+            self._failedTs.append(tsId)
+            self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
-    def closeOutputStep(self):
-        if self.TiltSeries:
-            self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-            self.TiltSeries.write()
-        self._store()
+    def createOutputStep(self, tsId):
+        ts = self.tsDict[tsId]
+        if tsId in self._failedTs:
+            self.createOutputFailedSet(ts)
+        else:
+            outputFn = self.getExtraOutFile(tsId)
+            if os.path.exists(outputFn):
+                output = self.getOutputSetOfTS(self.getInputSet())
+                ts = self.tsDict[tsId]
+                newTs = TiltSeries(tsId=tsId)
+                newTs.copyInfo(ts)
+                output.append(newTs)
+
+                for index, tiltImage in enumerate(ts):
+                    newTi = TiltImage()
+                    newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
+                    newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
+
+                    if self.applyToOddEven(ts):
+                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+                        newTi.setOddEven([ih.locationToXmipp(locationOdd),
+                                          ih.locationToXmipp(locationEven)])
+                    else:
+                        newTi.setOddEven([])
+
+                    newTs.append(newTi)
+
+                newTs.write(properties=False)
+                output.update(newTs)
+                output.write()
+                self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input tilt-series: %d\nX-rays erased output "
-                           "tilt series: %d"
-                           % (self._getInputSetOfTS().getSize(),
-                              self.TiltSeries.getSize()))
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           "X-rays erased output tilt series: "
+                           f"{self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
 
@@ -296,8 +282,8 @@ class ProtImodXraysEraser(ProtImodBase):
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("The x-rays artifacts have been erased for %d "
-                           "tilt-series using the IMOD *ccderaser* command.\n"
-                           % (self.TiltSeries.getSize()))
+            methods.append(f"The x-rays artifacts have been erased for "
+                           f"{self.TiltSeries.getSize()} tilt-series using "
+                           "the IMOD *ccderaser* command.")
 
         return methods

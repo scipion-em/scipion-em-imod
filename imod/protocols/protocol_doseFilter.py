@@ -28,11 +28,12 @@ import os.path
 
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
-import tomo.objects as tomoObj
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE
+from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
+                            OUTPUT_TILTSERIES_NAME)
 
 
 class ProtImodDoseFilter(ProtImodBase):
@@ -53,6 +54,7 @@ class ProtImodDoseFilter(ProtImodBase):
     """
 
     _label = 'Dose filter'
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -108,16 +110,20 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        for tsId in self._getInputSetOfTS().getTSIds():
+        self._initialize()
+        for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.doseFilterStep, tsId)
             self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
         try:
-            ts = self.getTsFromTsId(tsId)
+            ts = self.tsDict[tsId]
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
@@ -155,27 +161,27 @@ class ProtImodDoseFilter(ProtImodBase):
 
         except Exception as e:
             self._failedTs.append(tsId)
-            self.error('Mtffilter execution failed for tsId %s -> %s' % (tsId, e))
+            self.error(f'Mtffilter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
-        ts = self.getTsFromTsId(tsId)
+        ts = self.tsDict[tsId]
         if tsId in self._failedTs:
             self.createOutputFailedSet(ts)
         else:
             outputLocation = self.getExtraOutFile(tsId)
             if os.path.exists(outputLocation):
-                output = self.getOutputSetOfTS(self._getInputSetOfTS())
-                newTs = tomoObj.TiltSeries(tsId=tsId)
+                output = self.getOutputSetOfTS(self.getInputSet())
+                newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
                 output.append(newTs)
 
                 oddEvenFlag = self.applyToOddEven(ts)
                 for index, tiltImage in enumerate(ts):
-                    newTi = tomoObj.TiltImage()
+                    newTi = TiltImage()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                     newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
+                    newTi.setLocation(index + 1, outputLocation)
                     if oddEvenFlag:
                         locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
                         locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
@@ -196,7 +202,7 @@ class ProtImodDoseFilter(ProtImodBase):
         validateMsgs = []
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            for ts in self._getInputSetOfTS():
+            for ts in self.getInputSet():
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append(f"{ts.getTsId()} has no dose information stored "
                                         "in Scipion Metadata. To solve this, re-import "
@@ -209,7 +215,7 @@ class ProtImodDoseFilter(ProtImodBase):
         summary = []
 
         if self.TiltSeries:
-            summary.append(f"{self._getInputSetOfTS().getSize()} input tilt-series"
+            summary.append(f"{self.getInputSet().getSize()} input tilt-series"
                            f"{self.TiltSeries.getSize()} tilt-series dose-weighted")
         else:
             summary.append("Outputs are not ready yet.")
