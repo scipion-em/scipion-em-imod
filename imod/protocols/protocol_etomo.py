@@ -178,7 +178,7 @@ class ProtImodEtomo(ProtImodBase):
         args += f'-binning 1.0 -Cs {acq.getSphericalAberration()} -voltage {int(acq.getVoltage())} '
 
         if ts.getExcludedViewsIndex():
-            args += f'-ViewsToSkip {",".join(ts.getExcludedViewsIndex())} '
+            args += f'-ViewsToSkip {",".join(map(str,ts.getExcludedViewsIndex()))} '
 
         Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
 
