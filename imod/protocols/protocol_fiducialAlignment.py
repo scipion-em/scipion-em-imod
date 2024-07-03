@@ -32,7 +32,7 @@ from pwem.objects import Transform
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltImage, TiltSeries, TiltSeriesCoordinate)
 
-from imod import Plugin, utils
+from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
@@ -401,8 +401,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
             paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
 
             self.runProgram('tiltalign', paramsTiltAlign)
-            Plugin.runImod(self, 'alignlog', '-s > taSolution.log',
-                           cwd=self._getExtraPath())
+            self.runProgram('alignlog', {'-s': "> taSolution.log"},
+                            cwd=self._getExtraPath())
 
         except Exception as e:
             self._failedTs.append(tsId)

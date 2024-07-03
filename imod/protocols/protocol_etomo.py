@@ -30,13 +30,15 @@ import os
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as path
+import pyworkflow.utils as pwutils
 from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 
-from .. import Plugin, utils
-from .protocol_base import (OUTPUT_TILTSERIES_NAME, ProtImodBase,
-                            OUTPUT_TS_COORDINATES_NAME)
+from imod import Plugin, utils
+from imod.protocols.protocol_base import ProtImodBase
+from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
+                            RAWTLT_EXT, TLT_EXT, EDF_EXT, MRC_EXT, SFID_EXT,
+                            XYZ_EXT, FID_EXT, RESID_EXT, TXT_EXT)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -59,9 +61,9 @@ class ProtImodEtomo(ProtImodBase):
     """
 
     _label = 'Etomo interactive'
+    _possibleOutputs = {}
 
     def __init__(self, **kwargs):
-
         super().__init__(**kwargs)
         self.PrealignedTiltSeries = None
         self.FullTomograms = None
@@ -120,99 +122,78 @@ class ProtImodEtomo(ProtImodBase):
                 self.runEtomo(item)
                 break
 
-    def getFilePath(self, ts, suffix="", extension=""):
-        tsId = ts.getTsId()
-        extraPrefix = self._getExtraPath(tsId)
-        return os.path.join(extraPrefix, ts.getFirstItem().parseFileName(suffix=suffix,
-                                                                         extension=extension))
-
     def convertInputStep(self, ts, **kwargs):
         tsId = ts.getTsId()
         acq = ts.getAcquisition()
-        extraPrefix = self._getExtraPath(tsId)
-        tmpPrefix = self._getTmpPath(tsId)
-        path.makePath(tmpPrefix)
-        path.makePath(extraPrefix)
+        self.genTsPaths(tsId)
         firstItem = ts.getFirstItem()
+        inputTsFileName = firstItem.getFileName()
 
-        outputTsFileName = self.getFilePath(ts, extension=".mrc")
+        outputTsFileName = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
         """Apply the transformation from the input tilt-series"""
         if self.applyAlignment:
             ts.applyTransform(outputTsFileName)
         else:
-            path.createAbsLink(os.path.abspath(firstItem.getFileName()),
-                               outputTsFileName)
+            pwutils.createAbsLink(os.path.abspath(inputTsFileName),
+                                  outputTsFileName)
 
         """Generate angle file"""
-        angleFilePath = self.getFilePath(ts, extension=".rawtlt")
+        angleFilePath = self.getExtraOutFile(tsId, ext=RAWTLT_EXT)
         ts.generateTltFile(angleFilePath)
 
         """Generate etomo config file"""
-        args = '-name %s ' % firstItem.parseFileName(extension="")
-        args += '-gold %0.3f ' % self.markersDiameter
-
-        # Imod use the pixel size in NM
-        pixelSizeNm = ts.getSamplingRate() / 10.
-
-        args += '-pixel %0.3f ' % pixelSizeNm
-        args += '-rotation %0.3f ' % acq.getTiltAxisAngle()
-        args += '-userawtlt -fei 1 -change "%s/SystemTemplate/cryoSample.adoc" ' % Plugin.getHome()
-
-        # 0 for output image files to have descriptive extensions like ".preali", 1 for extension ".mrc", or 2 for
-        # extension ".hdf". In the latter two cases the usual descriptive text is put before the extension, and command
-        # files will contain an environment variable setting to make programs generate files of the corresponding type.
-        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
-        args += '-NamingStyle 1 '
-
-        # Extension of raw stack excluding the period.  If this is not specified, the program will assume the extension
-        # ".st" unless the -style option is entered.  With a -style option and no specified stack extension, it will
-        # look for ".st", ".mrc", ".hdf",".tif", and ".tiff" and require that only one of those types is present. With
-        # this entry, which could in principle be arbitrary, it will not care if files with other extensions are
-        # present.
-        # From: https://bio3d.colorado.edu/imod/doc/man/copytomocoms.html
-        args += '-StackExtension mrc '
-
-        args += f'-binning 1.0 -Cs {acq.getSphericalAberration()} -voltage {int(acq.getVoltage())} '
+        copytomoParams = {
+            '-name': pwutils.removeBaseExt(inputTsFileName),
+            '-gold': self.markersDiameter,
+            '-pixel': ts.getSamplingRate() / 10.,  # in nm
+            '-rotation': acq.getTiltAxisAngle(),
+            '-userawtlt': "",
+            '-fei': 1,
+            '-change': Plugin.getHome("SystemTemplate/cryoSample.adoc"),
+            '-NamingStyle': 1,  # mrc style,
+            '-StackExtension': 'mrc',
+            '-binning': 1.0,
+            '-Cs': acq.getSphericalAberration(),
+            '-voltage': int(acq.getVoltage())
+        }
 
         if ts.getExcludedViewsIndex():
-            args += f'-ViewsToSkip {",".join(ts.getExcludedViewsIndex())} '
+            copytomoParams["-ViewsToSkip"] = ",".join(ts.getExcludedViewsIndex())
 
-        Plugin.runImod(self, 'copytomocoms', args, cwd=extraPrefix)
+        self.runProgram('copytomocoms', copytomoParams,
+                        cwd=self._getExtraPath(tsId))
 
-        edfFn = self.getFilePath(ts, extension=".edf")
+        edfFn = self.getExtraOutFile(tsId, ext=EDF_EXT)
         minTilt = min(utils.formatAngleList(angleFilePath))
         self._writeEtomoEdf(edfFn,
                             {
                                 'date': pw.utils.prettyTime(),
-                                'name': firstItem.parseFileName(extension=''),
-                                'pixelSize': pixelSizeNm,
+                                'name': pwutils.removeBaseExt(inputTsFileName),
+                                'pixelSize': ts.getSamplingRate() / 10.,
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
-                                'rotationAngle': ts.getAcquisition().getTiltAxisAngle(),
+                                'rotationAngle': acq.getTiltAxisAngle(),
                                 'imodDir': Plugin.getHome(),
                                 'useCpu': self.numberOfThreads > 1
                             })
 
     def runEtomo(self, ts):
         tsId = ts.getTsId()
-        edfFilePath = self._getExtraPath(os.path.join(tsId,
-                                                      ts.getFirstItem().parseFileName(extension=".edf")))
+        edfFilePath = self.getExtraOutFile(tsId, ext=EDF_EXT)
 
         if not os.path.exists(edfFilePath):
             self.convertInputStep(ts)
 
         if ts is not None:
-            extraPrefix = self._getExtraPath(tsId)
-            args = '--fg '
-            args += ts.getFirstItem().parseFileName(extension=".edf")
-            Plugin.runImod(self, 'etomo', args, cwd=extraPrefix)
+            args = f"--fg {self.getOutTsFileName(tsId, EDF_EXT)}"
+            Plugin.runImod(self, 'etomo', args,
+                           cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
         outputPrealiSetOfTiltSeries = None
         outputAliSetOfTiltSeries = None
-        self.FiducialModelNoGaps = None  # This will reset the output. Is this what we want?
         setOfTSCoords = None
         outputSetOfFullTomograms = None
         outputSetOfPostProcessTomograms = None
@@ -223,7 +204,7 @@ class ProtImodEtomo(ProtImodBase):
             tsId = ts.getTsId()
 
             """Prealigned tilt-series"""
-            prealiFilePath = self.getFilePath(ts, suffix="_preali", extension=".mrc")
+            prealiFilePath = self.getExtraOutFile(tsId, suffix="preali", ext=MRC_EXT)
             if os.path.exists(prealiFilePath):
                 xPrealiDims, newPixSize = self.getNewPixAndDim(prealiFilePath)
                 self.debug(f"{prealiFilePath}: pix = {newPixSize}, dims = {xPrealiDims}")
@@ -267,7 +248,7 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
-            aligFilePath = self.getFilePath(ts, suffix="_ali", extension=".mrc")
+            aligFilePath = self.getExtraOutFile(tsId, suffix="ali", ext=MRC_EXT)
             if os.path.exists(aligFilePath):
                 aliDims, newPixSize = self.getNewPixAndDim(aligFilePath)
                 self.debug(f"{aligFilePath}: pix = {newPixSize}, dims = {aliDims}")
@@ -287,8 +268,8 @@ class ProtImodEtomo(ProtImodBase):
                 newTs.setInterpolated(True)
                 outputAliSetOfTiltSeries.append(newTs)
 
-                tltFilePath = self.getFilePath(ts, suffix='_fid',
-                                               extension=".tlt")
+                tltFilePath = self.getExtraOutFile(tsId, suffix='fid',
+                                                   ext=TLT_EXT)
                 if os.path.exists(tltFilePath):
                     tltList = utils.formatAngleList(tltFilePath)
                     self.debug("%s read: %s" % (tltFilePath, tltList))
@@ -328,7 +309,7 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputAliSetOfTiltSeries)
 
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
-            coordFilePath = self.getFilePath(ts, suffix='fid', extension=".xyz")
+            coordFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=XYZ_EXT)
 
             if os.path.exists(coordFilePath) and outputAliSetOfTiltSeries is not None:
                 if setOfTSCoords is None:
@@ -359,12 +340,12 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(setOfTSCoords)
 
             """Landmark models with no gaps"""
-            modelFilePath = self.getFilePath(ts, suffix="_nogaps", extension=".fid")
-            residFilePath = self.getFilePath(ts, extension=".resid")
+            modelFilePath = self.getExtraOutFile(tsId, suffix="nogaps", ext=FID_EXT)
+            residFilePath = self.getExtraOutFile(tsId, ext=RESID_EXT)
 
             if os.path.exists(modelFilePath) and os.path.exists(residFilePath):
-                modelFilePathTxt = self.getFilePath(ts, suffix="_nogaps_fid",
-                                                    extension=".txt")
+                modelFilePathTxt = self.getExtraOutFile(tsId, suffix="nogaps_fid",
+                                                        ext=TXT_EXT)
 
                 paramsNoGapPoint2Model = {
                     'inputFile': modelFilePath,
@@ -380,8 +361,8 @@ class ProtImodEtomo(ProtImodBase):
 
                 fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 
-                landmarkModelNoGapsFilePath = self.getFilePath(ts, suffix="_nogaps",
-                                                               extension=".sfid")
+                landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="nogaps",
+                                                                   ext=SFID_EXT)
                 fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                             fileName=landmarkModelNoGapsFilePath,
@@ -417,8 +398,8 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputSetOfLandmarkModelsNoGaps)
 
             """Full reconstructed tomogram"""
-            reconstructTomoFilePath = self.getFilePath(ts, suffix="_full_rec",
-                                                       extension=".mrc")
+            reconstructTomoFilePath = self.getExtraOutFile(tsId, suffix="full_rec",
+                                                           ext=MRC_EXT)
             if os.path.exists(reconstructTomoFilePath):
                 tomoDims, newPixSize = self.getNewPixAndDim(reconstructTomoFilePath)
                 self.debug(f"{reconstructTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
@@ -447,8 +428,8 @@ class ProtImodEtomo(ProtImodBase):
                 self._store(outputSetOfFullTomograms)
 
             """Post-processed reconstructed tomogram"""
-            posprocessedRecTomoFilePath = self.getFilePath(ts, suffix="_rec",
-                                                           extension=".mrc")
+            posprocessedRecTomoFilePath = self.getExtraOutFile(tsId, suffix="rec",
+                                                               ext=MRC_EXT)
             if os.path.exists(posprocessedRecTomoFilePath):
                 tomoDims, newPixSize = self.getNewPixAndDim(posprocessedRecTomoFilePath)
                 self.debug(f"{posprocessedRecTomoFilePath}: pix = {newPixSize}, dims = {tomoDims}")
@@ -602,21 +583,15 @@ ProcessTrack.TomogramCombination=Not started
         return dims, newPixSize
 
     def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
-        with open(fn) as f:
-            data = f.readlines()
         excludedViewList = []
+        with open(fn) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line.startswith(reservedWord):
+                    excludedStr = line.strip().split("\t")[1]
+                    excludedViewList = pwutils.getListFromRangeString(excludedStr)
+                    break
 
-        for line in data:
-            if line.startswith(reservedWord):
-                excludedRange = line.strip().split("\t")[1]
-                for part in excludedRange.split(','):
-                    if '-' in part:
-                        a, b = map(int, part.split('-'))
-                        excludedViewList.extend(range(a, b + 1))
-                    else:
-                        a = int(part)
-                        excludedViewList.append(a)
-                break
         return excludedViewList
 
     # --------------------------- INFO functions ------------------------------

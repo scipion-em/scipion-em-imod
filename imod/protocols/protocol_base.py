@@ -245,10 +245,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def closeOutputSetsStep(self):
         self._closeOutputSet()
 
-    def runProgram(self, program, params):
+    def runProgram(self, program, params, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-        Plugin.runImod(self, program, args)
+        Plugin.runImod(self, program, args, cwd)
 
     def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
                            xfFile=None, doSwap=None, tsExcludedIndices=None):
