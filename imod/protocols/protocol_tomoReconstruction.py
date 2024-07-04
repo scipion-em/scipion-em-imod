@@ -31,7 +31,8 @@ from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import TLT_EXT, ODD, EVEN, MRC_EXT, OUTPUT_TOMOGRAMS_NAME
+from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
+                            OUTPUT_TOMOGRAMS_NAME, TS_IGNORE_ATTRS)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -248,7 +249,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+                       for ts in self.getInputSet()}
 
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical

@@ -34,7 +34,7 @@ from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
-                            FIDUCIAL_MODEL, PATCH_TRACKING)
+                            FIDUCIAL_MODEL, PATCH_TRACKING, TS_IGNORE_ATTRS)
 
 
 class ProtImodFiducialModel(ProtImodBase):
@@ -205,7 +205,7 @@ class ProtImodFiducialModel(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in tsSet}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 

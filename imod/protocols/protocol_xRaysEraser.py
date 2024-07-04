@@ -30,7 +30,8 @@ from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
+from imod.constants import (OUTPUT_TILTSERIES_NAME, ODD, EVEN,
+                            MOD_EXT, TS_IGNORE_ATTRS)
 
 
 class ProtImodXraysEraser(ProtImodBase):
@@ -185,7 +186,8 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+                       for ts in self.getInputSet()}
 
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.getInputSet())

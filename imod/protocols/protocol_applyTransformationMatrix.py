@@ -32,7 +32,8 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME
+from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME,
+                            TS_IGNORE_ATTRS)
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -114,7 +115,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+                       for ts in self.getInputSet()}
 
     def computeAlignmentStep(self, tsId):
         try:

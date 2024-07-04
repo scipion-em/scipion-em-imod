@@ -33,7 +33,7 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
-                            OUTPUT_TILTSERIES_NAME)
+                            OUTPUT_TILTSERIES_NAME, TS_IGNORE_ATTRS)
 
 
 class ProtImodDoseFilter(ProtImodBase):
@@ -118,7 +118,8 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+                       for ts in self.getInputSet()}
 
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
