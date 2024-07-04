@@ -35,7 +35,7 @@ from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
-                            EVEN, OUTPUT_TILTSERIES_NAME)
+                            EVEN, OUTPUT_TILTSERIES_NAME, TS_IGNORE_ATTRS)
 
 
 class ProtImodCtfCorrection(ProtImodBase):
@@ -181,7 +181,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in tsSet}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS) for ts in tsSet}
         self.ctfDict = {ctf.getTsId(): ctf.clone() for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
         tsIds = list(self.tsDict.keys())

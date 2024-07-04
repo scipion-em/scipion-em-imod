@@ -33,7 +33,8 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import TLT_EXT, PREXF_EXT, PREXG_EXT, OUTPUT_TILTSERIES_NAME
+from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
+                            OUTPUT_TILTSERIES_NAME, TS_IGNORE_ATTRS)
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):
@@ -149,7 +150,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+                       for ts in self.getInputSet()}
 
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.getInputSet())

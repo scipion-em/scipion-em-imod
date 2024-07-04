@@ -201,20 +201,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return False
 
     # --------------------------- CALCULUS functions ---------------------------
-    def tryExceptDecorator(func):
-        """ This decorator wraps the step in a try/except module which adds
-        the tilt series ID to the failed TS array in case the step fails. """
-
-        def wrapper(self, tsId, *args):
-            try:
-                func(self, tsId, *args)
-            except Exception as e:
-                self.error(f"Some error occurred calling {func.__name__} with "
-                           f"TS id {tsId}: {e}")
-                self._failedTs.append(tsId)
-
-        return wrapper
-
     def convertInputStep(self, tsObjId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False,
                          oddEven=False, presentAcqOrders=None):
