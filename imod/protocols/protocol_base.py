@@ -494,7 +494,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             return self.FailedTomograms
 
     def getOutputFiducialModelNoGaps(self, tiltSeries=None):
-
         if self.FiducialModelNoGaps:
             self.FiducialModelNoGaps.enableAppend()
         else:
@@ -533,7 +532,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self.FiducialModelGaps
 
     def getOutputSetOfTiltSeriesCoordinates(self, setOfTiltSeries=None):
-
         if self.TiltSeriesCoordinates:
             self.TiltSeriesCoordinates.enableAppend()
         else:
@@ -548,7 +546,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self.TiltSeriesCoordinates
 
     def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
-
         if self.Coordinates3D:
             self.Coordinates3D.enableAppend()
         else:
@@ -565,7 +562,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self.Coordinates3D
 
     def getOutputSetOfTomograms(self, inputSet, binning=1):
-
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
         else:

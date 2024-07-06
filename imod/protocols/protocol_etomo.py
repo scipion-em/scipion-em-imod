@@ -37,8 +37,9 @@ import tomo.objects as tomoObj
 from imod import Plugin, utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
-                            RAWTLT_EXT, TLT_EXT, EDF_EXT, MRC_EXT, SFID_EXT,
-                            XYZ_EXT, FID_EXT, RESID_EXT, TXT_EXT)
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, RAWTLT_EXT, TLT_EXT,
+                            EDF_EXT, MRC_EXT, SFID_EXT, XYZ_EXT, FID_EXT,
+                            RESID_EXT, TXT_EXT)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -61,7 +62,14 @@ class ProtImodEtomo(ProtImodBase):
     """
 
     _label = 'Etomo interactive'
-    _possibleOutputs = {}
+    _possibleOutputs = {
+        "PrealignedTiltSeries": tomoObj.TiltSeries,
+        OUTPUT_TILTSERIES_NAME: tomoObj.TiltSeries,
+        OUTPUT_TS_COORDINATES_NAME: tomoObj.SetOfTiltSeriesCoordinates,
+        OUTPUT_FIDUCIAL_NO_GAPS_NAME: tomoObj.SetOfLandmarkModels,
+        "FullTomograms": tomoObj.SetOfTomograms,
+        "PostProcessTomograms": tomoObj.SetOfTomograms
+    }
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -387,6 +395,7 @@ class ProtImodEtomo(ProtImodBase):
                                                         yResid='0')
 
                 outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
+                outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.write()
                 self._store(outputSetOfLandmarkModelsNoGaps)
 
