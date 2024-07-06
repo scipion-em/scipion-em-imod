@@ -129,10 +129,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         trimming = form.addGroup('Trimming parameters',
                                  expertLevel=params.LEVEL_ADVANCED)
 
-        self.trimingForm(trimming, pxTrimCondition='False',
-                         correlationCondition='True',
+        self.trimingForm(trimming, pxTrimCondition=False,
+                         correlationCondition=True,
                          levelType=params.LEVEL_ADVANCED)
-        self.filteringParametersForm(form, condition='True',
+        self.filteringParametersForm(form, condition=True,
                                      levelType=params.LEVEL_ADVANCED)
 
     # -------------------------- INSERT steps functions -----------------------
@@ -251,10 +251,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                 self._store(output)
 
     def computeInterpolatedStackStep(self, tsId, binning):
-        ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
+        if tsId not in self._failedTs:
+            ts = self.tsDict[tsId]
             xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(xfFile):
                 output = self.getOutputInterpolatedTS(self.getInputSet(), binning)

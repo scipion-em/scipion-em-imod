@@ -86,7 +86,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
-                      default=6000,
+                      default=6000.,
                       label='Expected defocus value (nm)',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
@@ -110,17 +110,17 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            '...')
 
         form.addParam('leftDefTol',
-                      params.IntParam,
+                      params.FloatParam,
                       label='Left defocus tolerance (nm)',
-                      default=2000,
+                      default=2000.,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the left of the center strip.")
 
         form.addParam('rightDefTol',
-                      params.IntParam,
+                      params.FloatParam,
                       label='Right defocus tolerance (nm)',
-                      default=2000,
+                      default=2000.,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the right of the center strip.")
@@ -144,8 +144,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                                  'tilt-series.')
 
             groupAngleRange.addParam('angleStep',
-                                     params.IntParam,
-                                     default=2,
+                                     params.FloatParam,
+                                     default=2.0,
                                      label='Angle step',
                                      help='Step size between ranges. A value of '
                                           'zero for the step will make it fit to '
@@ -153,9 +153,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                           'regardless of the value for the range.')
 
             groupAngleRange.addParam('angleRange',
-                                     params.IntParam,
+                                     params.FloatParam,
                                      condition="angleStep != 0",
-                                     default=16,
+                                     default=16.0,
                                      label='Angle range',
                                      help='Size of the angle range for which the '
                                           'CTF is estimated.')

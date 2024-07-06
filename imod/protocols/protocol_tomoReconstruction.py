@@ -100,12 +100,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                       " omitted.")
 
         lineShift.addParam('tomoShiftX',
-                           params.IntParam,
+                           params.FloatParam,
                            default=0,
                            label=' in X ')
 
         lineShift.addParam('tomoShiftZ',
-                           params.IntParam,
+                           params.FloatParam,
                            default=0,
                            label=' in Z ')
 
@@ -310,7 +310,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 args = "-rx "
 
                 if self.tomoWidth.get():
-                    args += " -nx %s" % self.tomoWidth.get()
+                    args += f" -nx {self.tomoWidth.get()}"
 
                 return args
 

@@ -198,9 +198,10 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def convertInputsStep(self, tsId, presentAcqOrders):
         # Generate the alignment-related files: xf, tlt, and a possible mrc
+        oddEvenFlag = self.applyToOddEven(self.getInputSet())
         super().convertInputStep(tsId,  # Considering swapXY is required to make tilt axis vertical
                                  doSwap=True,
-                                 oddEven=self.applyToOddEven(self.getInputSet()),
+                                 oddEven=oddEvenFlag,
                                  presentAcqOrders=presentAcqOrders)
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)

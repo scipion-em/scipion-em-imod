@@ -162,7 +162,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         else:
             outputLocation = self.getExtraOutFile(tsId)
             if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self.getInputSet())
+                output = self.getOutputInterpolatedTS(self.getInputSet(),
+                                                      binning=self.binning.get())
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
@@ -173,6 +174,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 output.append(newTs)
 
                 oddEvenFlag = self.applyToOddEven(ts)
+                outputPixSize = self._getOutputSampling()
                 for index, tiltImage in enumerate(ts):
                     if tiltImage.isEnabled():
                         newTi = TiltImage()
@@ -189,7 +191,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         else:
                             newTi.setOddEven([])
 
-                        newTi.setSamplingRate(self._getOutputSampling())
+                        newTi.setSamplingRate(outputPixSize)
                         newTs.append(newTi)
 
                 dims = self._getOutputDim(outputLocation)

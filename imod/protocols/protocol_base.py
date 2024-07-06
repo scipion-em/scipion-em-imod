@@ -69,8 +69,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
-    def trimingForm(form, pxTrimCondition='False',
-                    correlationCondition='True',
+    def trimingForm(form, pxTrimCondition=False, correlationCondition=True,
                     levelType=params.LEVEL_ADVANCED):
         """
         Generally, this form will be integrated in a groupForm,
@@ -125,8 +124,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                            expertLevel=levelType)
 
     @staticmethod
-    def filteringParametersForm(form, condition,
-                                levelType=params.LEVEL_NORMAL):
+    def filteringParametersForm(form, condition, levelType=params.LEVEL_NORMAL):
         filtering = form.addGroup('Filtering parameters',
                                   condition=condition,
                                   expertLevel=levelType)
@@ -366,7 +364,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
         :param doSwap: Default False.
-        :param tsExcludedIndices: List of indices to be excluded in the tilt-series
+        :param tsExcludedIndices: List of indices to be excluded in the tilt-series, starting from 1
         :param doTaper: optionally taper the tilt-series
         :param doNorm: optionally normalize the tilt-series
         """

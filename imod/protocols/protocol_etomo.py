@@ -456,7 +456,7 @@ class ProtImodEtomo(ProtImodBase):
                 outputSetOfPostProcessTomograms.write()
                 self._store(outputSetOfPostProcessTomograms)
 
-        self.closeMappers()
+        self._closeOutputSet()
 
     # --------------------------- UTILS functions -----------------------------
     @staticmethod

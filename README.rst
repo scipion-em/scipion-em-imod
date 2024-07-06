@@ -75,7 +75,7 @@ Clone or download the plugin repository
 
 .. code-block::
 
-    git clone https://github.com/scipion-em/scipion-em-imod.git
+    git clone -b devel https://github.com/scipion-em/scipion-em-imod.git
 
 Install the plugin in developer mode.
 
