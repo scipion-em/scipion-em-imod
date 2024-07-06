@@ -29,7 +29,6 @@ This module contains utils functions for IMOD protocols
 import logging
 import os
 import csv
-import math
 from typing import Union
 import numpy as np
 

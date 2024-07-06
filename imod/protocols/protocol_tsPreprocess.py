@@ -397,7 +397,8 @@ class ProtImodTsNormalization(ProtImodBase):
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
 
-    def updateTM(self, newTi, binning):
+    @staticmethod
+    def updateTM(newTi, binning):
         transform = newTi.getTransform()
         matrix = transform.getMatrix()
 

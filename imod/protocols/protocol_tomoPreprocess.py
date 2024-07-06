@@ -23,7 +23,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath

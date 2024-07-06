@@ -33,8 +33,7 @@ from pwem.protocols import EMProtocol
 
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, SetOfTiltSeriesCoordinates, TiltImage,
-                          TiltSeries)
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -472,7 +471,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """ Create output set for failed TS or tomograms. """
         if isinstance(inputSet, SetOfTiltSeries):
             if self.FailedTiltSeries:
-               self.FailedTiltSeries.enableAppend()
+                self.FailedTiltSeries.enableAppend()
             else:
                 failedSet = self._createSetOfTiltSeries(suffix='Failed')
                 failedSet.copyInfo(inputSet)

@@ -126,7 +126,8 @@ class ProtImodFiducialModel(ProtImodBase):
         form.getParam("filterRadius2").setDefault(0.125)
         form.getParam("filterSigma2").setDefault(0.03)
 
-    def _fiducialSeedForm(self, form, condition, levelType=params.LEVEL_NORMAL):
+    @staticmethod
+    def _fiducialSeedForm(form, condition, levelType=params.LEVEL_NORMAL):
         seedModel = form.addGroup('"Make seed and Track', expertLevel=levelType, condition=condition)
         seedModel.addParam('fiducialDiameter',
                            params.FloatParam,

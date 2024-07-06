@@ -325,7 +325,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(ts)
 
         tsId = ts.getFirstItem().getTsId()
-        outputLocation = self.protXcorr._getExtraPath(tsId,tsId + ".mrcs")
+        outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 
@@ -337,7 +337,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertFalse(ts.hasAlignment(), "Tilt series does not have alignment flag")
 
         tsId = ts.getFirstItem().getTsId()
-        outputLocation = self.protXcorr._getExtraPath(tsId,tsId + ".mrcs")
+        outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
 
         self.assertTrue(os.path.exists(outputLocation))
 

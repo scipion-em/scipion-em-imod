@@ -578,7 +578,8 @@ ProcessTrack.TomogramCombination=Not started
         x, y, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
         return x, y
 
-    def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
+    @staticmethod
+    def getExcludedViewList(fn, reservedWord="ExcludeList"):
         excludedViewList = []
         with open(fn) as f:
             lines = f.readlines()
