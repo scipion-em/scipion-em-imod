@@ -157,13 +157,13 @@ class ProtImodTsNormalization(ProtImodBase):
 
         groupScale.addParam('scaleMax',
                             params.FloatParam,
-                            default=255,
+                            default=255.,
                             label='Max.',
                             help='Maximum value for the rescaling')
 
         groupScale.addParam('scaleMin',
                             params.FloatParam,
-                            default=0,
+                            default=0.,
                             label='Min.',
                             help='Minimum value for the rescaling')
 

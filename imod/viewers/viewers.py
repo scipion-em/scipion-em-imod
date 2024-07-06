@@ -104,8 +104,7 @@ class ImodObjectView(pwviewer.CommandView):
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 extension = pwutils.getExt(tsFn)
 
-                outputTSPath = os.path.join(prj.getTmpPath(),
-                                            "ts_interpolated_%s_%s_%s%s" % (
+                outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
                                                 prj.getShortName(),
                                                 protocol.getObjId(),
                                                 obj.getObjId(),

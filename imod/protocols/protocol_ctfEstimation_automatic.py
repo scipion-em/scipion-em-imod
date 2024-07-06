@@ -43,9 +43,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     _label = 'CTF estimation (auto)'
     _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
-
-    #defocusUTolerance = 20
-    #defocusVTolerance = 20
     _interactiveMode = False
 
     def __init__(self, **kwargs):
