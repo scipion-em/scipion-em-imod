@@ -117,6 +117,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
                        for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def computeAlignmentStep(self, tsId):
         try:
@@ -140,7 +141,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
             self.runProgram("newstack", params)
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 oddFn = firstItem.getOdd().split('@')[1]
                 evenFn = firstItem.getEven().split('@')[1]
                 params['-input'] = oddFn
@@ -173,7 +174,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTs.setAcquisition(acq)
                 output.append(newTs)
 
-                oddEvenFlag = self.applyToOddEven(ts)
                 outputPixSize = self._getOutputSampling()
                 for index, tiltImage in enumerate(ts):
                     if tiltImage.isEnabled():
@@ -183,7 +183,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         acq.setTiltAxisAngle(0.)
                         newTi.setAcquisition(acq)
                         newTi.setLocation(index+1, outputLocation)
-                        if oddEvenFlag:
+                        if self.oddEvenFlag:
                             locationOdd = index+1, (self.getExtraOutFile(tsId, suffix=ODD))
                             locationEven = index+1, (self.getExtraOutFile(tsId, suffix=EVEN))
                             newTi.setOddEven([ih.locationToXmipp(locationOdd),

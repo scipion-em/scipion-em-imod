@@ -120,6 +120,7 @@ class ProtImodDoseFilter(ProtImodBase):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
                        for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
@@ -149,7 +150,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
             self.runProgram("mtffilter", params)
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 oddFn = firstItem.getOdd().split('@')[1]
                 evenFn = firstItem.getEven().split('@')[1]
                 params['-input'] = oddFn
@@ -177,13 +178,12 @@ class ProtImodDoseFilter(ProtImodBase):
                 newTs.copyInfo(ts)
                 output.append(newTs)
 
-                oddEvenFlag = self.applyToOddEven(ts)
                 for index, tiltImage in enumerate(ts):
                     newTi = TiltImage()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
                     newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, outputLocation)
-                    if oddEvenFlag:
+                    if self.oddEvenFlag:
                         locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
                         locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                         newTi.setOddEven([ih.locationToXmipp(locationOdd),

@@ -252,14 +252,14 @@ class ProtImodTsNormalization(ProtImodBase):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
                        for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.getInputSet())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
-                                 oddEven=oddEvenFlag)
+                                 oddEven=self.oddEvenFlag)
 
     def generateOutputStackStep(self, tsId, binning):
         try:
@@ -300,7 +300,7 @@ class ProtImodTsNormalization(ProtImodBase):
 
             self.runProgram("newstack", params)
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 params['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("newstack", params)
@@ -339,7 +339,7 @@ class ProtImodTsNormalization(ProtImodBase):
                         newTi.setTransform(None)
 
                     newTi.setAcquisition(tiltImage.getAcquisition())
-                    if self.applyToOddEven(ts):
+                    if self.oddEvenFlag:
                         locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
                         locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                         newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])

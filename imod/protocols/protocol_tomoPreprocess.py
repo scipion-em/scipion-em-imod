@@ -246,6 +246,7 @@ class ProtImodTomoNormalization(ProtImodBase):
     def _initialize(self):
         self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo
                          in self.inputSetOfTomograms.get()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def preprocessStep(self, tsId, runNewstack, binning):
         try:
@@ -285,7 +286,7 @@ class ProtImodTomoNormalization(ProtImodBase):
             if runNewstack:
                 self.runProgram("newstack", paramsNewstack)
 
-                if self.applyToOddEven(tomo):
+                if self.oddEvenFlag:
                     oddFn, evenFn = tomo.getHalfMaps().split(',')
                     paramsNewstack['-input'] = oddFn
                     oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
@@ -305,7 +306,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                     pwpath.moveFile(outputFile, tmpPath)
                     inputTomoPath = tmpPath
 
-                    if self.applyToOddEven(tomo):
+                    if self.oddEvenFlag:
                         inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                                self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
                         pwpath.moveFile(oddEvenOutput[0], inputOdd)
@@ -313,7 +314,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
                 else:
                     inputTomoPath = tomoFn
-                    if self.applyToOddEven(tomo):
+                    if self.oddEvenFlag:
                         inputOdd, inputEven = tomo.getHalfMaps().split(',')
 
                 paramsBinvol = {
@@ -325,7 +326,7 @@ class ProtImodTomoNormalization(ProtImodBase):
 
                 self.runProgram('binvol', paramsBinvol)
 
-                if self.applyToOddEven(tomo):
+                if self.oddEvenFlag:
                     paramsBinvol['-input'] = inputOdd
                     paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                     self.runProgram('binvol', paramsBinvol)
@@ -359,7 +360,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
 
-            if self.applyToOddEven(tomo):
+            if self.oddEvenFlag:
                 halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                 self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                 newTomogram.setHalfMaps(halfMapsList)

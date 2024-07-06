@@ -188,13 +188,14 @@ class ProtImodXraysEraser(ProtImodBase):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
                        for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
+
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.getInputSet())
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
-                                 oddEven=oddEvenFlag)
+                                 oddEven=self.oddEvenFlag)
 
     def eraseXraysStep(self, tsId):
         try:
@@ -222,7 +223,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
             self.runProgram('ccderaser', paramsCcderaser)
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=ODD)
                 paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram('ccderaser', paramsCcderaser)

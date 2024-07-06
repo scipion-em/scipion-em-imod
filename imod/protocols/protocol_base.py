@@ -742,10 +742,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         tsSet = self.getInputSet()
         return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
 
-    def applyToOddEven(self, ts):
+    def applyToOddEven(self, setOfTs):
         return (hasattr(self, "processOddEven") and
                 self.processOddEven and
-                ts.hasOddEven())
+                setOfTs.hasOddEven())
 
     @staticmethod
     def _getOutputDim(fn: str):

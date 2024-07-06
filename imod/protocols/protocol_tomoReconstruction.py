@@ -251,11 +251,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
                        for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        oddEvenFlag = self.applyToOddEven(self.getInputSet())
-        super().convertInputStep(tsId, doSwap=True, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
 
     # @ProtImodBase.tryExceptDecorator
     def computeReconstructionStep(self, tsId):
@@ -294,7 +294,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             oddEvenTmp = [[], []]
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
                 oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 paramsTilt['-OutputFile'] = oddEvenTmp[0]
@@ -323,7 +323,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             argsTrimvol = "%(options)s %(input)s %(output)s"
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
-            if self.applyToOddEven(ts):
+            if self.oddEvenFlag:
                 paramsTrimVol['input'] = oddEvenTmp[0]
                 paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
@@ -349,7 +349,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 newTomogram.copyInfo(ts)
                 newTomogram.setLocation(tomoLocation)
 
-                if self.applyToOddEven(ts):
+                if self.oddEvenFlag:
                     halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                     self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                     newTomogram.setHalfMaps(halfMapsList)
