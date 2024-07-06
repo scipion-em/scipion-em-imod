@@ -125,6 +125,7 @@ class ProtImodEtomo(ProtImodBase):
     def convertInputStep(self, ts, **kwargs):
         tsId = ts.getTsId()
         acq = ts.getAcquisition()
+        pixSize = ts.getSamplingRate() / 10.  # nm
         self.genTsPaths(tsId)
         firstItem = ts.getFirstItem()
         inputTsFileName = firstItem.getFileName()
@@ -146,7 +147,7 @@ class ProtImodEtomo(ProtImodBase):
         copytomoParams = {
             '-name': pwutils.removeBaseExt(inputTsFileName),
             '-gold': self.markersDiameter,
-            '-pixel': ts.getSamplingRate() / 10.,  # in nm
+            '-pixel': pixSize,
             '-rotation': acq.getTiltAxisAngle(),
             '-userawtlt': "",
             '-fei': 1,
@@ -170,7 +171,7 @@ class ProtImodEtomo(ProtImodBase):
                             {
                                 'date': pw.utils.prettyTime(),
                                 'name': pwutils.removeBaseExt(inputTsFileName),
-                                'pixelSize': ts.getSamplingRate() / 10.,
+                                'pixelSize': pixSize,
                                 'version': pw.__version__,
                                 'minTilt': minTilt,
                                 'markerDiameter': self.markersDiameter,
@@ -187,9 +188,8 @@ class ProtImodEtomo(ProtImodBase):
             self.convertInputStep(ts)
 
         if ts is not None:
-            args = f"--fg {self.getOutTsFileName(tsId, EDF_EXT)}"
-            Plugin.runImod(self, 'etomo', args,
-                           cwd=self._getExtraPath(tsId))
+            params = {"--fg": self.getOutTsFileName(tsId, EDF_EXT)}
+            self.runProgram('etomo', params, cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
         outputPrealiSetOfTiltSeries = None
@@ -213,7 +213,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputPrealiSetOfTiltSeries.copyInfo(setOfTiltSeries)
                     outputPrealiSetOfTiltSeries.setSamplingRate(newPixSize)
                     self._defineOutputs(PrealignedTiltSeries=outputPrealiSetOfTiltSeries)
-                    self._defineSourceRelation(self.inputTiltSeries,
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
                                                outputPrealiSetOfTiltSeries)
                 else:
                     outputPrealiSetOfTiltSeries.enableAppend()
@@ -258,7 +258,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
                     outputAliSetOfTiltSeries.setSamplingRate(newPixSize)
                     self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputAliSetOfTiltSeries})
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
                                                outputAliSetOfTiltSeries)
                 else:
                     outputAliSetOfTiltSeries.enableAppend()
@@ -268,11 +268,10 @@ class ProtImodEtomo(ProtImodBase):
                 newTs.setInterpolated(True)
                 outputAliSetOfTiltSeries.append(newTs)
 
-                tltFilePath = self.getExtraOutFile(tsId, suffix='fid',
-                                                   ext=TLT_EXT)
+                tltFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=TLT_EXT)
                 if os.path.exists(tltFilePath):
                     tltList = utils.formatAngleList(tltFilePath)
-                    self.debug("%s read: %s" % (tltFilePath, tltList))
+                    self.debug(f"{tltFilePath} read: {tltList}")
                 else:
                     tltList = None
 
@@ -290,7 +289,6 @@ class ProtImodEtomo(ProtImodBase):
                     acq.setTiltAxisAngle(0.)
                     newTi.setAcquisition(acq)
                     sliceIndex = newTi.getIndex()
-                    self.debug("Slice index is %s" % sliceIndex)
                     newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
                         newTi.setTiltAngle(float(tltList[sliceIndex - 1]))
@@ -317,7 +315,7 @@ class ProtImodEtomo(ProtImodBase):
                                                                               suffix='Fiducials3D')
                     setOfTSCoords.setSetOfTiltSeries(outputAliSetOfTiltSeries)
                     self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: setOfTSCoords})
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
                                                setOfTSCoords)
                 else:
                     setOfTSCoords.enableAppend()
@@ -326,9 +324,8 @@ class ProtImodEtomo(ProtImodBase):
 
                 for element in coordList:
                     newCoord3D = tomoObj.TiltSeriesCoordinate()
-                    newCoord3D.setTsId(ts.getTsId())
-                    self.debug("Setting tilt series coordinate x, y, z: %s, %s, %s." % (
-                        element[0], element[1], element[2]))
+                    newCoord3D.setTsId(tsId)
+                    self.debug(f"Setting tilt series coordinate x, y, z: {element}")
                     newCoord3D.setX(element[0])
                     newCoord3D.setY(element[1])
                     newCoord3D.setZ(element[2])
@@ -347,15 +344,11 @@ class ProtImodEtomo(ProtImodBase):
                 modelFilePathTxt = self.getExtraOutFile(tsId, suffix="nogaps_fid",
                                                         ext=TXT_EXT)
 
-                paramsNoGapPoint2Model = {
-                    'inputFile': modelFilePath,
-                    'outputFile': modelFilePathTxt
+                paramsModel2Point = {
+                    '-InputFile': modelFilePath,
+                    '-OutputFile': modelFilePathTxt
                 }
-
-                argsNoGapPoint2Model = "-InputFile %(inputFile)s " \
-                                       "-OutputFile %(outputFile)s"
-
-                Plugin.runImod(self, 'model2point', argsNoGapPoint2Model % paramsNoGapPoint2Model)
+                self.runProgram('model2point', paramsModel2Point)
 
                 outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps(outputPrealiSetOfTiltSeries)
 
@@ -408,17 +401,15 @@ class ProtImodEtomo(ProtImodBase):
                     outputSetOfFullTomograms.copyInfo(setOfTiltSeries)
                     outputSetOfFullTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(FullTomograms=outputSetOfFullTomograms)
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
                                                outputSetOfFullTomograms)
                 else:
                     outputSetOfFullTomograms.enableAppend()
 
                 newTomogram = tomoObj.Tomogram()
-
                 newTomogram.setLocation(reconstructTomoFilePath)
                 newTomogram.setTsId(tsId)
                 newTomogram.setSamplingRate(newPixSize)
-
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
 
@@ -438,7 +429,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputSetOfPostProcessTomograms.copyInfo(setOfTiltSeries)
                     outputSetOfPostProcessTomograms.setSamplingRate(newPixSize)
                     self._defineOutputs(PostProcessTomograms=outputSetOfPostProcessTomograms)
-                    self._defineSourceRelation(self.inputSetOfTiltSeries,
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
                                                outputSetOfPostProcessTomograms)
                 else:
                     outputSetOfPostProcessTomograms.enableAppend()
@@ -575,12 +566,17 @@ ProcessTrack.TomogramCombination=Not started
     def getNewPixAndDim(self, fn):
         dims = ih.getDimensions(fn)
         dims = dims[:-1]
-        origDimX, origDimY, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
+        origDimX, origDimY = self._getInputDims()
         originalDim = max(origDimX, origDimY)
         outputDim = max(dim for dim in dims[:2])
         newPixSize = self.inputTiltSeries.getSamplingRate() * round(originalDim / outputDim)
 
         return dims, newPixSize
+
+    def _getInputDims(self):
+        """ Return XY size of the input TS. """
+        x, y, _, _ = ih.getDimensions(self.inputTiltSeries.getFirstItem().getFileName())
+        return x, y
 
     def getExcludedViewList(self, fn, reservedWord="ExcludeList"):
         excludedViewList = []

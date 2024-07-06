@@ -66,7 +66,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _getIMODFolder(cls, version, *paths):
-        return os.path.join(cls._getEMFolder(version, "IMOD"), *paths)
+        return cls._getEMFolder(version, "IMOD", *paths)
 
     @classmethod
     def _getProgram(cls, program):

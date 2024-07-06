@@ -274,7 +274,7 @@ class ImodListDialog(ListDialog):
         if self.createSetButton:
             self.createSet = self._addButton(dialogFrame,
                                              'CTFTomo',
-                                             pwutils.Icon.PLUS_CIRCLE,
+                                             pwutils.Icon.PROCESSING,
                                              self._createOutput,
                                              sticky='ne',
                                              state=tk.NORMAL)

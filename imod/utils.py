@@ -37,8 +37,6 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from tomo.objects import TiltSeries
 
-from imod import Plugin
-
 logger = logging.getLogger(__name__)
 
 
@@ -195,21 +193,14 @@ def generateIMODFidFile(protocol, landmarkModel):
 
     if not os.path.exists(fiducialModelGapPath):
         paramsPoint2Model = {
-            'inputFile': fiducialTextFile,
-            'outputFile': fiducialModelGapPath,
-            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
-            'size': landmarkModel.getSize()
+            '-InputFile': fiducialTextFile,
+            '-OutputFile': fiducialModelGapPath,
+            '-image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
+            '-ci': landmarkModel.getSize(),
+            '-zc': ""
         }
-
-        # -sp <value> parameter: generate sphere with radius <value>
-        argsPoint2Model = "-InputFile %(inputFile)s " \
-                          "-OutputFile %(outputFile)s " \
-                          "-image %(image)s " \
-                          "-zc -ci %(size)s"
-
         protocol.setStepsExecutor()
-        Plugin.runImod(protocol, 'point2model',
-                       argsPoint2Model % paramsPoint2Model)
+        protocol.runProgram(protocol, 'point2Model', paramsPoint2Model)
 
     return fiducialModelGapPath
 
@@ -968,26 +959,7 @@ def formatGoldBead3DCoordinatesList(coordFilePath):
     return coorList
 
 
-def calculateRotationAngleFromTM(ts):
-    """ This method calculates que average tilt image rotation
-    angle from its associated transformation matrix."""
-    avgRotationAngle = 0
-
-    if not ts.hasAlignment():
-        return avgRotationAngle
-
-    for ti in ts:
-        tm = ti.getTransform().getMatrix()
-        cosRotationAngle = tm[0][0]
-        sinRotationAngle = tm[1][0]
-        avgRotationAngle += math.degrees(math.atan(sinRotationAngle / cosRotationAngle))
-
-    avgRotationAngle = avgRotationAngle / ts.getSize()
-
-    return avgRotationAngle
-
-
-def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
+def generateDoseFile(ts, doseFileOutputPath):
     """ This method generates a file containing the dose information
     of a tilt series in the specified location from the accumulated
     dose and dose per tilt. The format is two columns per each tilt image:
@@ -996,28 +968,11 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
 
     doseInfoList = []
 
-    for ti in ts:
+    for ti in ts.iterItems(iterate=False):
         acq = ti.getAcquisition()
         doseInfoList.append((acq.getAccumDose() - acq.getDosePerFrame(), acq.getDosePerFrame()))
 
     np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
-
-
-def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information
-    of a tilt series in the specified location from the accumulated
-    dose per tilt information. The format file consist in a single
-    column with one dose value per line
-    that must coincide with each image from the tilt-series"""
-
-    doseInfoList = []
-
-    for ti in ts:
-        doseInfoList.append(ti.getAcquisition().getAccumDose())
-
-    with open(doseFileOutputPath, 'w') as f:
-        for dose in doseInfoList:
-            f.writelines("%f\n" % dose)
 
 
 def readExcludeViewsFile(excludeViewsFilePath):

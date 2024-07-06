@@ -140,7 +140,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
             if self.inputDoseType.get() == SCIPION_IMPORT:
                 outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
-                utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
+                utils.generateDoseFile(ts, outputDoseFilePath)
                 params["-TypeOfDoseFile"] = 2
                 params["-DoseWeightingFile"] = outputDoseFilePath
 
