@@ -160,7 +160,7 @@ class ProtImodEtomo(ProtImodBase):
         }
 
         if ts.getExcludedViewsIndex():
-            copytomoParams["-ViewsToSkip"] = ",".join(ts.getExcludedViewsIndex())
+            copytomoParams["-ViewsToSkip"] = ",".join(ts.getExcludedViewsIndex(caster=str))
 
         self.runProgram('copytomocoms', copytomoParams,
                         cwd=self._getExtraPath(tsId))
