@@ -31,7 +31,7 @@ from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT, TS_IGNORE_ATTRS
+from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -300,7 +300,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS) for ts in tsSet}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
@@ -356,7 +356,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                 if self.searchAstigmatism:
                     paramsCtfPlotter.update({
                         "-SearchAstigmatism": "",
-                        "-MaximumSdtigmatism": self.maximumAstigmatism.get(),
+                        "-MaximumAstigmatism": self.maximumAstigmatism.get(),
                         "-NumberOfSectors": self.numberSectorsAstigmatism.get()
                     })
 

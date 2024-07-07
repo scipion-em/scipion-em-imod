@@ -185,5 +185,15 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
                 self._store(output)
 
+    # --------------------------- INFO functions ------------------------------
+    def _summary(self):
+        summary = []
+        if self.Coordinates3D:
+            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+                           "Output coordinates 3D: "
+                           f"{self.Coordinates3D.getSize()}")
+        return summary
+
+    # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
         return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms

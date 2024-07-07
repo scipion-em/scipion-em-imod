@@ -36,7 +36,7 @@ from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, TS_IGNORE_ATTRS)
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME)
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -338,8 +338,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.inputTS = self.getInputSet().getSetOfTiltSeries(pointer=True)
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+        self.inputTS = self.getInputSet().getSetOfTiltSeries()
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.inputTS}
 
         lms = self.getInputSet().aggregate(["COUNT"], "_tsId",
@@ -543,8 +543,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             if os.path.exists(fiducialNoGapFilePath):
-                output = self.getOutputFiducialModelNoGaps()
-                output.setSetOfTiltSeries(self.inputTS)
+                output = self.getOutputFiducialModelNoGaps(self.inputTS)
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
                 fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)

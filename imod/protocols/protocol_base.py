@@ -25,7 +25,7 @@
 # *****************************************************************************
 import logging
 
-from pyworkflow.object import Set, CsvList, Pointer
+from pyworkflow.object import Set, CsvList
 from pyworkflow.protocol import params
 from pyworkflow.utils import path
 from pwem.emlib.image import ImageHandler as ih
@@ -44,7 +44,6 @@ logger = logging.getLogger(__name__)
 class ProtImodBase(EMProtocol, ProtTomoBase):
     """ Base class with methods used in the rest of the imod protocols. """
     _label = None
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     def __init__(self, **kwargs):
         self.tsDict = None
@@ -197,12 +196,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """ So far none of them work in streaming. """
         return False
 
-    # --------------------------- CALCULUS functions ---------------------------
-    def convertInputStep(self, tsObjId, generateAngleFile=True,
+    # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False,
                          oddEven=False, presentAcqOrders=None):
         """
-        :param tsObjId: Tilt-series identifier
+        :param tsId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
         :param imodInterpolation: Boolean (True) to interpolate the tilt series with
                                   imod in case there is a TM.
@@ -213,13 +212,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
         and the interpolated TS with IMOD's newstack program.
         """
-        if type(tsObjId) is str:
-            ts = self.tsDict[tsObjId]
-        else:
-            tsSet = self.inputSetOfTiltSeries,
-            ts = tsSet.get()[tsObjId] if isinstance(tsSet, Pointer) else tsSet[tsObjId]
-
-        self.genTsPaths(ts.getTsId())
+        ts = self.tsDict[tsId]
+        self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
                                doSwap=doSwap, oddEven=oddEven,
@@ -227,11 +221,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def closeOutputSetsStep(self):
         self._closeOutputSet()
-
-    def runProgram(self, program, params, cwd=None):
-        """ Shortcut method to run IMOD's command given input params dict. """
-        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
-        Plugin.runImod(self, program, args, cwd)
 
     def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
                            xfFile=None, doSwap=None, tsExcludedIndices=None):
@@ -350,63 +339,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
             ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
-    @staticmethod
-    def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
-                               xfFile=None, firstItem=None, binning=1,
-                               doSwap=False, tsExcludedIndices=None,
-                               doTaper=False, doNorm=False):
-        """ Returns basic newstack arguments
-        
-        :param ts: Title Series object
-        :param outputTsFileName: tilt series output file name after newstack
-        :param inputTsFileName: Input tilt series file name. Default to firstItem.getFilename()
-        :param xfFile: xf file name, if passed, alignment will be generated and used
-        :param firstItem: Optional, otherwise it will be taken from ts
-        :param binning: Default to 1. to apply to output size
-        :param doSwap: Default False.
-        :param tsExcludedIndices: List of indices to be excluded in the tilt-series, starting from 1
-        :param doTaper: optionally taper the tilt-series
-        :param doNorm: optionally normalize the tilt-series
-        """
-
-        if firstItem is None:
-            firstItem = ts.getFirstItem()
-
-        if inputTsFileName is None:
-            inputTsFileName = firstItem.getFileName()
-
-        # Apply interpolation
-        params = {
-            '-input': inputTsFileName,
-            '-output': outputTsFileName,
-            '-bin': binning,
-            '-antialias': -1,
-            '-imagebinned': 1.0
-        }
-        if doTaper:
-            params["-taper"] = "1,1"
-        if doNorm:
-            params["-FloatDensities"] = 2
-
-        if xfFile is not None:
-            params['-xform'] = xfFile
-
-            if doSwap:
-                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-                # Check if rotation angle is greater than 45º. If so,
-                # swap x and y dimensions to adapt output image sizes to
-                # the final sample disposition.
-                if 45 < abs(rotationAngle) < 135:
-                    params["-size"] = f"{round(firstItem.getYDim() / binning)},"\
-                                      f"{round(firstItem.getXDim() / binning)}"
-
-        if tsExcludedIndices:
-            params["-exclude"] = ",".join(map(str, tsExcludedIndices))
-            # From IMOD's newstack doc: "sections are numbered from 0 unless -fromone is entered"
-            params["-fromone"] = ""
-
-        return params
-
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self, inputSet, binning=1) -> SetOfTiltSeries:
         """ Method to generate output classes of set of tilt-series"""
@@ -461,7 +393,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             interpTS.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_TS_INTERPOLATED_NAME: interpTS})
-            self._defineSourceRelation(self.inputSetOfTiltSeries, interpTS)
+            self._defineSourceRelation(inputSet, interpTS)
 
         return self.InterpolatedTiltSeries
 
@@ -491,59 +423,53 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             return self.FailedTomograms
 
-    def getOutputFiducialModelNoGaps(self, tiltSeries=None):
+    def getOutputFiducialModelNoGaps(self, inputSet):
         if self.FiducialModelNoGaps:
             self.FiducialModelNoGaps.enableAppend()
         else:
-            if tiltSeries is None:
-                tiltSeriesPointer = self.inputSetOfTiltSeries
-                tiltSeries = tiltSeriesPointer.get()
-            else:
-                tiltSeriesPointer = tiltSeries
-
             fidModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
 
-            fidModelNoGaps.copyInfo(tiltSeries)
-            fidModelNoGaps.setSetOfTiltSeries(tiltSeriesPointer)
+            fidModelNoGaps.copyInfo(inputSet)
+            fidModelNoGaps.setSetOfTiltSeries(inputSet)
             fidModelNoGaps.setHasResidualInfo(True)
             fidModelNoGaps.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME: fidModelNoGaps})
-            self._defineSourceRelation(tiltSeriesPointer, fidModelNoGaps)
+            self._defineSourceRelation(inputSet, fidModelNoGaps)
 
         return self.FiducialModelNoGaps
 
-    def getOutputFiducialModelGaps(self):
+    def getOutputFiducialModelGaps(self, inputSet):
         if self.FiducialModelGaps:
             self.FiducialModelGaps.enableAppend()
         else:
             fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
-            fidModelGaps.copyInfo(self.getInputSet())
-            fidModelGaps.setSetOfTiltSeries(self.inputSetOfTiltSeries)
+            fidModelGaps.copyInfo(inputSet)
+            fidModelGaps.setSetOfTiltSeries(inputSet)
             fidModelGaps.setHasResidualInfo(False)
             fidModelGaps.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: fidModelGaps})
-            self._defineSourceRelation(self.inputSetOfTiltSeries, fidModelGaps)
+            self._defineSourceRelation(inputSet, fidModelGaps)
 
         return self.FiducialModelGaps
 
-    def getOutputSetOfTiltSeriesCoordinates(self, setOfTiltSeries=None):
+    def getOutputSetOfTiltSeriesCoordinates(self, inputSet):
         if self.TiltSeriesCoordinates:
             self.TiltSeriesCoordinates.enableAppend()
         else:
             coords3D = SetOfTiltSeriesCoordinates.create(self._getPath(),
                                                          suffix='Fiducials3D')
-            coords3D.setSetOfTiltSeries(setOfTiltSeries)
+            coords3D.setSetOfTiltSeries(inputSet)
             coords3D.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: coords3D})
-            self._defineSourceRelation(setOfTiltSeries, coords3D)
+            self._defineSourceRelation(inputSet, coords3D)
 
         return self.TiltSeriesCoordinates
 
-    def getOutputSetOfCoordinates3Ds(self, inputSet=None, outputSet=None):
+    def getOutputSetOfCoordinates3Ds(self, inputSet, outputSet):
         if self.Coordinates3D:
             self.Coordinates3D.enableAppend()
         else:
@@ -573,8 +499,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
 
             if binning > 1:
-                samplingRate = inputSet.getSamplingRate()
-                samplingRate *= self.binning.get()
+                samplingRate = inputSet.getSamplingRate() * binning
                 outputSetOfTomograms.setSamplingRate(samplingRate)
 
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
@@ -599,6 +524,119 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._defineCtfRelation(outputSetOfCTFTomoSeries, ts.get())
 
         return outputSetOfCTFTomoSeries
+
+    def createOutputFailedSet(self, item, presentAcqOrders=None):
+        """ Just copy input item to the failed output set. """
+        inputSet = self.getInputSet()
+        output = self.getOutputFailedSet(inputSet)
+        newItem = item.clone()
+        newItem.copyInfo(item)
+        output.append(newItem)
+
+        if isinstance(item, TiltSeries):
+            newItem.copyItems(item)
+            newItem.write(properties=False)
+
+        output.update(newItem)
+        output.write()
+        self._store(output)
+
+    # --------------------------- UTILS functions -----------------------------
+    def genTsPaths(self, tsId):
+        """Generate the subdirectories corresponding to the
+        current tilt-series in tmp and extra"""
+        path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
+
+    @staticmethod
+    def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
+        return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'
+
+    def getTmpOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
+        return self._getTmpPath(tsId,
+                                self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
+
+    def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
+        return self._getExtraPath(tsId,
+                                  self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
+
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+
+    def getTsFromTsId(self, tsId):
+        tsSet = self.getInputSet()
+        return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
+
+    def applyToOddEven(self, setOfTs):
+        return (hasattr(self, "processOddEven") and
+                self.processOddEven and
+                setOfTs.hasOddEven())
+
+    def runProgram(self, program, params, cwd=None):
+        """ Shortcut method to run IMOD's command given input params dict. """
+        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+        Plugin.runImod(self, program, args, cwd)
+
+    @staticmethod
+    def _getOutputDim(fn: str):
+        x, y, z, _ = ih.getDimensions(fn)
+        return x, y, z
+
+    @staticmethod
+    def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
+                               xfFile=None, firstItem=None, binning=1,
+                               doSwap=False, tsExcludedIndices=None,
+                               doTaper=False, doNorm=False):
+        """ Returns basic newstack arguments
+
+        :param ts: Title Series object
+        :param outputTsFileName: tilt series output file name after newstack
+        :param inputTsFileName: Input tilt series file name. Default to firstItem.getFilename()
+        :param xfFile: xf file name, if passed, alignment will be generated and used
+        :param firstItem: Optional, otherwise it will be taken from ts
+        :param binning: Default to 1. to apply to output size
+        :param doSwap: Default False.
+        :param tsExcludedIndices: List of indices to be excluded in the tilt-series, starting from 1
+        :param doTaper: optionally taper the tilt-series
+        :param doNorm: optionally normalize the tilt-series
+        """
+
+        if firstItem is None:
+            firstItem = ts.getFirstItem()
+
+        if inputTsFileName is None:
+            inputTsFileName = firstItem.getFileName()
+
+        # Apply interpolation
+        params = {
+            '-input': inputTsFileName,
+            '-output': outputTsFileName,
+            '-bin': binning,
+            '-antialias': -1,
+            '-imagebinned': 1.0
+        }
+        if doTaper:
+            params["-taper"] = "1,1"
+        if doNorm:
+            params["-FloatDensities"] = 2
+
+        if xfFile is not None:
+            params['-xform'] = xfFile
+
+            if doSwap:
+                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+                # Check if rotation angle is greater than 45º. If so,
+                # swap x and y dimensions to adapt output image sizes to
+                # the final sample disposition.
+                if 45 < abs(rotationAngle) < 135:
+                    params["-size"] = f"{round(firstItem.getYDim() / binning)}," \
+                                      f"{round(firstItem.getXDim() / binning)}"
+
+        if tsExcludedIndices:
+            params["-exclude"] = ",".join(map(str, tsExcludedIndices))
+            # From IMOD's newstack doc: "sections are numbered from 0 unless -fromone is entered"
+            params["-fromone"] = ""
+
+        return params
 
     @staticmethod
     def parseTSDefocusFile(inputTs, defocusFilePath, newCTFTomoSeries):
@@ -700,54 +738,3 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
-
-    def createOutputFailedSet(self, item, presentAcqOrders=None):
-        """ Just copy input item to the failed output set. """
-        inputSet = self.getInputSet()
-        output = self.getOutputFailedSet(inputSet)
-        newItem = item.clone()
-        newItem.copyInfo(item)
-        output.append(newItem)
-
-        if isinstance(item, TiltSeries):
-            newItem.copyItems(item)
-
-        newItem.write(properties=False)
-        output.update(newItem)
-        output.write()
-        self._store(output)
-
-    # --------------------------- UTILS functions -----------------------------
-    def genTsPaths(self, tsId):
-        """Generate the subdirectories corresponding to the
-        current tilt-series in tmp and extra"""
-        path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
-
-    @staticmethod
-    def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
-        return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'
-
-    def getTmpOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
-        return self._getTmpPath(tsId,
-                                self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
-
-    def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
-        return self._getExtraPath(tsId,
-                                  self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
-
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
-
-    def getTsFromTsId(self, tsId):
-        tsSet = self.getInputSet()
-        return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
-
-    def applyToOddEven(self, setOfTs):
-        return (hasattr(self, "processOddEven") and
-                self.processOddEven and
-                setOfTs.hasOddEven())
-
-    @staticmethod
-    def _getOutputDim(fn: str):
-        x, y, z, _ = ih.getDimensions(fn)
-        return x, y, z

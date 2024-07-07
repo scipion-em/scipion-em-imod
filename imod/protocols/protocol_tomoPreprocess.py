@@ -89,7 +89,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                                'scaled to common mean and standard deviation',
                                'shifted to a common mean without scaling',
                                'shifted to mean and rescaled to a min and max'],
-                      default=2,
+                      default=0,
                       label='Adjust densities mode',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='Adjust densities of sections individually:\n'
@@ -403,7 +403,3 @@ class ProtImodTomoNormalization(ProtImodBase):
             5: 2
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
-
-    def applyToOddEven(self, tomo):
-        """ Reimplemented from base class for the tomogram case. """
-        return self.processOddEven and tomo.hasHalfMaps()

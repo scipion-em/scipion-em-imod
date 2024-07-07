@@ -34,7 +34,7 @@ from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
-                            FIDUCIAL_MODEL, PATCH_TRACKING, TS_IGNORE_ATTRS)
+                            FIDUCIAL_MODEL, PATCH_TRACKING)
 
 
 class ProtImodFiducialModel(ProtImodBase):
@@ -206,7 +206,7 @@ class ProtImodFiducialModel(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS) for ts in tsSet}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
@@ -318,10 +318,10 @@ class ProtImodFiducialModel(ProtImodBase):
 
                 if self.doTrackWithModel:
                     # repeat tracking with the current model as seed
-                    path.copyFile(paramsBeadtrack['inputSeedModel'],
+                    path.copyFile(paramsBeadtrack['-InputSeedModel'],
                                   self.getExtraOutFile(tsId, suffix="orig", ext=SEED_EXT))
-                    path.moveFile(paramsBeadtrack['outputModel'],
-                                  paramsBeadtrack['inputSeedModel'])
+                    path.moveFile(paramsBeadtrack['-OutputModel'],
+                                  paramsBeadtrack['-InputSeedModel'])
 
                     self.runProgram('beadtrack', paramsBeadtrack)
 
@@ -336,8 +336,8 @@ class ProtImodFiducialModel(ProtImodBase):
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             ts.writeXfFile(xfFile)
 
-            borders = self.pxTrim.getListFromValues()
-            sizePatches = self.sizeOfPatches.getListFromValues()
+            borders = self.pxTrim.getListFromValues(caster=str)
+            sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
 
             paramsTiltXCorr = {
                 "-InputFile": self.getTmpOutFile(tsId),
@@ -355,10 +355,10 @@ class ProtImodFiducialModel(ProtImodBase):
             }
 
             if self.patchLayout.get() == 0:
-                patchesXY = self.overlapPatches.getListFromValues(caster=float)
+                patchesXY = self.overlapPatches.getListFromValues(caster=str)
                 paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
             else:
-                numberPatchesXY = self.numberOfPatches.getListFromValues()
+                numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
                 paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
 
             self.runProgram('tiltxcorr', paramsTiltXCorr)
@@ -402,7 +402,7 @@ class ProtImodFiducialModel(ProtImodBase):
             fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(fiducialModelGapPath):
-                output = self.getOutputFiducialModelGaps()
+                output = self.getOutputFiducialModelGaps(self.getInputSet())
                 landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
                 fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 
@@ -529,15 +529,15 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
 """
 
         if self.refineSobelFilter:
-            template += "SobelFilterCentering"
-            template += "ScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
+            template += "\nSobelFilterCentering"
+            template += "\nScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
 
         if len(excludedViews):
-            template += f"SkipViews {','.join(excludedViews)}"
+            template += f"\nSkipViews {','.join(excludedViews)}"
 
         if hasAlignment:
             XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
-            template += f"PrealignTransformFile {XfFileName}"
+            template += f"\nPrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:
             f.write(template % paramsDict)

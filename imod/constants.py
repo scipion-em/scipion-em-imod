@@ -38,8 +38,6 @@ DEFAULT_VERSION = VERSION_4_11_25
 
 # protocol constants below
 
-TS_IGNORE_ATTRS = ['_mapperPath', '_size']
-
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
 

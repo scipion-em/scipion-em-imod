@@ -117,9 +117,9 @@ class ProtImodTomoProjection(ProtImodBase):
                 '-input': tomo.getFileName(),
                 '-output': self.getExtraOutFile(tsId),
                 '-axis': self.getRotationAxis(),
-                '-angles': ",".join([self.minAngle.get(),
-                                     self.maxAngle.get(),
-                                     self.stepAngle.get()])
+                '-angles': ",".join(map(str, [self.minAngle.get(),
+                                              self.maxAngle.get(),
+                                              self.stepAngle.get()]))
             }
 
             self.runProgram('xyzproj', paramsXYZproj)

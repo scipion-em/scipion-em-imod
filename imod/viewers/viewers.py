@@ -83,15 +83,13 @@ class ImodObjectView(pwviewer.CommandView):
         :param kwargs: extra kwargs
         """
         prj = protocol.getProject()
-        inputFn = obj.getFirstItem().getFileName()
-
-        # Get default binning level has been defined for 3dmod:
+        # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
-
         cmd = f"{Plugin.getImodCmd('3dmod')} "
 
         if isinstance(obj, tomoObj.TiltSeries):
-            angleFilePath = prj.getTmpPath(pwutils.replaceExt(inputFn, "tlt")),
+            inputFn = obj.getFirstItem().getFileName()
+            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
             obj.generateTltFile(angleFilePath)
 
             cmd += f"-b {binningstr},1 " 
@@ -121,7 +119,7 @@ class ImodObjectView(pwviewer.CommandView):
             if fidFileName is None:
                 fidFileName = generateIMODFidFile(protocol, obj)
 
-            angleFilePath = prj.getTmpPath(pwutils.replaceExt(tsFn, "tlt"))
+            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(tsFn, "tlt"))
             ts.generateTltFile(angleFilePath)
 
             cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"

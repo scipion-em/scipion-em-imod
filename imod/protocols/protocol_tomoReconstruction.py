@@ -32,7 +32,7 @@ from tomo.objects import Tomogram, SetOfTomograms
 from imod import Plugin
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
-                            OUTPUT_TOMOGRAMS_NAME, TS_IGNORE_ATTRS)
+                            OUTPUT_TOMOGRAMS_NAME)
 
 
 class ProtImodTomoReconstruction(ProtImodBase):
@@ -249,7 +249,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 

@@ -30,8 +30,7 @@ from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod.protocols.protocol_base import ProtImodBase
-from imod.constants import (OUTPUT_TILTSERIES_NAME, XF_EXT, ODD,
-                            EVEN, TS_IGNORE_ATTRS)
+from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from imod.utils import genXfFile
 
 
@@ -250,7 +249,7 @@ class ProtImodTsNormalization(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 

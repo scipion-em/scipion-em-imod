@@ -33,8 +33,8 @@ from imod.protocols import *
 
 
 class TestImodBase(BaseTest):
-    atsId = 'a'
-    btsId = 'b'
+    atsId = 'BBa'
+    btsId = 'BBb'
 
     @classmethod
     def setUpClass(cls):
@@ -187,7 +187,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
         cls.binningTomoNormalization = 2
 
         cls.protImportTS = cls._runImportTiltSeries(filesPath=os.path.split(cls.inputSoTS)[0],
-                                                    filesPattern="BB{TS}.st",
+                                                    filesPattern="{TS}.st",
                                                     voltage=300,
                                                     magnification=105000,
                                                     sphericalAberration=2.7,
@@ -223,7 +223,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                           modeToOutput=0)
 
         cls.protXcorr = cls._runXcorrPrealignment(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
-                                                  computeAlignment=False,
+                                                  computeAlignment=True,
                                                   binning=cls.binningPrealignment,
                                                   rotationAngle=-12.5,
                                                   xmin=10,
@@ -235,12 +235,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                         numberFiducial=25,
                                                         rotationAngle=-12.5)
 
-        cls.protFiducialModelsPT = cls._runFiducialModelsPT(inputSetOfTiltSeries=cls.protXcorr.TiltSeries)
+        cls.protFiducialModelsPT = cls._runFiducialModelsPT(inputSetOfTiltSeries=cls.protXcorr.TiltSeries,
+                                                            sizeOfPatches="100 100")
 
         cls.protFiducialAlignment = cls._runFiducialAlignemnt(inputSetOfLandmarkModels=cls.protFiducialModels.FiducialModelGaps,
                                                               twoSurfaces=False,
                                                               rotationAngle=-12.5,
-                                                              computeAlignment=False,
+                                                              computeAlignment=True,
                                                               binning=cls.binningFiducialAlignment)
 
         cls.protApplyTransformationMatrix = \
@@ -324,17 +325,12 @@ class TestImodReconstructionWorkflow(TestImodBase):
         ts = self.protXcorr.TiltSeries
         self.assertSetSize(ts)
 
-        tsId = ts.getFirstItem().getTsId()
-        outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
-
-        self.assertTrue(os.path.exists(outputLocation))
-
-        self.assertIsNotNone(ts.getFirstItem().getFirstItem().getTransform())
+        self.assertTrue(ts.hasAlignment(), "Tilt series does not have alignment flag")
 
     def test_prealignmentOutputInterpolatedTS(self):
         ts = self.protXcorr.InterpolatedTiltSeries
         self.assertSetSize(ts)
-        self.assertFalse(ts.hasAlignment(), "Tilt series does not have alignment flag")
+        self.assertFalse(ts.hasAlignment(), "Tilt series has alignment flag")
 
         tsId = ts.getFirstItem().getTsId()
         outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
@@ -364,14 +360,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertSetSize(output, size=2)
         self.assertTrue(output.hasAlignment(),
                         "Fiducial alignment Tilt series does not have alignment flag")
-
-        tsId = output.getFirstItem().getTsId()
-        outputLocation = self.protFiducialAlignment._getExtraPath(tsId,
-                                                                  tsId + ".mrcs")
-
-        self.assertTrue(os.path.exists(outputLocation))
-
-        self.assertIsNotNone(output.getFirstItem().getFirstItem().getTransform())
 
         # Interpolated
         output = self.protFiducialAlignment.InterpolatedTiltSeries

@@ -25,6 +25,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+from .protocol_base import ProtImodBase
 
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection

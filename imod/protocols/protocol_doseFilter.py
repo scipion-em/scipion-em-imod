@@ -33,7 +33,7 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from imod import utils
 from imod.protocols.protocol_base import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
-                            OUTPUT_TILTSERIES_NAME, TS_IGNORE_ATTRS)
+                            OUTPUT_TILTSERIES_NAME)
 
 
 class ProtImodDoseFilter(ProtImodBase):
@@ -118,7 +118,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
@@ -216,8 +216,9 @@ class ProtImodDoseFilter(ProtImodBase):
         summary = []
 
         if self.TiltSeries:
-            summary.append(f"{self.getInputSet().getSize()} input tilt-series"
-                           f"{self.TiltSeries.getSize()} tilt-series dose-weighted")
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           "Dose weighting applied: "
+                           f"{self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
 

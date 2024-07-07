@@ -31,9 +31,10 @@ import pyworkflow.protocol.params as params
 import pwem.objects as data
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
+from tomo.convert.mdoc import normalizeTSId
 
 from imod import utils
-from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME, TS_IGNORE_ATTRS
+from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
 from imod.protocols.protocol_base import ProtImodBase
 
 
@@ -97,13 +98,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=TS_IGNORE_ATTRS)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
 
     def generateTransformFileStep(self, tsId, matchBinningFactor):
         self.genTsPaths(tsId)
         ts = self.tsDict[tsId]
-        ids = ts.getIdSet()
+        tiNum = ts.getSize()
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         self.debug(f"Matching files: {self.matchingFiles}")
 
@@ -119,8 +120,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     # with transform information.
                     transformMatrixList = []
 
-                    for index in ids:
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index-1]
+                    for index in range(tiNum):
+                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
 
                         outputTransformMatrix = inputTransformMatrix
                         outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
@@ -185,11 +186,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         matchingFiles = self.getMatchFiles()
         if matchingFiles:
             tsIdList = self.getInputSet().getTSIds()
-            tmFileList = [pwutils.removeBaseExt(fn) for fn, _ in self.iterFiles()]
+            tmFileList = [normalizeTSId(fn) for fn, _ in self.iterFiles()]
             self.matchingFiles = list(set(tsIdList) & set(tmFileList))
             if not self.matchingFiles:
                 errorMsg.append("No matching files found.\n\n"
-                                "\tThe tsIds detected are: {tsIdList}\n"
+                                f"\tThe tsIds detected are: {tsIdList}\n"
                                 "\tThe transform files base names detected are: "
                                 f"{tmFileList}")
         else:
