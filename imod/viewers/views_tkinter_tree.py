@@ -186,6 +186,7 @@ class ImodGenericTreeProvider(TreeProvider):
 
                 coordFilePath = self.protocol.getExtraOutFile(tsId, suffix='fid',
                                                               ext=XYZ_EXT)
+                coordFilePath = coordFilePath.replace("_fid", "fid")  # due to etomo bug
                 if os.path.exists(coordFilePath):
                     values.append('Yes')
                     status = 'done'

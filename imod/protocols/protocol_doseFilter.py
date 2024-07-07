@@ -31,7 +31,7 @@ from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
                             OUTPUT_TILTSERIES_NAME)
 

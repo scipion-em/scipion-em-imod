@@ -33,7 +33,7 @@ from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltImage, TiltSeries, TiltSeriesCoordinate)
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME)

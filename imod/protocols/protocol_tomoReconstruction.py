@@ -30,7 +30,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
                             OUTPUT_TOMOGRAMS_NAME)
 

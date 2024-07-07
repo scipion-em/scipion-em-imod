@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
 
 

@@ -30,7 +30,7 @@ import pyworkflow.protocol.params as params
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
 

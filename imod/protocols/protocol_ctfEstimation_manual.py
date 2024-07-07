@@ -27,7 +27,7 @@
 
 from tomo.objects import SetOfCTFTomoSeries
 
-from imod.protocols.protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
+from imod.protocols import ProtImodAutomaticCtfEstimation
 from imod.constants import OUTPUT_CTF_SERIE
 
 

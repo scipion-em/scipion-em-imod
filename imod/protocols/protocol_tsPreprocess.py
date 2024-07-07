@@ -29,7 +29,7 @@ import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from imod.utils import genXfFile
 
@@ -285,14 +285,14 @@ class ProtImodTsNormalization(ProtImodBase):
 
                 if norm == 2:
                     if self.meanSdToggle:
-                        params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()}, {self.scaleSd.get()}"
+                        params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
 
                 elif norm == 4:
-                    params["-ScaleMinAndMax"] = f"{self.scaleMax.get()}, {self.scaleMin.get()}"
+                    params["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
 
                 else:
                     if self.scaleRangeToggle:
-                        params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()}, {self.scaleRangeMin.get()}"
+                        params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()},{self.scaleRangeMin.get()}"
 
             if self.getModeToOutput() is not None:
                 params["-ModeToOutput"] = self.getModeToOutput()

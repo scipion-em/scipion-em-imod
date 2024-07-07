@@ -31,7 +31,7 @@ from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
 
 

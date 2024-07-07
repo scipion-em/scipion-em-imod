@@ -35,7 +35,7 @@ from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
 
 from imod import Plugin, utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME, RAWTLT_EXT, TLT_EXT,
                             EDF_EXT, MRC_EXT, SFID_EXT, XYZ_EXT, FID_EXT,
@@ -104,7 +104,7 @@ class ProtImodEtomo(ProtImodBase):
                       help='Apply the transformation matrix if input'
                            'tilt series have it.')
 
-        form.addParallelSection(threads=1, mpi=0)
+        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
@@ -196,7 +196,7 @@ class ProtImodEtomo(ProtImodBase):
             self.convertInputStep(ts)
 
         if ts is not None:
-            params = {"--fg": self.getOutTsFileName(tsId, EDF_EXT)}
+            params = {"--fg": self.getOutTsFileName(tsId, ext=EDF_EXT)}
             self.runProgram('etomo', params, cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
@@ -316,6 +316,7 @@ class ProtImodEtomo(ProtImodBase):
 
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
             coordFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=XYZ_EXT)
+            coordFilePath = coordFilePath.replace("_fid", "fid")  # due to etomo bug
 
             if os.path.exists(coordFilePath) and outputAliSetOfTiltSeries is not None:
                 if setOfTSCoords is None:

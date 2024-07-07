@@ -30,7 +30,7 @@ import pyworkflow.utils.path as path
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME
 
 

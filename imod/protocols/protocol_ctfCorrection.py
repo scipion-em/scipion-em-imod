@@ -33,7 +33,7 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.utils import getCommonTsAndCtfElements
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
                             EVEN, OUTPUT_TILTSERIES_NAME)
 

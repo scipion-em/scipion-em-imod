@@ -32,7 +32,7 @@ from pwem.objects import Transform
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME)
 

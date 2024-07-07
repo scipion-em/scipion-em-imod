@@ -28,7 +28,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from tomo.objects import Tomogram, SetOfTomograms
 
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
@@ -269,14 +269,14 @@ class ProtImodTomoNormalization(ProtImodBase):
 
                 if norm == 2:
                     if self.meanSdToggle:
-                        paramsNewstack["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()}, {self.scaleSd.get()}"
+                        paramsNewstack["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
 
                 elif norm == 4:
-                    paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleMax.get()}, {self.scaleMin.get()}"
+                    paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
 
                 else:
                     if self.scaleRangeToggle:
-                        paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()}, {self.scaleRangeMin.get()}"
+                        paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()},{self.scaleRangeMin.get()}"
 
             if self.getModeToOutput() is not None:
                 paramsNewstack["-ModeToOutput"] = self.getModeToOutput()

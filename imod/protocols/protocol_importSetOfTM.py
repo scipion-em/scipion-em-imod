@@ -35,7 +35,7 @@ from tomo.convert.mdoc import normalizeTSId
 
 from imod import utils
 from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
-from imod.protocols.protocol_base import ProtImodBase
+from imod.protocols import ProtImodBase
 
 
 class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
