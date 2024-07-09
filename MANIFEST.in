@@ -9,3 +9,6 @@ include *.txt
 
 # Include conf file
 include imod/protocols.conf
+
+# Include templates
+include imod/templates/*template

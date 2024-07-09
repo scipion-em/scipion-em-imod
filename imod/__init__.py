@@ -33,16 +33,16 @@ from pyworkflow.gui import FileTreeProvider
 from pyworkflow.gui.project.utils import OS
 import pwem
 
-from .constants import IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION, VERSIONS, IMOD_VIEWER_BINNING
+from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
+                            VERSIONS, IMOD_VIEWER_BINNING)
 
-__version__ = '3.5.1'
+__version__ = '3.6'
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
 
 def getImodEnv():
     """ This function allows to call imod outside this plugin. """
-
     return Plugin.getHome("IMOD-linux.sh && ")
 
 
@@ -66,7 +66,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _getIMODFolder(cls, version, *paths):
-        return os.path.join(cls._getEMFolder(version, "IMOD"), *paths)
+        return cls._getEMFolder(version, "IMOD", *paths)
 
     @classmethod
     def _getProgram(cls, program):

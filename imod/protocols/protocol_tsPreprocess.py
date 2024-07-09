@@ -23,14 +23,15 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
-from pyworkflow.object import Set
+import os
+
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler
-import tomo.objects as tomoObj
-from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
-from ..utils import genXfFile
+from pwem.emlib.image import ImageHandler as ih
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+
+from imod.protocols import ProtImodBase
+from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
+from imod.utils import genXfFile
 
 
 class ProtImodTsNormalization(ProtImodBase):
@@ -59,8 +60,7 @@ class ProtImodTsNormalization(ProtImodBase):
     """
 
     _label = 'Tilt-series preprocess'
-    _devStatus = BETA
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: tomoObj.SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -87,7 +87,8 @@ class ProtImodTsNormalization(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Apply transformation matrix',
-                      help='Apply the tilt series transformation matrix if tilt series have them')
+                      help='Apply the tilt series transformation matrix if tilt '
+                           'series have them')
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -96,7 +97,7 @@ class ProtImodTsNormalization(ProtImodBase):
                                'scaled to common mean and standard deviation',
                                'shifted to a common mean without scaling',
                                'shifted to mean and rescaled to a min and max'],
-                      default=0,
+                      default=2,
                       label='Adjust densities mode',
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='Adjust densities of sections individually:\n'
@@ -130,21 +131,22 @@ class ProtImodTsNormalization(ProtImodBase):
                                          'and standard deviation.')
 
         groupMeanSd.addParam('meanSdToggle',
-                             params.EnumParam,
-                             choices=['Yes', 'No'],
-                             default=1,
+                             params.BooleanParam,
+                             default=False,
                              label='Set mean and SD?',
                              display=params.EnumParam.DISPLAY_HLIST,
                              help='Set mean and SD values')
 
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
+                             condition='meanSdToggle',
                              default=0,
                              label='Mean',
                              help='Mean value for the rescaling')
 
         groupMeanSd.addParam('scaleSd',
                              params.FloatParam,
+                             condition='meanSdToggle',
                              default=1,
                              label='SD',
                              help='Standard deviation value for the rescaling')
@@ -154,13 +156,13 @@ class ProtImodTsNormalization(ProtImodBase):
 
         groupScale.addParam('scaleMax',
                             params.FloatParam,
-                            default=255,
+                            default=255.,
                             label='Max.',
                             help='Maximum value for the rescaling')
 
         groupScale.addParam('scaleMin',
                             params.FloatParam,
-                            default=0,
+                            default=0.,
                             label='Min.',
                             help='Minimum value for the rescaling')
 
@@ -178,11 +180,9 @@ class ProtImodTsNormalization(ProtImodBase):
                            'is to output as bytes')
 
         form.addParam('scaleRangeToggle',
-                      params.EnumParam,
-
-                      choices=['Yes', 'No'],
+                      params.BooleanParam,
                       condition="floatDensities==1 or floatDensities==3",
-                      default=0,
+                      default=True,
                       label='Set scaling range values?',
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='This option will rescale the densities of all '
@@ -192,14 +192,14 @@ class ProtImodTsNormalization(ProtImodBase):
 
         form.addParam('scaleRangeMin',
                       params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
                       default=0,
                       label='Min.',
                       help='Minimum value for the rescaling')
 
         form.addParam('scaleRangeMax',
                       params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
+                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
                       default=255,
                       label='Max.',
                       help='Maximum value for the rescaling')
@@ -231,144 +231,158 @@ class ProtImodTsNormalization(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
-                           'The transformations applied to the odd/even tilt series will be exactly the same.')
+                      help='If True, the full tilt series and the associated odd/even '
+                           'tilt series will be processed. The transformations applied '
+                           'to the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        binning = self.binning.get()
         for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-            self._insertFunctionStep(self.createOutputFailedStep, tsId)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId,
+                                     binning)
+            self._insertFunctionStep(self.createOutputStep, tsId,
+                                     binning)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self._failedTs = []
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
+                       for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.inputSetOfTiltSeries.get())
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,
-                                 oddEven=oddEvenFlag)
+                                 oddEven=self.oddEvenFlag)
 
-    @ProtImodBase.tryExceptDecorator
-    def generateOutputStackStep(self, tsId):
+    def generateOutputStackStep(self, tsId, binning):
+        try:
+            ts = self.tsDict[tsId]
+            firstItem = ts.getFirstItem()
+            xfFile = None
+
+            if self.applyAlignment.get() and ts.hasAlignment():
+                xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+                genXfFile(ts, xfFile)
+
+            norm = self.floatDensities.get()
+            params = self.getBasicNewstackParams(ts,
+                                                 self.getExtraOutFile(tsId),
+                                                 inputTsFileName=self.getTmpOutFile(tsId),
+                                                 xfFile=xfFile,
+                                                 firstItem=firstItem,
+                                                 binning=binning,
+                                                 doNorm=norm != 0)
+            params["-antialias"] = self.antialias.get() + 1
+
+            if norm != 0:
+                params["-FloatDensities"] = norm
+
+                if norm == 2:
+                    if self.meanSdToggle:
+                        params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
+
+                elif norm == 4:
+                    params["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
+
+                else:
+                    if self.scaleRangeToggle:
+                        params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()},{self.scaleRangeMin.get()}"
+
+            if self.getModeToOutput() is not None:
+                params["-ModeToOutput"] = self.getModeToOutput()
+
+            self.runProgram("newstack", params)
+
+            if self.oddEvenFlag:
+                params['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
+                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("newstack", params)
+
+                params['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("newstack", params)
+
+        except Exception as e:
+            self._failedTs.append(tsId)
+            self.error(f'newstack execution failed for tsId {tsId} -> {e}')
+
+    def createOutputStep(self, tsId, binning):
         ts = self.tsDict[tsId]
-        firstItem = ts.getFirstItem()
-        xfFile = None
+        if tsId in self._failedTs:
+            self.createOutputFailedSet(ts)
+        else:
+            outputFn = self.getExtraOutFile(tsId)
+            if os.path.exists(outputFn):
+                output = self.getOutputSetOfTS(self.getInputSet(), binning)
+                newTs = TiltSeries(tsId=tsId)
+                newTs.copyInfo(ts)
+                output.append(newTs)
 
-        if self.applyAlignment.get() and ts.hasAlignment():
-            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            genXfFile(ts, xfFile)
+                if binning > 1:
+                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
 
-        binning = self.binning.get()
+                for index, tiltImage in enumerate(ts):
+                    newTi = TiltImage()
+                    newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
 
-        argsNewstack, paramsNewstack = self.getBasicNewstackParams(ts,
-                                                                   self.getExtraOutFile(tsId),
-                                                                   inputTsFileName=self.getTmpOutFile(tsId),
-                                                                   xfFile=xfFile,
-                                                                   firstItem=firstItem,
-                                                                   binning=binning,
-                                                                   )
-        paramsNewstack.update({
-            'bin': binning,
-            'imagebinned': 1.0,
-            'antialias': self.antialias.get() + 1
-        })
+                    # Tranformation matrix
+                    if tiltImage.hasTransform() and not self.applyAlignment.get():
+                        newTi = self.updateTM(newTi, binning)
+                    else:
+                        newTi.setTransform(None)
 
-        argsNewstack += "-bin %(bin)d " \
-                        "-antialias %(antialias)d " \
-                        "-imagebinned %(imagebinned)s "
+                    newTi.setAcquisition(tiltImage.getAcquisition())
+                    if self.oddEvenFlag:
+                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+                        newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
+                    else:
+                        newTi.setOddEven([])
 
-        if self.floatDensities.get() != 0:
-            argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
+                    newTi.setLocation(index + 1,  outputFn)
 
-            if self.floatDensities.get() == 2:
-                if self.meanSdToggle.get() == 0:
-                    argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                    str(self.scaleSd.get())
+                    if binning > 1:
+                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
+                    newTs.append(newTi)
 
-            elif self.floatDensities.get() == 4:
-                argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
+                dims = self._getOutputDim(outputFn)
+                newTs.setDim(dims)
 
-            else:
-                if self.scaleRangeToggle.get() == 0:
-                    argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                    str(self.scaleRangeMin.get())
+                newTs.write(properties=False)
+                output.update(newTs)
+                output.write()
+                self._store(output)
 
-        if self.getModeToOutput() is not None:
-            argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
+    # --------------------------- INFO functions ------------------------------
+    def _validate(self):
+        errors = []
+        hasAlign = self.getInputSet().getFirstItem().hasAlignment()
+        if self.applyAlignment.get() and not hasAlign:
+            errors.append("Input tilt-series do not have alignment information")
 
-        Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+        return errors
 
-        if self.applyToOddEven(ts):
-            oddFn = firstItem.getOdd().split('@')[1]
-            evenFn = firstItem.getEven().split('@')[1]
-            paramsNewstack['input'] = oddFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=ODD)
-            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-            paramsNewstack['input'] = evenFn
-            paramsNewstack['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
+    def _summary(self):
+        summary = []
+        if self.TiltSeries:
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           f"Interpolations applied: {self.TiltSeries.getSize()}")
+        else:
+            summary.append("Outputs are not ready yet.")
+        return summary
 
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get(), self.binning.get())
-
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        output.append(newTs)
-
-        if binning > 1:
-            newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
-        ih = ImageHandler()
-
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-
-            # Tranformation matrix
-            if tiltImage.hasTransform() and not self.applyAlignment.get():
-                newTi = self.updateTM(newTi)
-            else:
-                newTi.setTransform(None)
-
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
-
-            newTi.setLocation(index + 1,  self.getExtraOutFile(tsId))
-
-            if binning > 1:
-                newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-            newTs.append(newTi)
-
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-
-        newTs.write(properties=False)
-        output.update(newTs)
-        output.write()
-        self._store()
-
-    def createOutputFailedStep(self, tsId):
-        ts = self.tsDict[tsId]
-        super().createOutputFailedSet(ts)
-
-    def closeOutputSetsStep(self):
-        for _, output in self.iterOutputAttributes():
-            output.setStreamState(Set.STREAM_CLOSED)
-            output.write()
-        self._store()
+    def _methods(self):
+        methods = []
+        if self.TiltSeries:
+            methods.append(f"{self.TiltSeries.getSize()} tilt-series have been "
+                           "normalized using the IMOD *newstack* command.")
+        return methods
 
     # --------------------------- UTILS functions -----------------------------
     def getModeToOutput(self):
@@ -382,41 +396,15 @@ class ProtImodTsNormalization(ProtImodBase):
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
 
-    def updateTM(self, newTi):
+    @staticmethod
+    def updateTM(newTi, binning):
         transform = newTi.getTransform()
         matrix = transform.getMatrix()
 
-        matrix[0][2] /= self.binning.get()
-        matrix[1][2] /= self.binning.get()
+        matrix[0][2] /= binning
+        matrix[1][2] /= binning
 
         transform.setMatrix(matrix)
         newTi.setTransform(transform)
 
         return newTi
-
-    # --------------------------- INFO functions ------------------------------
-    def _validate(self):
-        errors = []
-        hasAlign = self.inputSetOfTiltSeries.get().getFirstItem().getFirstItem().hasTransform()
-        if self.applyAlignment.get() and not hasAlign:
-            errors.append("Input tilt-series do not have alignment information")
-
-        return errors
-
-    def _summary(self):
-        summary = []
-        if self.TiltSeries:
-            summary.append("Input tilt-series: %d\nInterpolations applied: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.TiltSeries.getSize()))
-        else:
-            summary.append("Outputs are not ready yet.")
-        return summary
-
-    def _methods(self):
-        methods = []
-        if self.TiltSeries:
-            methods.append("%d tilt-series have been normalized using the IMOD "
-                           "*newstack* command.\n"
-                           % (self.TiltSeries.getSize()))
-        return methods

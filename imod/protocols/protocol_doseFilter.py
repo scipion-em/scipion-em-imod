@@ -23,17 +23,17 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
-from pyworkflow.object import Set
+
+import os.path
+
 import pyworkflow.protocol.params as params
-import tomo.objects as tomoObj
-from pwem.emlib.image import ImageHandler
+from pwem.emlib.image import ImageHandler as ih
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
-from .. import Plugin, utils
-from .protocol_base import ProtImodBase, ODD, EVEN
-
-SCIPION_IMPORT = 0
-FIXED_DOSE = 1
+from imod import utils
+from imod.protocols import ProtImodBase
+from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
+                            OUTPUT_TILTSERIES_NAME)
 
 
 class ProtImodDoseFilter(ProtImodBase):
@@ -54,7 +54,7 @@ class ProtImodDoseFilter(ProtImodBase):
     """
 
     _label = 'Dose filter'
-    _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -65,8 +65,8 @@ class ProtImodDoseFilter(ProtImodBase):
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Tilt Series',
-                      help='This input tilt-series will be low pass filtered according'
-                           'to their cumulated dose')
+                      help='This input tilt-series will be low pass '
+                           'filtered according to their accumulated dose.')
 
         form.addParam('initialDose',
                       params.FloatParam,
@@ -104,8 +104,9 @@ class ProtImodDoseFilter(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Filter odd/even',
-                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
-                           'The applied dose for the odd/even tilt series will be exactly the same.')
+                      help='If True, the full tilt series and the associated '
+                           'odd/even tilt series will be processed. The applied '
+                           'dose for the odd/even tilt series will be exactly the same.')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -117,128 +118,116 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
+                       for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
+        try:
+            ts = self.tsDict[tsId]
+            firstItem = ts.getFirstItem()
+            self.genTsPaths(tsId)
 
-        self.genTsPaths(tsId)
-        ts = self.tsDict[tsId]
-        firstItem = ts.getFirstItem()
+            params = {
+                '-input': firstItem.getFileName(),
+                '-output': self.getExtraOutFile(tsId),
+                '-PixelSize': ts.getSamplingRate(),
+                '-Voltage': int(ts.getAcquisition().getVoltage()),
+            }
 
-        paramsMtffilter = {
-            'input': firstItem.getFileName(),
-            'output': self.getExtraOutFile(tsId),
-            'pixsize': ts.getSamplingRate(),
-            'voltage': ts.getAcquisition().getVoltage(),
-        }
+            if self.initialDose.get() != 0.0:
+                params["-InitialDose"] = self.initialDose.get()
 
-        argsMtffilter = "-input %(input)s " \
-                        "-output %(output)s " \
-                        "-PixelSize %(pixsize)f " \
-                        "-Voltage %(voltage)d "
+            if self.inputDoseType.get() == SCIPION_IMPORT:
+                outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
+                utils.generateDoseFile(ts, outputDoseFilePath)
+                params["-TypeOfDoseFile"] = 2
+                params["-DoseWeightingFile"] = outputDoseFilePath
 
-        if self.initialDose.get() != 0.0:
-            argsMtffilter += f"-InitialDose {self.initialDose.get():f} "
+            elif self.inputDoseType.get() == FIXED_DOSE:
+                params["-FixedImageDose"] = self.fixedImageDose.get()
 
-        if self.inputDoseType.get() == SCIPION_IMPORT:
-            outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
-            utils.generateDoseFileFromDoseTS(ts, outputDoseFilePath)
+            self.runProgram("mtffilter", params)
 
-            paramsMtffilter.update({
-                'typeOfDoseFile': 2,
-                'doseWeightingFile': outputDoseFilePath,
-            })
+            if self.oddEvenFlag:
+                oddFn = firstItem.getOdd().split('@')[1]
+                evenFn = firstItem.getEven().split('@')[1]
+                params['-input'] = oddFn
+                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("mtffilter", params)
 
-            argsMtffilter += "-TypeOfDoseFile %(typeOfDoseFile)d " \
-                             "-DoseWeightingFile %(doseWeightingFile)s "
+                params['-input'] = evenFn
+                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("mtffilter", params)
 
-        elif self.inputDoseType.get() == FIXED_DOSE:
-            paramsMtffilter.update({
-                'fixedImageDose': self.fixedImageDose.get()
-            })
-
-            argsMtffilter += "-FixedImageDose %(fixedImageDose)f"
-
-        Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
-
-        if self.applyToOddEven(ts):
-            oddFn = firstItem.getOdd().split('@')[1]
-            paramsMtffilter['input'] = oddFn
-            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=ODD)
-
-            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
-            evenFn = firstItem.getEven().split('@')[1]
-            paramsMtffilter['input'] = evenFn
-            paramsMtffilter['output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-            Plugin.runImod(self, 'mtffilter', argsMtffilter % paramsMtffilter)
+        except Exception as e:
+            self._failedTs.append(tsId)
+            self.error(f'Mtffilter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
-
         ts = self.tsDict[tsId]
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-        newTs = tomoObj.TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        output.append(newTs)
-        ih = ImageHandler()
+        if tsId in self._failedTs:
+            self.createOutputFailedSet(ts)
+        else:
+            outputLocation = self.getExtraOutFile(tsId)
+            if os.path.exists(outputLocation):
+                output = self.getOutputSetOfTS(self.getInputSet())
+                newTs = TiltSeries(tsId=tsId)
+                newTs.copyInfo(ts)
+                output.append(newTs)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = tomoObj.TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            if self.applyToOddEven(ts):
-                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-            else:
-                newTi.setOddEven([])
+                for index, tiltImage in enumerate(ts):
+                    newTi = TiltImage()
+                    newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
+                    newTi.setAcquisition(tiltImage.getAcquisition())
+                    newTi.setLocation(index + 1, outputLocation)
+                    if self.oddEvenFlag:
+                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+                        newTi.setOddEven([ih.locationToXmipp(locationOdd),
+                                          ih.locationToXmipp(locationEven)])
+                    else:
+                        newTi.setOddEven([])
 
-            locationTi = index + 1, self.getExtraOutFile(tsId)
-            newTi.setLocation(locationTi)
-            newTs.append(newTi)
-            newTs.update(newTi)
+                    newTs.append(newTi)
 
-        newTs.write(properties=False)
-
-        output.update(newTs)
-        output.write()
-
-        self._store()
-
-    def closeOutputSetsStep(self):
-        self.TiltSeries.setStreamState(Set.STREAM_CLOSED)
-        self.TiltSeries.write()
-        self._store()
+                newTs.write(properties=False)
+                output.update(newTs)
+                output.write()
+                self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            for ts in self.inputSetOfTiltSeries.get():
+            for ts in self.getInputSet():
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
-                    validateMsgs.append("%s has no dose information stored "
-                                        "in Scipion Metadata. To solve this, import "
-                                        "tilt-series using the mdoc option." %
-                                        ts.getTsId())
+                    validateMsgs.append(f"{ts.getTsId()} has no dose information stored "
+                                        "in Scipion Metadata. To solve this, re-import "
+                                        "tilt-series using the mdoc option.")
+                    break
 
         return validateMsgs
 
     def _summary(self):
         summary = []
 
-        summary.append("%d input tilt-series" % self.inputSetOfTiltSeries.get().getSize())
-
         if self.TiltSeries:
-            summary.append("%d tilt-series dose-weighted" % self.TiltSeries.getSize())
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           "Dose weighting applied: "
+                           f"{self.TiltSeries.getSize()}")
+        else:
+            summary.append("Outputs are not ready yet.")
 
         return summary
 
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("The dose-weighting has been applied to %d "
-                           "tilt-series using the IMOD *mtffilter* command."
-                           % self.TiltSeries.getSize())
+            methods.append("The dose-weighting has been applied to "
+                           f"{self.TiltSeries.getSize()} "
+                           "tilt-series using the IMOD *mtffilter* command.")
         return methods

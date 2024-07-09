@@ -26,13 +26,12 @@
 
 import os
 
-from pyworkflow import BETA
-from pyworkflow.object import Set
 import pyworkflow.protocol.params as params
-import tomo.objects as tomoObj
+from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
-from .. import Plugin, utils
-from .protocol_base import ProtImodBase, OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
+from imod import utils
+from imod.protocols import ProtImodBase
+from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -43,10 +42,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     """
 
     _label = 'CTF estimation (auto)'
-    _devStatus = BETA
-
-    defocusUTolerance = 20
-    defocusVTolerance = 20
+    _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
     _interactiveMode = False
 
     def __init__(self, **kwargs):
@@ -67,7 +63,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            'the noise power spectra would no longer match.')
 
         form.addParam('defocusTol',
-                      params.FloatParam,
+                      params.IntParam,
                       label='Defocus tolerance (nm)',
                       default=200,
                       important=True,
@@ -90,7 +86,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
-                      default=6000,
+                      default=6000.,
                       label='Expected defocus value (nm)',
                       important=True,
                       condition="expectedDefocusOrigin == 0",
@@ -116,7 +112,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         form.addParam('leftDefTol',
                       params.FloatParam,
                       label='Left defocus tolerance (nm)',
-                      default=2000,
+                      default=2000.,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the left of the center strip.")
@@ -124,7 +120,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         form.addParam('rightDefTol',
                       params.FloatParam,
                       label='Right defocus tolerance (nm)',
-                      default=2000,
+                      default=2000.,
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the right of the center strip.")
@@ -149,7 +145,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
             groupAngleRange.addParam('angleStep',
                                      params.FloatParam,
-                                     default=2,
+                                     default=2.0,
                                      label='Angle step',
                                      help='Step size between ranges. A value of '
                                           'zero for the step will make it fit to '
@@ -159,7 +155,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             groupAngleRange.addParam('angleRange',
                                      params.FloatParam,
                                      condition="angleStep != 0",
-                                     default=16,
+                                     default=16.0,
                                      label='Angle range',
                                      help='Size of the angle range for which the '
                                           'CTF is estimated.')
@@ -201,9 +197,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                "multiple peaks between zeros.")
 
             form.addParam('skipAstigmaticViews',
-                          params.EnumParam,
-                          choices=['Yes', 'No'],
-                          default=1,
+                          params.BooleanParam,
+                          default=False,
                           label='Skip astigmatic phase views?',
                           expertLevel=params.LEVEL_ADVANCED,
                           display=params.EnumParam.DISPLAY_HLIST,
@@ -214,9 +209,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                              help='Parameters for astigmatism analysis')
 
             groupAstigmatism.addParam('searchAstigmatism',
-                                      params.EnumParam,
-                                      choices=['Yes', 'No'],
-                                      default=1,
+                                      params.BooleanParam,
+                                      default=False,
                                       label='Search astigmatism?',
                                       display=params.EnumParam.DISPLAY_HLIST,
                                       help='Search for astigmatism when fitting.')
@@ -225,7 +219,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.FloatParam,
                                       default=1.2,
                                       label='Maximum astigmatism (um)',
-                                      condition='searchAstigmatism==0',
+                                      condition='searchAstigmatism',
                                       help='Maximum astigmatism, in microns. '
                                            'During the fitting to wedge spectra, '
                                            'the defocus is allowed to vary from '
@@ -236,7 +230,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.IntParam,
                                       default=36,
                                       label='Number of sectors',
-                                      condition='searchAstigmatism==0',
+                                      condition='searchAstigmatism',
                                       help='Number of sectors for astigmatism '
                                            'analysis.  A power spectrum is stored '
                                            'separately for each sector; spectra '
@@ -249,7 +243,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.IntParam,
                                       default=3,
                                       label='Minimum views astigmatism',
-                                      condition='searchAstigmatism==0',
+                                      condition='searchAstigmatism',
                                       help='Minimum number of views for '
                                            'finding astigmatism.')
 
@@ -257,9 +251,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                             help='Parameters for phase shift analysis')
 
             groupPhaseShift.addParam('searchPhaseShift',
-                                     params.EnumParam,
-                                     choices=['Yes', 'No'],
-                                     default=1,
+                                     params.BooleanParam,
+                                     default=False,
                                      label='Search phase shift?',
                                      display=params.EnumParam.DISPLAY_HLIST,
                                      help='Search for phase shift when fitting.')
@@ -268,16 +261,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.IntParam,
                                      default=1,
                                      label='Minimum views phase shift',
-                                     condition='searchPhaseShift==0',
+                                     condition='searchPhaseShift',
                                      help='Minimum number of views for '
                                           'finding phase shift.')
 
             groupCutOnFreq = form.addGroup('Cut-on frequency settings')
 
             groupCutOnFreq.addParam('searchCutOnFreq',
-                                    params.EnumParam,
-                                    choices=['Yes', 'No'],
-                                    default=1,
+                                    params.BooleanParam,
+                                    default=False,
                                     label='Search cut-on frequency?',
                                     display=params.EnumParam.DISPLAY_HLIST,
                                     help='Search for cut-on frequency when '
@@ -287,7 +279,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                     params.FloatParam,
                                     default=-1,
                                     label='Maximum astigmatism (1/nm)',
-                                    condition='searchCutOnFreq==0',
+                                    condition='searchCutOnFreq',
                                     help='Maximum frequency to test when searching '
                                          'for cut-on frequency, in reciprocal '
                                          'nanometers.  The default is the '
@@ -303,13 +295,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self._insertFunctionStep(self.convertInputStep, tsId)
             self._insertFunctionStep(self.ctfEstimation, tsId, expDefoci)
             self._insertFunctionStep(self.createOutputStep, tsId)
-            self._insertFunctionStep(self.createOutputFailedStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self._failedTs = []
-        tsSet = self._getSetOfTiltSeries()
+        tsSet = self.getInputSet()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
@@ -318,166 +308,120 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
         super().convertInputStep(tsId, imodInterpolation=None)
 
-    @ProtImodBase.tryExceptDecorator
     def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
-        ts = self.tsDict[tsId]
+        try:
+            ts = self.tsDict[tsId]
 
-        paramsCtfPlotter = {
-            'inputStack': self.getTmpOutFile(tsId),
-            'angleFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
-            'defocusFile': self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-            'axisAngle': ts.getAcquisition().getTiltAxisAngle(),
-            'pixelSize': self.sRate / 10,  # nm
-            'voltage': self.acq.getVoltage(),
-            'sphericalAberration': self.acq.getSphericalAberration(),
-            'amplitudeContrast': self.acq.getAmplitudeContrast(),
-            'defocusTol': self.defocusTol.get(),
-            'psResolution': 101,
-            'leftDefTol': self.leftDefTol.get(),
-            'rightDefTol': self.rightDefTol.get(),
-            'tileSize': self.tileSize.get(),
-        }
+            paramsCtfPlotter = {
+                "-InputStack": self.getTmpOutFile(tsId),
+                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-PixelSize": self.sRate / 10,  # nm
+                "-Voltage": int(self.acq.getVoltage()),
+                "-SphericalAberration": self.acq.getSphericalAberration(),
+                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+                "-DefocusTol": self.defocusTol.get(),
+                "-PSResolution": 101,
+                "-LeftDefTol": self.leftDefTol.get(),
+                "-RightDefTol": self.rightDefTol.get(),
+                "-tileSize": self.tileSize.get(),
+            }
 
-        if self.expectedDefocusOrigin.get() == 0:
-            paramsCtfPlotter['expectedDefocus'] = self.expectedDefocusValue.get()
-        else:
-            self.debug(f"Expected defoci: {expDefoci}")
-            defocus = expDefoci.get(tsId, None)
-            if defocus is None:
-                raise ValueError(f"{tsId} not found in the provided defocus file.")
+            if self.expectedDefocusOrigin.get() == 0:
+                paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
+            else:
+                self.debug(f"Expected defoci: {expDefoci}")
+                defocus = expDefoci.get(tsId, None)
+                if defocus is None:
+                    raise ValueError(f"{tsId} not found in the provided defocus file.")
 
-            paramsCtfPlotter['expectedDefocus'] = float(defocus)
+                paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
 
-        argsCtfPlotter = "-InputStack %(inputStack)s " \
-                         "-AngleFile %(angleFile)s " \
-                         "-DefocusFile %(defocusFile)s " \
-                         "-AxisAngle %(axisAngle)f " \
-                         "-PixelSize %(pixelSize)f " \
-                         "-ExpectedDefocus %(expectedDefocus)f " \
-                         "-Voltage %(voltage)d " \
-                         "-SphericalAberration %(sphericalAberration)f " \
-                         "-AmplitudeContrast %(amplitudeContrast)f " \
-                         "-DefocusTol %(defocusTol)d " \
-                         "-PSResolution %(psResolution)d " \
-                         "-LeftDefTol %(leftDefTol)f " \
-                         "-RightDefTol %(rightDefTol)f " \
-                         "-tileSize %(tileSize)d "
+            # Excluded views
+            excludedViews = ts.getExcludedViewsIndex(caster=str)
+            if excludedViews:
+                paramsCtfPlotter["-ViewsToSkip"] = ",".join(excludedViews)
 
-        # Excluded views
-        excludedViews = ts.getExcludedViewsIndex(caster=str)
-        if len(excludedViews):
-            argsCtfPlotter += f"-ViewsToSkip {','.join(excludedViews)} "
+            if self._interactiveMode:
+                paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
+            else:
+                if self.extraZerosToFit.get() != 0:
+                    paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
 
-        if self._interactiveMode:
-            argsCtfPlotter += "-AngleRange -20.0,20.0 "
-        else:
+                if self.skipAstigmaticViews:
+                    paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
 
-            if self.extraZerosToFit.get() != 0:
-                paramsCtfPlotter.update({
-                    'extraZerosToFit': self.extraZerosToFit.get(),
-                })
-
-                argsCtfPlotter += "-ExtraZerosToFit %(extraZerosToFit)f "
-
-            if self.skipAstigmaticViews.get() == 0:
-                argsCtfPlotter += "-SkipOnlyForAstigPhase "
-
-            if self.searchAstigmatism.get() == 0:
-                paramsCtfPlotter.update({
-                    'maximumAstigmatism': self.maximumAstigmatism.get(),
-                    'numberOfSectors': self.numberSectorsAstigmatism.get(),
-                    'minimumViewsAstigmatism': self.minimumViewsAstigmatism.get()
-                })
-
-                argsCtfPlotter += "-SearchAstigmatism " \
-                                  "-MaximumAstigmatism %(maximumAstigmatism)f " \
-                                  "-NumberOfSectors %(numberOfSectors)d "
-
-            if self.searchPhaseShift.get() == 0:
-                paramsCtfPlotter.update({
-                    'minimumViewsPhaseShift': self.minimumViewsPhaseShift.get()
-                })
-
-                argsCtfPlotter += "-SearchPhaseShift "
-
-            if self.searchAstigmatism.get() == 0 and self.searchPhaseShift.get() == 0:
-                argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,%(minimumViewsPhaseShift)d "
-            elif self.searchAstigmatism.get() == 0:
-                argsCtfPlotter += "-MinViewsAstigAndPhase %(minimumViewsAstigmatism)d,0 "
-            elif self.searchPhaseShift.get() == 0:
-                argsCtfPlotter += "-MinViewsAstigAndPhase 0,%(minimumViewsPhaseShift)d "
-
-            if self.searchCutOnFreq.get() == 0:
-
-                if self.maximumCutOnFreq.get() == -1:
-                    argsCtfPlotter += "-SearchCutonFrequency "
-
-                else:
+                if self.searchAstigmatism:
                     paramsCtfPlotter.update({
-                        'maximumCutOnFreq': self.maximumCutOnFreq.get(),
+                        "-SearchAstigmatism": "",
+                        "-MaximumAstigmatism": self.maximumAstigmatism.get(),
+                        "-NumberOfSectors": self.numberSectorsAstigmatism.get()
                     })
 
-                    argsCtfPlotter += "-SearchCutonFrequency " \
-                                      "-MaxCutOnToSearch %(maximumCutOnFreq)f "
+                if self.searchPhaseShift:
+                    paramsCtfPlotter["-SearchPhaseShift"]: ""
 
-            paramsCtfPlotter['autoFitRangeAndStep'] = str(self.angleRange.get()) + "," + str(self.angleStep.get())
-            argsCtfPlotter += "-SaveAndExit " \
-                              "-AutoFitRangeAndStep %(autoFitRangeAndStep)s "
+                if self.searchAstigmatism and self.searchPhaseShift:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
+                                                                 f"{self.minimumViewsPhaseShift.get()}"
+                elif self.searchAstigmatism:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
+                elif self.searchPhaseShift:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
 
-            if self.startFreq.get() != 0 or self.endFreq.get() != 0:
-                paramsCtfPlotter.update({
-                    'startFreq': self.startFreq.get(),
-                    'endFreq': self.endFreq.get(),
-                })
+                if self.searchCutOnFreq:
+                    paramsCtfPlotter["-SearchCutonFrequency"] = ""
 
-                argsCtfPlotter += "-FrequencyRangeToFit %(startFreq)f,%(endFreq)f "
+                    if self.maximumCutOnFreq.get() != -1.0:
+                        paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
 
-        Plugin.runImod(self, 'ctfplotter', argsCtfPlotter % paramsCtfPlotter)
+                paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
+                paramsCtfPlotter["-SaveAndExit"] = ""
+
+                if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+                    paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
+
+            self.runProgram('ctfplotter', paramsCtfPlotter)
+
+        except Exception as e:
+            self._failedTs.append(tsId)
+            self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
-        defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-        if os.path.exists(defocusFilePath):
-            output = self.getOutputSetOfCTFTomoSeries(outputSetName)
-            defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
+        if tsId in self._failedTs:
+            self.createOutputFailedSet(ts)
+        else:
+            defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+            if os.path.exists(defocusFilePath):
+                output = self.getOutputSetOfCTFTomoSeries(outputSetName)
+                defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-            newCTFTomoSeries = tomoObj.CTFTomoSeries()
-            newCTFTomoSeries.copyInfo(ts)
-            newCTFTomoSeries.setTiltSeries(ts)
-            # newCTFTomoSeries.setObjId(tsObjId)
-            newCTFTomoSeries.setTsId(tsId)
-            newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-            newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-            output.append(newCTFTomoSeries)
+                newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
+                newCTFTomoSeries.copyInfo(ts)
+                newCTFTomoSeries.setTiltSeries(ts)
+                newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
+                newCTFTomoSeries.setNumberOfEstimationsInRange(None)
+                output.append(newCTFTomoSeries)
 
-            self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+                self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
-            if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                    newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                newCTFTomoSeries.setEnabled(False)
+                if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                    newCTFTomoSeries.setEnabled(False)
 
-            output.update(newCTFTomoSeries)
-            output.write()
-            self._store()
-
-    def createOutputFailedStep(self, tsId):
-        ts = self.tsDict[tsId]
-        super().createOutputFailedSet(ts)
-
-    def closeOutputSetsStep(self):
-        for _, output in self.iterOutputAttributes():
-            output.setStreamState(Set.STREAM_CLOSED)
-            output.write()
-        self._store()
+                output.update(newCTFTomoSeries)
+                output.write()
+                self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.CTFTomoSeries:
-            summary.append("Input tilt-series: %d\nNumber of CTF estimated: %d"
-                           % (self._getSetOfTiltSeries().getSize(),
-                              self.CTFTomoSeries.getSize()))
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           f"Number of CTF estimated: {self.CTFTomoSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
@@ -485,9 +429,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def _methods(self):
         methods = []
         if self.CTFTomoSeries:
-            methods.append("%d tilt-series CTF have been estimated """
-                           "using the IMOD *ctfplotter* command."
-                           % (self.CTFTomoSeries.getSize()))
+            methods.append(f"{self.CTFTomoSeries.getSize()} tilt-series CTF "
+                           "have been estimated using the IMOD *ctfplotter* "
+                           "command.")
         return methods
 
     # --------------------------- UTILS functions -----------------------------
@@ -505,25 +449,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         else:
             return None
 
-    def _getSetOfTiltSeries(self, pointer=False):
+    def getInputSet(self, pointer=False):
         """ Reimplemented from the base class for CTF case. """
-        if isinstance(self.inputSet.get(), tomoObj.SetOfCTFTomoSeries):
+        if isinstance(self.inputSet.get(), SetOfCTFTomoSeries):
             return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
 
         return self.inputSet.get() if not pointer else self.inputSet
-
-    def _getTiltSeries(self, itemId):
-        """ Reimplemented from the base class for CTF case. """
-        obj = None
-        inputSetOfTiltseries = self._getSetOfTiltSeries()
-        for item in inputSetOfTiltseries.iterItems(iterate=False):
-            if item.getObjId() == itemId:
-                obj = item
-                if isinstance(obj, tomoObj.CTFTomoSeries):
-                    obj = item.getTiltSeries()
-                break
-
-        if obj is None:
-            raise ("Could not find tilt-series with tsId = %s" % itemId)
-
-        return obj
