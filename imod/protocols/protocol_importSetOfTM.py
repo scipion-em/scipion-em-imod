@@ -29,6 +29,7 @@ import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pwem.objects as data
+from pyworkflow.utils import removeBaseExt
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
@@ -49,6 +50,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         ProtImodBase().__init__(**kwargs)
         ProtTomoImportFiles.__init__(self, **kwargs)
         self.matchingTsIds = None
+        self.iterFilesDict = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -100,6 +102,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def _initialize(self):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
+        dictBaseNames = {}
+        for iFile in self.iterFiles():
+            # We will Look for basename - tsId or base -name normalized basename - tsId matches. See tomo.convert.mdoc
+            # normalizeTSId
+            iFname = iFile[0]
+            fBaseName = removeBaseExt(iFname)
+            dictBaseNames[fBaseName] = iFname
+            dictBaseNames[normalizeTSId(fBaseName)] = iFname
+        self.iterFilesDict = dictBaseNames
 
     def generateTransformFileStep(self, tsId, matchBinningFactor):
         self.genTsPaths(tsId)
@@ -108,41 +119,37 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         self.debug(f"Matching tsIds: {self.matchingTsIds}")
 
-        for tmFilePath, _ in self.iterFiles():
-            tmFileBaseName = pwutils.removeBaseExt(tmFilePath)
-            # Look for basename - tsId or base -name normalized basename - tsId matches. See tomo.convert.mdoc
-            # normalizeTSId
-            if tmFileBaseName in self.matchingTsIds or normalizeTSId(tmFileBaseName) in self.matchingTsIds:
+        tmFilePath = self.iterFilesDict.get(tsId, None)
+        if tmFilePath:
+            if matchBinningFactor != 1:
+                inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
+                # Update shifts from the transformation matrix considering
+                # the matching binning between the input tilt
+                # series and the transformation matrix. We create an empty
+                # tilt-series containing only tilt-images
+                # with transform information.
+                transformMatrixList = []
 
-                if matchBinningFactor != 1:
-                    inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
-                    # Update shifts from the transformation matrix considering
-                    # the matching binning between the input tilt
-                    # series and the transformation matrix. We create an empty
-                    # tilt-series containing only tilt-images
-                    # with transform information.
-                    transformMatrixList = []
+                for index in range(tiNum):
+                    inputTransformMatrix = inputTransformMatrixList[:, :, index]
 
-                    for index in range(tiNum):
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
+                    outputTransformMatrix = inputTransformMatrix
+                    outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
+                    outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
+                    outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
+                    outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
+                    outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
+                    outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
+                    outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
+                    outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
+                    outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
 
-                        outputTransformMatrix = inputTransformMatrix
-                        outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
-                        outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
-                        outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
-                        outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
-                        outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
-                        outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
-                        outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
+                    transformMatrixList.append(outputTransformMatrix)
 
-                        transformMatrixList.append(outputTransformMatrix)
+                utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
 
-                    utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
-
-                else:
-                    pwutils.createLink(tmFilePath, outputTransformFile)
+            else:
+                pwutils.createLink(tmFilePath, outputTransformFile)
 
     def assignTransformationMatricesStep(self, tsId):
         ts = self.tsDict[tsId]
