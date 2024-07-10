@@ -48,7 +48,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def __init__(self, **kwargs):
         ProtImodBase().__init__(**kwargs)
         ProtTomoImportFiles.__init__(self, **kwargs)
-        self.matchingFiles = None
+        self.matchingTsIds = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -86,6 +86,18 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        # JORGE
+        import os
+        fname = "/home/jjimenez/test_JJ.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # JORGE_END
         self._initialize()
         matchBinningFactor = self.binningTM.get() / self.binningTS.get()
         for tsId in self.tsDict.keys():
@@ -106,10 +118,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         ts = self.tsDict[tsId]
         tiNum = ts.getSize()
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        self.debug(f"Matching files: {self.matchingFiles}")
+        self.debug(f"Matching tsIds: {self.matchingTsIds}")
 
         for tmFilePath, _ in self.iterFiles():
-            if pwutils.removeBaseExt(tmFilePath) in self.matchingFiles:
+            tmFileBaseName = pwutils.removeBaseExt(tmFilePath)
+            # Look for basename - tsId or base -name normalized basename - tsId matches. See tomo.convert.mdoc
+            # normalizeTSId
+            if tmFileBaseName in self.matchingTsIds or normalizeTSId(tmFileBaseName) in self.matchingTsIds:
 
                 if matchBinningFactor != 1:
                     inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
@@ -187,8 +202,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         if matchingFiles:
             tsIdList = self.getInputSet().getTSIds()
             tmFileList = [normalizeTSId(fn) for fn, _ in self.iterFiles()]
-            self.matchingFiles = list(set(tsIdList) & set(tmFileList))
-            if not self.matchingFiles:
+            self.matchingTsIds = list(set(tsIdList) & set(tmFileList))
+            if not self.matchingTsIds:
                 errorMsg.append("No matching files found.\n\n"
                                 f"\tThe tsIds detected are: {tsIdList}\n"
                                 "\tThe transform files base names detected are: "
