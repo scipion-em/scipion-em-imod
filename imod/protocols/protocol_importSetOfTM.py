@@ -29,7 +29,6 @@ import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pwem.objects as data
-from pyworkflow.utils import removeBaseExt
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
@@ -107,7 +106,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
             # We will Look for basename - tsId or base -name normalized basename - tsId matches. See tomo.convert.mdoc
             # normalizeTSId
             iFname = iFile[0]
-            fBaseName = removeBaseExt(iFname)
+            fBaseName = pwutils.removeBaseExt(iFname)
             dictBaseNames[fBaseName] = iFname
             dictBaseNames[normalizeTSId(fBaseName)] = iFname
         self.iterFilesDict = dictBaseNames
