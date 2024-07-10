@@ -141,13 +141,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.runProgram("newstack", params)
 
             if self.oddEvenFlag:
-                oddFn = firstItem.getOdd().split('@')[1]
-                evenFn = firstItem.getEven().split('@')[1]
-                params['-input'] = oddFn
+                params['-input'] = ts.getOddFileName()
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("newstack", params)
 
-                params['-input'] = evenFn
+                params['-input'] = ts.getEvenFileName()
                 params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram("newstack", params)
 
@@ -183,8 +181,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         newTi.setAcquisition(acq)
                         newTi.setLocation(index+1, outputLocation)
                         if self.oddEvenFlag:
-                            locationOdd = index+1, (self.getExtraOutFile(tsId, suffix=ODD))
-                            locationEven = index+1, (self.getExtraOutFile(tsId, suffix=EVEN))
+                            locationOdd = index+1, self.getExtraOutFile(tsId, suffix=ODD)
+                            locationEven = index+1, self.getExtraOutFile(tsId, suffix=EVEN)
                             newTi.setOddEven([ih.locationToXmipp(locationOdd),
                                               ih.locationToXmipp(locationEven)])
                         else:

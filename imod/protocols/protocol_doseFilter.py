@@ -151,13 +151,11 @@ class ProtImodDoseFilter(ProtImodBase):
             self.runProgram("mtffilter", params)
 
             if self.oddEvenFlag:
-                oddFn = firstItem.getOdd().split('@')[1]
-                evenFn = firstItem.getEven().split('@')[1]
-                params['-input'] = oddFn
+                params['-input'] = ts.getOddFileName()
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("mtffilter", params)
 
-                params['-input'] = evenFn
+                params['-input'] = ts.getEvenFileName()
                 params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram("mtffilter", params)
 
