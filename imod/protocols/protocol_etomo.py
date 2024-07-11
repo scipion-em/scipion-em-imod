@@ -253,6 +253,7 @@ class ProtImodEtomo(ProtImodBase):
                     newTs.append(newTi)
 
                 newTs.setDim(xPrealiDims)
+                newTs._hasOddEven.set(False) # This aligned TS does not have matched odd/even
                 newTs.write(properties=False)
 
                 outputPrealiSetOfTiltSeries.update(newTs)
@@ -312,6 +313,7 @@ class ProtImodEtomo(ProtImodBase):
                 acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
                 newTs.setAcquisition(acq)
                 newTs.setDim(aliDims)
+                newTs._hasOddEven.set(False) # This aligned TS does not have matched odd/even
                 newTs.write(properties=False)
 
                 outputAliSetOfTiltSeries.update(newTs)
