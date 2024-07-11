@@ -27,17 +27,19 @@
 # *****************************************************************************
 
 import os
+import numpy as np
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
 import pyworkflow.utils as pwutils
 from pwem.emlib.image import ImageHandler as ih
+from pwem.objects import Transform
 import tomo.objects as tomoObj
 
 from imod import Plugin, utils
 from imod.protocols import ProtImodBase
-from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, RAWTLT_EXT, TLT_EXT,
+from imod.constants import (OUTPUT_PREALI_TILTSERIES_NAME, OUTPUT_ALI_TILTSERIES_NAME, OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, RAWTLT_EXT, TLT_EXT, XF_EXT,
                             EDF_EXT, MRC_EXT, SFID_EXT, XYZ_EXT, FID_EXT,
                             RESID_EXT, TXT_EXT)
 
@@ -63,8 +65,9 @@ class ProtImodEtomo(ProtImodBase):
 
     _label = 'Etomo interactive'
     _possibleOutputs = {
-        "PrealignedTiltSeries": tomoObj.TiltSeries,
         OUTPUT_TILTSERIES_NAME: tomoObj.TiltSeries,
+        OUTPUT_PREALI_TILTSERIES_NAME: tomoObj.TiltSeries,
+        OUTPUT_ALI_TILTSERIES_NAME: tomoObj.TiltSeries,
         OUTPUT_TS_COORDINATES_NAME: tomoObj.SetOfTiltSeriesCoordinates,
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: tomoObj.SetOfLandmarkModels,
         "FullTomograms": tomoObj.SetOfTomograms,
@@ -73,7 +76,7 @@ class ProtImodEtomo(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.PrealignedTiltSeries = None
+        # self.PrealignedTiltSeries = None
         self.FullTomograms = None
         self.PostProcessTomograms = None
 
@@ -200,6 +203,7 @@ class ProtImodEtomo(ProtImodBase):
             self.runProgram('etomo', params, cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
+        outputSetOfTiltSeries = None
         outputPrealiSetOfTiltSeries = None
         outputAliSetOfTiltSeries = None
         setOfTSCoords = None
@@ -265,7 +269,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputAliSetOfTiltSeries = self._createSetOfTiltSeries(suffix='_aligned')
                     outputAliSetOfTiltSeries.copyInfo(setOfTiltSeries)
                     outputAliSetOfTiltSeries.setSamplingRate(newPixSize)
-                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputAliSetOfTiltSeries})
+                    self._defineOutputs(**{OUTPUT_ALI_TILTSERIES_NAME: outputAliSetOfTiltSeries})
                     self._defineSourceRelation(self.getInputSet(pointer=True),
                                                outputAliSetOfTiltSeries)
                 else:
@@ -313,6 +317,81 @@ class ProtImodEtomo(ProtImodBase):
                 outputAliSetOfTiltSeries.update(newTs)
                 outputAliSetOfTiltSeries.write()
                 self._store(outputAliSetOfTiltSeries)
+
+            """Original tilt-series with alignment information"""
+            inFilePath = self.getExtraOutFile(tsId, ext=MRC_EXT)
+            if os.path.exists(inFilePath):
+
+                if outputSetOfTiltSeries is None:
+                    outputSetOfTiltSeries = self._createSetOfTiltSeries(suffix='_full')
+                    outputSetOfTiltSeries.copyInfo(setOfTiltSeries)
+                    self._defineOutputs(**{OUTPUT_TILTSERIES_NAME:outputSetOfTiltSeries})
+                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                                               outputSetOfTiltSeries)
+                else:
+                    outputSetOfTiltSeries.enableAppend()
+
+                newTs = ts.clone()
+                newTs.copyInfo(ts)
+                # newTs.setInterpolated(True)
+                outputSetOfTiltSeries.append(newTs)
+
+                tltFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=TLT_EXT)
+                if os.path.exists(tltFilePath):
+                    tltList = utils.formatAngleList(tltFilePath)
+                    self.debug(f"{tltFilePath} read: {tltList}")
+                else:
+                    tltList = None
+
+                # Getting the excluded views in order to disable in the
+                # aligned tilt-series
+                alignFn = self._getExtraPath(tsId, 'align.com')
+                excludedViewList = self.getExcludedViewList(alignFn,
+                                                            reservedWord='ExcludeList')
+                self.debug(f"Excluding views for align: {excludedViewList}")
+
+                for index, tiltImage in enumerate(ts):
+                    newTi = tiltImage.clone()
+                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                    acq = tiltImage.getAcquisition()
+                    # acq.setTiltAxisAngle(0.)
+                    newTi.setAcquisition(acq)
+                    sliceIndex = newTi.getIndex()
+                    newTi.setLocation(sliceIndex, inFilePath)
+                    if tltList is not None:
+                        newTi.setTiltAngle(float(tltList[sliceIndex - 1]))
+                    if sliceIndex in excludedViewList:
+                        newTi.setEnabled(False)
+
+                    tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
+                    newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
+                    transform = Transform()
+
+                    if tiltImage.hasTransform():
+                        previousTransform = tiltImage.getTransform().getMatrix()
+                        newTransform = newTransformationMatricesList[:, :, index]
+                        previousTransformArray = np.array(previousTransform)
+                        newTransformArray = np.array(newTransform)
+                        outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+                        transform.setMatrix(outputTransformMatrix)
+                        newTi.setTransform(transform)
+                    else:
+                        newTransform = newTransformationMatricesList[:, :, index]
+                        newTransformArray = np.array(newTransform)
+                        transform.setMatrix(newTransformArray)
+                        newTi.setTransform(transform)
+
+                    newTs.append(newTi)
+
+                acq = newTs.getAcquisition()
+                # acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
+                newTs.setAcquisition(acq)
+                newTs.setDim(ts.getDim())
+                newTs.write(properties=False)
+
+                outputSetOfTiltSeries.update(newTs)
+                outputSetOfTiltSeries.write()
+                self._store(outputSetOfTiltSeries)
 
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
             coordFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=XYZ_EXT)
