@@ -36,7 +36,8 @@ from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -471,7 +472,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
                 firstItem = ts.getFirstItem()
-                output = self.getOutputInterpolatedTS(self.inputTSPointer, binning)
+                output = self.getOutputSetOfTS(self.inputTSPointer, binning,
+                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                               suffix="Interpolated")
 
                 params = self.getBasicNewstackParams(
                     ts,
@@ -619,9 +622,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             summary.append("Transformation matrices updated from the "
                            f"input tilt-series: {self.TiltSeries.getSize()}")
 
-        if self.InterpolatedTiltSeries:
+        interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        if interpTS is not None:
             summary.append("Interpolated tilt-series calculated: "
-                           f"{self.InterpolatedTiltSeries.getSize()}")
+                           f"{interpTS.getSize()}")
 
         if self.TiltSeriesCoordinates:
             summary.append("Fiducial 3D coordinates calculated: "

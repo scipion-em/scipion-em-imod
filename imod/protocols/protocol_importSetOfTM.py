@@ -28,8 +28,9 @@ import numpy as np
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 import pwem.objects as data
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
 
@@ -47,6 +48,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     def __init__(self, **kwargs):
         ProtImodBase().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
         ProtTomoImportFiles.__init__(self, **kwargs)
         self.matchingTsIds = None
         self.iterFilesDict = None
@@ -153,41 +155,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def assignTransformationMatricesStep(self, tsId):
         ts = self.tsDict[tsId]
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        output = self.getOutputSetOfTS(self.getInputSet())
-
-        newTs = TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-        output.append(newTs)
-
+        output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(tiltImage.getLocation())
-
-            transform = data.Transform()
-
-            if tiltImage.hasTransform():
-                previousTransform = tiltImage.getTransform().getMatrix()
-                newTransform = alignmentMatrix[:, :, index]
-                previousTransformArray = np.array(previousTransform)
-                newTransformArray = np.array(newTransform)
-                outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
-                transform.setMatrix(outputTransformMatrix)
-                newTi.setTransform(transform)
-
-            else:
-                transform.setMatrix(alignmentMatrix[:, :, index])
-                newTi.setTransform(transform)
-
-            newTs.append(newTi)
-
-        newTs.write(properties=False)
-        output.update(newTs)
-        output.write()
-        self._store(output)
+        self.copyTsItems(output, ts, tsId,
+                         updateTiCallback=self.updateTi,
+                         copyId=True, copyTM=False,
+                         alignmentMatrix=alignmentMatrix)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -255,3 +229,21 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
             allowedFiles.append(file)
 
         return allowedFiles
+
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        #tiOut.setLocation(ti.getLocation())
+
+        transform = data.Transform()
+        alignmentMatrix = kwargs.get("alignmentMatrix")
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            newTransform = alignmentMatrix[:, :, index]
+            previousTransformArray = np.array(previousTransform)
+            newTransformArray = np.array(newTransform)
+            outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+            tiOut.setTransform(transform)
+        else:
+            transform.setMatrix(alignmentMatrix[:, :, index])
+            tiOut.setTransform(transform)

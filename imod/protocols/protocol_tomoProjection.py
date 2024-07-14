@@ -95,13 +95,20 @@ class ProtImodTomoProjection(ProtImodBase):
                            'corresponds to the typical rotation axis '
                            'acquisition.')
 
+        form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        closeSetStepDeps = []
         for tsId in self.tomoDict.keys():
-            self._insertFunctionStep(self.projectTomogram, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.projectTomogram, tsId,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -130,38 +137,41 @@ class ProtImodTomoProjection(ProtImodBase):
 
     def generateOutputStackStep(self, tsId):
         tomo = self.tomoDict[tsId]
-        if tsId in self._failedTomos:
-            self.createOutputFailedSet(tomo)
-        else:
-            outputFn = self.getExtraOutFile(tsId)
-            if os.path.exists(outputFn):
-                inputTomos = self.getInputSet()
-                output = self.getOutputSetOfTS(inputTomos)
-                newTs = TiltSeries(tsId=tsId)
-                newTs.setAcquisition(tomo.getAcquisition())
-                output.append(newTs)
+        with self._lock:
+            if tsId in self._failedTomos:
+                self.createOutputFailedSet(tomo)
+            else:
+                outputFn = self.getExtraOutFile(tsId)
+                if os.path.exists(outputFn):
+                    inputTomos = self.getInputSet(pointer=True)
+                    output = self.getOutputSetOfTS(inputTomos)
+                    newTs = TiltSeries(tsId=tsId)
 
-                tiltAngleList = self.getTiltAngleList()
-                sRate = inputTomos.getSamplingRate()
-                for index in range(self.getProjectionRange()):
-                    newTi = TiltImage(tsId=tsId, tiltAngle=tiltAngleList[index],
-                                      acquisitionOrder=index+1)
-                    newTi.setLocation(index + 1, outputFn)
-                    newTi.setSamplingRate(sRate)
-                    newTs.append(newTi)
+                    acq = tomo.getAcquisition()
+                    acq.setDoseInitial(0.)
+                    acq.setAccumDose(0.)
+                    newTs.setAcquisition(acq)
 
-                x, y, z, _ = ih.getDimensions(outputFn)
-                newTs.setDim((x, y, z))
+                    output.append(newTs)
 
-                # Set origin to output tilt-series
-                origin = Transform()
-                origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
-                newTs.setOrigin(origin)
+                    tiltAngleList = self.getTiltAngleList()
+                    sRate = inputTomos.get().getSamplingRate()
+                    for index in range(self.getProjectionRange()):
+                        newTi = TiltImage(tsId=tsId, tiltAngle=tiltAngleList[index],
+                                          acquisitionOrder=index+1)
+                        newTi.setLocation(index + 1, outputFn)
+                        newTi.setSamplingRate(sRate)
+                        newTs.append(newTi)
 
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                    x, y, z, _ = ih.getDimensions(outputFn)
+
+                    # Set origin to output tilt-series
+                    origin = Transform()
+                    origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
+                    newTs.setOrigin(origin)
+                    output.update(newTs)
+                else:
+                    self.createOutputFailedSet(tomo)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -182,17 +192,19 @@ class ProtImodTomoProjection(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
-                           f"Tilt-series generated: {self.TiltSeries.getSize()}")
+                           f"Tilt-series generated: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
-            methods.append(f"{self.TiltSeries.getSize()} tilt-series have been "
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
+            methods.append(f"{output.getSize()} tilt-series have been "
                            "generated by projecting the input tomogram using "
                            "IMOD *xyzproj* command.")
         return methods

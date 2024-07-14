@@ -228,19 +228,27 @@ class ProtImodTomoNormalization(ProtImodBase):
                            'tilt series will be processed. The transformations applied '
                            'to the odd/even tilt series will be exactly the same.')
 
+        form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         binning = self.binning.get()
         norm = self.floatDensities.get()
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
+        closeSetStepDeps = []
 
         for tsId in self.tomoDict.keys():
-            self._insertFunctionStep(self.preprocessStep,
-                                     tsId, runNewStack, binning)
-            self._insertFunctionStep(self.generateOutputStep,
-                                     tsId, runNewStack, binning)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.preprocessStep,
+                                              tsId, runNewStack, binning,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.generateOutputStep,
+                                             tsId, runNewStack, binning,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -341,36 +349,34 @@ class ProtImodTomoNormalization(ProtImodBase):
 
     def generateOutputStep(self, tsId, runNewstack, binning):
         tomo = self.tomoDict[tsId]
-        if tsId in self._failedTomos:
-            self.createOutputFailedSet(tomo)
-        else:
-            output = self.getOutputSetOfTomograms(self.getInputSet(), binning)
-            newTomogram = Tomogram()
-            newTomogram.copyInfo(tomo)
-
-            if not runNewstack and binning == 1:
-                newTomogram.setLocation(tomo.getFileName())
+        with self._lock:
+            if tsId in self._failedTomos:
+                self.createOutputFailedSet(tomo)
             else:
-                newTomogram.setLocation(self.getExtraOutFile(tsId, ext=MRC_EXT))
+                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
+                newTomogram = Tomogram()
+                newTomogram.copyInfo(tomo)
 
-            if binning > 1:
-                newTomogram.setSamplingRate(tomo.getSamplingRate() * binning)
-                # Fix the mrc tomogram
-                newTomogram.fixMRCVolume(setSamplingRate=True)
-                # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=None)
+                if not runNewstack and binning == 1:
+                    newTomogram.setLocation(tomo.getFileName())
+                else:
+                    newTomogram.setLocation(self.getExtraOutFile(tsId, ext=MRC_EXT))
 
-            if self.oddEvenFlag:
-                halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                newTomogram.setHalfMaps(halfMapsList)
+                if binning > 1:
+                    newTomogram.setSamplingRate(tomo.getSamplingRate() * binning)
+                    # Fix the mrc tomogram
+                    newTomogram.fixMRCVolume(setSamplingRate=True)
+                    # Set default tomogram origin
+                    newTomogram.setOrigin(newOrigin=None)
 
-            output.append(newTomogram)
-            output.updateDim()
-            output.update(newTomogram)
+                if self.oddEvenFlag:
+                    halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                    self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                    newTomogram.setHalfMaps(halfMapsList)
 
-            output.write()
-            self._store(output)
+                output.append(newTomogram)
+                output.updateDim()
+                output.update(newTomogram)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -391,7 +397,8 @@ class ProtImodTomoNormalization(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
-        return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms
+        return (self.inputSetOfTomograms.get() if
+                not pointer else self.inputSetOfTomograms)
 
     def getModeToOutput(self):
         parseParamsOutputMode = {

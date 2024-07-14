@@ -34,7 +34,8 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
-                            OUTPUT_TILTSERIES_NAME)
+                            OUTPUT_TILTSERIES_NAME,
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 
 class ProtImodXcorrPrealignment(ProtImodBase):
@@ -253,8 +254,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             ts = self.tsDict[tsId]
             xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(xfFile):
-                output = self.getOutputInterpolatedTS(self.getInputSet(pointer=True),
-                                                      binning)
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                               binning,
+                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                               suffix="Interpolated")
                 firstItem = ts.getFirstItem()
                 params = self.getBasicNewstackParams(ts,
                                                      self.getExtraOutFile(tsId),
@@ -297,9 +300,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            "Transformation matrices calculated: "
                            f"{self.TiltSeries.getSize()}")
-            if self.InterpolatedTiltSeries:
+            interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+            if interpTS is not None:
                 summary.append("Interpolated tilt-series: "
-                               f"{self.InterpolatedTiltSeries.getSize()}")
+                               f"{interpTS.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary

@@ -27,7 +27,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries
 
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
@@ -235,24 +235,29 @@ class ProtImodTsNormalization(ProtImodBase):
                            'tilt series will be processed. The transformations applied '
                            'to the odd/even tilt series will be exactly the same.')
 
+        form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         binning = self.binning.get()
+        closeSetStepDeps = []
+
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId,
-                                     binning)
-            self._insertFunctionStep(self.createOutputStep, tsId,
-                                     binning)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            convId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                              prerequisites=[])
+            compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                              tsId, binning,
+                                              prerequisites=[convId])
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId, binning,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def convertInputStep(self, tsId, **kwargs):
         # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
@@ -314,50 +319,21 @@ class ProtImodTsNormalization(ProtImodBase):
 
     def createOutputStep(self, tsId, binning):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            outputFn = self.getExtraOutFile(tsId)
-            if os.path.exists(outputFn):
-                output = self.getOutputSetOfTS(self.getInputSet(), binning)
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                output.append(newTs)
+        with self._lock:
+            if tsId in self._failedTs:
+                self.createOutputFailedSet(ts)
+            else:
+                outputFn = self.getExtraOutFile(tsId)
+                if os.path.exists(outputFn):
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                   binning)
 
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-
-                    # Tranformation matrix
-                    if tiltImage.hasTransform() and not self.applyAlignment.get():
-                        newTi = self.updateTM(newTi, binning)
-                    else:
-                        newTi.setTransform(None)
-
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-                    if self.oddEvenFlag:
-                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                        newTi.setOddEven([ih.locationToXmipp(locationOdd), ih.locationToXmipp(locationEven)])
-                    else:
-                        newTi.setOddEven([])
-
-                    newTi.setLocation(index + 1,  outputFn)
-
-                    if binning > 1:
-                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                    newTs.append(newTi)
-
-                dims = self._getOutputDim(outputFn)
-                newTs.setDim(dims)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTiCallback=self.updateTi,
+                                     copyId=True, copyTM=True,
+                                     binning=binning)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -370,17 +346,19 @@ class ProtImodTsNormalization(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Interpolations applied: {self.TiltSeries.getSize()}")
+                           f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
-            methods.append(f"{self.TiltSeries.getSize()} tilt-series have been "
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
+            methods.append(f"{output.getSize()} tilt-series have been "
                            "normalized using the IMOD *newstack* command.")
         return methods
 
@@ -408,3 +386,21 @@ class ProtImodTsNormalization(ProtImodBase):
         newTi.setTransform(transform)
 
         return newTi
+
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        outputLocation = self.getExtraOutFile(tsId)
+        tiOut.setLocation(index + 1, outputLocation)
+
+        # Tranformation matrix
+        if ti.hasTransform() and not self.applyAlignment.get():
+            tiOut = self.updateTM(tiOut, kwargs.get("binning", 1))
+        else:
+            tiOut.setTransform(None)
+
+        if self.oddEvenFlag:
+            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
+                              ih.locationToXmipp(locationEven)])
+        else:
+            tiOut.setOddEven([])

@@ -27,13 +27,13 @@
 import os
 
 import pyworkflow.protocol.params as params
-from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import SetOfTiltSeries
 
 from imod import utils
 from imod.protocols import ProtImodBase
-from imod.constants import XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME
+from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME,
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -52,10 +52,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -109,6 +105,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'transformations applied to the odd/even tilt-series '
                            'will be exactly the same.')
 
+        form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
@@ -124,11 +122,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                  prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions ------------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def computeAlignmentStep(self, tsId):
         try:
             ts = self.tsDict[tsId]
@@ -166,23 +159,26 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            outputLocation = self.getExtraOutFile(tsId)
-            if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self.getInputSet(pointer=True),
-                                                      binning=self.binning.get())
-                output.getAcquisition().setTiltAxisAngle(0.)
-                outputPixSize = self._getOutputSampling()
-
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTs,
-                                 updateTiCallback=self.updateTi,
-                                 copyId=False, copyTM=False,
-                                 pixSize=outputPixSize)
-            else:
+        with self._lock:
+            if tsId in self._failedTs:
                 self.createOutputFailedSet(ts)
+            else:
+                outputLocation = self.getExtraOutFile(tsId)
+                if os.path.exists(outputLocation):
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                   binning=self.binning.get(),
+                                                   attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                                   suffix="Interpolated")
+                    output.getAcquisition().setTiltAxisAngle(0.)
+                    outputPixSize = self._getOutputSampling()
+
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTsCallback=self.updateTs,
+                                     updateTiCallback=self.updateTi,
+                                     copyId=False, copyTM=False,
+                                     pixSize=outputPixSize)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -198,18 +194,20 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if self.InterpolatedTiltSeries:
+        output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Interpolations applied: {self.InterpolatedTiltSeries.getSize()}")
+                           f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.InterpolatedTiltSeries:
+        output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        if output is not None:
             methods.append("The interpolation has been computed for "
-                           f"{self.InterpolatedTiltSeries.getSize()} "
+                           f"{output.getSize()} "
                            "tilt-series using the IMOD *newstack* command.")
         return methods
 
@@ -221,7 +219,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsOut.setInterpolated(True)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
-    def updateTi(self, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
         outputLocation = self.getExtraOutFile(tsId)
         tiOut.setLocation(index + 1, outputLocation)
 

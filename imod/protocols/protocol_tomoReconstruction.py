@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
@@ -62,6 +63,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+
+    def __init__(self, **kwargs):
+        ProtImodBase().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -248,11 +253,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
@@ -343,7 +343,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         else:
             tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
             if os.path.exists(tomoLocation):
-                output = self.getOutputSetOfTomograms(self.getInputSet())
+                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
 
                 newTomogram = Tomogram(tsId=tsId)
                 newTomogram.copyInfo(ts)
@@ -364,9 +364,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 output.append(newTomogram)
                 output.updateDim()
                 output.update(newTomogram)
-
-                output.write()
-                self._store(output)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

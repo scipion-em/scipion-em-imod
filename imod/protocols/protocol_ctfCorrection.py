@@ -28,6 +28,7 @@ import os
 
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.emlib.image import ImageHandler as ih
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.utils import getCommonTsAndCtfElements
@@ -77,6 +78,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
         self.matchingMsg = String()
         self.ctfDict = None
         self.presentTsIds = None
@@ -285,10 +287,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                             newTi.setOddEven([])
                         newTs.append(newTi)
 
-                newTs.write(properties=False)
                 outputSetOfTs.update(newTs)
-                outputSetOfTs.write()
-                self._store(outputSetOfTs)
 
     # --------------------------- UTILS functions -----------------------------
     def generateDefocusFile(self, tsId, presentAcqOrders=None):
