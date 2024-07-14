@@ -33,7 +33,8 @@ from pwem.protocols import EMProtocol
 
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries)
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
+                          TiltImage)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -50,6 +51,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.tomoDict = None
         self._failedTs = []
         self._failedTomos = []
+        self.oddEvenFlag = False
 
         # Possible outputs (synchronize these names with the constants)
         self.TiltSeriesCoordinates = None
@@ -370,8 +372,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSetOfTiltSeries
 
-    def getOutputInterpolatedTS(self, inputSet, binning=1):
-        """ Method to generate output interpolated classes of set of tilt-series"""
+    def getOutputInterpolatedTS(self, inputPtr, binning=1):
+        """ Method to generate output interpolated classes of set of tilt-series.
+        :param inputPtr: Input set pointer
+        :param binning: Binning factor
+        """
+        if not inputPtr.isPointer():
+            logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
+            inputSet = inputPtr
+        else:
+            inputSet = inputPtr.get()
 
         if self.InterpolatedTiltSeries:
             self.InterpolatedTiltSeries.enableAppend()
@@ -568,7 +578,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def applyToOddEven(self, setOfTs):
         return (hasattr(self, "processOddEven") and
-                self.processOddEven and
+                self.processOddEven.get() and
                 setOfTs.hasOddEven())
 
     def runProgram(self, program, params, cwd=None):
@@ -628,8 +638,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 # swap x and y dimensions to adapt output image sizes to
                 # the final sample disposition.
                 if 45 < abs(rotationAngle) < 135:
-                    params["-size"] = f"{round(firstItem.getYDim() / binning)}," \
-                                      f"{round(firstItem.getXDim() / binning)}"
+                    dimX, dimY, _ = firstItem.getDim()
+                    params["-size"] = f"{round(dimY / binning)}," \
+                                      f"{round(dimX / binning)}"
 
         if tsExcludedIndices:
             params["-exclude"] = ",".join(map(str, tsExcludedIndices))
@@ -738,3 +749,42 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
+
+    @staticmethod
+    def copyTsItems(outputTsSet, ts, tsId,
+                    updateTsCallback=None,
+                    updateTiCallback=None,
+                    copyDisabled=False,
+                    copyId=False, copyTM=True, **kwargs):
+        """ Re-implemented function from tomo.objects. Works on a single TS object.
+        Params:
+            outputSet: output set of tilt series.
+            ts: input TiltSeries.
+            tsId: can be used by other methods
+            updateTsCallback: optional callback after TiltSeries is created
+            updateTiCallback: optional callback after TiltImage is created
+            copyDisabled: if True, also copy disabled views.
+            copyId: copy ObjId.
+            copyTM: copy transformation matrix
+        """
+        tsOut = TiltSeries(tsId=tsId)
+        tsOut.copyInfo(ts, copyId=copyId)
+        if updateTsCallback:
+            updateTsCallback(tsId, ts, tsOut, **kwargs)
+        outputTsSet.append(tsOut)
+
+        counter = 0
+        for ti in ts.iterItems():
+            if not ti.isEnabled() and not copyDisabled:
+                continue
+            else:
+                tiOut = TiltImage(tsId=tsId)
+                tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM,
+                               copyStatus=True)
+                if updateTiCallback:
+                    updateTiCallback(counter, tsId, ts, ti,
+                                     tsOut, tiOut, **kwargs)
+                tsOut.append(tiOut)
+                counter += 1
+
+        outputTsSet.update(tsOut)

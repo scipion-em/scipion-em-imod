@@ -253,7 +253,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             ts = self.tsDict[tsId]
             xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(xfFile):
-                output = self.getOutputInterpolatedTS(self.getInputSet(), binning)
+                output = self.getOutputInterpolatedTS(self.getInputSet(pointer=True),
+                                                      binning)
                 firstItem = ts.getFirstItem()
                 params = self.getBasicNewstackParams(ts,
                                                      self.getExtraOutFile(tsId),

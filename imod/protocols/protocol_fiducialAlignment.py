@@ -338,7 +338,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.inputTS = self.getInputSet().getSetOfTiltSeries()
+        self.inputTSPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
+        self.inputTS = self.inputTSPointer.get()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.inputTS}
 
@@ -470,7 +471,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
                 firstItem = ts.getFirstItem()
-                output = self.getOutputInterpolatedTS(self.inputTS, binning)
+                output = self.getOutputInterpolatedTS(self.inputTSPointer, binning)
 
                 params = self.getBasicNewstackParams(
                     ts,

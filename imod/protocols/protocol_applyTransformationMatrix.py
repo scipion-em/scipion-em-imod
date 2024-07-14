@@ -27,8 +27,9 @@
 import os
 
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.emlib.image import ImageHandler as ih
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries
 
 from imod import utils
 from imod.protocols import ProtImodBase
@@ -51,6 +52,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -107,10 +112,16 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.computeAlignmentStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.computeAlignmentStep,
+                                              tsId,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions ------------------------------
     def _initialize(self):
@@ -153,51 +164,25 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self._failedTs.append(tsId)
             self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
-    def generateOutputStackStep(self, tsId):
+    def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
         if tsId in self._failedTs:
             self.createOutputFailedSet(ts)
         else:
             outputLocation = self.getExtraOutFile(tsId)
             if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self.getInputSet(),
+                output = self.getOutputInterpolatedTS(self.getInputSet(pointer=True),
                                                       binning=self.binning.get())
-
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setInterpolated(True)
-                acq = newTs.getAcquisition()
-                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-                newTs.setAcquisition(acq)
-                output.append(newTs)
-
+                output.getAcquisition().setTiltAxisAngle(0.)
                 outputPixSize = self._getOutputSampling()
-                for index, tiltImage in enumerate(ts):
-                    if tiltImage.isEnabled():
-                        newTi = TiltImage()
-                        newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                        acq = tiltImage.getAcquisition()
-                        acq.setTiltAxisAngle(0.)
-                        newTi.setAcquisition(acq)
-                        newTi.setLocation(index+1, outputLocation)
-                        if self.oddEvenFlag:
-                            locationOdd = index+1, self.getExtraOutFile(tsId, suffix=ODD)
-                            locationEven = index+1, self.getExtraOutFile(tsId, suffix=EVEN)
-                            newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                              ih.locationToXmipp(locationEven)])
-                        else:
-                            newTi.setOddEven([])
 
-                        newTi.setSamplingRate(outputPixSize)
-                        newTs.append(newTi)
-
-                dims = self._getOutputDim(outputLocation)
-                newTs.setDim(dims)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTs,
+                                 updateTiCallback=self.updateTi,
+                                 copyId=False, copyTM=False,
+                                 pixSize=outputPixSize)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -231,3 +216,25 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # --------------------------- UTILS functions -----------------------------
     def _getOutputSampling(self) -> float:
         return self.getInputSet().getSamplingRate() * self.binning.get()
+
+    def updateTs(self, tsId, ts, tsOut, **kwargs):
+        tsOut.setInterpolated(True)
+        tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+
+    def updateTi(self, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        outputLocation = self.getExtraOutFile(tsId)
+        tiOut.setLocation(index + 1, outputLocation)
+
+        tiOut.getAcquisition().setTiltAxisAngle(0.)
+
+        if self.oddEvenFlag:
+            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
+                              ih.locationToXmipp(locationEven)])
+        else:
+            tiOut.setOddEven([])
+
+        pixSize = kwargs.get("pixSize", None)
+        if pixSize is not None:
+            tiOut.setSamplingRate(pixSize)
