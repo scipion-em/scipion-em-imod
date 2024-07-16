@@ -435,8 +435,8 @@ class ProtImodFiducialModel(ProtImodBase):
 
                 output.append(landmarkModelGaps)
                 output.update(landmarkModelGaps)
-                output.write()
-                self._store(output)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

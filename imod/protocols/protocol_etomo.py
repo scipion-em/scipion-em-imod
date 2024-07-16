@@ -30,6 +30,7 @@ import os
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 import pyworkflow.utils as pwutils
 from pwem.emlib.image import ImageHandler as ih
 import tomo.objects as tomoObj
@@ -73,6 +74,7 @@ class ProtImodEtomo(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
         self.PrealignedTiltSeries = None
         self.FullTomograms = None
         self.PostProcessTomograms = None
@@ -125,7 +127,7 @@ class ProtImodEtomo(ProtImodBase):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self.getInputSet():
+        for item in self.getInputSet():  # FIXME: why?
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
@@ -249,11 +251,8 @@ class ProtImodEtomo(ProtImodBase):
                     newTs.append(newTi)
 
                 newTs.setDim(xPrealiDims)
-                newTs.write(properties=False)
 
                 outputPrealiSetOfTiltSeries.update(newTs)
-                outputPrealiSetOfTiltSeries.write()
-                self._store(outputPrealiSetOfTiltSeries)
 
             """Aligned tilt-series"""
             aligFilePath = self.getExtraOutFile(tsId, suffix="ali", ext=MRC_EXT)
@@ -308,11 +307,8 @@ class ProtImodEtomo(ProtImodBase):
                 acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
                 newTs.setAcquisition(acq)
                 newTs.setDim(aliDims)
-                newTs.write(properties=False)
 
                 outputAliSetOfTiltSeries.update(newTs)
-                outputAliSetOfTiltSeries.write()
-                self._store(outputAliSetOfTiltSeries)
 
             """Output set of coordinates 3D (associated to the aligned tilt-series)"""
             coordFilePath = self.getExtraOutFile(tsId, suffix='fid', ext=XYZ_EXT)
@@ -341,9 +337,6 @@ class ProtImodEtomo(ProtImodBase):
 
                     setOfTSCoords.append(newCoord3D)
                     setOfTSCoords.update(newCoord3D)
-
-                setOfTSCoords.write()
-                self._store(setOfTSCoords)
 
             """Landmark models with no gaps"""
             modelFilePath = self.getExtraOutFile(tsId, suffix="nogaps", ext=FID_EXT)
@@ -397,8 +390,6 @@ class ProtImodEtomo(ProtImodBase):
 
                 outputSetOfLandmarkModelsNoGaps.append(landmarkModelNoGaps)
                 outputSetOfLandmarkModelsNoGaps.update(landmarkModelNoGaps)
-                outputSetOfLandmarkModelsNoGaps.write()
-                self._store(outputSetOfLandmarkModelsNoGaps)
 
             """Full reconstructed tomogram"""
             reconstructTomoFilePath = self.getExtraOutFile(tsId, suffix="full_rec",
@@ -425,8 +416,6 @@ class ProtImodEtomo(ProtImodBase):
 
                 outputSetOfFullTomograms.append(newTomogram)
                 outputSetOfFullTomograms.update(newTomogram)
-                outputSetOfFullTomograms.write()
-                self._store(outputSetOfFullTomograms)
 
             """Post-processed reconstructed tomogram"""
             posprocessedRecTomoFilePath = self.getExtraOutFile(tsId, suffix="rec",
@@ -454,8 +443,6 @@ class ProtImodEtomo(ProtImodBase):
 
                 outputSetOfPostProcessTomograms.append(newTomogram)
                 outputSetOfPostProcessTomograms.update(newTomogram)
-                outputSetOfPostProcessTomograms.write()
-                self._store(outputSetOfPostProcessTomograms)
 
         self._closeOutputSet()
 

@@ -460,10 +460,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                     newTs.append(newTi)
 
-                newTs.write(properties=False)
                 output.update(newTs)
-                output.write()
-                self._store(output)
 
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         """ Generate interpolated stack. """
@@ -511,11 +508,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                 dims = self._getOutputDim(self.getExtraOutFile(tsId))
                 newTs.setDim(dims)
-                newTs.write(properties=False)
 
                 output.update(newTs)
-                output.write()
-                self._store(output)
 
     def eraseGoldBeadsStep(self, tsId):
         """ Erase gold beads on aligned stack. """
@@ -591,7 +585,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                 output.append(landmarkModelNoGaps)
                 output.update(landmarkModelNoGaps)
-                output.write()
 
         # Create the output set of 3D coordinates
         coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT)
@@ -608,7 +601,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 output.append(newCoord3D)
 
             output.write()
-            self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
