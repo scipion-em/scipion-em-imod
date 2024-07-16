@@ -402,7 +402,7 @@ class ProtImodFiducialModel(ProtImodBase):
             fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(fiducialModelGapPath):
-                output = self.getOutputFiducialModelGaps(self.getInputSet())
+                output = self.getOutputFiducialModelGaps(self.getInputSet(pointer=True))
                 landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
                 fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 

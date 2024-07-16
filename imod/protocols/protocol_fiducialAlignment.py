@@ -430,7 +430,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
                 newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
-                output = self.getOutputSetOfTS(self.inputTS)
+                output = self.getOutputSetOfTS(self.inputTSPointer)
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
                 output.append(newTs)
@@ -547,7 +547,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             if os.path.exists(fiducialNoGapFilePath):
-                output = self.getOutputFiducialModelNoGaps(self.inputTS)
+                output = self.getOutputFiducialModelNoGaps(self.inputTSPointer)
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
                 fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
@@ -596,7 +596,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         # Create the output set of 3D coordinates
         coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT)
         if os.path.exists(coordFilePath):
-            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputTS)
+            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputTSPointer)
             coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:

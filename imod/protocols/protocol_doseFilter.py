@@ -121,6 +121,7 @@ class ProtImodDoseFilter(ProtImodBase):
             outId = self._insertFunctionStep(self.createOutputStep, tsId,
                                              prerequisites=[compId])
             closeSetStepDeps.append(outId)
+
         self._insertFunctionStep(self.closeOutputSetsStep,
                                  prerequisites=closeSetStepDeps)
 

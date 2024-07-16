@@ -357,12 +357,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param attrName: output attr name
         :suffix: output set suffix
         """
-        if not inputPtr.isPointer():
-            logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
-            inputSet = inputPtr
-        else:
-            inputSet = inputPtr.get()
-
+        inputSet = inputPtr.get()
         outputTS = getattr(self, attrName, None)
         if outputTS:
             outputTS.enableAppend()
@@ -417,49 +412,57 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             return self.FailedTomograms
 
-    def getOutputFiducialModelNoGaps(self, inputSet):
+    def getOutputFiducialModelNoGaps(self, inputPtr):
+        if not inputPtr.isPointer():
+            logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
+            inputSet = inputPtr
+        else:
+            inputSet = inputPtr.get()
+
         if self.FiducialModelNoGaps:
             self.FiducialModelNoGaps.enableAppend()
         else:
             fidModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
 
             fidModelNoGaps.copyInfo(inputSet)
-            fidModelNoGaps.setSetOfTiltSeries(inputSet)
+            fidModelNoGaps.setSetOfTiltSeries(inputPtr)
             fidModelNoGaps.setHasResidualInfo(True)
             fidModelNoGaps.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME: fidModelNoGaps})
-            self._defineSourceRelation(inputSet, fidModelNoGaps)
+            self._defineSourceRelation(inputPtr, fidModelNoGaps)
 
         return self.FiducialModelNoGaps
 
-    def getOutputFiducialModelGaps(self, inputSet):
+    def getOutputFiducialModelGaps(self, inputPtr):
+        inputSet = inputPtr.get()
+
         if self.FiducialModelGaps:
             self.FiducialModelGaps.enableAppend()
         else:
             fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
 
             fidModelGaps.copyInfo(inputSet)
-            fidModelGaps.setSetOfTiltSeries(inputSet)
+            fidModelGaps.setSetOfTiltSeries(inputPtr)
             fidModelGaps.setHasResidualInfo(False)
             fidModelGaps.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: fidModelGaps})
-            self._defineSourceRelation(inputSet, fidModelGaps)
+            self._defineSourceRelation(inputPtr, fidModelGaps)
 
         return self.FiducialModelGaps
 
-    def getOutputSetOfTiltSeriesCoordinates(self, inputSet):
+    def getOutputSetOfTiltSeriesCoordinates(self, inputPtr):
         if self.TiltSeriesCoordinates:
             self.TiltSeriesCoordinates.enableAppend()
         else:
             coords3D = SetOfTiltSeriesCoordinates.create(self._getPath(),
                                                          suffix='Fiducials3D')
-            coords3D.setSetOfTiltSeries(inputSet)
+            coords3D.setSetOfTiltSeries(inputPtr)
             coords3D.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: coords3D})
-            self._defineSourceRelation(inputSet, coords3D)
+            self._defineSourceRelation(inputPtr, coords3D)
 
         return self.TiltSeriesCoordinates
 
@@ -471,7 +474,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                       suffix='Fiducials3D')
             coords3D.setSamplingRate(outputSet.getSamplingRate())
             coords3D.setPrecedents(outputSet)
-            coords3D.setBoxSize(32)
             coords3D.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
@@ -481,6 +483,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def getOutputSetOfTomograms(self, inputPtr, binning=1):
         inputSet = inputPtr.get()
+
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
         else:
@@ -504,19 +507,20 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return self.Tomograms
 
-    def getOutputSetOfCTFTomoSeries(self, outputSetName):
+    def getOutputSetOfCTFTomoSeries(self, inputPtr, outputSetName):
+        inputSet = inputPtr.get()
+
         outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
 
-        if outputSetOfCTFTomoSeries:
+        if outputSetOfCTFTomoSeries is not None:
             outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            ts = self.getInputSet(pointer=True)
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
-            self._defineCtfRelation(outputSetOfCTFTomoSeries, ts.get())
+            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
 
         return outputSetOfCTFTomoSeries
 

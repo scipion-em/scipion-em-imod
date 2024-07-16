@@ -247,6 +247,7 @@ class ProtImodXraysEraser(ProtImodBase):
                     output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
 
                     self.copyTsItems(output, ts, tsId,
+                                     updateTiCallback=self.updateTi,
                                      copyId=True, copyTM=True)
                 else:
                     self.createOutputFailedSet(ts)

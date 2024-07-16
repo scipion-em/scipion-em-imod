@@ -260,8 +260,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         else:
             outputFn = self.getExtraOutFile(tsId)
             if os.path.exists(outputFn):
-                inTsSet = self.getInputSet()
-                outputSetOfTs = self.getOutputSetOfTS(inTsSet)
+                outputSetOfTs = self.getOutputSetOfTS(self.getInputSet(pointer=True))
                 newTs = TiltSeries(tsId=tsId)
                 ts = self.tsDict[tsId]
                 newTs.copyInfo(ts)

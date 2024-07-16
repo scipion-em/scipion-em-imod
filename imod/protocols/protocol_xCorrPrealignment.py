@@ -211,7 +211,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         else:
             outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(outputFn):
-                output = self.getOutputSetOfTS(self.getInputSet())
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
                 alignmentMatrix = utils.formatTransformationMatrix(outputFn)
 
                 newTs = TiltSeries(tsId=tsId)
@@ -244,10 +244,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
                     newTs.append(newTi)
 
-                newTs.write(properties=False)
                 output.update(newTs)
-                output.write()
-                self._store(output)
 
     def computeInterpolatedStackStep(self, tsId, binning):
         if tsId not in self._failedTs:
@@ -279,7 +276,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
                 for index, tiltImage in enumerate(ts):
                     newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True)
+                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
                     if binning > 1:
                         newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
@@ -287,11 +284,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
                 dims = self._getOutputDim(self.getExtraOutFile(tsId))
                 newTs.setDim(dims)
-                newTs.write(properties=False)
 
                 output.update(newTs)
-                output.write()
-                self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -29,7 +29,6 @@ import os
 import pyworkflow.protocol.params as params
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
@@ -287,15 +286,25 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
+            form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         expDefoci = self.getExpectedDefocus()
+
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.ctfEstimation, tsId, expDefoci)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            convId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                              prerequisites=[])
+            compId = self._insertFunctionStep(self.ctfEstimation, tsId,
+                                              expDefoci, prerequisites=[convId])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -391,30 +400,34 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-            if os.path.exists(defocusFilePath):
-                output = self.getOutputSetOfCTFTomoSeries(outputSetName)
-                defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-                newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
-                newCTFTomoSeries.copyInfo(ts)
-                newCTFTomoSeries.setTiltSeries(ts)
-                newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-                newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-                output.append(newCTFTomoSeries)
+        with self._lock:
+            if tsId in self._failedTs:
+                self.createOutputFailedSet(ts)
+            else:
+                defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+                if os.path.exists(defocusFilePath):
+                    output = self.getOutputSetOfCTFTomoSeries(self.getInputSet(pointer=True),
+                                                              outputSetName)
+                    #defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-                self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+                    newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
+                    newCTFTomoSeries.copyInfo(ts)
+                    newCTFTomoSeries.setTiltSeries(ts)
+                    #newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
+                    #newCTFTomoSeries.setNumberOfEstimationsInRange(None)
+                    output.append(newCTFTomoSeries)
 
-                if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                    newCTFTomoSeries.setEnabled(False)
+                    self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
-                output.update(newCTFTomoSeries)
-                output.write()
-                self._store(output)
+                    # FIXME: always true?
+                    if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                            newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                        newCTFTomoSeries.setEnabled(False)
+
+                    output.update(newCTFTomoSeries)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -435,7 +448,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-
     def allowsDelete(self, obj):
         return True
 
