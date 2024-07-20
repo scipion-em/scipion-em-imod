@@ -74,7 +74,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        tsId = obj.getObjId()  # FIXME: getTsId()?
+        tsId = obj.getTsId()
         self.convertInputStep(tsId)
         expDefoci = self.getExpectedDefocus()
         self.ctfEstimation(tsId, expDefoci)

@@ -140,20 +140,25 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         binning = self.binning.get()
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeXcorrStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
+            convId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                              prerequisites=[])
+            compId = self._insertFunctionStep(self.computeXcorrStep, tsId,
+                                              prerequisites=[convId])
+            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId,
+                                             prerequisites=[compId])
             if self.computeAlignment:
-                self._insertFunctionStep(self.computeInterpolatedStackStep,
-                                         tsId, binning)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+                intpId = self._insertFunctionStep(self.computeInterpolatedStackStep,
+                                                  tsId, binning, prerequisites=[outId])
+                closeSetStepDeps.append(intpId)
+            else:
+                closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.getInputSet())
         super().convertInputStep(tsId, oddEven=oddEvenFlag)
@@ -206,45 +211,48 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def generateOutputStackStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-            if os.path.exists(outputFn):
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                alignmentMatrix = utils.formatTransformationMatrix(outputFn)
+        with self._lock:
+            if tsId in self._failedTs:
+                self.createOutputFailedSet(ts)
+            else:
+                outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+                if os.path.exists(outputFn):
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                    alignmentMatrix = utils.formatTransformationMatrix(outputFn)
 
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-                output.append(newTs)
+                    newTs = TiltSeries(tsId=tsId)
+                    newTs.copyInfo(ts)
+                    newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+                    output.append(newTs)
 
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                    for index, tiltImage in enumerate(ts):
+                        newTi = TiltImage()
+                        newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
 
-                    transform = Transform()
+                        transform = Transform()
 
-                    if tiltImage.hasTransform():
-                        previousTransform = tiltImage.getTransform().getMatrix()
-                        newTransform = alignmentMatrix[:, :, index]
-                        previousTransformArray = np.array(previousTransform)
-                        newTransformArray = np.array(newTransform)
-                        outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-                        transform.setMatrix(outputTransformMatrix)
-                        newTi.setTransform(transform)
-                    else:
-                        newTransform = alignmentMatrix[:, :, index]
-                        newTransformArray = np.array(newTransform)
-                        transform.setMatrix(newTransformArray)
-                        newTi.setTransform(transform)
+                        if tiltImage.hasTransform():
+                            previousTransform = tiltImage.getTransform().getMatrix()
+                            newTransform = alignmentMatrix[:, :, index]
+                            previousTransformArray = np.array(previousTransform)
+                            newTransformArray = np.array(newTransform)
+                            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+                            transform.setMatrix(outputTransformMatrix)
+                            newTi.setTransform(transform)
+                        else:
+                            newTransform = alignmentMatrix[:, :, index]
+                            newTransformArray = np.array(newTransform)
+                            transform.setMatrix(newTransformArray)
+                            newTi.setTransform(transform)
 
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(tiltImage.getLocation())
+                        newTi.setAcquisition(tiltImage.getAcquisition())
+                        newTi.setLocation(tiltImage.getLocation())
 
-                    newTs.append(newTi)
+                        newTs.append(newTi)
 
-                output.update(newTs)
+                    output.update(newTs)
+                else:
+                    self.createOutputFailedSet(ts)
 
     def computeInterpolatedStackStep(self, tsId, binning):
         if tsId not in self._failedTs:

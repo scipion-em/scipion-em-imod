@@ -28,6 +28,7 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.objects import Transform
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltImage, TiltSeries, TiltSeriesCoordinate)
@@ -117,6 +118,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
         OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels
     }
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

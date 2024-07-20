@@ -409,21 +409,21 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                 if os.path.exists(defocusFilePath):
                     output = self.getOutputSetOfCTFTomoSeries(self.getInputSet(pointer=True),
                                                               outputSetName)
-                    #defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
-
                     newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
                     newCTFTomoSeries.copyInfo(ts)
                     newCTFTomoSeries.setTiltSeries(ts)
-                    #newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-                    #newCTFTomoSeries.setNumberOfEstimationsInRange(None)
+
+                    # flags below will be updated in parseTSDefocusFile
+                    newCTFTomoSeries.setIMODDefocusFileFlag(1)
+                    newCTFTomoSeries.setNumberOfEstimationsInRange(0)
                     output.append(newCTFTomoSeries)
 
                     self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
                     # FIXME: always true?
-                    if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                            newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                        newCTFTomoSeries.setEnabled(False)
+                    #if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
+                    #        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
+                    #    newCTFTomoSeries.setEnabled(False)
 
                     output.update(newCTFTomoSeries)
                 else:

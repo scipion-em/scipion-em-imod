@@ -65,7 +65,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
 
     def __init__(self, **kwargs):
-        ProtImodBase().__init__(**kwargs)
+        super().__init__(**kwargs)
         self.stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
@@ -364,6 +364,8 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 output.append(newTomogram)
                 output.updateDim()
                 output.update(newTomogram)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

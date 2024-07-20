@@ -355,7 +355,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param inputPtr: input set pointer (TS or tomograms)
         :param binning: binning factor
         :param attrName: output attr name
-        :suffix: output set suffix
+        :param suffix: output set suffix
         """
         inputSet = inputPtr.get()
         outputTS = getattr(self, attrName, None)
@@ -524,7 +524,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
-    def createOutputFailedSet(self, item, presentAcqOrders=None):
+    def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
         inputSet = self.getInputSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
@@ -731,8 +731,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
-        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
+        #newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
+        #newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
     @staticmethod
     def copyTsItems(outputTsSet, ts, tsId,

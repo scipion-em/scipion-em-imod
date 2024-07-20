@@ -107,6 +107,7 @@ class ProtImodTomoProjection(ProtImodBase):
             outId = self._insertFunctionStep(self.generateOutputStackStep, tsId,
                                              prerequisites=[compId])
             closeSetStepDeps.append(outId)
+
         self._insertFunctionStep(self.closeOutputSetsStep,
                                  prerequisites=closeSetStepDeps)
 
