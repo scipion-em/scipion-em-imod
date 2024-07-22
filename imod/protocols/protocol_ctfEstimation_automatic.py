@@ -420,11 +420,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
                     self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
-                    # FIXME: always true?
-                    #if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                    #        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                    #    newCTFTomoSeries.setEnabled(False)
-
                     output.update(newCTFTomoSeries)
                 else:
                     self.createOutputFailedSet(ts)

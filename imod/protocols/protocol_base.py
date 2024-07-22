@@ -731,8 +731,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-        #newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
-        #newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
     @staticmethod
     def copyTsItems(outputTsSet, ts, tsId,
