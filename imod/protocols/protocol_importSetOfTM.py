@@ -157,6 +157,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
         newTs = TiltSeries(tsId=tsId)
         newTs.copyInfo(ts)
+        newTs.setAlignment2D()
         output.append(newTs)
 
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
