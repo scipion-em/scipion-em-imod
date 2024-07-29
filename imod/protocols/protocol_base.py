@@ -571,6 +571,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 self.processOddEven and
                 setOfTs.hasOddEven())
 
+    def warningOddEven(self, setOfTs: SetOfTiltSeries, warnMsgList: list):
+        if hasattr(self, "processOddEven") and self.processOddEven and not setOfTs.hasOddEven():
+            warnMsgList.append('The even/odd tilt-series were not found in the introduced tilt-series '
+                               'metadata. Thus they cannot be processed, only the full tilt-series.')
+
     def runProgram(self, program, params, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
@@ -738,3 +743,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
         newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
         newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
+
+    # --------------------------- INFO functions ------------------------------
+    def _warnings(self):
+        warnMsgList = []
+        self.warningOddEven(self.getInputSet(), warnMsgList)
+        return warnMsgList

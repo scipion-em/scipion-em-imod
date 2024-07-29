@@ -167,7 +167,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
         form.addParam('processOddEven',
                       params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
+                      # expertLevel=params.LEVEL_ADVANCED,
                       default=True,
                       label='Apply to odd/even',
                       help='If True, the full tilt series and the associated '
