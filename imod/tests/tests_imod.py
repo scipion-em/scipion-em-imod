@@ -22,8 +22,10 @@
 # *  e-mail address 'scipion-users@lists.sourceforge.net'
 # *
 # **************************************************************************
-from imod.constants import OUTPUT_TILTSERIES_NAME
-from imod.protocols import ProtImodXraysEraser
+import numpy as np
+
+from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE
+from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr
 from tomo.protocols import ProtImportTs
@@ -48,8 +50,7 @@ TS_03 = 'TS_03'
 TS_43 = 'TS_43'
 TS_45 = 'TS_45'
 TS_54 = 'TS_54'
-tsDims40 = [3710, 3838, 40]
-tsDims41 = [3710, 3838, 41]
+unbinnedTiDims = [3710, 3838]
 tomoDimsThk300 = [928, 928, 300]
 tomoDimsThk280 = [928, 928, 280]
 tomoDimsThk340 = [928, 928, 340]
@@ -59,10 +60,6 @@ class TestImodBase(TestBaseCentralizedLayer):
     importedTs = None
     unbinnedSRate = DataSetRe4STATuto.unbinnedPixSize.value
     expectedTsSetSize = 2
-    expectedDimensions = {
-        TS_03: tsDims40,
-        TS_54: tsDims41,
-    }
     testAcqObjDict = {
         TS_03: DataSetRe4STATuto.testAcq03.value,
         TS_54: DataSetRe4STATuto.testAcq54.value,
@@ -81,6 +78,14 @@ class TestImodBase(TestBaseCentralizedLayer):
     @classmethod
     def _runPreviousProtocols(cls):
         pass
+
+    @staticmethod
+    def _getExpectedDimsDict(binningFactor=1):
+        expectedDimensions = {
+            TS_03: list(np.round(np.array(unbinnedTiDims) / binningFactor)) + [40],
+            TS_54: list(np.round(np.array(unbinnedTiDims) / binningFactor)) + [41]
+        }
+        return expectedDimensions
 
     @classmethod
     def _runImportTs(cls, exclusionWords=DataSetRe4STATuto.exclusionWordsTs03ts54.value):
@@ -106,10 +111,52 @@ class TestImodBase(TestBaseCentralizedLayer):
     @classmethod
     def _runXRayEraser(cls, inTsSet):
         print(magentaStr("\n==> Running the X-Ray eraser:"))
+
         protXRayEraser = cls.newProtocol(ProtImodXraysEraser, inputSetOfTiltSeries=inTsSet)
         cls.launchProtocol(protXRayEraser)
         tsXRayErased = getattr(protXRayEraser, OUTPUT_TILTSERIES_NAME, None)
         return tsXRayErased
+
+    @classmethod
+    def _runDoseFilter(cls, inTsSet, fixedDose=False, fixedDoseValue=0):
+        if fixedDose:
+            doseMsg = 'fixed dose'
+            doseType = FIXED_DOSE
+        else:
+            doseMsg = 'Scipion import dose'
+            doseType = SCIPION_IMPORT
+        print(magentaStr(f"\n==> Running the dose filter with {doseMsg}:"))
+        protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
+                                         inputSetOfTiltSeries=inTsSet,
+                                         inputDoseType=doseType)
+        if fixedDose:
+            protDoseFilter.fixedImageDose.set(fixedDoseValue)
+        protDoseFilter.setObjLabel(doseMsg)
+        cls.launchProtocol(protDoseFilter)
+        tsDoseFiltered = getattr(protDoseFilter, OUTPUT_TILTSERIES_NAME, None)
+        return tsDoseFiltered
+
+    @classmethod
+    def _runTsPreprocess(cls, inTsSet, binning=1, applyAli=False, densAdjustMode=None, **kwargs):
+        choices = ['No adjust',
+                   'range between min and max',
+                   'scaled to common mean and standard deviation',
+                   'shifted to a common mean without scaling',
+                   'shifted to mean and rescaled to a min and max']
+        print(magentaStr(f"\n==> Running the TS preprocessing:"
+                         f"\n\t- Binning factor = {binning}"
+                         f"\n\t- Apply transformation matrix = {applyAli}"
+                         f"\n\t- Adjust densities mode = {choices[densAdjustMode]}"))
+        protTsNorm = cls.newProtocol(ProtImodTsNormalization,
+                                     inputSetOfTiltSeries=inTsSet,
+                                     binning=binning,
+                                     applyAlignment=applyAli,
+                                     floatDensities=densAdjustMode,
+                                     **kwargs)
+        protTsNorm.setObjLabel(f'Bin_{binning} Ali_{applyAli} Mode_{densAdjustMode}')
+        cls.launchProtocol(protTsNorm)
+        tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
+        return tsPreprocessed
 
 
 class TestXRayEraser(TestImodBase):
@@ -124,8 +171,67 @@ class TestXRayEraser(TestImodBase):
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate,
                              imported=True,
-                             expectedDimensions=self.expectedDimensions,
+                             expectedDimensions=self._getExpectedDimsDict(),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHetereogeneousSet=True)
 
+
+class TestDoseFilter(TestImodBase):
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+
+    def _checkTiltSeries(self, inTsSet):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate,
+                             imported=True,
+                             expectedDimensions=self._getExpectedDimsDict(),
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True)
+
+    def testDoseFilter01(self):
+        tsDoseFilterred = self._runDoseFilter(self.importedTs, fixedDose=SCIPION_IMPORT)
+        self._checkTiltSeries(tsDoseFilterred)
+
+    def testDoseFilter02(self):
+        tsDoseFilterred = self._runDoseFilter(self.importedTs,
+                                              fixedDose=FIXED_DOSE,
+                                              fixedDoseValue=DataSetRe4STATuto.dosePerTiltImgWithTltFile.value)
+        self._checkTiltSeries(tsDoseFilterred)
+
+
+class TestTsPreprocess(TestImodBase):
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             imported=True,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True)
+
+    def testTsPreprocess01(self):
+        binningFactor = 4
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=0)  # No adjust
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess02(self):
+        binningFactor = 8
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=1)  # range between min and max
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)

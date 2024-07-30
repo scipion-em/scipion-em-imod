@@ -27,7 +27,9 @@
 import os.path
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
@@ -58,9 +60,8 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -99,10 +100,9 @@ class ProtImodDoseFilter(ProtImodBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
 
-        form.addParam('processOddEven',
+        form.addParam(PROCESS_ODD_EVEN,
                       params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
+                      default=False,
                       label='Filter odd/even',
                       help='If True, the full tilt series and the associated '
                            'odd/even tilt series will be processed. The applied '
@@ -118,8 +118,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def doseFilterStep(self, tsId):
@@ -129,7 +128,7 @@ class ProtImodDoseFilter(ProtImodBase):
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
-            params = {
+            paramDict = {
                 '-input': firstItem.getFileName(),
                 '-output': self.getExtraOutFile(tsId),
                 '-PixelSize': ts.getSamplingRate(),
@@ -137,29 +136,29 @@ class ProtImodDoseFilter(ProtImodBase):
             }
 
             if self.initialDose.get() != 0.0:
-                params["-InitialDose"] = self.initialDose.get()
+                paramDict["-InitialDose"] = self.initialDose.get()
 
             if self.inputDoseType.get() == SCIPION_IMPORT:
                 outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
                 utils.generateDoseFile(ts, outputDoseFilePath)
-                params["-TypeOfDoseFile"] = 2
-                params["-DoseWeightingFile"] = outputDoseFilePath
+                paramDict["-TypeOfDoseFile"] = 2
+                paramDict["-DoseWeightingFile"] = outputDoseFilePath
 
             elif self.inputDoseType.get() == FIXED_DOSE:
-                params["-FixedImageDose"] = self.fixedImageDose.get()
+                paramDict["-FixedImageDose"] = self.fixedImageDose.get()
 
-            self.runProgram("mtffilter", params)
+            self.runProgram("mtffilter", paramDict)
 
             if self.oddEvenFlag:
                 oddFn = firstItem.getOdd().split('@')[1]
                 evenFn = firstItem.getEven().split('@')[1]
-                params['-input'] = oddFn
-                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("mtffilter", params)
+                paramDict['-input'] = oddFn
+                paramDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("mtffilter", paramDict)
 
-                params['-input'] = evenFn
-                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("mtffilter", params)
+                paramDict['-input'] = evenFn
+                paramDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("mtffilter", paramDict)
 
         except Exception as e:
             self._failedTs.append(tsId)

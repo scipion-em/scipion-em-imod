@@ -25,7 +25,7 @@
 # *****************************************************************************
 import logging
 
-from pyworkflow.object import Set, CsvList
+from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.utils import path
 from pwem.emlib.image import ImageHandler as ih
@@ -39,6 +39,8 @@ from imod import Plugin, utils
 from imod.constants import *
 
 logger = logging.getLogger(__name__)
+IN_TS_SET = 'inputSetOfTiltSeries'
+PROCESS_ODD_EVEN = 'processOddEven'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
@@ -567,18 +569,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def applyToOddEven(self, setOfTs):
-        return (hasattr(self, "processOddEven") and
-                self.processOddEven and
-                setOfTs.hasOddEven())
+        return getattr(self, PROCESS_ODD_EVEN, Boolean(False)).get() and setOfTs.hasOddEven()
 
     def warningOddEven(self, setOfTs: SetOfTiltSeries, warnMsgList: list):
-        if hasattr(self, "processOddEven") and self.processOddEven and not setOfTs.hasOddEven():
+        if getattr(self, PROCESS_ODD_EVEN, Boolean(False).get()) and not setOfTs.hasOddEven():
             warnMsgList.append('The even/odd tilt-series were not found in the introduced tilt-series '
-                               'metadata. Thus they cannot be processed, only the full tilt-series.')
+                               'metadata. Thus, they cannot be processed, only the full tilt-series.')
 
-    def runProgram(self, program, params, cwd=None):
+    def runProgram(self, program, paramsDict, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
-        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
+        args = ' '.join(['%s %s' % (k, str(v)) for k, v in paramsDict.items()])
         Plugin.runImod(self, program, args, cwd)
 
     @staticmethod

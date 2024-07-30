@@ -26,7 +26,9 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod.protocols import ProtImodBase
@@ -114,9 +116,8 @@ class ProtImodXraysEraser(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
-        form.addSection('Input')
-
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -165,10 +166,9 @@ class ProtImodXraysEraser(ProtImodBase):
                            'may be needed to make extra-large peak removal '
                            'useful.')
 
-        form.addParam('processOddEven',
+        form.addParam(PROCESS_ODD_EVEN,
                       params.BooleanParam,
-                      # expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
+                      default=False,
                       label='Apply to odd/even',
                       help='If True, the full tilt series and the associated '
                            'odd/even tilt series will be processed. The filter '
@@ -185,10 +185,8 @@ class ProtImodXraysEraser(ProtImodBase):
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
 
     def convertInputStep(self, tsId, **kwargs):
         super().convertInputStep(tsId,
