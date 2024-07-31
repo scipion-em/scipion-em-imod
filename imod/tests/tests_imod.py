@@ -81,9 +81,17 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @staticmethod
     def _getExpectedDimsDict(binningFactor=1):
+        dims = []
+        for iDim in unbinnedTiDims:
+            newDim = round(iDim / binningFactor)
+            # Imod always generates images with even dimensions
+            if newDim % 2 != 0:
+                newDim += 1
+            dims.append(newDim)
+
         expectedDimensions = {
-            TS_03: list(np.round(np.array(unbinnedTiDims) / binningFactor)) + [40],
-            TS_54: list(np.round(np.array(unbinnedTiDims) / binningFactor)) + [41]
+            TS_03: dims + [40],
+            TS_54: dims + [41]
         }
         return expectedDimensions
 
@@ -159,7 +167,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsPreprocessed
 
 
-class TestXRayEraser(TestImodBase):
+class TestImodXRayEraser(TestImodBase):
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -177,7 +185,7 @@ class TestXRayEraser(TestImodBase):
                              isHetereogeneousSet=True)
 
 
-class TestDoseFilter(TestImodBase):
+class TestImodDoseFilter(TestImodBase):
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -204,7 +212,7 @@ class TestDoseFilter(TestImodBase):
         self._checkTiltSeries(tsDoseFilterred)
 
 
-class TestTsPreprocess(TestImodBase):
+class TestImodTsPreprocess(TestImodBase):
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -220,12 +228,22 @@ class TestTsPreprocess(TestImodBase):
                              anglesCount=self.anglesCountDict,
                              isHetereogeneousSet=True)
 
-    def testTsPreprocess01(self):
+    def testTsPreprocess00(self):
         binningFactor = 4
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
                                                applyAli=False,
                                                densAdjustMode=0)  # No adjust
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess01(self):
+        binningFactor = 1
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=0,  # No adjust
+                                               scaleMax=200,
+                                               scaleMin=20)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
     def testTsPreprocess02(self):
@@ -234,4 +252,33 @@ class TestTsPreprocess(TestImodBase):
                                                binning=binningFactor,
                                                applyAli=False,
                                                densAdjustMode=1)  # range between min and max
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess03(self):
+        binningFactor = 2
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=2,  # scaled to common mean and standard deviation
+                                               meanSdToggle=True,
+                                               scaleMean=0,
+                                               scaleSd=1)
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess04(self):
+        binningFactor = 4
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=2,  # scaled to common mean and standard deviation
+                                               meanSdToggle=False)
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess05(self):
+        binningFactor = 3
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=3,  # shifted to a common mean without scaling
+                                               meanSdToggle=False)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)

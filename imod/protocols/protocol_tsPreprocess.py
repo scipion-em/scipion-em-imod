@@ -26,7 +26,9 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod.protocols import ProtImodBase
@@ -64,8 +66,8 @@ class ProtImodTsNormalization(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -102,23 +104,23 @@ class ProtImodTsNormalization(ProtImodBase):
                       display=params.EnumParam.DISPLAY_COMBO,
                       help='Adjust densities of sections individually:\n'
                            '-Default: no adjustment performed\n'
-                           
+
                            '-Range between min and max: This option will scale the gray values'
                            'to be in a range given by a minimum and a maximum values.'
                            'This is the mode 1 in newstack flag -floatDensities.\n'
-                           
+
                            '-Scaled to common mean and standard deviation: This is the most '
                            'common normalization procedure. The new tilt series will have'
                            'a meand and a standard deviation introduced by the user. Generaly,'
                            'a zero meand and a standard deviation one is a good choice.'
                            'This is the mode 2 in newstack flag -floatDensities.\n'
-                           
+
                            '-Shifted to a common mean without scaling: This option only'
                            'add an offset to the gray values of the images. The offset will'
                            'be calculated such as the new images will present a mean gray value'
                            'introduced by the user. This is the mode 3 in newstack flag '
                            'floatDensities.\n'
-                           
+
                            '-shifted to mean and rescaled to a min and max: In this case, an '
                            'offset is added to the images in order to achieve a mean gray value'
                            ' then they are rescale the resulting minimum and maximum densities '
@@ -134,7 +136,7 @@ class ProtImodTsNormalization(ProtImodBase):
                              params.BooleanParam,
                              default=False,
                              label='Set mean and SD?',
-                             display=params.EnumParam.DISPLAY_HLIST,
+                             display=params.BooleanParam,
                              help='Set mean and SD values')
 
         groupMeanSd.addParam('scaleMean',
@@ -152,19 +154,20 @@ class ProtImodTsNormalization(ProtImodBase):
                              help='Standard deviation value for the rescaling')
 
         groupScale = form.addGroup('Scaling values',
-                                   condition='floatDensities==4')
-
+                                   condition='floatDensities in [0, 4]')
+        msg = 'This option will rescale the densities of all sections by the same factors so that the original ' \
+              'minimum and maximum density will be mapped to the Min and Max values that are entered.'
         groupScale.addParam('scaleMax',
                             params.FloatParam,
                             default=255.,
                             label='Max.',
-                            help='Maximum value for the rescaling')
+                            help=f'Maximum value for the rescaling. {msg}')
 
         groupScale.addParam('scaleMin',
                             params.FloatParam,
                             default=0.,
                             label='Min.',
-                            help='Minimum value for the rescaling')
+                            help=f'Minimum value for the rescaling. {msg}')
 
         form.addParam('modeToOutput',
                       params.EnumParam,
@@ -178,31 +181,32 @@ class ProtImodTsNormalization(ProtImodBase):
                            'default is the mode of the first input file, '
                            'except for a 4-bit input file, where the default '
                            'is to output as bytes')
-
-        form.addParam('scaleRangeToggle',
-                      params.BooleanParam,
-                      condition="floatDensities==1 or floatDensities==3",
-                      default=True,
-                      label='Set scaling range values?',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='This option will rescale the densities of all '
-                           'sections by the same factors so that the original '
-                           'minimum and maximum density will be mapped '
-                           'to the Min and Max values that are entered')
-
-        form.addParam('scaleRangeMin',
-                      params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
-                      default=0,
-                      label='Min.',
-                      help='Minimum value for the rescaling')
-
-        form.addParam('scaleRangeMax',
-                      params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle",
-                      default=255,
-                      label='Max.',
-                      help='Maximum value for the rescaling')
+        # NEWSTACK - The -scale, -contrast, -multadd, and -float options are mutually exclusive except with -float 4
+        # scaleRangeToggleCond = "floatDensities in [0, 4]"
+        # form.addParam('scaleRangeToggle',
+        #               params.BooleanParam,
+        #               condition=scaleRangeToggleCond,
+        #               default=True,
+        #               label='Set scaling range values?',
+        #               display=params.BooleanParam,
+        #               help='This option will rescale the densities of all '
+        #                    'sections by the same factors so that the original '
+        #                    'minimum and maximum density will be mapped '
+        #                    'to the Min and Max values that are entered')
+        #
+        # form.addParam('scaleRangeMin',
+        #               params.FloatParam,
+        #               condition=f"{scaleRangeToggleCond} and scaleRangeToggle",
+        #               default=0,
+        #               label='Min.',
+        #               help='Minimum value for the rescaling')
+        #
+        # form.addParam('scaleRangeMax',
+        #               params.FloatParam,
+        #               condition=f"{scaleRangeToggleCond} and scaleRangeToggle",
+        #               default=255,
+        #               label='Max.',
+        #               help='Maximum value for the rescaling')
 
         form.addParam('antialias',
                       params.EnumParam,
@@ -226,10 +230,9 @@ class ProtImodTsNormalization(ProtImodBase):
                            'based on images of natural scenes where there are '
                            'sharp edges.')
 
-        form.addParam('processOddEven',
+        form.addParam(PROCESS_ODD_EVEN,
                       params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
+                      default=False,
                       label='Apply to odd/even',
                       help='If True, the full tilt series and the associated odd/even '
                            'tilt series will be processed. The transformations applied '
@@ -241,16 +244,13 @@ class ProtImodTsNormalization(ProtImodBase):
         binning = self.binning.get()
         for tsId in self.tsDict.keys():
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId,
-                                     binning)
-            self._insertFunctionStep(self.createOutputStep, tsId,
-                                     binning)
+            self._insertFunctionStep(self.generateOutputStackStep, tsId, binning)
+            self._insertFunctionStep(self.createOutputStep, tsId, binning)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def convertInputStep(self, tsId, **kwargs):
@@ -280,19 +280,12 @@ class ProtImodTsNormalization(ProtImodBase):
                                                  doNorm=norm != 0)
             params["-antialias"] = self.antialias.get() + 1
 
-            if norm != 0:
+            if norm > 0:
                 params["-FloatDensities"] = norm
-
-                if norm == 2:
-                    if self.meanSdToggle:
-                        params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
-
+                if norm == 2 and self.meanSdToggle:
+                    params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
                 elif norm == 4:
                     params["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
-
-                else:
-                    if self.scaleRangeToggle:
-                        params["-ScaleMinAndMax"] = f"{self.scaleRangeMax.get()},{self.scaleRangeMin.get()}"
 
             if self.getModeToOutput() is not None:
                 params["-ModeToOutput"] = self.getModeToOutput()
@@ -345,7 +338,7 @@ class ProtImodTsNormalization(ProtImodBase):
                     else:
                         newTi.setOddEven([])
 
-                    newTi.setLocation(index + 1,  outputFn)
+                    newTi.setLocation(index + 1, outputFn)
 
                     if binning > 1:
                         newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
