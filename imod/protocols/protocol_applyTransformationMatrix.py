@@ -27,7 +27,9 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
@@ -54,8 +56,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -94,7 +96,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
         
-        form.addParam('processOddEven',
+        form.addParam(PROCESS_ODD_EVEN,
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
                       default=True,

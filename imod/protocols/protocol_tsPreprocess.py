@@ -85,6 +85,8 @@ class ProtImodTsNormalization(ProtImodBase):
                            'values in each block of pixels being binned. Binning '
                            'is applied before all')
 
+        # TODO: decide if this option should be removed. If not, the out TS must be renamed to interpolated and the non-
+        # interpolated should be also generated
         form.addParam('applyAlignment',
                       params.BooleanParam,
                       default=False,
@@ -95,60 +97,64 @@ class ProtImodTsNormalization(ProtImodBase):
         form.addParam('floatDensities',
                       params.EnumParam,
                       choices=['No adjust',
-                               'range between min and max',
+                               'adjust each section to fill the data range',
                                'scaled to common mean and standard deviation',
                                'shifted to a common mean without scaling',
                                'shifted to mean and rescaled to a min and max'],
                       default=2,
                       label='Adjust densities mode',
                       display=params.EnumParam.DISPLAY_COMBO,
-                      help='Adjust densities of sections individually:\n'
-                           '-Default: no adjustment performed\n'
+                      help='Adjust densities of sections individually. Modes:\n\n'
+                           '*0 - No adjustment performed*\n\n'
+                           
+                           '*1 - Adjust each section to fill the data range*\n\n'
 
-                           '-Range between min and max: This option will scale the gray values'
-                           'to be in a range given by a minimum and a maximum values.'
-                           'This is the mode 1 in newstack flag -floatDensities.\n'
+                           # '-Range between min and max: This option will scale the gray values'
+                           # 'to be in a range given by a minimum and a maximum values.'
+                           # 'This is the mode 1 in newstack flag -floatDensities.\n'
 
-                           '-Scaled to common mean and standard deviation: This is the most '
+                           '*2 - Scaled to common mean and standard deviation*:\n\n'
+                           'This is the most '
                            'common normalization procedure. The new tilt series will have'
                            'a meand and a standard deviation introduced by the user. Generaly,'
                            'a zero meand and a standard deviation one is a good choice.'
-                           'This is the mode 2 in newstack flag -floatDensities.\n'
+                           'This is the mode 2 in newstack flag -floatDensities.\n\n'
 
-                           '-Shifted to a common mean without scaling: This option only'
+                           '*3 - Shifted to a common mean without scaling*:\n\n'
+                           'This option only'
                            'add an offset to the gray values of the images. The offset will'
                            'be calculated such as the new images will present a mean gray value'
                            'introduced by the user. This is the mode 3 in newstack flag '
-                           'floatDensities.\n'
+                           'floatDensities.\n\n'
 
-                           '-shifted to mean and rescaled to a min and max: In this case, an '
-                           'offset is added to the images in order to achieve a mean gray value'
-                           ' then they are rescale the resulting minimum and maximum densities '
-                           'to the Min and Max values specified. This is the mode 4 in newstack'
-                           ' flag -floatDensities.\n')
+                           '*4 - shifted to mean and rescaled to a min and max*:\n\nIn this case, an '
+                           'offset is added to the images in order to achieve a mean gray value '
+                           'then they are rescale the resulting minimum and maximum densities '
+                           'to the Min and Max values specified. This is the mode 4 in newstack '
+                           'flag -floatDensities.')
 
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
                                     help='Scale all images to the given mean '
                                          'and standard deviation.')
 
-        groupMeanSd.addParam('meanSdToggle',
-                             params.BooleanParam,
-                             default=False,
-                             label='Set mean and SD?',
-                             display=params.BooleanParam,
-                             help='Set mean and SD values')
-
+        # groupMeanSd.addParam('meanSdToggle',
+        #                      params.BooleanParam,
+        #                      default=False,
+        #                      label='Set mean and SD?',
+        #                      display=params.BooleanParam,
+        #                      help='Set mean and SD values')
+        floatDensMode2Cond = 'floatDensities == 2'
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
-                             condition='meanSdToggle',
+                             condition=floatDensMode2Cond,
                              default=0,
                              label='Mean',
                              help='Mean value for the rescaling')
 
         groupMeanSd.addParam('scaleSd',
                              params.FloatParam,
-                             condition='meanSdToggle',
+                             condition=floatDensMode2Cond,
                              default=1,
                              label='SD',
                              help='Standard deviation value for the rescaling')
@@ -271,35 +277,35 @@ class ProtImodTsNormalization(ProtImodBase):
                 genXfFile(ts, xfFile)
 
             norm = self.floatDensities.get()
-            params = self.getBasicNewstackParams(ts,
-                                                 self.getExtraOutFile(tsId),
-                                                 inputTsFileName=self.getTmpOutFile(tsId),
-                                                 xfFile=xfFile,
-                                                 firstItem=firstItem,
-                                                 binning=binning,
-                                                 doNorm=norm != 0)
-            params["-antialias"] = self.antialias.get() + 1
-
+            paramsDict = self.getBasicNewstackParams(ts,
+                                                     self.getExtraOutFile(tsId),
+                                                     inputTsFileName=self.getTmpOutFile(tsId),
+                                                     xfFile=xfFile,
+                                                     firstItem=firstItem,
+                                                     binning=binning,
+                                                     doNorm=norm != 0)
+            paramsDict["-antialias"] = self.antialias.get() + 1
+            # Float densities
             if norm > 0:
-                params["-FloatDensities"] = norm
-                if norm == 2 and self.meanSdToggle:
-                    params["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
+                paramsDict["-FloatDensities"] = norm
+                if norm == 2:
+                    paramsDict["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
                 elif norm == 4:
-                    params["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
+                    paramsDict["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
 
             if self.getModeToOutput() is not None:
-                params["-ModeToOutput"] = self.getModeToOutput()
+                paramsDict["-ModeToOutput"] = self.getModeToOutput()
 
-            self.runProgram("newstack", params)
+            self.runProgram("newstack", paramsDict)
 
             if self.oddEvenFlag:
-                params['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
-                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("newstack", paramsDict)
 
-                params['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("newstack", paramsDict)
 
         except Exception as e:
             self._failedTs.append(tsId)

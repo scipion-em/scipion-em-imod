@@ -22,10 +22,14 @@
 # *  e-mail address 'scipion-users@lists.sourceforge.net'
 # *
 # **************************************************************************
+import math
+
 import numpy as np
 
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE
-from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization
+from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
+    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix
+from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr
 from tomo.protocols import ProtImportTs
@@ -51,6 +55,7 @@ TS_43 = 'TS_43'
 TS_45 = 'TS_45'
 TS_54 = 'TS_54'
 unbinnedTiDims = [3710, 3838]
+tsOriginAngst = - DataSetRe4STATuto.unbinnedPixSize.value * np.array(unbinnedTiDims) / 2
 tomoDimsThk300 = [928, 928, 300]
 tomoDimsThk280 = [928, 928, 280]
 tomoDimsThk340 = [928, 928, 340]
@@ -83,7 +88,7 @@ class TestImodBase(TestBaseCentralizedLayer):
     def _getExpectedDimsDict(binningFactor=1):
         dims = []
         for iDim in unbinnedTiDims:
-            newDim = round(iDim / binningFactor)
+            newDim = math.ceil(iDim / binningFactor)
             # Imod always generates images with even dimensions
             if newDim % 2 != 0:
                 newDim += 1
@@ -145,6 +150,25 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsDoseFiltered
 
     @classmethod
+    def _runImportTrMatrix(cls, inTsSet):
+        print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"))
+        protImportTrMatrix = cls.newProtocol(ProtImodImportTransformationMatrix,
+                                             filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
+                                             filesPattern=DataSetRe4STATuto.transformPattern.value,
+                                             inputSetOfTiltSeries=inTsSet)
+        cls.launchProtocol(protImportTrMatrix)
+        outTsSet = getattr(protImportTrMatrix, OUTPUT_TILTSERIES_NAME, None)
+        return outTsSet
+
+    @classmethod
+    def _runApplytTrMatrix(cls, inTsSet):
+        print(magentaStr("\n==> Applying the TS' transformation matrices with IMOD:"))
+        protApplyTrMat = cls.newProtocol(ProtImodApplyTransformationMatrix, inputSetOfTiltSeries=inTsSet)
+        cls.launchProtocol(protApplyTrMat)
+        outTsSet = getattr(protApplyTrMat, OUTPUT_TILTSERIES_NAME, None)
+        return outTsSet
+
+    @classmethod
     def _runTsPreprocess(cls, inTsSet, binning=1, applyAli=False, densAdjustMode=None, **kwargs):
         choices = ['No adjust',
                    'range between min and max',
@@ -182,7 +206,8 @@ class TestImodXRayEraser(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True)
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
 
 
 class TestImodDoseFilter(TestImodBase):
@@ -199,7 +224,8 @@ class TestImodDoseFilter(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True)
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
 
     def testDoseFilter01(self):
         tsDoseFilterred = self._runDoseFilter(self.importedTs, fixedDose=SCIPION_IMPORT)
@@ -218,15 +244,18 @@ class TestImodTsPreprocess(TestImodBase):
     def _runPreviousProtocols(cls):
         cls.importedTs = cls._runImportTs()
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, imported=True, hasAlignment=False, alignment=ALIGN_NONE):
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
-                             imported=True,
+                             imported=imported,
+                             hasAlignment=hasAlignment,
+                             alignment=alignment,
                              expectedDimensions=self._getExpectedDimsDict(binningFactor),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True)
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
 
     def testTsPreprocess00(self):
         binningFactor = 4
@@ -260,7 +289,6 @@ class TestImodTsPreprocess(TestImodBase):
                                                binning=binningFactor,
                                                applyAli=False,
                                                densAdjustMode=2,  # scaled to common mean and standard deviation
-                                               meanSdToggle=True,
                                                scaleMean=0,
                                                scaleSd=1)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
@@ -282,3 +310,26 @@ class TestImodTsPreprocess(TestImodBase):
                                                densAdjustMode=3,  # shifted to a common mean without scaling
                                                meanSdToggle=False)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess06(self):
+        binningFactor = 6
+        tsPreprocessed = self._runTsPreprocess(self.importedTs,
+                                               binning=binningFactor,
+                                               applyAli=False,
+                                               densAdjustMode=4,  # shifted to mean and rescaled to a min and max
+                                               scaleMax=200,
+                                               scaleMin=20)
+        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    # def testTsPreprocess07(self):
+    #     binningFactor = 4
+    #     tsImportedMat = self._runImportTrMatrix(self.importedTs)
+    #     tsPreprocessed = self._runTsPreprocess(tsImportedMat,
+    #                                            binning=binningFactor,
+    #                                            applyAli=True,
+    #                                            densAdjustMode=4)  # shifted to mean and rescaled to a min and max
+    #     self._checkTiltSeries(tsPreprocessed,
+    #                           binningFactor=binningFactor,
+    #                           imported=False,
+    #                           hasAlignment=True,
+    #                           alignment=ALIGN_2D)
