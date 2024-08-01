@@ -28,7 +28,10 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pwem import ALIGN_2D, ALIGN_NONE
 from pwem.objects import Transform
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
@@ -59,9 +62,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -71,12 +74,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Use cumulative correlation?',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='The program will take the image at zero tilt as the first'
                            'reference, and correlate it with the image at the next '
                            'most negative tilt. It will then add the aligned image '
                            'to the first reference to make the reference for the next '
-                           'tilt.  At each tilt, the reference will be the sum of '
+                           'tilt. At each tilt, the reference will be the sum of '
                            'images that have already been aligned. When the most '
                            'negative tilt angle is reached, the procedure is repeated '
                            'from the zero-tilt view to more positive tilt angles.')
@@ -86,7 +88,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying '
                            'the obtained transformation matrices.\n'
                            'By default, the output of this protocol will be a tilt '
@@ -215,6 +216,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_2D)
                 newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
                 output.append(newTs)
 
@@ -266,7 +268,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
-                newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+                newTs.getAcquisition().setTiltAxisAngle(0)
+                newTs.setAlignment(ALIGN_NONE)
                 newTs.setInterpolated(True)
                 output.append(newTs)
 

@@ -28,7 +28,7 @@ import numpy as np
 
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
-    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix
+    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr
@@ -210,6 +210,27 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protTsNorm)
         tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
         return tsPreprocessed
+
+    @classmethod
+    def _runXcorrAli(cls, inTsSet, genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
+        tAxMsg = 'manually introduced' if tiltAxisAngle else 'from Scipion metadata'
+        print(magentaStr(f"\n==> Running the TS xCorr pre-alignment:"
+                         f"\n\t- Generate the interpolated TS = {genInterp}"
+                         f"\n\t- Interpolated binning = {interpBinning}"
+                         f"\n\t- Tilt axis angle {tAxMsg}"))
+        protXcorr = cls.newProtocol(ProtImodXcorrPrealignment,
+                                    inputSetOfTiltSeries=inTsSet,
+                                    computeAlignment=genInterp,
+                                    binning=interpBinning,
+                                    cumulativeCorr=cumulativeCorr)
+        if tiltAxisAngle:
+            protXcorr.tiltAxisAngle.set(tiltAxisAngle)
+
+        protXcorr.setObjLabel(f'GenInterp_{genInterp} cumCor_{cumulativeCorr} ib_{interpBinning} tAx_{tiltAxisAngle}')
+        cls.launchProtocol(protXcorr)
+        tsXcorr = getattr(protXcorr, OUTPUT_TILTSERIES_NAME, None)
+        tsXcorrInterp = getattr(protXcorr, OUTPUT_TS_INTERPOLATED_NAME, None)
+        return tsXcorr, tsXcorrInterp
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -396,3 +417,56 @@ class TestImodApplyTrMatrix(TestImodBase):
                                                     taperInside=True,
                                                     linearInterp=True)
         self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)
+
+
+class TestXcorrAlignment(TestImodBase):
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             hasAlignment=True,
+                             alignment=ALIGN_2D,
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             isInterpolated=True,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor),  # No swap, only translations
+                             testAcqObj=self.testInterpAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def testXcorAli01(self):
+        xCorrTs, xCorrTsInterp = self._runXcorrAli(self.importedTs, genInterp=False)
+        # Check the TS
+        self._checkTiltSeries(xCorrTs)
+        # Check the interpolated TS
+        self.assertIsNone(xCorrTsInterp)
+
+    def testXcorAli02(self):
+        interptBinningFactor = 4
+        xCorrTs, xCorrTsInterp = self._runXcorrAli(self.importedTs,
+                                                   genInterp=True,
+                                                   cumulativeCorr=True,
+                                                   interpBinning=interptBinningFactor)
+        # Check the TS
+        self._checkTiltSeries(xCorrTs)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(xCorrTsInterp, binningFactor=interptBinningFactor)
+
+    def testXcorAli03(self):
+        xCorrTs, xCorrTsInterp = self._runXcorrAli(self.importedTs, genInterp=False)
+        # Check the TS
+        self._checkTiltSeries(xCorrTs)
+        # Check the interpolated TS
+        self.assertIsNone(xCorrTsInterp)
+
+# genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
