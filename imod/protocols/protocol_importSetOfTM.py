@@ -29,6 +29,7 @@ import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pwem.objects as data
+from imod.protocols.protocol_base import IN_TS_SET
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
@@ -61,7 +62,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                            "path should not have",
                       expertLevel=params.LEVEL_ADVANCED)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,

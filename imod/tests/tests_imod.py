@@ -26,7 +26,7 @@ import math
 
 import numpy as np
 
-from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE
+from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix
 from pwem import ALIGN_NONE, ALIGN_2D
@@ -69,6 +69,11 @@ class TestImodBase(TestBaseCentralizedLayer):
         TS_03: DataSetRe4STATuto.testAcq03.value,
         TS_54: DataSetRe4STATuto.testAcq54.value,
     }
+    testInterpAcqObjDict = {
+        TS_03: DataSetRe4STATuto.testAcq03Interp.value,
+        TS_54: DataSetRe4STATuto.testAcq54Interp.value,
+    }
+
     anglesCountDict = {
         TS_03: 40,
         TS_54: 41,
@@ -82,10 +87,10 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @classmethod
     def _runPreviousProtocols(cls):
-        pass
+        cls.importedTs = cls._runImportTs()
 
     @staticmethod
-    def _getExpectedDimsDict(binningFactor=1):
+    def _getExpectedDimsDict(binningFactor=1, swapXY=False):
         dims = []
         for iDim in unbinnedTiDims:
             newDim = math.ceil(iDim / binningFactor)
@@ -94,6 +99,8 @@ class TestImodBase(TestBaseCentralizedLayer):
                 newDim += 1
             dims.append(newDim)
 
+        if swapXY:
+            dims.reverse()
         expectedDimensions = {
             TS_03: dims + [40],
             TS_54: dims + [41]
@@ -150,26 +157,40 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsDoseFiltered
 
     @classmethod
-    def _runImportTrMatrix(cls, inTsSet):
-        print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"))
+    def _runImportTrMatrix(cls, inTsSet, binningTM=1, binningTS=1):
+        print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"
+                         f"\n\t- Transformation matrix binning = {binningTM}"
+                         f"\n\t- TS binning = {binningTS}"))
         protImportTrMatrix = cls.newProtocol(ProtImodImportTransformationMatrix,
                                              filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
                                              filesPattern=DataSetRe4STATuto.transformPattern.value,
-                                             inputSetOfTiltSeries=inTsSet)
+                                             inputSetOfTiltSeries=inTsSet,
+                                             binningTM=binningTM,
+                                             binningTS=binningTS)
+        protImportTrMatrix.setObjLabel(f'trMat_b{binningTM} ts_b{binningTS}')
         cls.launchProtocol(protImportTrMatrix)
         outTsSet = getattr(protImportTrMatrix, OUTPUT_TILTSERIES_NAME, None)
         return outTsSet
 
     @classmethod
-    def _runApplytTrMatrix(cls, inTsSet):
-        print(magentaStr("\n==> Applying the TS' transformation matrices with IMOD:"))
-        protApplyTrMat = cls.newProtocol(ProtImodApplyTransformationMatrix, inputSetOfTiltSeries=inTsSet)
+    def _runApplytTrMatrix(cls, inTsSet, binning=1, taperInside=False, linearInterp=False):
+        interpMsg = 'linear' if linearInterp else 'cubic'
+        print(magentaStr(f"\n==> Applying the TS' transformation matrices with IMOD:"
+                         f"\n\t- Binning = {binning}"
+                         f"\n\t- Tapper inside = {taperInside}"
+                         f"\n\t- Interpolation type = {interpMsg}"))
+        protApplyTrMat = cls.newProtocol(ProtImodApplyTransformationMatrix,
+                                         inputSetOfTiltSeries=inTsSet,
+                                         binning=binning,
+                                         taperInside=taperInside,
+                                         linear=linearInterp)
+        protApplyTrMat.setObjLabel(f'b_{binning} tapIns_{taperInside} interp_{interpMsg}')
         cls.launchProtocol(protApplyTrMat)
-        outTsSet = getattr(protApplyTrMat, OUTPUT_TILTSERIES_NAME, None)
+        outTsSet = getattr(protApplyTrMat, OUTPUT_TS_INTERPOLATED_NAME, None)
         return outTsSet
 
     @classmethod
-    def _runTsPreprocess(cls, inTsSet, binning=1, applyAli=False, densAdjustMode=None, **kwargs):
+    def _runTsPreprocess(cls, inTsSet, binning=1, applyAli=False, densAdjustMode=2, **kwargs):
         choices = ['No adjust',
                    'range between min and max',
                    'scaled to common mean and standard deviation',
@@ -193,10 +214,6 @@ class TestImodBase(TestBaseCentralizedLayer):
 
 class TestImodXRayEraser(TestImodBase):
 
-    @classmethod
-    def _runPreviousProtocols(cls):
-        cls.importedTs = cls._runImportTs()
-
     def testXRayEraser(self):
         tsXRayErased = self._runXRayEraser(self.importedTs)
         self.checkTiltSeries(tsXRayErased,
@@ -211,10 +228,6 @@ class TestImodXRayEraser(TestImodBase):
 
 
 class TestImodDoseFilter(TestImodBase):
-
-    @classmethod
-    def _runPreviousProtocols(cls):
-        cls.importedTs = cls._runImportTs()
 
     def _checkTiltSeries(self, inTsSet):
         self.checkTiltSeries(inTsSet,
@@ -239,10 +252,6 @@ class TestImodDoseFilter(TestImodBase):
 
 
 class TestImodTsPreprocess(TestImodBase):
-
-    @classmethod
-    def _runPreviousProtocols(cls):
-        cls.importedTs = cls._runImportTs()
 
     def _checkTiltSeries(self, inTsSet, binningFactor=1, imported=True, hasAlignment=False, alignment=ALIGN_NONE):
         self.checkTiltSeries(inTsSet,
@@ -333,3 +342,57 @@ class TestImodTsPreprocess(TestImodBase):
     #                           imported=False,
     #                           hasAlignment=True,
     #                           alignment=ALIGN_2D)
+
+
+class TestImodImportTrMatrix(TestImodBase):
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             hasAlignment=True,
+                             alignment=ALIGN_2D,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def testImportTrMatrix01(self):
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        self._checkTiltSeries(tsImportedTrMat)
+
+    def testImportTrMatrix02(self):
+        binningFactor = 4
+        tsPreprocessed = self._runTsPreprocess(self.importedTs, binning=binningFactor)
+        tsImportedTrMat = self._runImportTrMatrix(tsPreprocessed, binningTS=binningFactor)
+        self._checkTiltSeries(tsImportedTrMat, binningFactor=binningFactor)
+
+
+class TestImodApplyTrMatrix(TestImodBase):
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             isInterpolated=True,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor, swapXY=True),
+                             testAcqObj=self.testInterpAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHetereogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def testApplyTrMatrix01(self):
+        binningFactor = 4
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        tsTrMatrixApplied = self._runApplytTrMatrix(tsImportedTrMat, binning=binningFactor)
+        self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)
+
+    def testApplyTrMatrix02(self):
+        binningFactor = 8
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        tsTrMatrixApplied = self._runApplytTrMatrix(tsImportedTrMat,
+                                                    binning=binningFactor,
+                                                    taperInside=True,
+                                                    linearInterp=True)
+        self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)

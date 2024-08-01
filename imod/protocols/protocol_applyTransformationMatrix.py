@@ -28,6 +28,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
+from pwem import ALIGN_NONE
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
@@ -81,7 +82,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       default=True,
                       label='Taper inwards from the edge?',
                       help='When the image is transformed areas with no information '
-                           'are filled in (e.g. because of rotation).'
+                           'are filled in (e.g. because of rotation). '
                            'Decide whether tapering is done inwards or outwards '
                            'from the edge.')
         
@@ -98,8 +99,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         
         form.addParam(PROCESS_ODD_EVEN,
                       params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
+                      default=False,
                       label='Apply to odd/even',
                       help='If True, the full tilt series and the associated '
                            'odd/even tilt series will be processed. The '
@@ -116,8 +116,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # --------------------------- STEPS functions ------------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def computeAlignmentStep(self, tsId):
@@ -170,6 +169,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
                 newTs.setInterpolated(True)
+                newTs.setAlignment(ALIGN_NONE)
                 acq = newTs.getAcquisition()
                 acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
                 newTs.setAcquisition(acq)
