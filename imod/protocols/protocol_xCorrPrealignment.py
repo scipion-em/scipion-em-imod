@@ -208,14 +208,14 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self.runProgram('xftoxg', paramsXftoxg)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tiltxcorr or xftoxg execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
         ts = self.tsDict[tsId]
         with self._lock:
-            if tsId in self._failedTs:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
@@ -252,7 +252,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     self.createOutputFailedSet(ts)
 
     def computeInterpolatedStackStep(self, tsId, binning):
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             ts = self.tsDict[tsId]
             xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(xfFile):

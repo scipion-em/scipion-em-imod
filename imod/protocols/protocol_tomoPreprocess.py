@@ -344,13 +344,13 @@ class ProtImodTomoNormalization(ProtImodBase):
                     self.runProgram('binvol', paramsBinvol)
 
         except Exception as e:
-            self._failedTomos.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
 
     def generateOutputStep(self, tsId, runNewstack, binning):
         tomo = self.tomoDict[tsId]
         with self._lock:
-            if tsId in self._failedTomos:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
             else:
                 output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)

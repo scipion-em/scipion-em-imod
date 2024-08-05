@@ -333,12 +333,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)

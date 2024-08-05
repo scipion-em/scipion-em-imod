@@ -154,13 +154,13 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 self.runProgram("newstack", params)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
         with self._lock:
-            if tsId in self._failedTs:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 outputLocation = self.getExtraOutFile(tsId)

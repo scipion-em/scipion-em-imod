@@ -38,7 +38,8 @@ from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+                            OUTPUT_TS_INTERPOLATED_NAME,
+                            OUTPUT_TS_COORDINATES_NAME)
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -413,12 +414,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             cwd=self._getExtraPath())
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
             if os.path.exists(noGapsFid):
                 paramsNoGapModel2Point = {
@@ -428,7 +429,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsId):
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             ts = self.tsDict[tsId]
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
@@ -465,7 +466,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         """ Generate interpolated stack. """
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
@@ -505,7 +506,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def eraseGoldBeadsStep(self, tsId):
         """ Erase gold beads on aligned stack. """
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             try:
                 paramsCcderaser = {
                     "-InputFile": self.getTmpOutFile(tsId),
@@ -521,19 +522,19 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 }
                 self.runProgram('ccderaser', paramsCcderaser)
             except Exception as e:
-                self._failedTs.append(tsId)
+                self._failedItems.append(tsId)
                 self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             if os.path.exists(fiducialNoGapFilePath):
-                output = self.getOutputFiducialModelNoGaps(self.inputTSPointer)
+                output = self.getOutputFiducialModel(self.inputTSPointer)
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
                 fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
@@ -598,22 +599,25 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _summary(self):
         summary = []
 
-        if self.FiducialModelNoGaps:
+        interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
+
+        if fidModelNoGaps is not None:
             summary.append("Fiducial models generated with no gaps: "
-                           f"{self.FiducialModelNoGaps.getSize()}")
+                           f"{fidModelNoGaps.getSize()}")
 
         if self.TiltSeries:
             summary.append("Transformation matrices updated from the "
                            f"input tilt-series: {self.TiltSeries.getSize()}")
 
-        interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
         if interpTS is not None:
             summary.append("Interpolated tilt-series calculated: "
                            f"{interpTS.getSize()}")
 
-        if self.TiltSeriesCoordinates:
+        if tsCoords is not None:
             summary.append("Fiducial 3D coordinates calculated: "
-                           f"{self.TiltSeriesCoordinates.getSize()}")
+                           f"{tsCoords.getSize()}")
 
         if not summary:
             summary.append("Outputs are not ready yet.")
@@ -622,9 +626,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _methods(self):
         methods = []
 
-        if self.TiltSeriesCoordinates:
+        fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        if fidModelNoGaps is not None:
             methods.append("Solved fiducials alignment for "
-                           f"{self.FiducialModelNoGaps.getSize()} "
+                           f"{fidModelNoGaps.getSize()} "
                            "tilt-series using IMOD *tiltalign* command.")
 
         return methods

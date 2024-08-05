@@ -31,7 +31,8 @@ import tomo.constants as constants
 
 from imod import utils
 from imod.protocols import ProtImodBase
-from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
+from imod.constants import (XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME,
+                            OUTPUT_COORDINATES_3D_NAME)
 
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
@@ -151,13 +152,13 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             self.runProgram('model2point', paramsModel2Point)
 
         except Exception as e:
-            self._failedTomos.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f"findbeads3d or model2point execution failed for tsId {tsId} -> {e}")
 
     def createOutputStep(self, tsId):
         tomo = self.tomoDict[tsId]
         with self._lock:
-            if tsId in self._failedTomos:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
             else:
                 coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
@@ -183,10 +184,12 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.Coordinates3D:
+
+        coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
+        if coords3D is not None:
             summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
                            "Output coordinates 3D: "
-                           f"{self.Coordinates3D.getSize()}")
+                           f"{coords3D.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------

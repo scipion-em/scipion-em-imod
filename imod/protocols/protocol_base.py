@@ -50,21 +50,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def __init__(self, **kwargs):
         self.tsDict = None
         self.tomoDict = None
-        self._failedTs = []
-        self._failedTomos = []
+        self._failedItems = []
         self.oddEvenFlag = False
 
         # Possible outputs (synchronize these names with the constants)
-        self.TiltSeriesCoordinates = None
-        self.FiducialModelNoGaps = None
-        self.FiducialModelGaps = None
         self.TiltSeries = None
-        self.CTFTomoSeries = None
         self.Tomograms = None
-        self.Coordinates3D = None
-
-        self.FailedTiltSeries = None
-        self.FailedTomograms = None
 
         EMProtocol.__init__(self, **kwargs)
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -384,90 +375,54 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputTS
 
-    def getOutputFailedSet(self, inputPtr):
-        """ Create output set for failed TS or tomograms. """
-        inputSet = inputPtr.get()
-        if isinstance(inputSet, SetOfTiltSeries):
-            if self.FailedTiltSeries:
-                self.FailedTiltSeries.enableAppend()
-            else:
-                failedSet = self._createSetOfTiltSeries(suffix='Failed')
-                failedSet.copyInfo(inputSet)
-                failedSet.setStreamState(Set.STREAM_OPEN)
-                self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedSet})
-                self._defineSourceRelation(inputPtr, failedSet)
-
-            return self.FailedTiltSeries
-
-        elif isinstance(inputSet, SetOfTomograms):
-            if self.FailedTomograms:
-                self.FailedTomograms.enableAppend()
-            else:
-                failedSet = self._createSetOfTomograms(suffix='Failed')
-                failedSet.copyInfo(inputSet)
-                failedSet.setStreamState(Set.STREAM_OPEN)
-                self._defineOutputs(**{OUTPUT_TOMOS_FAILED_NAME: failedSet})
-                self._defineSourceRelation(inputPtr, failedSet)
-
-            return self.FailedTomograms
-
-    def getOutputFiducialModelNoGaps(self, inputPtr):
+    def getOutputFiducialModel(self, inputPtr,
+                               attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                               suffix="NoGaps"):
+        """ Method to generate output of set fiducial models.
+                :param inputPtr: input TS set pointer
+                :param attrName: output attr name
+                :param suffix: output set suffix
+        """
         if not inputPtr.isPointer():
             logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
             inputSet = inputPtr
         else:
             inputSet = inputPtr.get()
 
-        if self.FiducialModelNoGaps:
-            self.FiducialModelNoGaps.enableAppend()
+        fidModel = getattr(self, attrName, None)
+        if fidModel is not None:
+            fidModel.enableAppend()
         else:
-            fidModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+            fidModel = self._createSetOfLandmarkModels(suffix=suffix)
+            fidModel.copyInfo(inputSet)
+            fidModel.setSetOfTiltSeries(inputPtr)
+            fidModel.setHasResidualInfo(True)
+            fidModel.setStreamState(Set.STREAM_OPEN)
 
-            fidModelNoGaps.copyInfo(inputSet)
-            fidModelNoGaps.setSetOfTiltSeries(inputPtr)
-            fidModelNoGaps.setHasResidualInfo(True)
-            fidModelNoGaps.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{attrName: fidModel})
+            self._defineSourceRelation(inputPtr, fidModel)
 
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME: fidModelNoGaps})
-            self._defineSourceRelation(inputPtr, fidModelNoGaps)
-
-        return self.FiducialModelNoGaps
-
-    def getOutputFiducialModelGaps(self, inputPtr):
-        inputSet = inputPtr.get()
-
-        if self.FiducialModelGaps:
-            self.FiducialModelGaps.enableAppend()
-        else:
-            fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-
-            fidModelGaps.copyInfo(inputSet)
-            fidModelGaps.setSetOfTiltSeries(inputPtr)
-            fidModelGaps.setHasResidualInfo(False)
-            fidModelGaps.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: fidModelGaps})
-            self._defineSourceRelation(inputPtr, fidModelGaps)
-
-        return self.FiducialModelGaps
+        return fidModel
 
     def getOutputSetOfTiltSeriesCoordinates(self, inputPtr):
-        if self.TiltSeriesCoordinates:
-            self.TiltSeriesCoordinates.enableAppend()
+        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
+        if tsCoords is not None:
+            tsCoords.enableAppend()
         else:
-            coords3D = SetOfTiltSeriesCoordinates.create(self._getPath(),
+            tsCoords = SetOfTiltSeriesCoordinates.create(self._getPath(),
                                                          suffix='Fiducials3D')
-            coords3D.setSetOfTiltSeries(inputPtr)
-            coords3D.setStreamState(Set.STREAM_OPEN)
+            tsCoords.setSetOfTiltSeries(inputPtr)
+            tsCoords.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: coords3D})
-            self._defineSourceRelation(inputPtr, coords3D)
+            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: tsCoords})
+            self._defineSourceRelation(inputPtr, tsCoords)
 
-        return self.TiltSeriesCoordinates
+        return tsCoords
 
     def getOutputSetOfCoordinates3Ds(self, inputPtr, outputSet):
-        if self.Coordinates3D:
-            self.Coordinates3D.enableAppend()
+        coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
+        if coords3D is not None:
+            coords3D.enableAppend()
         else:
             coords3D = self._createSetOfCoordinates3D(volSet=outputSet,
                                                       suffix='Fiducials3D')
@@ -478,7 +433,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
             self._defineSourceRelation(inputPtr, coords3D)
 
-        return self.Coordinates3D
+        return coords3D
 
     def getOutputSetOfTomograms(self, inputPtr, binning=1):
         inputSet = inputPtr.get()
@@ -517,6 +472,36 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
+    def getOutputFailedSet(self, inputPtr):
+        """ Create output set for failed TS or tomograms. """
+        inputSet = inputPtr.get()
+        if isinstance(inputSet, SetOfTiltSeries):
+            failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+
+            if failedTs is not None:
+                failedTs.enableAppend()
+            else:
+                failedTs = self._createSetOfTiltSeries(suffix='Failed')
+                failedTs.copyInfo(inputSet)
+                failedTs.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedTs})
+                self._defineSourceRelation(inputPtr, failedTs)
+
+            return failedTs
+
+        elif isinstance(inputSet, SetOfTomograms):
+            failedTomos = getattr(self, OUTPUT_TOMOS_FAILED_NAME, None)
+            if failedTomos is not None:
+                failedTomos.enableAppend()
+            else:
+                failedTomos = self._createSetOfTomograms(suffix='Failed')
+                failedTomos.copyInfo(inputSet)
+                failedTomos.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TOMOS_FAILED_NAME: failedTomos})
+                self._defineSourceRelation(inputPtr, failedTomos)
+
+            return failedTomos
+
     def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
         inputSet = self.getInputSet(pointer=True)
@@ -549,10 +534,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def getInputSet(self, pointer=False):
         return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
-    def getTsFromTsId(self, tsId):
-        tsSet = self.getInputSet()
-        return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
-
     def applyToOddEven(self, setOfTs):
         return (hasattr(self, "processOddEven") and
                 self.processOddEven.get() and
@@ -562,11 +543,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
         Plugin.runImod(self, program, args, cwd)
-
-    @staticmethod
-    def _getOutputDim(fn: str):
-        x, y, z, _ = ih.getDimensions(fn)
-        return x, y, z
 
     @staticmethod
     def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,

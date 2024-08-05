@@ -133,13 +133,13 @@ class ProtImodTomoProjection(ProtImodBase):
             self.runProgram('xyzproj', paramsXYZproj)
 
         except Exception as e:
-            self._failedTomos.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
         tomo = self.tomoDict[tsId]
         with self._lock:
-            if tsId in self._failedTomos:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
             else:
                 outputFn = self.getExtraOutFile(tsId)

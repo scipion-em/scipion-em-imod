@@ -395,14 +395,14 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.runProgram('ctfplotter', paramsCtfPlotter)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
 
         with self._lock:
-            if tsId in self._failedTs:
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
@@ -427,17 +427,21 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.CTFTomoSeries:
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Number of CTF estimated: {self.CTFTomoSeries.getSize()}")
+                           f"Number of CTF estimated: {ctfSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.CTFTomoSeries:
-            methods.append(f"{self.CTFTomoSeries.getSize()} tilt-series CTF "
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
+            methods.append(f"{ctfSeries.getSize()} tilt-series CTF "
                            "have been estimated using the IMOD *ctfplotter* "
                            "command.")
         return methods

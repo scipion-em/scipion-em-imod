@@ -39,11 +39,7 @@ import tomo.objects as tomoObj
 
 from imod import Plugin, utils
 from imod.protocols import ProtImodBase
-from imod.constants import (OUTPUT_PREALI_TILTSERIES_NAME, OUTPUT_ALI_TILTSERIES_NAME,
-                            OUTPUT_TILTSERIES_NAME, OUTPUT_TS_COORDINATES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, RAWTLT_EXT, TLT_EXT, XF_EXT,
-                            EDF_EXT, MRC_EXT, SFID_EXT, XYZ_EXT, FID_EXT,
-                            RESID_EXT, TXT_EXT)
+from imod.constants import *
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -432,7 +428,7 @@ class ProtImodEtomo(ProtImodBase):
                 }
                 self.runProgram('model2point', paramsModel2Point)
 
-                outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModelNoGaps(outputPrealiSetOfTiltSeries)
+                outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModel(outputPrealiSetOfTiltSeries)
 
                 fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
 
@@ -682,19 +678,23 @@ ProcessTrack.TomogramCombination=Not started
         summary = ["The following outputs have been generated from the "
                    "operations performed on the input tilt-series:"]
 
+        fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
+        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
+
         if self.PreAlignedTiltSeries:
             summary.append("- Pre-aligned tilt-series")
 
         if self.AlignedTiltSeries:
             summary.append("- Aligned tilt-series")
 
-        if self.TiltSeriesCoordinates:
+        if tsCoords is not None:
             summary.append("- Landmark 3D coordinates")
 
-        if self.FiducialModelGaps:
+        if fidModelGaps is not None:
             summary.append("- Landmark model with gaps")
 
-        if self.FiducialModelNoGaps:
+        if fidModelNoGaps is not None:
             summary.append("- Landmark model without gaps")
 
         if self.FullTomograms:
