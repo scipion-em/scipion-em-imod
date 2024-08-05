@@ -244,7 +244,7 @@ class TestImodXRayEraser(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
 
@@ -258,7 +258,7 @@ class TestImodDoseFilter(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testDoseFilter01(self):
@@ -284,7 +284,7 @@ class TestImodTsPreprocess(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(binningFactor),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testTsPreprocess00(self):
@@ -376,7 +376,7 @@ class TestImodImportTrMatrix(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(binningFactor),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testImportTrMatrix01(self):
@@ -400,7 +400,7 @@ class TestImodApplyTrMatrix(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(binningFactor, swapXY=True),
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testApplyTrMatrix01(self):
@@ -430,7 +430,7 @@ class TestXcorrAlignment(TestImodBase):
                              alignment=ALIGN_2D,
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
@@ -441,7 +441,7 @@ class TestXcorrAlignment(TestImodBase):
                              expectedDimensions=self._getExpectedDimsDict(binningFactor),  # No swap, only translations
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
-                             isHetereogeneousSet=True,
+                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testXcorAli01(self):
