@@ -87,12 +87,12 @@ class ProtImodTsNormalization(ProtImodBase):
 
         # TODO: decide if this option should be removed. If not, the out TS must be renamed to interpolated and the non-
         # interpolated should be also generated
-        form.addParam('applyAlignment',
-                      params.BooleanParam,
-                      default=False,
-                      label='Apply transformation matrix',
-                      help='Apply the tilt series transformation matrix if tilt '
-                           'series have them')
+        # form.addParam('applyAlignment',
+        #               params.BooleanParam,
+        #               default=False,
+        #               label='Apply transformation matrix',
+        #               help='Apply the tilt series transformation matrix if tilt '
+        #                    'series have them')
 
         form.addParam('floatDensities',
                       params.EnumParam,
@@ -132,18 +132,15 @@ class ProtImodTsNormalization(ProtImodBase):
                            'then they are rescale the resulting minimum and maximum densities '
                            'to the Min and Max values specified. This is the mode 4 in newstack '
                            'flag -floatDensities.')
-
+        # NEWSTACK - The -scale, -contrast, -multadd, and -float options are mutually exclusive except with -float 4
+        # scaleRangeToggleCond = "floatDensities in [0, 4]"
+        # -meansd (-mea) OR -MeanAndStandardDeviation   Two floats
+        #               Scale all images to the given mean and standard deviation.  This
+        #               option implies -float 2 and is incompatible with all other scaling options.
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition='floatDensities==2',
                                     help='Scale all images to the given mean '
                                          'and standard deviation.')
-
-        # groupMeanSd.addParam('meanSdToggle',
-        #                      params.BooleanParam,
-        #                      default=False,
-        #                      label='Set mean and SD?',
-        #                      display=params.BooleanParam,
-        #                      help='Set mean and SD values')
         floatDensMode2Cond = 'floatDensities == 2'
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
@@ -187,32 +184,6 @@ class ProtImodTsNormalization(ProtImodBase):
                            'default is the mode of the first input file, '
                            'except for a 4-bit input file, where the default '
                            'is to output as bytes')
-        # NEWSTACK - The -scale, -contrast, -multadd, and -float options are mutually exclusive except with -float 4
-        # scaleRangeToggleCond = "floatDensities in [0, 4]"
-        # form.addParam('scaleRangeToggle',
-        #               params.BooleanParam,
-        #               condition=scaleRangeToggleCond,
-        #               default=True,
-        #               label='Set scaling range values?',
-        #               display=params.BooleanParam,
-        #               help='This option will rescale the densities of all '
-        #                    'sections by the same factors so that the original '
-        #                    'minimum and maximum density will be mapped '
-        #                    'to the Min and Max values that are entered')
-        #
-        # form.addParam('scaleRangeMin',
-        #               params.FloatParam,
-        #               condition=f"{scaleRangeToggleCond} and scaleRangeToggle",
-        #               default=0,
-        #               label='Min.',
-        #               help='Minimum value for the rescaling')
-        #
-        # form.addParam('scaleRangeMax',
-        #               params.FloatParam,
-        #               condition=f"{scaleRangeToggleCond} and scaleRangeToggle",
-        #               default=255,
-        #               label='Max.',
-        #               help='Maximum value for the rescaling')
 
         form.addParam('antialias',
                       params.EnumParam,
@@ -271,11 +242,6 @@ class ProtImodTsNormalization(ProtImodBase):
             ts = self.tsDict[tsId]
             firstItem = ts.getFirstItem()
             xfFile = None
-
-            if self.applyAlignment.get() and ts.hasAlignment():
-                xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-                genXfFile(ts, xfFile)
-
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,
                                                      self.getExtraOutFile(tsId),
@@ -331,10 +297,8 @@ class ProtImodTsNormalization(ProtImodBase):
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
 
                     # Tranformation matrix
-                    if tiltImage.hasTransform() and not self.applyAlignment.get():
+                    if tiltImage.hasTransform():
                         newTi = self.updateTM(newTi, binning)
-                    else:
-                        newTi.setTransform(None)
 
                     newTi.setAcquisition(tiltImage.getAcquisition())
                     if self.oddEvenFlag:
@@ -359,14 +323,6 @@ class ProtImodTsNormalization(ProtImodBase):
                 self._store(output)
 
     # --------------------------- INFO functions ------------------------------
-    def _validate(self):
-        errors = []
-        hasAlign = self.getInputSet().getFirstItem().hasAlignment()
-        if self.applyAlignment.get() and not hasAlign:
-            errors.append("Input tilt-series do not have alignment information")
-
-        return errors
-
     def _summary(self):
         summary = []
         if self.TiltSeries:

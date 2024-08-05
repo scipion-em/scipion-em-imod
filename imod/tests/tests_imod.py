@@ -190,7 +190,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runTsPreprocess(cls, inTsSet, binning=1, applyAli=False, densAdjustMode=2, **kwargs):
+    def _runTsPreprocess(cls, inTsSet, binning=1, densAdjustMode=2, **kwargs):
         choices = ['No adjust',
                    'range between min and max',
                    'scaled to common mean and standard deviation',
@@ -198,22 +198,20 @@ class TestImodBase(TestBaseCentralizedLayer):
                    'shifted to mean and rescaled to a min and max']
         print(magentaStr(f"\n==> Running the TS preprocessing:"
                          f"\n\t- Binning factor = {binning}"
-                         f"\n\t- Apply transformation matrix = {applyAli}"
                          f"\n\t- Adjust densities mode = {choices[densAdjustMode]}"))
         protTsNorm = cls.newProtocol(ProtImodTsNormalization,
                                      inputSetOfTiltSeries=inTsSet,
                                      binning=binning,
-                                     applyAlignment=applyAli,
                                      floatDensities=densAdjustMode,
                                      **kwargs)
-        protTsNorm.setObjLabel(f'Bin_{binning} Ali_{applyAli} Mode_{densAdjustMode}')
+        protTsNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode}')
         cls.launchProtocol(protTsNorm)
         tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
         return tsPreprocessed
 
     @classmethod
     def _runXcorrAli(cls, inTsSet, genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
-        tAxMsg = 'manually introduced' if tiltAxisAngle else 'from Scipion metadata'
+        tAxMsg = f'manually introduced of {tiltAxisAngle} deg.' if tiltAxisAngle else 'from Scipion metadata'
         print(magentaStr(f"\n==> Running the TS xCorr pre-alignment:"
                          f"\n\t- Generate the interpolated TS = {genInterp}"
                          f"\n\t- Interpolated binning = {interpBinning}"
@@ -291,7 +289,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 4
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=0)  # No adjust
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
@@ -299,7 +296,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 1
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=0,  # No adjust
                                                scaleMax=200,
                                                scaleMin=20)
@@ -309,7 +305,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 8
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=1)  # range between min and max
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
@@ -317,7 +312,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 2
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=2,  # scaled to common mean and standard deviation
                                                scaleMean=0,
                                                scaleSd=1)
@@ -327,7 +321,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 4
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=2,  # scaled to common mean and standard deviation
                                                meanSdToggle=False)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
@@ -336,7 +329,6 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 3
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=3,  # shifted to a common mean without scaling
                                                meanSdToggle=False)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
@@ -345,24 +337,10 @@ class TestImodTsPreprocess(TestImodBase):
         binningFactor = 6
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
-                                               applyAli=False,
                                                densAdjustMode=4,  # shifted to mean and rescaled to a min and max
                                                scaleMax=200,
                                                scaleMin=20)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
-
-    # def testTsPreprocess07(self):
-    #     binningFactor = 4
-    #     tsImportedMat = self._runImportTrMatrix(self.importedTs)
-    #     tsPreprocessed = self._runTsPreprocess(tsImportedMat,
-    #                                            binning=binningFactor,
-    #                                            applyAli=True,
-    #                                            densAdjustMode=4)  # shifted to mean and rescaled to a min and max
-    #     self._checkTiltSeries(tsPreprocessed,
-    #                           binningFactor=binningFactor,
-    #                           imported=False,
-    #                           hasAlignment=True,
-    #                           alignment=ALIGN_2D)
 
 
 class TestImodImportTrMatrix(TestImodBase):
@@ -469,4 +447,24 @@ class TestXcorrAlignment(TestImodBase):
         # Check the interpolated TS
         self.assertIsNone(xCorrTsInterp)
 
+    def testXcorAli04(self):
+        interptBinningFactor = 8
+        tiltAxisAngle = 89.1
+        xCorrTs, xCorrTsInterp = self._runXcorrAli(self.importedTs,
+                                                   genInterp=True,
+                                                   interpBinning=interptBinningFactor,
+                                                   tiltAxisAngle=tiltAxisAngle)
+        # Check the TS
+        for tsId, acq in self.testAcqObjDict.items():
+            # Update the expected acquisition with the tilt axis angle value introduced manually
+            acq.setTiltAxisAngle(tiltAxisAngle)
+            self.testAcqObjDict[tsId] = acq
+        self._checkTiltSeries(xCorrTs)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(xCorrTsInterp, binningFactor=interptBinningFactor)
+
+
+
 # genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
+
+# self.testAcqObjDict
