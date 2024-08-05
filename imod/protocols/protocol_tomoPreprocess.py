@@ -357,9 +357,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                 newTomogram = Tomogram()
                 newTomogram.copyInfo(tomo)
 
-                if not runNewstack and binning == 1:
-                    newTomogram.setLocation(tomo.getFileName())
-                else:
+                if runNewstack or binning != 1:
                     newTomogram.setLocation(self.getExtraOutFile(tsId, ext=MRC_EXT))
 
                 if binning > 1:

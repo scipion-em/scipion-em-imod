@@ -44,5 +44,5 @@ class ProtImodXcorrPrealignmentWizard(Wizard):
 
     def show(self, form, *args):
         angle = self._getTiltAxisAngle(form.protocol)
-        if angle is None:
+        if angle is not None:
             form.setVar('tiltAxisAngle', angle)

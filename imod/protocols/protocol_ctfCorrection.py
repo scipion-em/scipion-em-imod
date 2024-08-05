@@ -262,7 +262,6 @@ class ProtImodCtfCorrection(ProtImodBase):
             if os.path.exists(outputFn):
                 outputSetOfTs = self.getOutputSetOfTS(self.getInputSet(pointer=True))
                 newTs = TiltSeries(tsId=tsId)
-                ts = self.tsDict[tsId]
                 newTs.copyInfo(ts)
                 newTs.setCtfCorrected(True)
                 newTs.setInterpolated(True)
@@ -271,7 +270,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
                 for index, inTi in enumerate(ts):
                     if inTi.getAcquisitionOrder() in presentAcqOrders:
-                        newTi = TiltImage()
+                        newTi = TiltImage(tsId=tsId)
                         newTi.copyInfo(inTi, copyId=True, copyTM=False)
                         acq = inTi.getAcquisition()
                         acq.setTiltAxisAngle(0.)  # Is interpolated
@@ -287,6 +286,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                         newTs.append(newTi)
 
                 outputSetOfTs.update(newTs)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- UTILS functions -----------------------------
     def generateDefocusFile(self, tsId, presentAcqOrders=None):

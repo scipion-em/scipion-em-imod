@@ -164,7 +164,7 @@ class ProtImodTomoProjection(ProtImodBase):
                         newTi.setSamplingRate(sRate)
                         newTs.append(newTi)
 
-                    x, y, z, _ = ih.getDimensions(outputFn)
+                    x, y, _, _ = ih.getDimensions(outputFn)
 
                     # Set origin to output tilt-series
                     origin = Transform()

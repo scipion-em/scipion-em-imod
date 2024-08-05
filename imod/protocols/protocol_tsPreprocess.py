@@ -375,15 +375,16 @@ class ProtImodTsNormalization(ProtImodBase):
         return parseParamsOutputMode[self.modeToOutput.get()]
 
     @staticmethod
-    def updateTM(newTi, binning):
-        transform = newTi.getTransform()
-        matrix = transform.getMatrix()
+    def updateTM(newTi, binning=1):
+        if binning != 1:
+            transform = newTi.getTransform()
+            matrix = transform.getMatrix()
 
-        matrix[0][2] /= binning
-        matrix[1][2] /= binning
+            matrix[0][2] /= binning
+            matrix[1][2] /= binning
 
-        transform.setMatrix(matrix)
-        newTi.setTransform(transform)
+            transform.setMatrix(matrix)
+            newTi.setTransform(transform)
 
         return newTi
 

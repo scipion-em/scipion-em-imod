@@ -366,12 +366,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             if isinstance(inputSet, SetOfTiltSeries):
                 outputTS.copyInfo(inputSet)
-                outputTS.setDim(inputSet.getDim())
 
             elif isinstance(inputSet, SetOfTomograms):
+                # _anglesCount does not exist for SetOfTomograms, so we can't use copyInfo
                 outputTS.setAcquisition(inputSet.getAcquisition())
                 outputTS.setSamplingRate(inputSet.getSamplingRate())
-                outputTS.setDim(inputSet.getDim())
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
@@ -488,13 +487,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
-
-            if isinstance(inputSet, SetOfTomograms):
-                outputSetOfTomograms.copyInfo(inputSet)
-
-            elif isinstance(inputSet, SetOfTiltSeries):
-                outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
-                outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
+            outputSetOfTomograms.copyInfo(inputSet)
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate() * binning

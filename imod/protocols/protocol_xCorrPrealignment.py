@@ -183,12 +183,15 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             if self.cumulativeCorr:
                 paramsXcorr["-CumulativeCorrelation"] = ""
 
-            xdim, ydim, _ = ts.getDim()
-            xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim-1
-            ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim-1
+            doTrim = any([getattr(self, attr).hasValue() for
+                          attr in ["xmin", "xmax", "ymin", "ymax"]])
+            if doTrim:
+                xdim, ydim, _ = ts.getDim()
+                xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim-1
+                ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim-1
 
-            paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
-            paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
+                paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
+                paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
 
             # Excluded views
             excludedViews = ts.getExcludedViewsIndex(caster=str)
@@ -221,33 +224,27 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     alignmentMatrix = utils.formatTransformationMatrix(outputFn)
 
                     newTs = TiltSeries(tsId=tsId)
-                    newTs.copyInfo(ts)
+                    newTs.copyInfo(ts, copyId=True)
                     newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
                     output.append(newTs)
 
                     for index, tiltImage in enumerate(ts):
-                        newTi = TiltImage()
+                        newTi = TiltImage(tsId=tsId)
                         newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
 
                         transform = Transform()
+                        newTransform = alignmentMatrix[:, :, index]
+                        newTransformArray = np.array(newTransform)
 
                         if tiltImage.hasTransform():
                             previousTransform = tiltImage.getTransform().getMatrix()
-                            newTransform = alignmentMatrix[:, :, index]
                             previousTransformArray = np.array(previousTransform)
-                            newTransformArray = np.array(newTransform)
                             outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
                             transform.setMatrix(outputTransformMatrix)
-                            newTi.setTransform(transform)
                         else:
-                            newTransform = alignmentMatrix[:, :, index]
-                            newTransformArray = np.array(newTransform)
                             transform.setMatrix(newTransformArray)
-                            newTi.setTransform(transform)
 
-                        newTi.setAcquisition(tiltImage.getAcquisition())
-                        newTi.setLocation(tiltImage.getLocation())
-
+                        newTi.setTransform(transform)
                         newTs.append(newTi)
 
                     output.update(newTs)
@@ -273,27 +270,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                                      doNorm=True)
                 self.runProgram('newstack', params)
 
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-                newTs.setInterpolated(True)
-                output.append(newTs)
-
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
-                    if binning > 1:
-                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                    newTs.append(newTi)
-
-                dims = self._getOutputDim(self.getExtraOutFile(tsId))
-                newTs.setDim(dims)
-
-                output.update(newTs)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTs,
+                                 updateTiCallback=self.updateTi,
+                                 copyId=True, copyTM=False)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -302,6 +282,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            "Transformation matrices calculated: "
                            f"{self.TiltSeries.getSize()}")
+
             interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
             if interpTS is not None:
                 summary.append("Interpolated tilt-series: "
@@ -324,3 +305,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             return self.tiltAxisAngle.get()
         else:
             return ts.getAcquisition().getTiltAxisAngle()
+
+    def updateTs(self, tsId, ts, tsOut, **kwargs):
+        tsOut.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+        tsOut.setInterpolated(True)

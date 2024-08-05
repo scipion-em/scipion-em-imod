@@ -436,33 +436,29 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 tltList = utils.formatAngleList(tltFilePath)
                 newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
                 output = self.getOutputSetOfTS(self.inputTSPointer)
+
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
                 output.append(newTs)
 
                 for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
+                    newTi = TiltImage(tsId=tsId)
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setLocation(tiltImage.getLocation())
                     newTi.setTiltAngle(float(tltList[index]))
-                    newTi.setAcquisition(tiltImage.getAcquisition())
 
                     transform = Transform()
+                    newTransform = newTransformationMatricesList[:, :, index]
+                    newTransformArray = np.array(newTransform)
 
                     if tiltImage.hasTransform():
                         previousTransform = tiltImage.getTransform().getMatrix()
-                        newTransform = newTransformationMatricesList[:, :, index]
                         previousTransformArray = np.array(previousTransform)
-                        newTransformArray = np.array(newTransform)
                         outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
                         transform.setMatrix(outputTransformMatrix)
-                        newTi.setTransform(transform)
                     else:
-                        newTransform = newTransformationMatricesList[:, :, index]
-                        newTransformArray = np.array(newTransform)
                         transform.setMatrix(newTransformArray)
-                        newTi.setTransform(transform)
 
+                    newTi.setTransform(transform)
                     newTs.append(newTi)
 
                 output.update(newTs)
@@ -498,21 +494,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
 
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
                 for index, tiltImage in enumerate(ts):
                     newTi = TiltImage()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setAcquisition(tiltImage.getAcquisition())
                     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
                     newTi.setTiltAngle(float(tltList[index]))
-                    if binning > 1:
-                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
                     newTs.append(newTi)
-
-                dims = self._getOutputDim(self.getExtraOutFile(tsId))
-                newTs.setDim(dims)
 
                 output.update(newTs)
 

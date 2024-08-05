@@ -231,8 +231,6 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         return allowedFiles
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        #tiOut.setLocation(ti.getLocation())
-
         transform = data.Transform()
         alignmentMatrix = kwargs.get("alignmentMatrix")
 
@@ -243,7 +241,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
             newTransformArray = np.array(newTransform)
             outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
             transform.setMatrix(outputTransformMatrix)
-            tiOut.setTransform(transform)
         else:
             transform.setMatrix(alignmentMatrix[:, :, index])
-            tiOut.setTransform(transform)
+
+        tiOut.setTransform(transform)

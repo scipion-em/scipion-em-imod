@@ -169,14 +169,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                                    binning=self.binning.get(),
                                                    attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                    suffix="Interpolated")
-                    output.getAcquisition().setTiltAxisAngle(0.)
-                    outputPixSize = self._getOutputSampling()
 
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
-                                     copyId=False, copyTM=False,
-                                     pixSize=outputPixSize)
+                                     copyId=False, copyTM=False)
                 else:
                     self.createOutputFailedSet(ts)
 
@@ -212,9 +209,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def _getOutputSampling(self) -> float:
-        return self.getInputSet().getSamplingRate() * self.binning.get()
-
     def updateTs(self, tsId, ts, tsOut, **kwargs):
         tsOut.setInterpolated(True)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
@@ -222,7 +216,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
         outputLocation = self.getExtraOutFile(tsId)
         tiOut.setLocation(index + 1, outputLocation)
-
         tiOut.getAcquisition().setTiltAxisAngle(0.)
 
         if self.oddEvenFlag:
@@ -232,7 +225,3 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                               ih.locationToXmipp(locationEven)])
         else:
             tiOut.setOddEven([])
-
-        pixSize = kwargs.get("pixSize", None)
-        if pixSize is not None:
-            tiOut.setSamplingRate(pixSize)
