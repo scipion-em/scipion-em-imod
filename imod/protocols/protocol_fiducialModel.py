@@ -34,7 +34,9 @@ from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
-                            FIDUCIAL_MODEL, PATCH_TRACKING)
+                            FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.utils import Message
 
 
 class ProtImodFiducialModel(ProtImodBase):
@@ -53,23 +55,23 @@ class ProtImodFiducialModel(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
         form.addParam('typeOfModel',
                       params.EnumParam,
                       choices=["Make seed and Track", "Patch Tracking"],
-                      default=0,
+                      default=FIDUCIAL_MODEL,
                       important=True,
                       label='Model generation')
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Tilt Series')
 
-        self._patchTrackingForm(form, 'typeOfModel==%d' % PATCH_TRACKING)
-        self._fiducialSeedForm(form, 'typeOfModel==%d' % FIDUCIAL_MODEL)
+        self._patchTrackingForm(form, 'typeOfModel == %i' % PATCH_TRACKING)
+        self._fiducialSeedForm(form, 'typeOfModel == %i' % FIDUCIAL_MODEL)
 
     def _patchTrackingForm(self, form, condition, levelType=params.LEVEL_NORMAL):
         patchtrack = form.addGroup('Patch Tracking',
@@ -88,7 +90,7 @@ class ProtImodFiducialModel(ProtImodBase):
                             params.EnumParam,
                             choices=['Fractional overlap of patches',
                                      'Number of patches'],
-                            default=0,
+                            default=PT_FRACTIONAL_OVERLAP,
                             label='Patch layout',
                             display=params.EnumParam.DISPLAY_HLIST,
                             help='To be added')
@@ -96,19 +98,19 @@ class ProtImodFiducialModel(ProtImodBase):
         patchtrack.addParam('overlapPatches',
                             params.NumericListParam,
                             default='0.33 0.33',
-                            condition='patchLayout==0',
+                            condition='patchLayout == %i' % PT_FRACTIONAL_OVERLAP,
                             label='Fractional overlap of the patches (X,Y)',
                             help="Fractional overlap in X and Y to track by correlation. "
                                  "In imod documentation"
-                                 "(tiltxcorr: NumberOfPatchesXandY)")
+                                 "(tiltxcorr: OverlapOfPatchesXandY)")
 
         patchtrack.addParam('numberOfPatches',
                             params.NumericListParam,
-                            condition='patchLayout==1',
+                            condition='patchLayout == %i' % PT_NUM_PATCHES,
                             label='Number of patches (X,Y)',
                             help="Number of patches in X and Y of the patches. "
                                  "In imod documentation"
-                                 "(tiltxcorr: OverlapOfPatchesXandY)")
+                                 "(tiltxcorr: NumberOfPatchesXandY)")
 
         patchtrack.addParam('iterationsSubpixel',
                             params.IntParam,
@@ -140,7 +142,6 @@ class ProtImodFiducialModel(ProtImodBase):
                            params.BooleanParam,
                            default=False,
                            label='Find beads on two surfaces?',
-                           display=params.EnumParam.DISPLAY_HLIST,
                            help="Track fiducials differentiating in which side "
                                 "of the sample are located.")
 
@@ -165,7 +166,6 @@ class ProtImodFiducialModel(ProtImodBase):
                                       default=True,
                                       label='Refine center with Sobel filter?',
                                       expertLevel=params.LEVEL_ADVANCED,
-                                      display=params.EnumParam.DISPLAY_HLIST,
                                       help='Use edge-detecting Sobel filter '
                                            'to refine the bead positions.')
 
@@ -354,7 +354,7 @@ class ProtImodFiducialModel(ProtImodBase):
                 "-ImagesAreBinned": 1,
             }
 
-            if self.patchLayout.get() == 0:
+            if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
                 patchesXY = self.overlapPatches.getListFromValues(caster=str)
                 paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
             else:

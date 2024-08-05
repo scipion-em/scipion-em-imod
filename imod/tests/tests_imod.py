@@ -26,9 +26,11 @@ import math
 
 import numpy as np
 
-from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
+    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
-    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment
+    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
+    ProtImodFiducialModel
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr
@@ -230,6 +232,50 @@ class TestImodBase(TestBaseCentralizedLayer):
         tsXcorrInterp = getattr(protXcorr, OUTPUT_TS_INTERPOLATED_NAME, None)
         return tsXcorr, tsXcorrInterp
 
+    @classmethod
+    def _genFiducialModel(cls, inTsSet, modelType=FIDUCIAL_MODEL, bothSurfaces=False, trackWithModel=True,
+                          sizeOfPatches='680 680', patchLayout=PT_FRACTIONAL_OVERLAP, iterationsSubpixel=1,
+                          overlapPatches='0.33 0.33', numberOfPatches=2):
+        if modelType == FIDUCIAL_MODEL:
+            modelTypeStr = 'Make seed and Track'
+            displayMsg = (f'\n\t- Find beads on two surfaces = {bothSurfaces}'
+                          f'\n\t- Track with fiducial model as seed = {trackWithModel}')
+        else:
+            if patchLayout == PT_FRACTIONAL_OVERLAP:
+                patchLayoutMsg = 'Fractional overlap'
+                patchModeInfoMsg = f'\n\t- Fractional overlap value = {overlapPatches}'
+            else:
+                patchLayoutMsg = 'Number of patches'
+                patchModeInfoMsg = f'\n\t- Number of patches = {numberOfPatches}'
+            modelTypeStr = 'Patch Tracking'
+            displayMsg = (f'\n\t- Size of the patches (X,Y) = {sizeOfPatches}'
+                          f'\n\t- Iterations subpixel = {iterationsSubpixel}'
+                          f'\n\t- Patch layout = {patchLayoutMsg}'
+                          f'{patchModeInfoMsg}')
+
+        print(magentaStr(f"\n==> Generating the TS fiducial model:"
+                         f"\n\t- Model Type = {modelTypeStr},"
+                         f"{displayMsg}"))
+        argsDict = {
+            'inputSetOfTiltSeries': inTsSet,
+            'typeOfModel': modelType}
+        if modelType == FIDUCIAL_MODEL:
+            argsDict['twoSurfaces'] = bothSurfaces,
+            argsDict['doTrackWithModel'] = trackWithModel
+        else:
+            argsDict['sizeOfPatches'] = sizeOfPatches
+            argsDict['patchLayout'] = patchLayout
+            argsDict['iterationsSubpixel'] = iterationsSubpixel
+            if patchLayout == PT_FRACTIONAL_OVERLAP:
+                argsDict['overlapPatches'] = overlapPatches
+            else:
+                argsDict['numberOfPatches'] = numberOfPatches
+
+        protFiduAli = cls.newProtocol(ProtImodFiducialModel, **argsDict)
+        cls.launchProtocol(protFiduAli)
+        fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_GAPS_NAME, None)
+        return fiducialModels
+
 
 class TestImodXRayEraser(TestImodBase):
 
@@ -397,7 +443,7 @@ class TestImodApplyTrMatrix(TestImodBase):
         self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)
 
 
-class TestXcorrAlignment(TestImodBase):
+class TestImodXcorrAlignment(TestImodBase):
 
     def _checkTiltSeries(self, inTsSet, binningFactor=1):
         self.checkTiltSeries(inTsSet,
@@ -464,7 +510,18 @@ class TestXcorrAlignment(TestImodBase):
         self._checkInterpTiltSeries(xCorrTsInterp, binningFactor=interptBinningFactor)
 
 
+class TestImodGenFiducialModel(TestImodBase):
+    binningFactor = 4
 
-# genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+        cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
+        cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed, genInterp=False)
 
-# self.testAcqObjDict
+    def testFiducialAli01(self):
+        self._genFiducialModel(self.preAliTsSet)
+
+        # inTsSet, modelType = FIDUCIAL_MODEL, bothSurfaces = False, trackWithModel = True,
+        # sizeOfPatches = '680 680', patchLayout = PT_FRACTIONAL_OVERLAP, iterationsSubpixel = 1,
+        # overlapPatches = '0.33 0.33', numberOfPatches = 2):
