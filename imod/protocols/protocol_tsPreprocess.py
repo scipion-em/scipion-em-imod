@@ -35,6 +35,13 @@ from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
 from imod.utils import genXfFile
 
+# Float densities modes
+FLOAT_DENSITIES_CHOICES = ['No adjust',
+                           'adjust each section to fill the data range',
+                           'scaled to common mean and standard deviation',
+                           'shifted to a common mean without scaling',
+                           'shifted to mean and rescaled to a min and max']
+
 
 class ProtImodTsNormalization(ProtImodBase):
     """
@@ -96,11 +103,7 @@ class ProtImodTsNormalization(ProtImodBase):
 
         form.addParam('floatDensities',
                       params.EnumParam,
-                      choices=['No adjust',
-                               'adjust each section to fill the data range',
-                               'scaled to common mean and standard deviation',
-                               'shifted to a common mean without scaling',
-                               'shifted to mean and rescaled to a min and max'],
+                      choices=FLOAT_DENSITIES_CHOICES,
                       default=2,
                       label='Adjust densities mode',
                       display=params.EnumParam.DISPLAY_COMBO,

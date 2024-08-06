@@ -28,7 +28,9 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from pwem import ALIGN_NONE, ALIGN_2D
 from pwem.objects import Transform
+from pyworkflow.utils import Message
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltImage, TiltSeries, TiltSeriesCoordinate)
 
@@ -37,6 +39,40 @@ from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+
+# Rotation solution types
+NO_ROTATION = 0
+ONE_ROTATION = 1
+GROUP_ROTATIONS = 2
+ALL_ROTATIONS = 3
+ROT_SOLUTION_CHOICES = ['No rotation',
+                        'One rotation',
+                        'Group rotations',
+                        'Solve for all rotations']
+
+# Magnification solution types
+FIXED_MAG = 0
+GROUP_MAGS = 1
+ALL_MAGS = 2
+MAG_SOLUTION_CHOICES = ['Fixed magnification at 1.0',
+                        'Group magnifications',
+                        'Solve for all magnifications']
+
+# Tilt angle solution types
+FIXED_TILT = 0
+GROUP_TILTS = 1
+ALL_EXCEPT_MIN = 2
+TILT_SOLUTION_CHOICES = ['Fixed tilt angles',
+                         'Group tilt angles',
+                         'Solve for all except minimum tilt']
+
+# Distortion solution types
+DIST_DISABLED = 0
+DIST_FULL_SOLUTION = 1
+DIST_SKEW_ONLY = 2
+DISTORTION_SOLUTION_CHOICES = ['Disabled',
+                               'Full solution',
+                               'Skew only']
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -119,7 +155,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
         form.addParam('inputSetOfLandmarkModels',
                       params.PointerParam,
@@ -138,7 +174,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         #               choices=['Yes', 'No'],
         #               default=0,
         #               label='Use same set of tilt-series form model',
-        #               display=params.EnumParam.DISPLAY_HLIST,
         #               help="By default the set of tilt-series to be algined is the same from which the fiducial models"
         #                    "have been obtained. If the user wants to sepecify the set of tilt series to be aligned "
         #                    "then select No.")
@@ -153,7 +188,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Assume beads on two surfaces?',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
                            "IMPORTANT: It is highly recommended to match the option selected in the "
                            "generation of the fiducial models. In case they  do not match, it is not "
@@ -167,7 +201,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying the obtained transformation '
                            'matrices.\n'
                            'By default, the output of this protocol will be a tilseries that will have associated'
@@ -194,11 +227,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         form.addParam('rotationSolutionType',
                       params.EnumParam,
-                      choices=['No rotation', 'One rotation',
-                               'Group rotations', 'Solve for all rotations'],
-                      default=3,
-                      label='Rotation solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=ROT_SOLUTION_CHOICES,
+                      default=ONE_ROTATION,
+                      label='Rotation solution type',
                       help='Type of rotation solution: See rotOption in tiltalign IMOD command \n'
                            '* No rotation: The in-plane rotation will not be estimated\n'
                            '* One rotation: To solve for a single rotation variable \n'
@@ -209,18 +241,17 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupRotationSize',
                       params.IntParam,
                       default=5,
-                      condition='rotationSolutionType==2',
+                      condition='rotationSolutionType == %i' % GROUP_ROTATIONS,
                       label='Group size',
                       help='Default group size when automapping rotation variables')
 
         form.addParam('magnificationSolutionType',
                       params.EnumParam,
-                      choices=['Fixed magnification at 1.0',
-                               'Group magnifications',
-                               'Solve for all magnifications'],
-                      default=1,
-                      label='Magnification solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=MAG_SOLUTION_CHOICES,
+                      default=FIXED_MAG,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Magnification solution type',
                       help='Type of magnification solution: See MagOption in tiltaling IMOD command\n'
                            '* Fixed magnification: Do not solve magnification. This fixes all magnifications at 1.0.\n'
                            '* Group magnifications: Group views to solve for fewer magnifications variables. '
@@ -230,17 +261,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupMagnificationSize',
                       params.IntParam,
                       default=4,
-                      condition='magnificationSolutionType==1',
+                      condition='magnificationSolutionType == %i' % GROUP_MAGS,
                       label='Group size',
                       help='Group size when automapping magnification variables')
 
         form.addParam('tiltAngleSolutionType',
                       params.EnumParam,
-                      choices=['Fixed tilt angles', 'Group tilt angles',
-                               'Solve for all except minimum tilt'],
-                      default=1,
-                      label='Tilt angle solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=TILT_SOLUTION_CHOICES,
+                      default=GROUP_TILTS,
+                      label='Tilt angle solution type',
                       help='Type of tilt angle solution: See TiltOption in tiltalign IMOD command\n'
                            ' * Fixed tilt angles: To fix all tilt angles at their initial (input) values \n'
                            ' * Group tilt angles: To automap groups of tilt angles (linearly changing values) \n'
@@ -250,16 +280,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupTiltAngleSize',
                       params.IntParam,
                       default=5,
-                      condition='tiltAngleSolutionType==1',
+                      condition='tiltAngleSolutionType == %i' % GROUP_TILTS,
                       label='Group size',
                       help='Average default group size when automapping tilt variables')
 
         form.addParam('distortionSolutionType',
                       params.EnumParam,
-                      choices=['Disabled', 'Full solution', 'Skew only'],
-                      default=0,
-                      label='Distortion solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=DISTORTION_SOLUTION_CHOICES,
+                      default=DIST_DISABLED,
+                      label='Distortion solution type',
                       help='Type of skew solution:'
                            '* 0 to fix all skew angles at 0.0 \n'
                            '* 1 to vary all skew angles independently\n '
@@ -270,14 +300,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('xStretchGroupSize',
                       params.IntParam,
                       default=7,
-                      condition='distortionSolutionType==1',
+                      condition='distortionSolutionType == %i' % DIST_FULL_SOLUTION,
                       label='X stretch group size',
                       help='Basic grouping size for X stretch')
 
         form.addParam('skewGroupSize',
                       params.IntParam,
                       default=11,
-                      condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
+                      condition='distortionSolutionType in [%i, %i]' % (DIST_FULL_SOLUTION, DIST_SKEW_ONLY),
                       label='Skew group size',
                       help='Size of the skew group')
 
@@ -287,7 +317,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Erase gold beads',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Remove the gold beads detected during fiducial '
                            'alignment with *ccderaser* program. This option '
                            'will generate an interpolated tilt series with '
@@ -295,24 +324,21 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            'the calculated transformation matrices form '
                            'the alignment.')
 
-        groupEraseGoldBeads = form.addGroup('Gold bead eraser',
-                                            condition='eraseGoldBeads')
-
-        groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
-                                     params.IntParam,
-                                     default=18,
-                                     label='Bead diameter (px)',
-                                     help="For circle objects, this entry "
-                                          "specifies a radius to use for points "
-                                          "without an individual point size "
-                                          "instead of the object's default sphere "
-                                          "radius. This entry is floating point "
-                                          "and can be used to overcome the "
-                                          "limitations of having an integer "
-                                          "default sphere radius. If there are "
-                                          "multiple circle objects, enter one "
-                                          "value to apply to all objects or a "
-                                          "value for each object.")
+        form.addParam('betterRadius',  # actually diameter
+                      params.IntParam,
+                      default=18,
+                      label='Bead diameter (px)',
+                      help="For circle objects, this entry "
+                           "specifies a radius to use for points "
+                           "without an individual point size "
+                           "instead of the object's default sphere "
+                           "radius. This entry is floating point "
+                           "and can be used to overcome the "
+                           "limitations of having an integer "
+                           "default sphere radius. If there are "
+                           "multiple circle objects, enter one "
+                           "value to apply to all objects or a "
+                           "value for each object.")
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -431,6 +457,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 output = self.getOutputSetOfTS(self.inputTS)
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_2D)
                 output.append(newTs)
 
                 for index, tiltImage in enumerate(ts):
@@ -486,6 +513,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                 newTs = TiltSeries(tsId=tsId)
                 newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_NONE)
                 newTs.setInterpolated(True)
                 output.append(newTs)
 
@@ -507,6 +535,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                 dims = self._getOutputDim(self.getExtraOutFile(tsId))
                 newTs.setDim(dims)
+                newTs.getAcquisition().setTiltAxisAngle(0)
                 newTs.write(properties=False)
 
                 output.update(newTs)

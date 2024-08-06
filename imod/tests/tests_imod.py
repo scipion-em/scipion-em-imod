@@ -28,10 +28,15 @@ from os.path import exists
 import numpy as np
 
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
-    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES
+    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES, \
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
     ProtImodFiducialModel
+from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_MAGS, GROUP_TILTS, DIST_DISABLED, \
+    ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
+    ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION
+from imod.protocols.protocol_tsPreprocess import FLOAT_DENSITIES_CHOICES
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr
@@ -194,14 +199,9 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @classmethod
     def _runTsPreprocess(cls, inTsSet, binning=1, densAdjustMode=2, **kwargs):
-        choices = ['No adjust',
-                   'range between min and max',
-                   'scaled to common mean and standard deviation',
-                   'shifted to a common mean without scaling',
-                   'shifted to mean and rescaled to a min and max']
         print(magentaStr(f"\n==> Running the TS preprocessing:"
                          f"\n\t- Binning factor = {binning}"
-                         f"\n\t- Adjust densities mode = {choices[densAdjustMode]}"))
+                         f"\n\t- Adjust densities mode = {FLOAT_DENSITIES_CHOICES[densAdjustMode]}"))
         protTsNorm = cls.newProtocol(ProtImodTsNormalization,
                                      inputSetOfTiltSeries=inTsSet,
                                      binning=binning,
@@ -273,10 +273,58 @@ class TestImodBase(TestBaseCentralizedLayer):
                 argsDict['numberOfPatches'] = numberOfPatches
 
         protFiduAli = cls.newProtocol(ProtImodFiducialModel, **argsDict)
-        protFiduAli.setObjLabel(objLabel)
+        if objLabel:
+            protFiduAli.setObjLabel(objLabel)
         cls.launchProtocol(protFiduAli)
         fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         return fiducialModels
+
+    def _checkFiducialModels(self, inFiducialsSet, expectedSetSize=2, expectedFiduSizeAngs=100,
+                             presentTsIds=(TS_03, TS_54)):
+        self.assertSetSize(inFiducialsSet, expectedSetSize)
+        for fiducialModel in inFiducialsSet:
+            self.assertTrue(fiducialModel.getTsId() in presentTsIds)
+            self.assertTrue(exists(fiducialModel.getFileName()))
+            self.assertTrue(exists(fiducialModel.getModelName()))
+            self.assertEqual(expectedFiduSizeAngs, fiducialModel.getSize())
+            self.assertGreater(fiducialModel.getCount(), 0)
+
+    @classmethod
+    def _runFiducialAli(cls, inFiduModels, bothSurfaces=False, genInterp=False, interpBinFactor=-1,
+                        rotationType=ONE_ROTATION, magnifType=FIXED_MAG, tiltAngleType=GROUP_TILTS,
+                        distortionType=DIST_DISABLED, eraseGoldBeads=False, beadDiamPx=-1, objLabel=None):
+        msg = (f"\n==> Running the TS alignment:"
+               f"\n\t- Beads on two surfaces = {bothSurfaces}"
+               f"\n\t- Generate the interpolated TS = {genInterp}")
+        if genInterp:
+            msg += f"\n\t- Interpolated TS binning factor = {interpBinFactor}"
+        msg += (f"\n\t- Rotation solution type = {ROT_SOLUTION_CHOICES[rotationType]}"
+                f"\n\t- Magnification solution type = {MAG_SOLUTION_CHOICES[magnifType]}"
+                f"\n\t- Tilt angle solution type = {TILT_SOLUTION_CHOICES[tiltAngleType]}"
+                f"\n\t- Distortion solution type = {DISTORTION_SOLUTION_CHOICES[distortionType]}"
+                f"\n\t- Erase gold beads = {eraseGoldBeads}")
+        if eraseGoldBeads:
+            msg += f"Bead diameter (px) = {beadDiamPx}"
+        print(magentaStr(msg))
+
+        protFiduAli = cls.newProtocol(ProtImodFiducialAlignment,
+                                      inputSetOfLandmarkModels=inFiduModels,
+                                      twoSurfaces=bothSurfaces,
+                                      computeAlignment=genInterp,
+                                      binning=interpBinFactor,
+                                      rotationSolutionType=rotationType,
+                                      magnificationSolutionType=magnifType,
+                                      tiltAngleSolutionType=tiltAngleType,
+                                      distortionSolutionType=distortionType,
+                                      eraseGoldBeads=eraseGoldBeads,
+                                      betterRadius=beadDiamPx)
+        if objLabel:
+            protFiduAli.setObjLabel(objLabel)
+        cls.launchProtocol(protFiduAli)
+        tsAli = getattr(protFiduAli, OUTPUT_TILTSERIES_NAME, None)
+        tsInterp = getattr(protFiduAli, OUTPUT_TS_INTERPOLATED_NAME, None)
+        fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        return tsAli, tsInterp, fiducialModels
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -521,65 +569,129 @@ class TestImodGenFiducialModel(TestImodBase):
         cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
         cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed, genInterp=False)
 
-    def _checkFiducialModels(self, inFiducialsSet, expectedSetSize=2, expectedFiduSizeAngs=100,
-                             presentTsIds=(TS_03, TS_54)):
-        self.assertSetSize(inFiducialsSet, expectedSetSize)
-        for fiducialModel in inFiducialsSet:
-            self.assertTrue(fiducialModel.getTsId() in presentTsIds)
-            self.assertTrue(exists(fiducialModel.getFileName()))
-            self.assertTrue(exists(fiducialModel.getModelName()))
-            self.assertEqual(expectedFiduSizeAngs, fiducialModel.getSize())
-            self.assertGreater(fiducialModel.getCount(), 0)
-
-    def testFiducialAli01(self):
-        fiducialModels = self._genFiducialModel(self.preAliTsSet, objLabel='testFiducialAli01')
+    def testFiducialModel01(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet, objLabel='testFiducialModel01')
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli02(self):
+    def testFiducialModel02(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli02',
+                                                objLabel='testFiducialModel02',
                                                 bothSurfaces=True)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli03(self):
+    def testFiducialModel03(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli03',
+                                                objLabel='testFiducialModel03',
                                                 trackWithModel=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli04(self):
+    def testFiducialModel04(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli04',
+                                                objLabel='testFiducialModel04',
                                                 modelType=PATCH_TRACKING)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli05(self):
+    def testFiducialModel05(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli05',
+                                                objLabel='testFiducialModel05',
                                                 modelType=PATCH_TRACKING,
                                                 sizeOfPatches='420 400')
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli06(self):
+    def testFiducialModel06(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli06',
+                                                objLabel='testFiducialModel06',
                                                 modelType=PATCH_TRACKING,
                                                 overlapPatches='0.25 0.33',
                                                 iterationsSubpixel=2)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    def testFiducialAli07(self):
+    def testFiducialModel07(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet,
-                                                objLabel='testFiducialAli07',
+                                                objLabel='testFiducialModel07',
                                                 modelType=PATCH_TRACKING,
                                                 patchLayout=PT_NUM_PATCHES)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
 
+class TestImodTsAlignment(TestImodBase):
+    binningFactor = 4
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+        cls.preAliTsSet, _ = cls._runXcorrAli(cls.importedTs, genInterp=False)
+        cls.fiducialModels = cls._genFiducialModel(cls.preAliTsSet)
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             hasAlignment=True,
+                             alignment=ALIGN_2D,
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             isInterpolated=True,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor, swapXY=True),
+                             testAcqObj=self.testInterpAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def testFiducialAli01(self):
+        tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels, objLabel='testFiducialAli01')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self.assertIsNone(tsInterp)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli02(self):
+        tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels,
+                                                               objLabel='testFiducialAli02',
+                                                               bothSurfaces=True,
+                                                               genInterp=True,
+                                                               interpBinFactor=self.binningFactor)
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli03(self):
+        tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels,
+                                                               objLabel='testFiducialAli03',
+                                                               interpBinFactor=self.binningFactor,
+                                                               rotationType=GROUP_ROTATIONS,
+                                                               distortionType=DIST_FULL_SOLUTION)
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self.assertIsNone(tsInterp)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    # TODO: test con el erase gold beads
+
+
+        # def _runFiducialAli(cls, inFiduModels, bothSurfaces=False, genInterp=False, interpBinFactor=-1,
+        #                     rotationType=GROUP_ROTATIONS, magnifType=GROUP_MAGS, tiltAngleType=GROUP_TILTS,
+        #                     distortionType=DIST_DISABLED, eraseGoldBeads=False, beadDiamPx=-1, objLabel=None):
+        #
