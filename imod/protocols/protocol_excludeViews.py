@@ -146,7 +146,9 @@ class ProtImodExcludeViews(ProtImodBase):
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            for tsIn, tsOut in zip(self.getInputSet(), self.TiltSeries):
+            tsInSet = self.getInputSet().iterItems(orderBy='_tsId')
+            tsOutSet = self.TiltSeries.iterItems(orderBy='_tsId')
+            for tsIn, tsOut in zip(tsInSet, tsOutSet):
                 summary.append(f"Tilt-series: {tsIn.getTsId()}; "
                                f"Size: {tsIn.getSize()} ---> {tsOut.getSize()}")
         else:
