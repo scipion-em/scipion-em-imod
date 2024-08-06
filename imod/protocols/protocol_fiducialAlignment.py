@@ -593,8 +593,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                        sampling_rate=ts.getSamplingRate())
                 output.append(newCoord3D)
 
-            output.write()
-
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
