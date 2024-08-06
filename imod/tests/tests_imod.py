@@ -23,11 +23,12 @@
 # *
 # **************************************************************************
 import math
+from os.path import exists
 
 import numpy as np
 
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
-    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME
+    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
     ProtImodFiducialModel
@@ -235,7 +236,7 @@ class TestImodBase(TestBaseCentralizedLayer):
     @classmethod
     def _genFiducialModel(cls, inTsSet, modelType=FIDUCIAL_MODEL, bothSurfaces=False, trackWithModel=True,
                           sizeOfPatches='680 680', patchLayout=PT_FRACTIONAL_OVERLAP, iterationsSubpixel=1,
-                          overlapPatches='0.33 0.33', numberOfPatches=2):
+                          overlapPatches='0.33 0.33', numberOfPatches='2 2', objLabel=None):
         if modelType == FIDUCIAL_MODEL:
             modelTypeStr = 'Make seed and Track'
             displayMsg = (f'\n\t- Find beads on two surfaces = {bothSurfaces}'
@@ -272,6 +273,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                 argsDict['numberOfPatches'] = numberOfPatches
 
         protFiduAli = cls.newProtocol(ProtImodFiducialModel, **argsDict)
+        protFiduAli.setObjLabel(objLabel)
         cls.launchProtocol(protFiduAli)
         fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         return fiducialModels
@@ -519,9 +521,65 @@ class TestImodGenFiducialModel(TestImodBase):
         cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
         cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed, genInterp=False)
 
-    def testFiducialAli01(self):
-        self._genFiducialModel(self.preAliTsSet)
+    def _checkFiducialModels(self, inFiducialsSet, expectedSetSize=2, expectedFiduSizeAngs=100,
+                             presentTsIds=(TS_03, TS_54)):
+        self.assertSetSize(inFiducialsSet, expectedSetSize)
+        for fiducialModel in inFiducialsSet:
+            self.assertTrue(fiducialModel.getTsId() in presentTsIds)
+            self.assertTrue(exists(fiducialModel.getFileName()))
+            self.assertTrue(exists(fiducialModel.getModelName()))
+            self.assertEqual(expectedFiduSizeAngs, fiducialModel.getSize())
+            self.assertGreater(fiducialModel.getCount(), 0)
 
-        # inTsSet, modelType = FIDUCIAL_MODEL, bothSurfaces = False, trackWithModel = True,
-        # sizeOfPatches = '680 680', patchLayout = PT_FRACTIONAL_OVERLAP, iterationsSubpixel = 1,
-        # overlapPatches = '0.33 0.33', numberOfPatches = 2):
+    def testFiducialAli01(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet, objLabel='testFiducialAli01')
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli02(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli02',
+                                                bothSurfaces=True)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli03(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli03',
+                                                trackWithModel=False)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli04(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli04',
+                                                modelType=PATCH_TRACKING)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli05(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli05',
+                                                modelType=PATCH_TRACKING,
+                                                sizeOfPatches='420 400')
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli06(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli06',
+                                                modelType=PATCH_TRACKING,
+                                                overlapPatches='0.25 0.33',
+                                                iterationsSubpixel=2)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli07(self):
+        fiducialModels = self._genFiducialModel(self.preAliTsSet,
+                                                objLabel='testFiducialAli07',
+                                                modelType=PATCH_TRACKING,
+                                                patchLayout=PT_NUM_PATCHES)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+
