@@ -35,7 +35,8 @@ from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNo
     ProtImodFiducialModel
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_MAGS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
-    ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION
+    ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
+    DIST_SKEW_ONLY
 from imod.protocols.protocol_tsPreprocess import FLOAT_DENSITIES_CHOICES
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
@@ -292,7 +293,7 @@ class TestImodBase(TestBaseCentralizedLayer):
     @classmethod
     def _runFiducialAli(cls, inFiduModels, bothSurfaces=False, genInterp=False, interpBinFactor=-1,
                         rotationType=ONE_ROTATION, magnifType=FIXED_MAG, tiltAngleType=GROUP_TILTS,
-                        distortionType=DIST_DISABLED, eraseGoldBeads=False, beadDiamPx=-1, objLabel=None):
+                        distortionType=DIST_DISABLED, objLabel=None):
         msg = (f"\n==> Running the TS alignment:"
                f"\n\t- Beads on two surfaces = {bothSurfaces}"
                f"\n\t- Generate the interpolated TS = {genInterp}")
@@ -301,10 +302,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         msg += (f"\n\t- Rotation solution type = {ROT_SOLUTION_CHOICES[rotationType]}"
                 f"\n\t- Magnification solution type = {MAG_SOLUTION_CHOICES[magnifType]}"
                 f"\n\t- Tilt angle solution type = {TILT_SOLUTION_CHOICES[tiltAngleType]}"
-                f"\n\t- Distortion solution type = {DISTORTION_SOLUTION_CHOICES[distortionType]}"
-                f"\n\t- Erase gold beads = {eraseGoldBeads}")
-        if eraseGoldBeads:
-            msg += f"Bead diameter (px) = {beadDiamPx}"
+                f"\n\t- Distortion solution type = {DISTORTION_SOLUTION_CHOICES[distortionType]}")
         print(magentaStr(msg))
 
         protFiduAli = cls.newProtocol(ProtImodFiducialAlignment,
@@ -315,9 +313,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                                       rotationSolutionType=rotationType,
                                       magnificationSolutionType=magnifType,
                                       tiltAngleSolutionType=tiltAngleType,
-                                      distortionSolutionType=distortionType,
-                                      eraseGoldBeads=eraseGoldBeads,
-                                      betterRadius=beadDiamPx)
+                                      distortionSolutionType=distortionType)
         if objLabel:
             protFiduAli.setObjLabel(objLabel)
         cls.launchProtocol(protFiduAli)
@@ -678,7 +674,6 @@ class TestImodTsAlignment(TestImodBase):
     def testFiducialAli03(self):
         tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels,
                                                                objLabel='testFiducialAli03',
-                                                               interpBinFactor=self.binningFactor,
                                                                rotationType=GROUP_ROTATIONS,
                                                                distortionType=DIST_FULL_SOLUTION)
         # Check the generated TS
@@ -688,8 +683,20 @@ class TestImodTsAlignment(TestImodBase):
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-    # TODO: test con el erase gold beads
-
+    def testFiducialAli04(self):
+        tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels,
+                                                               objLabel='testFiducialAli04',
+                                                               genInterp=True,
+                                                               interpBinFactor=self.binningFactor,
+                                                               rotationType=ALL_ROTATIONS,
+                                                               tiltAngleType=ALL_EXCEPT_MIN,
+                                                               distortionType=DIST_SKEW_ONLY)
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
 
         # def _runFiducialAli(cls, inFiduModels, bothSurfaces=False, genInterp=False, interpBinFactor=-1,
         #                     rotationType=GROUP_ROTATIONS, magnifType=GROUP_MAGS, tiltAngleType=GROUP_TILTS,

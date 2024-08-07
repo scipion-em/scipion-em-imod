@@ -311,34 +311,38 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Skew group size',
                       help='Size of the skew group')
 
-        form.addSection('Erase gold beads')
+        # NOTE:
+        # The gold bead eraser only remove the fiducial markers in the interpolated TS and only the ones used for the
+        #  TS alignment, so for now this functionality will be removed. Jorge (07/08/2024)
 
-        form.addParam('eraseGoldBeads',
-                      params.BooleanParam,
-                      default=False,
-                      label='Erase gold beads',
-                      help='Remove the gold beads detected during fiducial '
-                           'alignment with *ccderaser* program. This option '
-                           'will generate an interpolated tilt series with '
-                           'the gold beads erased and interpolated with '
-                           'the calculated transformation matrices form '
-                           'the alignment.')
-
-        form.addParam('betterRadius',  # actually diameter
-                      params.IntParam,
-                      default=18,
-                      label='Bead diameter (px)',
-                      help="For circle objects, this entry "
-                           "specifies a radius to use for points "
-                           "without an individual point size "
-                           "instead of the object's default sphere "
-                           "radius. This entry is floating point "
-                           "and can be used to overcome the "
-                           "limitations of having an integer "
-                           "default sphere radius. If there are "
-                           "multiple circle objects, enter one "
-                           "value to apply to all objects or a "
-                           "value for each object.")
+        # form.addSection('Erase gold beads')
+        #
+        # form.addParam('eraseGoldBeads',
+        #               params.BooleanParam,
+        #               default=False,
+        #               label='Erase gold beads',
+        #               help='Remove the gold beads detected during fiducial '
+        #                    'alignment with *ccderaser* program. This option '
+        #                    'will generate an interpolated tilt series with '
+        #                    'the gold beads erased and interpolated with '
+        #                    'the calculated transformation matrices form '
+        #                    'the alignment.')
+        #
+        # form.addParam('betterRadius',  # actually diameter
+        #               params.IntParam,
+        #               default=18,
+        #               label='Bead diameter (px)',
+        #               help="For circle objects, this entry "
+        #                    "specifies a radius to use for points "
+        #                    "without an individual point size "
+        #                    "instead of the object's default sphere "
+        #                    "radius. This entry is floating point "
+        #                    "and can be used to overcome the "
+        #                    "limitations of having an integer "
+        #                    "default sphere radius. If there are "
+        #                    "multiple circle objects, enter one "
+        #                    "value to apply to all objects or a "
+        #                    "value for each object.")
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -352,12 +356,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
             self._insertFunctionStep(self.computeOutputStackStep, tsId)
 
-            if self.computeAlignment or self.eraseGoldBeads:
-                self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
-                                         tsId, binning)
-            if self.eraseGoldBeads:
-                self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
-
+            if self.computeAlignment.get():  # or self.eraseGoldBeads:
+                self._insertFunctionStep(self.computeOutputInterpolatedStackStep, tsId, binning)
+            # if self.eraseGoldBeads:
+            #     self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
             self._insertFunctionStep(self.computeOutputModelsStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
@@ -542,26 +544,26 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 output.write()
                 self._store(output)
 
-    def eraseGoldBeadsStep(self, tsId):
-        """ Erase gold beads on aligned stack. """
-        if tsId not in self._failedTs:
-            try:
-                paramsCcderaser = {
-                    "-InputFile": self.getTmpOutFile(tsId),
-                    "-OutputFile": self.getExtraOutFile(tsId),
-                    "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                    "-BetterRadius": self.betterRadius.get() / 2,
-                    "-PolynomialOrder": 0,
-                    "-CircleObjects": "/",
-                    "-MergePatches": 1,
-                    "-ExcludeAdjacent": "",
-                    "-SkipTurnedOffPoints": 1,
-                    "-ExpandCircleIterations": 3
-                }
-                self.runProgram('ccderaser', paramsCcderaser)
-            except Exception as e:
-                self._failedTs.append(tsId)
-                self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
+    # def eraseGoldBeadsStep(self, tsId):
+    #     """ Erase gold beads on aligned stack. """
+    #     if tsId not in self._failedTs:
+    #         try:
+    #             paramsCcderaser = {
+    #                 "-InputFile": self.getTmpOutFile(tsId),
+    #                 "-OutputFile": self.getExtraOutFile(tsId),
+    #                 "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+    #                 "-BetterRadius": self.betterRadius.get() / 2,
+    #                 "-PolynomialOrder": 0,
+    #                 "-CircleObjects": "/",
+    #                 "-MergePatches": 1,
+    #                 "-ExcludeAdjacent": "",
+    #                 "-SkipTurnedOffPoints": 1,
+    #                 "-ExpandCircleIterations": 3
+    #             }
+    #             self.runProgram('ccderaser', paramsCcderaser)
+    #         except Exception as e:
+    #             self._failedTs.append(tsId)
+    #             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
