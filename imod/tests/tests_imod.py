@@ -29,19 +29,20 @@ import numpy as np
 
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
     FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
-    ProtImodFiducialModel
-from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_MAGS, GROUP_TILTS, DIST_DISABLED, \
+    ProtImodFiducialModel, ProtImodTomoReconstruction
+from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
     ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
     DIST_SKEW_ONLY
 from imod.protocols.protocol_tsPreprocess import FLOAT_DENSITIES_CHOICES
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
-from pyworkflow.utils import magentaStr
-from tomo.protocols import ProtImportTs
+from pyworkflow.utils import magentaStr, cyanStr
+from tomo.protocols import ProtImportTs, ProtImportTomograms
+from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
 from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
 
@@ -92,7 +93,14 @@ class TestImodBase(TestBaseCentralizedLayer):
     def setUpClass(cls):
         setupTestProject(cls)
         cls.ds = DataSet.getDataSet(RE4_STA_TUTO)
+        cls.runPrevProtocols()
+
+    @classmethod
+    def runPrevProtocols(cls):
+        print(cyanStr('--------------------------------- RUNNING PREVIOUS PROTOCOLS ---------------------------------'))
         cls._runPreviousProtocols()
+        print(cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED --------------------------------'))
+
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -136,6 +144,17 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protImportTs)
         tsImported = getattr(protImportTs, 'outputTiltSeries', None)
         return tsImported
+
+    @classmethod
+    def _runImportTomograms(cls):
+        print(magentaStr("\n==> Importing the tomograms:"))
+        protImportTomos = cls.newProtocol(ProtImportTomograms,
+                                          filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
+                                          filesPattern=DataSetRe4STATuto.tomosPattern.value,
+                                          samplingRate=DataSetRe4STATuto.sRateBin4.value)  # Bin 4
+        cls.launchProtocol(protImportTomos)
+        outTomos = getattr(protImportTomos, OUTPUT_NAME, None)
+        return outTomos
 
     @classmethod
     def _runXRayEraser(cls, inTsSet):
@@ -321,6 +340,33 @@ class TestImodBase(TestBaseCentralizedLayer):
         tsInterp = getattr(protFiduAli, OUTPUT_TS_INTERPOLATED_NAME, None)
         fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
         return tsAli, tsInterp, fiducialModels
+
+    @classmethod
+    def _runTomoRec(cls, inTsSet, tomoThickness=-1, tomoWidth=0, tomoShiftX=0, tomoShiftZ=0, superSampleFactor=2,
+                    angleOffset=0, tiltAxisOffset=0, fakeInteractionsSIRT=0, objLabel=None):
+        print(magentaStr(f"\n==> Reconstructing the tomogram:"
+                         f"\n\t- Tomogram thickness = {tomoThickness}"
+                         f"\n\t- Tomogram width = {tomoWidth}"
+                         f"\n\t- Tomogram shift [x, z] = [{tomoShiftX}, {tomoShiftZ}]"
+                         f"\n\t- Tilt angles offset (deg) = {angleOffset}"
+                         f"\n\t- Tilt axis angle offset (deg) = {tiltAxisOffset}"
+                         f"\n\t- Super-sampling factor = {superSampleFactor}"
+                         f"\n\t- Iter. SIRT equivalent filter = {fakeInteractionsSIRT}"))
+        protTomoRec = cls.newProtocol(ProtImodTomoReconstruction,
+                                      inputSetOfTiltSeries=inTsSet,
+                                      tomoThickness=tomoThickness,
+                                      tomoWidth=tomoWidth,
+                                      tomoShiftX=tomoShiftX,
+                                      tomoShiftZ=tomoShiftZ,
+                                      angleOffset=angleOffset,
+                                      tiltAxisOffset=tiltAxisOffset,
+                                      superSampleFactor=superSampleFactor,
+                                      fakeInteractionsSIRT=fakeInteractionsSIRT)
+        if objLabel:
+            protTomoRec.setObjLabel(objLabel)
+        cls.launchProtocol(protTomoRec)
+        tomograms = getattr(protTomoRec, OUTPUT_TOMOGRAMS_NAME, None)
+        return tomograms
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -698,7 +744,88 @@ class TestImodTsAlignment(TestImodBase):
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
-        # def _runFiducialAli(cls, inFiduModels, bothSurfaces=False, genInterp=False, interpBinFactor=-1,
-        #                     rotationType=GROUP_ROTATIONS, magnifType=GROUP_MAGS, tiltAngleType=GROUP_TILTS,
-        #                     distortionType=DIST_DISABLED, eraseGoldBeads=False, beadDiamPx=-1, objLabel=None):
-        #
+
+class TestImodTomoReconstruction(TestImodBase):
+    binningFactor = 4
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+        cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
+        cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed, genInterp=False)
+        cls.fiducialModels = cls._genFiducialModel(cls.preAliTsSet)
+        cls.tsAli, _, _ = cls._runFiducialAli(cls.fiducialModels)
+
+    def _checkTomos(self, inTomos, expectedTomoDims=None, expectedOriginShifts=None):
+        binnedSRate = self.unbinnedSRate * self.binningFactor
+        testOriginShifts = expectedOriginShifts
+        if expectedOriginShifts:
+            testOriginShifts = - np.array(expectedTomoDims) * binnedSRate / 2
+            testOriginShifts[0] -= expectedOriginShifts[0] * binnedSRate
+            testOriginShifts[2] -= expectedOriginShifts[1] * binnedSRate
+        self.checkTomograms(inTomos,
+                            expectedSetSize=len(self.testAcqObjDict),
+                            expectedSRate=binnedSRate,
+                            expectedDimensions=expectedTomoDims,
+                            expectedOriginShifts=testOriginShifts,
+                            isHeterogeneousSet=False,
+                            testAcqObj=self.testAcqObjDict)
+
+    def testTomoRec01(self):
+        tomoThk = 300
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec01',
+                                     tomoThickness=tomoThk)
+        # Check the tomograms
+        self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
+
+    def testTomoRec02(self):
+        tomoThk = 250
+        tomoShiftXAngst = 120
+        tomoShiftZAngst = 30
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec02',
+                                     tomoThickness=tomoThk,
+                                     tomoShiftX=tomoShiftXAngst,
+                                     tomoShiftZ=tomoShiftZAngst)
+        # Check the tomograms
+        self._checkTomos(tomograms,
+                         expectedTomoDims=[960, 928, tomoThk],
+                         expectedOriginShifts=[tomoShiftXAngst, tomoShiftZAngst])
+
+    def testTomoRec03(self):
+        tomoThk = 320
+        tomoWidth = 900
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec03',
+                                     tomoThickness=tomoThk,
+                                     tomoWidth=tomoWidth,
+                                     superSampleFactor=4,
+                                     )
+        # Check the tomograms
+        self._checkTomos(tomograms, expectedTomoDims=[tomoWidth, 928, tomoThk])
+
+    def testTomoRec04(self):
+        tomoThk = 280
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec04',
+                                     tomoThickness=tomoThk,
+                                     angleOffset=2,
+                                     tiltAxisOffset=3)
+        # Check the tomograms
+        self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
+
+    def testTomoRec05(self):
+        tomoThk = 220
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec05',
+                                     tomoThickness=tomoThk,
+                                     fakeInteractionsSIRT=5)
+        # Check the tomograms
+        self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
+
+
+
+
+
+

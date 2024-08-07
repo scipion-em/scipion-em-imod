@@ -172,4 +172,4 @@ class ProtImodExcludeViews(ProtImodBase):
             matrix = self.excludedViewsFromFile
             return matrix.get(ts.getTsId(), [])
         else:
-            return ts._getExcludedViewsIndex()
+            return ts.getExcludedViewsIndex()
