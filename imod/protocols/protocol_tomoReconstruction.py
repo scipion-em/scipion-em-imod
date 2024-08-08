@@ -28,6 +28,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
+from pyworkflow.object import String
 from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 
@@ -65,6 +66,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.widthWarnMsg = String()
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -78,6 +83,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         form.addParam('tomoThickness',
                       params.IntParam,
                       default=1000,
+                      validators=[params.GT(0)],
                       label='Tomogram thickness (voxels)',
                       important=True,
                       help='Size in voxels of the tomogram along the z '
@@ -86,6 +92,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         form.addParam('tomoWidth',
                       params.IntParam,
                       default=0,
+                      validators=[params.GE(0)],
                       label='Tomogram width (voxels)',
                       help='Number of pixels to cut out in X, centered on the middle in X. '
                            'Leave 0 for default X.')
@@ -243,15 +250,29 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        widthWarnTsIds = []
         self._initialize()
-        for tsId in self.tsDict.keys():
+        for tsId, ts in self.tsDict.items():
+            xDim = ts.getXDim()
+            tomoWidth = self.tomoWidth.get()
+            if tomoWidth > xDim:
+                tomoWidth = 0
+                widthWarnTsIds.append(tsId)
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeReconstructionStep, tsId)
+            self._insertFunctionStep(self.computeReconstructionStep, tsId, tomoWidth)
             self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
+        if widthWarnTsIds:
+            self.widthWarnMsg.set(f'\n\n*WARNING!:*'
+                                  f'\nThe introduced width is greater than the X dimension of the tomograms: '
+                                  f'*{widthWarnTsIds}*.'
+                                  f'\nValue 0 was assumed to all of them.')
+
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
+        self.widthWarnMsg.set(
+            '')  # Reset this variable value to avoid duplications in the summary when continuing the protocol
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
@@ -260,7 +281,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
         super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
 
     # @ProtImodBase.tryExceptDecorator
-    def computeReconstructionStep(self, tsId):
+    def computeReconstructionStep(self, tsId, tomoWidth):
         try:
             ts = self.tsDict[tsId]
 
@@ -308,18 +329,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 self.runProgram('tilt', paramsTilt)
 
             # run trimvol
-            def _getTrimOptions():
-                args = "-rx "
-
-                if self.tomoWidth.get():
-                    args += f" -nx {self.tomoWidth.get()}"
-
-                return args
+            trimVolOpts = "-rx "
+            if tomoWidth > 0:
+                trimVolOpts += f" -nx {tomoWidth}"
 
             paramsTrimVol = {
                 'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
                 'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
-                'options': _getTrimOptions()
+                'options': trimVolOpts
             }
 
             argsTrimvol = "%(options)s %(input)s %(output)s"
@@ -380,6 +397,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
         if self.Tomograms:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            f"Tomograms reconstructed: {self.Tomograms.getSize()}")
+            widthWarnings = self.widthWarnMsg.get()
+            if widthWarnings:
+                summary.append(widthWarnings)
         else:
             summary.append("Outputs are not ready yet.")
         return summary

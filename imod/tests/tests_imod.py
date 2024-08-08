@@ -840,6 +840,7 @@ class TestImodTomoReconstruction(TestImodBase):
         tomograms = self._runTomoRec(self.tsAli,
                                      objLabel='testTomoRec05',
                                      tomoThickness=tomoThk,
+                                     tomoWidth=1000,  # The protocol will ignore this as it's greater than the tomo Xdim
                                      fakeInteractionsSIRT=5)
         # Check the tomograms
         self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
