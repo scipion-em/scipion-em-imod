@@ -32,16 +32,17 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, O
     OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
-    ProtImodFiducialModel, ProtImodTomoReconstruction
+    ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization
+from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
     ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
     DIST_SKEW_ONLY
-from imod.protocols.protocol_tsPreprocess import FLOAT_DENSITIES_CHOICES
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
 from tomo.protocols import ProtImportTs, ProtImportTomograms
+from tomo.protocols.protocol_base import ProtTomoImportAcquisition
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
 from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
@@ -99,8 +100,8 @@ class TestImodBase(TestBaseCentralizedLayer):
     def runPrevProtocols(cls):
         print(cyanStr('--------------------------------- RUNNING PREVIOUS PROTOCOLS ---------------------------------'))
         cls._runPreviousProtocols()
-        print(cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED --------------------------------'))
-
+        print(
+            cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED --------------------------------'))
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -111,7 +112,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         dims = []
         for iDim in unbinnedTiDims:
             newDim = math.ceil(iDim / binningFactor)
-            # Imod always generates images with even dimensions
+            # Imod always generates images with even dimensions, at least for the TS
             if newDim % 2 != 0:
                 newDim += 1
             dims.append(newDim)
@@ -151,7 +152,11 @@ class TestImodBase(TestBaseCentralizedLayer):
         protImportTomos = cls.newProtocol(ProtImportTomograms,
                                           filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
                                           filesPattern=DataSetRe4STATuto.tomosPattern.value,
-                                          samplingRate=DataSetRe4STATuto.sRateBin4.value)  # Bin 4
+                                          samplingRate=DataSetRe4STATuto.sRateBin4.value,  # Bin 4
+                                          importAcquisitionFrom=ProtTomoImportAcquisition.MANUAL_IMPORT,
+                                          oltage=DataSetRe4STATuto.voltage.value,
+                                          sphericalAberration=DataSetRe4STATuto.sphericalAb.value,
+                                          amplitudeContrast=DataSetRe4STATuto.amplitudeContrast.value)
         cls.launchProtocol(protImportTomos)
         outTomos = getattr(protImportTomos, OUTPUT_NAME, None)
         return outTomos
@@ -367,6 +372,21 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protTomoRec)
         tomograms = getattr(protTomoRec, OUTPUT_TOMOGRAMS_NAME, None)
         return tomograms
+
+    @classmethod
+    def _runTomogramsPreprocess(cls, inTomoSet, binning=1, densAdjustMode=2, **kwargs):
+        print(magentaStr(f"\n==> Running the tomograms preprocessing:"
+                         f"\n\t- Binning factor = {binning}"
+                         f"\n\t- Adjust densities mode = {FLOAT_DENSITIES_CHOICES[densAdjustMode]}"))
+        protTomoNorm = cls.newProtocol(ProtImodTomoNormalization,
+                                       inputSetOfTomograms=inTomoSet,
+                                       binning=binning,
+                                       floatDensities=densAdjustMode,
+                                       **kwargs)
+        protTomoNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode}')
+        cls.launchProtocol(protTomoNorm)
+        tomoPreprocessed = getattr(protTomoNorm, OUTPUT_TOMOGRAMS_NAME, None)
+        return tomoPreprocessed
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -825,7 +845,87 @@ class TestImodTomoReconstruction(TestImodBase):
         self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
 
 
+class TestImodTomogramPreprocess(TestImodBase):
+    binningFactor = 4
 
+    def _checkTomos(self, inTomos, binningFactor=1):
+        # The input tomograms are at binning 4, so it will be the reference binning
+        binnedSRate = self.unbinnedSRate * self.binningFactor * binningFactor
+        testAcqObjDict = {
+            TS_01: DataSetRe4STATuto.testAcq01.value,
+            TS_03: DataSetRe4STATuto.testAcq03.value,
+            TS_43: DataSetRe4STATuto.testAcq43.value,
+            TS_45: DataSetRe4STATuto.testAcq45.value,
+            TS_54: DataSetRe4STATuto.testAcq54.value,
+        }
+        tomoDimsThk280b = [round(iDim / binningFactor) for iDim in tomoDimsThk280]
+        tomoDimsThk300b = [round(iDim / binningFactor) for iDim in tomoDimsThk300]
+        tomoDimsThk340b = [round(iDim / binningFactor) for iDim in tomoDimsThk340]
+        expectedDimensionsDict = {
+            TS_01: tomoDimsThk340b,
+            TS_03: tomoDimsThk280b,
+            TS_43: tomoDimsThk300b,
+            TS_45: tomoDimsThk300b,
+            TS_54: tomoDimsThk280b,
+        }
+        self.checkTomograms(inTomos,
+                            expectedSetSize=len(testAcqObjDict),
+                            expectedSRate=binnedSRate,
+                            expectedDimensions=expectedDimensionsDict,
+                            isHeterogeneousSet=False,
+                            testAcqObj=testAcqObjDict)
 
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTomos = cls._runImportTomograms()
 
+    def testTsPreprocess00(self):
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         densAdjustMode=0)  # No adjust
+        self._checkTomos(tomosPreprocessed)
 
+    def testTsPreprocess01(self):
+        binningFactor = 1
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         binning=binningFactor,
+                                                         densAdjustMode=0,  # No adjust
+                                                         scaleMax=200,
+                                                         scaleMin=20)
+        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess02(self):
+        binningFactor = 2
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         binning=binningFactor,
+                                                         densAdjustMode=1)  # range between min and max
+        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess03(self):
+        binningFactor = 2
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         binning=binningFactor,
+                                                         densAdjustMode=2,  # scaled to common mean and standard deviation
+                                                         scaleMean=0,
+                                                         scaleSd=1)
+        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess04(self):
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         densAdjustMode=2,  # scaled to common mean and standard deviation
+                                                         meanSdToggle=False)
+        self._checkTomos(tomosPreprocessed)
+
+    def testTsPreprocess05(self):
+        binningFactor = 3
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         binning=binningFactor,
+                                                         densAdjustMode=3,  # shifted to a common mean without scaling
+                                                         meanSdToggle=False)
+        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess06(self):
+        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+                                                         densAdjustMode=4,  # shifted to mean and rescaled to a min and max
+                                                         scaleMax=200,
+                                                         scaleMin=20)
+        self._checkTomos(tomosPreprocessed)

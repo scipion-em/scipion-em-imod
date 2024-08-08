@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+from typing import Union
 
 from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
@@ -40,6 +41,7 @@ from imod.constants import *
 
 logger = logging.getLogger(__name__)
 IN_TS_SET = 'inputSetOfTiltSeries'
+IN_TOMO_SET = 'inputSetOfTomograms'
 PROCESS_ODD_EVEN = 'processOddEven'
 
 
@@ -571,10 +573,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def applyToOddEven(self, setOfTs):
         return getattr(self, PROCESS_ODD_EVEN, Boolean(False)).get() and setOfTs.hasOddEven()
 
-    def warningOddEven(self, setOfTs: SetOfTiltSeries, warnMsgList: list):
-        if getattr(self, PROCESS_ODD_EVEN, Boolean(False).get()) and not setOfTs.hasOddEven():
-            warnMsgList.append('The even/odd tilt-series were not found in the introduced tilt-series '
-                               'metadata. Thus, they cannot be processed, only the full tilt-series.')
+    def warningOddEven(self, inSet: Union[SetOfTiltSeries, SetOfTomograms], warnMsgList: list):
+        if getattr(self, PROCESS_ODD_EVEN, Boolean(False).get()) and not inSet.hasOddEven():
+            warnMsgList.append('The even/odd tilt-series or tomograms were not found in the introduced tilt-series or '
+                               'tomograns metadata. Thus, only the full tilt-series or tomograms will be processed.')
 
     def runProgram(self, program, paramsDict, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
