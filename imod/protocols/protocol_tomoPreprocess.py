@@ -73,7 +73,6 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                       pointerClass='SetOfTomograms',
                       important=True,
                       label='Input set of tomograms')
-
         super()._defineParams(form, isTomogram=True)
 
     # -------------------------- INSERT steps functions -----------------------

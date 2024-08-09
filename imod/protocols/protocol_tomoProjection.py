@@ -25,9 +25,11 @@
 # *****************************************************************************
 import os
 
+from imod.protocols.protocol_base import IN_TOMO_SET
 from pwem.objects import Transform
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod.protocols import ProtImodBase
@@ -45,8 +47,8 @@ class ProtImodTomoProjection(ProtImodBase):
 
     A projection along a ray line is simply the average of the pixels in
     the block along that line.  However, rather than taking the values of
-    the pixels that lie near the ray, interpolation is used to sample den-
-    sity at points evenly spaced at one pixel intervals along the ray.
+    the pixels that lie near the ray, interpolation is used to sample density
+    at points evenly spaced at one pixel intervals along the ray.
     """
 
     _label = 'Tomo projection'
@@ -58,8 +60,8 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTomograms',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TOMO_SET,
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
@@ -105,8 +107,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo
-                         in self.inputSetOfTomograms.get()}
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
 
     def projectTomogram(self, tsId):
         try:
@@ -138,16 +139,23 @@ class ProtImodTomoProjection(ProtImodBase):
                 inputTomos = self.getInputSet()
                 output = self.getOutputSetOfTS(inputTomos)
                 newTs = TiltSeries(tsId=tsId)
-                newTs.setAcquisition(tomo.getAcquisition())
+                acq = tomo.getAcquisition()
+                acq.setAngleMin(self.minAngle.get())
+                acq.setAngleMax(self.maxAngle.get())
+                acq.setStep(self.stepAngle.get())
+                acq.setTiltAxisAngle(0)
+                newTs.setAcquisition(acq)
                 output.append(newTs)
 
                 tiltAngleList = self.getTiltAngleList()
                 sRate = inputTomos.getSamplingRate()
                 for index in range(self.getProjectionRange()):
-                    newTi = TiltImage(tsId=tsId, tiltAngle=tiltAngleList[index],
+                    newTi = TiltImage(tsId=tsId,
+                                      tiltAngle=tiltAngleList[index],
                                       acquisitionOrder=index+1)
                     newTi.setLocation(index + 1, outputFn)
                     newTi.setSamplingRate(sRate)
+                    newTi.setAcquisition(acq)
                     newTs.append(newTi)
 
                 x, y, z, _ = ih.getDimensions(outputFn)

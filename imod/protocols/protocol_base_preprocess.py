@@ -163,10 +163,4 @@ class ProtImodBasePreprocess(ProtImodBase):
                            f'based on {objStr} of natural scenes where there are '
                            f'sharp edges.')
 
-        form.addParam(PROCESS_ODD_EVEN,
-                      params.BooleanParam,
-                      default=False,
-                      label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated odd/even '
-                           'tilt series will be processed. The transformations applied '
-                           'to the odd/even tilt series will be exactly the same.')
+        self.addOddEvenParams(form, isTomogram=isTomogram)

@@ -120,9 +120,9 @@ class ProtImodFiducialModel(ProtImodBase):
                                  "interpolation of the peak position"
                                  "In imod documentation: (tiltxcorr: IterateCorrelations)")
 
-        self.trimingForm(patchtrack, pxTrimCondition=True,
-                         correlationCondition=True,
-                         levelType=params.LEVEL_ADVANCED)
+        self.addTrimingParams(patchtrack, pxTrimCondition=True,
+                              correlationCondition=True,
+                              levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition=condition,
                                      levelType=params.LEVEL_ADVANCED)
         form.getParam("filterRadius2").setDefault(0.125)

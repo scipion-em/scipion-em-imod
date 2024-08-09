@@ -239,14 +239,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
-        form.addParam(PROCESS_ODD_EVEN,
-                      params.BooleanParam,
-                      default=False,
-                      label='Reconstruct odd/even?',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be reconstructed. '
-                           'The alignment applied to the odd/even tilt series '
-                           'will be exactly the same.')
+        self.addOddEvenParams(form, isTomogram=True)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -267,7 +260,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             self.widthWarnMsg.set(f'\n\n*WARNING!:*'
                                   f'\nThe introduced width is greater than the X dimension of the tomograms: '
                                   f'*{widthWarnTsIds}*.'
-                                  f'\nValue 0 was assumed to all of them.')
+                                  f'\nValue 0 was assumed for all of them.')
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):

@@ -32,7 +32,8 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, O
     OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
-    ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization
+    ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
+    ProtImodExcludeViews
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
@@ -89,6 +90,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         TS_03: 40,
         TS_54: 41,
     }
+    excludedViewsDict = None
 
     @classmethod
     def setUpClass(cls):
@@ -108,7 +110,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.importedTs = cls._runImportTs()
 
     @staticmethod
-    def _getExpectedDimsDict(binningFactor=1, swapXY=False):
+    def _getExpectedDimsDict(binningFactor=1, nImgsTs03=40, nImgsTs54=41, swapXY=False):
         dims = []
         for iDim in unbinnedTiDims:
             newDim = math.ceil(iDim / binningFactor)
@@ -120,8 +122,8 @@ class TestImodBase(TestBaseCentralizedLayer):
         if swapXY:
             dims.reverse()
         expectedDimensions = {
-            TS_03: dims + [40],
-            TS_54: dims + [41]
+            TS_03: dims + [nImgsTs03],
+            TS_54: dims + [nImgsTs54]
         }
         return expectedDimensions
 
@@ -147,11 +149,11 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsImported
 
     @classmethod
-    def _runImportTomograms(cls):
+    def _runImportTomograms(cls, filesPattern=DataSetRe4STATuto.tomosPattern.value):
         print(magentaStr("\n==> Importing the tomograms:"))
         protImportTomos = cls.newProtocol(ProtImportTomograms,
                                           filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
-                                          filesPattern=DataSetRe4STATuto.tomosPattern.value,
+                                          filesPattern=filesPattern,
                                           samplingRate=DataSetRe4STATuto.sRateBin4.value,  # Bin 4
                                           importAcquisitionFrom=ProtTomoImportAcquisition.MANUAL_IMPORT,
                                           oltage=DataSetRe4STATuto.voltage.value,
@@ -378,15 +380,61 @@ class TestImodBase(TestBaseCentralizedLayer):
         print(magentaStr(f"\n==> Running the tomograms preprocessing:"
                          f"\n\t- Binning factor = {binning}"
                          f"\n\t- Adjust densities mode = {FLOAT_DENSITIES_CHOICES[densAdjustMode]}"))
-        protTomoNorm = cls.newProtocol(ProtImodTomoNormalization,
-                                       inputSetOfTomograms=inTomoSet,
-                                       binning=binning,
-                                       floatDensities=densAdjustMode,
-                                       **kwargs)
-        protTomoNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode}')
-        cls.launchProtocol(protTomoNorm)
-        tomoPreprocessed = getattr(protTomoNorm, OUTPUT_TOMOGRAMS_NAME, None)
+        protTomoPreprocess = cls.newProtocol(ProtImodTomoNormalization,
+                                             inputSetOfTomograms=inTomoSet,
+                                             binning=binning,
+                                             floatDensities=densAdjustMode,
+                                             **kwargs)
+        protTomoPreprocess.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode}')
+        cls.launchProtocol(protTomoPreprocess)
+        tomoPreprocessed = getattr(protTomoPreprocess, OUTPUT_TOMOGRAMS_NAME, None)
         return tomoPreprocessed
+
+    @classmethod
+    def _runTomoProjection(cls, inTomoSet, minAngle=-60, maxAngle=60, angleStep=2,
+                           rotationAxis=ProtImodTomoProjection.AXIS_Y, objLabel=None):
+        rotAxisChoices = ['X', 'Y', 'Z']
+        print(magentaStr(f"\n==> Running the tomograms projection:"
+                         f"\n\t- [AngleMin, AngleMax, Step] deg = [{minAngle}, {maxAngle}, {angleStep}]"
+                         f"\n\t- Rotation axis = {rotAxisChoices[rotationAxis]}"))
+        protTomoProj = cls.newProtocol(ProtImodTomoProjection,
+                                       inputSetOfTomograms=inTomoSet,
+                                       minAngle=minAngle,
+                                       maxAngle=maxAngle,
+                                       stepAngle=angleStep,
+                                       rotationAxis=rotationAxis)
+        if objLabel:
+            protTomoProj.setObjLabel(objLabel)
+        cls.launchProtocol(protTomoProj)
+        tsProjected = getattr(protTomoProj, OUTPUT_TILTSERIES_NAME, None)
+        return tsProjected
+
+    @classmethod
+    def _excludeTsSetViews(cls, tsSet):
+        tsList = [ts.clone(ignoreAttrs=[]) for ts in tsSet]
+        for ts in tsList:
+            cls._excludeTsViews(tsSet, ts, cls.excludedViewsDict[ts.getTsId()])
+
+    @staticmethod
+    def _excludeTsViews(tsSet, ts, excludedViewsList):
+        tiList = [ti.clone() for ti in ts]
+        for i, ti in enumerate(tiList):
+            if i in excludedViewsList:
+                ti._objEnabled = False
+                ts.update(ti)
+        ts.write()
+        tsSet.update(ts)
+        tsSet.write()
+
+    @classmethod
+    def _runExcludeViewsProt(cls, inTsSet, objLabel=None):
+        print(magentaStr("\n==> Running the TS exclusion of views:"))
+        protExcViews = cls.newProtocol(ProtImodExcludeViews, inputSetOfTiltSeries=inTsSet)
+        if objLabel:
+            protExcViews.setObjLabel(objLabel)
+        cls.launchProtocol(protExcViews)
+        outTsSet = getattr(protExcViews, OUTPUT_TILTSERIES_NAME, None)
+        return outTsSet
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -905,14 +953,16 @@ class TestImodTomogramPreprocess(TestImodBase):
         binningFactor = 2
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          binning=binningFactor,
-                                                         densAdjustMode=2,  # scaled to common mean and standard deviation
+                                                         densAdjustMode=2,
+                                                         # scaled to common mean and standard deviation
                                                          scaleMean=0,
                                                          scaleSd=1)
         self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
     def testTsPreprocess04(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-                                                         densAdjustMode=2,  # scaled to common mean and standard deviation
+                                                         densAdjustMode=2,
+                                                         # scaled to common mean and standard deviation
                                                          meanSdToggle=False)
         self._checkTomos(tomosPreprocessed)
 
@@ -926,7 +976,87 @@ class TestImodTomogramPreprocess(TestImodBase):
 
     def testTsPreprocess06(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-                                                         densAdjustMode=4,  # shifted to mean and rescaled to a min and max
+                                                         densAdjustMode=4,
+                                                         # shifted to mean and rescaled to a min and max
                                                          scaleMax=200,
                                                          scaleMin=20)
         self._checkTomos(tomosPreprocessed)
+
+
+class TestImodTomoProjection(TestImodBase):
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTomos = cls._runImportTomograms(filesPattern='*3.mrc')  # TS_03 and TS_43
+
+    def testTomoProj01(self):
+        projTs = self._runTomoProjection(inTomoSet=self.importedTomos)
+
+
+#     def _runTomoProjection(cls, inTomoSet, minAngle=-60, maxAngle=60, angleStep=2,
+#                            rotationAxis=ProtImodTomoProjection.AXIS_Y, objLabel=None):
+
+# TODO: should the output be an interpolated TS? Once it's decided, finish these tests
+
+# class TestImodEcludeViews(TestImodBase):
+#     excludedViewsDict = {
+#         TS_03: [0, 38, 39],
+#         TS_54: [0, 1, 38, 39, 40]
+#     }
+#
+#     @classmethod
+#     def _runPreviousProtocols(cls):
+#         pass
+#
+#     def _checkTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=1):
+#         nImgs03 = anglesCountDict[TS_03]
+#         nImgs54 = anglesCountDict[TS_54]
+#         expectedDimensions = self._getExpectedDimsDict(binningFactor, nImgsTs03=nImgs03, nImgsTs54=nImgs54)
+#         self.checkTiltSeries(inTsSet,
+#                              expectedSetSize=self.expectedTsSetSize,
+#                              expectedSRate=self.unbinnedSRate * binningFactor,
+#                              expectedDimensions=expectedDimensions,
+#                              imported=True,
+#                              testAcqObj=testAcqObjDict,
+#                              anglesCount=anglesCountDict,
+#                              isHeterogeneousSet=True,
+#                              expectedOrigin=tsOriginAngst)
+#
+#     def testExcludeViews01(self):
+#         importedTs = self._runImportTs()
+#         # There are no excluded views at metadata level, so the protocol should do nothing
+#         # Run the protocol
+#         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
+#         # Check the results
+#         self._checkTiltSeries(outTsSet, self.testAcqObjDict, self.anglesCountDict)
+#
+#     def testExcludeViews02(self):
+#         importedTs = self._runImportTs()
+#         # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
+#         # removed tilt-images are the first or the last, for example.
+#         anglesCountDictExcluded = {
+#             TS_03: 37,
+#             TS_54: 36,
+#         }
+#
+#         testAcqObjDictReStacked = {}
+#         acq_TS_03 = self.testAcqObjDict[TS_03]
+#         acq_TS_03.setAccumDose(111)
+#         acq_TS_03.setAngleMin(-54)
+#         acq_TS_03.setAngleMax(54)
+#         testAcqObjDictReStacked[TS_03] = acq_TS_03
+#
+#         acq_TS_54 = self.testAcqObjDict[TS_54]
+#         acq_TS_54.setAccumDose(108)
+#         acq_TS_54.setAngleMin(-54)
+#         acq_TS_54.setAngleMax(51)
+#         testAcqObjDictReStacked[TS_54] = acq_TS_54
+#         # Exclude some views at metadata level
+#         self._excludeTsSetViews(importedTs)
+#         # Run the protocol
+#         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
+#         # Check the results
+#         self._checkTiltSeries(outTsSet, testAcqObjDictReStacked, anglesCountDictExcluded)
+
+
+

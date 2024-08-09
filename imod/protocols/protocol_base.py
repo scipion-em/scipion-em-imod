@@ -72,8 +72,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
-    def trimingForm(form, pxTrimCondition=False, correlationCondition=True,
-                    levelType=params.LEVEL_ADVANCED):
+    def addOddEvenParams(form, isTomogram=False):
+        objStr = 'tomograms' if isTomogram else 'tilt-series'
+        form.addParam(PROCESS_ODD_EVEN,
+                      params.BooleanParam,
+                      default=False,
+                      label='Apply to odd/even',
+                      help=f'If True, the full {objStr} and the associated odd/even '
+                           f'{objStr} will be processed. The transformations applied '
+                           f'to the odd/even {objStr} will be exactly the same.')
+
+    @staticmethod
+    def addTrimingParams(form, pxTrimCondition=False, correlationCondition=True,
+                         levelType=params.LEVEL_ADVANCED):
         """
         Generally, this form will be integrated in a groupForm,
         the group form argument is form. A set of flags

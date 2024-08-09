@@ -100,13 +100,7 @@ class ProtImodDoseFilter(ProtImodBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
 
-        form.addParam(PROCESS_ODD_EVEN,
-                      params.BooleanParam,
-                      default=False,
-                      label='Filter odd/even',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be processed. The applied '
-                           'dose for the odd/even tilt series will be exactly the same.')
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

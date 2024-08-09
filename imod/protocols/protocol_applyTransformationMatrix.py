@@ -96,15 +96,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is more suitable when images are very noisy, but cubic '
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
-        
-        form.addParam(PROCESS_ODD_EVEN,
-                      params.BooleanParam,
-                      default=False,
-                      label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be processed. The '
-                           'transformations applied to the odd/even tilt-series '
-                           'will be exactly the same.')
+
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
