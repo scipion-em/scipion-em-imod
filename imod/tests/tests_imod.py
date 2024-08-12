@@ -24,6 +24,7 @@
 # **************************************************************************
 import math
 from os.path import exists
+from typing import Union
 
 import numpy as np
 
@@ -42,6 +43,7 @@ from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TIL
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
+from tomo.objects import TomoAcquisition
 from tomo.protocols import ProtImportTs, ProtImportTomograms
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
@@ -103,16 +105,20 @@ class TestImodBase(TestBaseCentralizedLayer):
         print(cyanStr('--------------------------------- RUNNING PREVIOUS PROTOCOLS ---------------------------------'))
         cls._runPreviousProtocols()
         print(
-            cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED --------------------------------'))
+            cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED ---------------------------------'))
 
     @classmethod
     def _runPreviousProtocols(cls):
         cls.importedTs = cls._runImportTs()
 
-    @staticmethod
-    def _getExpectedDimsDict(binningFactor=1, nImgsTs03=40, nImgsTs54=41, swapXY=False):
+    @classmethod
+    def _getExpectedDimsDict(cls, unbinnedXYDims=None, nImgsDict=None, binningFactor=1, swapXY=False):
+        if not nImgsDict:
+            nImgsDict = cls.anglesCountDict
+        if not unbinnedXYDims:
+            unbinnedXYDims = unbinnedTiDims
         dims = []
-        for iDim in unbinnedTiDims:
+        for iDim in unbinnedXYDims:
             newDim = math.ceil(iDim / binningFactor)
             # Imod always generates images with even dimensions, at least for the TS
             if newDim % 2 != 0:
@@ -121,10 +127,7 @@ class TestImodBase(TestBaseCentralizedLayer):
 
         if swapXY:
             dims.reverse()
-        expectedDimensions = {
-            TS_03: dims + [nImgsTs03],
-            TS_54: dims + [nImgsTs54]
-        }
+        expectedDimensions = {tsId: dims + [nImgs] for tsId, nImgs in nImgsDict.items()}
         return expectedDimensions
 
     @classmethod
@@ -391,7 +394,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tomoPreprocessed
 
     @classmethod
-    def _runTomoProjection(cls, inTomoSet, minAngle=-60, maxAngle=60, angleStep=2,
+    def _runTomoProjection(cls, inTomoSet, minAngle=-60, maxAngle=60, angleStep=10,
                            rotationAxis=ProtImodTomoProjection.AXIS_Y, objLabel=None):
         rotAxisChoices = ['X', 'Y', 'Z']
         print(magentaStr(f"\n==> Running the tomograms projection:"
@@ -485,7 +488,7 @@ class TestImodTsPreprocess(TestImodBase):
                              imported=imported,
                              hasAlignment=hasAlignment,
                              alignment=alignment,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -557,7 +560,7 @@ class TestImodImportTrMatrix(TestImodBase):
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              hasAlignment=True,
                              alignment=ALIGN_2D,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -581,7 +584,7 @@ class TestImodApplyTrMatrix(TestImodBase):
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor, swapXY=True),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor, swapXY=True),
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -609,7 +612,7 @@ class TestImodXcorrAlignment(TestImodBase):
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
                              hasAlignment=True,
                              alignment=ALIGN_2D,
                              testAcqObj=self.testAcqObjDict,
@@ -622,7 +625,7 @@ class TestImodXcorrAlignment(TestImodBase):
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor),  # No swap, only translations
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),  # No swap, only translations
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -744,7 +747,7 @@ class TestImodTsAlignment(TestImodBase):
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
                              hasAlignment=True,
                              alignment=ALIGN_2D,
                              testAcqObj=self.testAcqObjDict,
@@ -757,7 +760,7 @@ class TestImodTsAlignment(TestImodBase):
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor, swapXY=True),
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor, swapXY=True),
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -989,74 +992,137 @@ class TestImodTomoProjection(TestImodBase):
     def _runPreviousProtocols(cls):
         cls.importedTomos = cls._runImportTomograms(filesPattern='*3.mrc')  # TS_03 and TS_43
 
+    def _checkTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=4):  # Binned 4 tomograms used
+        expectedDimensions = self._getExpectedDimsDict(nImgsDict=anglesCountDict,
+                                                       unbinnedXYDims=[3712, 3712],  # Square tomograms
+                                                       binningFactor=binningFactor)
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             expectedDimensions=expectedDimensions,
+                             imported=True,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+    def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict], currentAcq: TomoAcquisition,
+                             tsId: Union[str, None] = None,
+                             isTomogramAcq: bool = False) -> None:
+        # As the TS' are generated from imported tomograms, some acquisition params won't be present as in the "normal"
+        # TS acquisition. Thus, we make this override to custom the required checks for this specific batch of tests
+
+        testAcq = testAcq[tsId] if type(testAcq) is dict else testAcq
+        self.assertAlmostEqual(testAcq.getVoltage(), currentAcq.getVoltage(), delta=1)
+        self.assertAlmostEqual(testAcq.getSphericalAberration(), currentAcq.getSphericalAberration(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getAmplitudeContrast(), currentAcq.getAmplitudeContrast(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getTiltAxisAngle(), currentAcq.getTiltAxisAngle(), delta=0.5)
+        self.assertAlmostEqual(testAcq.getAngleMin(), currentAcq.getAngleMin(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getAngleMax(), currentAcq.getAngleMax(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getStep(), currentAcq.getStep(), delta=0.1)
+
+    @staticmethod
+    def _genTestData(minAngle, maxAngle, angleStep):
+        nAngles = len(range(minAngle, maxAngle + 1, angleStep))
+        nImgsDict = {
+            TS_03: nAngles,
+            TS_43: nAngles
+        }
+        acqDict = {
+            TS_03: DataSetRe4STATuto.testAcq03.value.clone(),
+            TS_43: DataSetRe4STATuto.testAcq43.value.clone()
+        }
+        for tsId, acq in acqDict.items():
+            acq.setAngleMin(minAngle)
+            acq.setAngleMax(maxAngle)
+            acq.setStep(angleStep)
+            acq.setMagnification(None)
+            acq.setTiltAxisAngle(0)
+        return acqDict, nImgsDict
+
     def testTomoProj01(self):
-        projTs = self._runTomoProjection(inTomoSet=self.importedTomos)
+        minAngle = -60
+        maxAngle = 60
+        angleStep = 10
+        # Launch the protocol
+        projTs = self._runTomoProjection(inTomoSet=self.importedTomos,
+                                         minAngle=minAngle,
+                                         maxAngle=maxAngle,
+                                         angleStep=angleStep,
+                                         objLabel='testTomoProj01')
+        # Check results
+        acqDict, nImgsDict = self._genTestData(minAngle, maxAngle, angleStep)
+        self._checkTiltSeries(projTs, acqDict, nImgsDict)
+
+    def testTomoProj02(self):
+        minAngle = -54
+        maxAngle = 51
+        angleStep = 6
+        # Launch the protocol
+        projTs = self._runTomoProjection(inTomoSet=self.importedTomos,
+                                         minAngle=minAngle,
+                                         maxAngle=maxAngle,
+                                         angleStep=angleStep,
+                                         rotationAxis=ProtImodTomoProjection.AXIS_X,
+                                         objLabel='testTomoProj02')
+        # Check results
+        acqDict, nImgsDict = self._genTestData(minAngle, maxAngle, angleStep)
+        self._checkTiltSeries(projTs, acqDict, nImgsDict)
 
 
-#     def _runTomoProjection(cls, inTomoSet, minAngle=-60, maxAngle=60, angleStep=2,
-#                            rotationAxis=ProtImodTomoProjection.AXIS_Y, objLabel=None):
+class TestImodEcludeViews(TestImodBase):
+    excludedViewsDict = {
+        TS_03: [0, 38, 39],
+        TS_54: [0, 1, 38, 39, 40]
+    }
 
-# TODO: should the output be an interpolated TS? Once it's decided, finish these tests
+    @classmethod
+    def _runPreviousProtocols(cls):
+        pass
 
-# class TestImodEcludeViews(TestImodBase):
-#     excludedViewsDict = {
-#         TS_03: [0, 38, 39],
-#         TS_54: [0, 1, 38, 39, 40]
-#     }
-#
-#     @classmethod
-#     def _runPreviousProtocols(cls):
-#         pass
-#
-#     def _checkTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=1):
-#         nImgs03 = anglesCountDict[TS_03]
-#         nImgs54 = anglesCountDict[TS_54]
-#         expectedDimensions = self._getExpectedDimsDict(binningFactor, nImgsTs03=nImgs03, nImgsTs54=nImgs54)
-#         self.checkTiltSeries(inTsSet,
-#                              expectedSetSize=self.expectedTsSetSize,
-#                              expectedSRate=self.unbinnedSRate * binningFactor,
-#                              expectedDimensions=expectedDimensions,
-#                              imported=True,
-#                              testAcqObj=testAcqObjDict,
-#                              anglesCount=anglesCountDict,
-#                              isHeterogeneousSet=True,
-#                              expectedOrigin=tsOriginAngst)
-#
-#     def testExcludeViews01(self):
-#         importedTs = self._runImportTs()
-#         # There are no excluded views at metadata level, so the protocol should do nothing
-#         # Run the protocol
-#         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
-#         # Check the results
-#         self._checkTiltSeries(outTsSet, self.testAcqObjDict, self.anglesCountDict)
-#
-#     def testExcludeViews02(self):
-#         importedTs = self._runImportTs()
-#         # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
-#         # removed tilt-images are the first or the last, for example.
-#         anglesCountDictExcluded = {
-#             TS_03: 37,
-#             TS_54: 36,
-#         }
-#
-#         testAcqObjDictReStacked = {}
-#         acq_TS_03 = self.testAcqObjDict[TS_03]
-#         acq_TS_03.setAccumDose(111)
-#         acq_TS_03.setAngleMin(-54)
-#         acq_TS_03.setAngleMax(54)
-#         testAcqObjDictReStacked[TS_03] = acq_TS_03
-#
-#         acq_TS_54 = self.testAcqObjDict[TS_54]
-#         acq_TS_54.setAccumDose(108)
-#         acq_TS_54.setAngleMin(-54)
-#         acq_TS_54.setAngleMax(51)
-#         testAcqObjDictReStacked[TS_54] = acq_TS_54
-#         # Exclude some views at metadata level
-#         self._excludeTsSetViews(importedTs)
-#         # Run the protocol
-#         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
-#         # Check the results
-#         self._checkTiltSeries(outTsSet, testAcqObjDictReStacked, anglesCountDictExcluded)
+    def _checkTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=1):
+        expectedDimensions = self._getExpectedDimsDict(nImgsDict=anglesCountDict, binningFactor=binningFactor)
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             expectedDimensions=expectedDimensions,
+                             imported=True,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
 
+    def testExcludeViews01(self):
+        importedTs = self._runImportTs()
+        # There are no excluded views at metadata level, so the protocol should do nothing
+        # Run the protocol
+        outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
+        # Check the results
+        self._checkTiltSeries(outTsSet, self.testAcqObjDict, self.anglesCountDict)
 
+    def testExcludeViews02(self):
+        importedTs = self._runImportTs()
+        anglesCountDictExcluded = {
+            TS_03: 37,
+            TS_54: 36,
+        }
+        # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
+        # removed tilt-images are the first or the last, for example.
+        testAcqObjDictReStacked = {}
+        acq_TS_03 = self.testAcqObjDict[TS_03].clone()
+        acq_TS_03.setAccumDose(111)
+        acq_TS_03.setAngleMin(-54)
+        acq_TS_03.setAngleMax(54)
+        testAcqObjDictReStacked[TS_03] = acq_TS_03
 
+        acq_TS_54 = self.testAcqObjDict[TS_54].clone()
+        acq_TS_54.setAccumDose(108)
+        acq_TS_54.setAngleMin(-54)
+        acq_TS_54.setAngleMax(51)
+        testAcqObjDictReStacked[TS_54] = acq_TS_54
+        # Exclude some views at metadata level
+        self._excludeTsSetViews(importedTs)
+        # Run the protocol
+        outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
+        # Check the results
+        self._checkTiltSeries(outTsSet, testAcqObjDictReStacked, anglesCountDictExcluded)
