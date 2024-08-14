@@ -34,8 +34,9 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, O
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
     ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
-    ProtImodExcludeViews, ProtImodCtfCorrection
+    ProtImodExcludeViews, ProtImodCtfCorrection, ProtImodAutomaticCtfEstimation
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
+from imod.protocols.protocol_ctfEstimation_automatic import EDO_VALUE
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
     ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
@@ -43,7 +44,7 @@ from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TIL
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
-from tomo.objects import TomoAcquisition
+from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries
 from tomo.protocols import ProtImportTs, ProtImportTomograms, ProtImportTsCTF
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
 from tomo.protocols.protocol_import_ctf import ImportChoice
@@ -93,7 +94,15 @@ class TestImodBase(TestBaseCentralizedLayer):
         TS_03: 40,
         TS_54: 41,
     }
-    excludedViewsDict = None
+    # Exluded views stuff
+    excludedViewsDict = {
+        TS_03: [0, 38, 39],
+        TS_54: [0, 1, 38, 39, 40]
+    }
+    anglesCountDictExcluded = {
+        TS_03: 37,
+        TS_54: 36,
+    }
 
     @classmethod
     def setUpClass(cls):
@@ -111,6 +120,27 @@ class TestImodBase(TestBaseCentralizedLayer):
     @classmethod
     def _runPreviousProtocols(cls):
         cls.importedTs = cls._runImportTs()
+
+    @classmethod
+    def _gentestAcqObjDictReStacked(cls, isInterp=False):
+        # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
+        # removed tilt-images are the first or the last, for example.
+        testAcqObjDictReStacked = {}
+        acq_TS_03 = cls.testAcqObjDict[TS_03].clone()
+        acq_TS_03.setAccumDose(111)
+        acq_TS_03.setAngleMin(-54)
+        acq_TS_03.setAngleMax(54)
+        if isInterp:
+            acq_TS_03.setTiltAxisAngle(0)
+        testAcqObjDictReStacked[TS_03] = acq_TS_03
+
+        acq_TS_54 = cls.testAcqObjDict[TS_54].clone()
+        acq_TS_54.setAccumDose(108)
+        acq_TS_54.setAngleMin(-54)
+        acq_TS_54.setAngleMax(51)
+        if isInterp:
+            acq_TS_54.setTiltAxisAngle(0)
+        testAcqObjDictReStacked[TS_54] = acq_TS_54
 
     @classmethod
     def _getExpectedDimsDict(cls, unbinnedXYDims=None, nImgsDict=None, binningFactor=1, swapXY=False):
@@ -426,21 +456,21 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsProjected
 
     @classmethod
-    def _excludeTsSetViews(cls, tsSet):
-        tsList = [ts.clone(ignoreAttrs=[]) for ts in tsSet]
-        for ts in tsList:
-            cls._excludeTsViews(tsSet, ts, cls.excludedViewsDict[ts.getTsId()])
+    def _excludeSetViews(cls, inSet: Union[SetOfTiltSeries, SetOfCTFTomoSeries]):
+        objList = [obj.clone(ignoreAttrs=[]) for obj in inSet]
+        for obj in objList:
+            cls._excIntermediateSetViews(inSet, obj, cls.excludedViewsDict[obj.getTsId()])
 
     @staticmethod
-    def _excludeTsViews(tsSet, ts, excludedViewsList):
-        tiList = [ti.clone() for ti in ts]
+    def _excIntermediateSetViews(inSet, obj, excludedViewsList):
+        tiList = [ti.clone() for ti in obj]
         for i, ti in enumerate(tiList):
             if i in excludedViewsList:
                 ti._objEnabled = False
-                ts.update(ti)
-        ts.write()
-        tsSet.update(ts)
-        tsSet.write()
+                obj.update(ti)
+        obj.write()
+        inSet.update(obj)
+        inSet.write()
 
     @classmethod
     def _runExcludeViewsProt(cls, inTsSet, objLabel=None):
@@ -451,6 +481,18 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protExcViews)
         outTsSet = getattr(protExcViews, OUTPUT_TILTSERIES_NAME, None)
         return outTsSet
+
+    @classmethod
+    def _runEstimateCtf(cls, inTsSet, defocusTol=200, expectedDefocusOrigin=EDO_VALUE, leftDefTol=2000, objLabel=None):
+        print(magentaStr(f"\n==> Running the CTF estimation:"
+                         f"\n\t- "))
+        protExcViews = cls.newProtocol(ProtImodAutomaticCtfEstimation,
+                                       inputSetOfTiltSeries=inTsSet,
+                                       defocusTol=defocusTol,
+                                       expectedDefocusOrigin=expectedDefocusOrigin,
+                                       leftDefTol=leftDefTol)
+
+
 
     @classmethod
     def _runCtfCorrection(cls, inTsSet, inCtfSet, tsSetMsg, ctfSetMsg, defocusTol=200, interpWidth=15):
@@ -1102,10 +1144,6 @@ class TestImodTomoProjection(TestImodBase):
 
 
 class TestImodEcludeViews(TestImodBase):
-    excludedViewsDict = {
-        TS_03: [0, 38, 39],
-        TS_54: [0, 1, 38, 39, 40]
-    }
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -1133,30 +1171,17 @@ class TestImodEcludeViews(TestImodBase):
 
     def testExcludeViews02(self):
         importedTs = self._runImportTs()
-        anglesCountDictExcluded = {
-            TS_03: 37,
-            TS_54: 36,
-        }
-        # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
-        # removed tilt-images are the first or the last, for example.
-        testAcqObjDictReStacked = {}
-        acq_TS_03 = self.testAcqObjDict[TS_03].clone()
-        acq_TS_03.setAccumDose(111)
-        acq_TS_03.setAngleMin(-54)
-        acq_TS_03.setAngleMax(54)
-        testAcqObjDictReStacked[TS_03] = acq_TS_03
-
-        acq_TS_54 = self.testAcqObjDict[TS_54].clone()
-        acq_TS_54.setAccumDose(108)
-        acq_TS_54.setAngleMin(-54)
-        acq_TS_54.setAngleMax(51)
-        testAcqObjDictReStacked[TS_54] = acq_TS_54
         # Exclude some views at metadata level
-        self._excludeTsSetViews(importedTs)
+        self._excludeSetViews(importedTs)
         # Run the protocol
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
         # Check the results
-        self._checkTiltSeries(outTsSet, testAcqObjDictReStacked, anglesCountDictExcluded)
+        self._checkTiltSeries(outTsSet,
+                              testAcqObjDict=self._gentestAcqObjDictReStacked(),
+                              anglesCountDict=self.anglesCountDictExcluded)
+
+class TestImodEstimateCtf(TestImodBase):
+    pass
 
 
 class TestImodCtfCorrection(TestImodBase):
@@ -1164,33 +1189,87 @@ class TestImodCtfCorrection(TestImodBase):
     EXC_VIEWS = 'exc. views'
     RE_STACKED = 're-stacked'
 
-    @classmethod
-    def _runPreviousProtocols(cls):
-        cls.importedTs = cls._runImportTs()
-        cls.importedCtfs = cls._runImportCtf(cls.importedTs)
-        cls.tsWithAlignment = cls._runImportTrMatrix(cls.importedTs)
 
-    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+    @classmethod
+    def _runPrevProts(cls):
+        importedCtfs = cls._runImportCtf(cls.importedTs)
+        tsWithAlignment = cls._runImportTrMatrix(cls.importedTs)
+        tsWithAliBin4 = cls. _runTsPreprocess(tsWithAlignment, binning=4)
+        return importedCtfs, tsWithAliBin4
+
+
+    def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=4):
+        expectedDimensions = self._getExpectedDimsDict(nImgsDict=anglesCountDict,
+                                                       binningFactor=binningFactor,
+                                                       swapXY=True)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),  # No swap, only translations
-                             testAcqObj=self.testInterpAcqObjDict,
-                             anglesCount=self.anglesCountDict,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=anglesCountDict,
                              isHeterogeneousSet=True,
                              hasCtfCorrected=True,
                              expectedOrigin=tsOriginAngst)
 
-
-
     def testCtfCorrection01(self):
-        tsSetCtfCorr = self._runCtfCorrection(self.tsWithAlignment, self.importedCtfs,
+        importedCtfs, tsWithAliBin4 = self._runPrevProts()
+        tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.UNMODIFIED,
                                               ctfSetMsg=self.UNMODIFIED)
-        self._checkInterpTiltSeries(tsSetCtfCorr)
+        self._checkInterpTiltSeries(tsSetCtfCorr,
+                                    testAcqObjDict=self.testInterpAcqObjDict,
+                                    anglesCountDict=self.anglesCountDict)
+
+    def testCtfCorrection02(self):
+        importedCtfs, tsWithAliBin4 = self._runPrevProts()
+        self._excludeSetViews(importedCtfs)  # Excluded some views in the CTF at metadata level
+        tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
+                                              tsSetMsg=self.UNMODIFIED,
+                                              ctfSetMsg=self.EXC_VIEWS)
+        self._checkInterpTiltSeries(tsSetCtfCorr,
+                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    anglesCountDict=self.anglesCountDictExcluded)
+
+    def testCtfCorrection03(self):
+        importedCtfs, tsWithAliBin4 = self._runPrevProts()
+        self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
+        tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
+                                              tsSetMsg=self.EXC_VIEWS,
+                                              ctfSetMsg=self.UNMODIFIED)
+        self._checkInterpTiltSeries(tsSetCtfCorr,
+                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    anglesCountDict=self.anglesCountDictExcluded)
+
+    def testCtfCorrection04(self):
+        importedCtfs, tsWithAliBin4 = self._runPrevProts()
+        self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
+        tsSetReStacked = self._runExcludeViewsProt(tsWithAliBin4)  # Re-stack the TS
+        tsSetCtfCorr = self._runCtfCorrection(tsSetReStacked, importedCtfs,
+                                              tsSetMsg=self.RE_STACKED,
+                                              ctfSetMsg=self.UNMODIFIED)
+        self._checkInterpTiltSeries(tsSetCtfCorr,
+                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    anglesCountDict=self.anglesCountDictExcluded)
+
+    def testCtfCorrection05(self):
+        importedCtfs, tsWithAliBin4 = self._runPrevProts()
+        self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
+        tsSetReStacked = self._runExcludeViewsProt(tsWithAliBin4)  # Re-stack the TS
+        tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
+                                              tsSetMsg=self.RE_STACKED,
+                                              ctfSetMsg=self.UNMODIFIED)
+        self._checkInterpTiltSeries(tsSetCtfCorr,
+                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    anglesCountDict=self.anglesCountDictExcluded)
+
+
+
 
 
 
 #     @classmethod
 #     def _runCtfCorrection(cls, inTsSet, inCtfSet, tsSetMsg, ctfSetMsg, defocusTol=200, interpWidth=15):
+
+#  ddef _excludeSetViews(cls, inSet: Union[SetOfTiltSeries, SetOfCTFTomoSeries]):
