@@ -36,7 +36,6 @@ from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNo
     ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
     ProtImodExcludeViews, ProtImodCtfCorrection, ProtImodAutomaticCtfEstimation
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
-from imod.protocols.protocol_ctfEstimation_automatic import EDO_VALUE
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
     ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
@@ -483,14 +482,14 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runEstimateCtf(cls, inTsSet, defocusTol=200, expectedDefocusOrigin=EDO_VALUE, leftDefTol=2000, objLabel=None):
+    def _runEstimateCtf(cls, inTsSet, defocusTol=200, leftDefTol=2000, objLabel=None):
         print(magentaStr(f"\n==> Running the CTF estimation:"
                          f"\n\t- "))
-        protExcViews = cls.newProtocol(ProtImodAutomaticCtfEstimation,
-                                       inputSetOfTiltSeries=inTsSet,
-                                       defocusTol=defocusTol,
-                                       expectedDefocusOrigin=expectedDefocusOrigin,
-                                       leftDefTol=leftDefTol)
+        # protExcViews = cls.newProtocol(ProtImodAutomaticCtfEstimation,
+        #                                inputSetOfTiltSeries=inTsSet,
+        #                                defocusTol=defocusTol,
+        #                                expectedDefocusOrigin=expectedDefocusOrigin,
+        #                                leftDefTol=leftDefTol)
 
 
 

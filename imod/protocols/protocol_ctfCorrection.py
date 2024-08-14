@@ -27,6 +27,7 @@
 import os
 
 from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
+from pwem import ALIGN_NONE
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
@@ -254,6 +255,8 @@ class ProtImodCtfCorrection(ProtImodBase):
                 newTs = TiltSeries(tsId=tsId)
                 ts = self.tsDict[tsId]
                 newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_NONE)
+                newTs.setAnglesCount(len(presentAcqOrders))
                 newTs.setCtfCorrected(True)
                 newTs.setInterpolated(True)
                 newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
