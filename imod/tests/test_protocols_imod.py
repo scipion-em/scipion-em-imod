@@ -507,7 +507,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
                                          filesPattern='WTI042413_1series4.defocus',
                                          inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries)
 
-        cls.protCTFEstimation = cls._runCTFEstimation(inputSet=cls.protImportTS.outputTiltSeries,
+        cls.protCTFEstimation = cls._runCTFEstimation(inputSetOfTiltSeries=cls.protImportTS.outputTiltSeries,
                                                       defocusTol=200,
                                                       expectedDefocusOrigin=0,
                                                       expectedDefocusValue=6000,
@@ -527,7 +527,7 @@ class TestImodCTFCorrectionWorkflow(TestImodBase):
         self.assertSetSize(self.protCTFEstimation.CTFTomoSeries, size=2)
 
     def test_ctfEstimationOutputDefocusFile(self):
-        for ts in self.protCTFEstimation.inputSet.get():
+        for ts in self.protCTFEstimation.inputSetOfTiltSeries.get():
             tsId = ts.getTsId()
             defocusFile = self.protCTFEstimation._getExtraPath(tsId, tsId + '.defocus')
 

@@ -299,7 +299,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                 "-PSResolution": 101,
                                 "-LeftDefTol": self.leftDefTol.get(),
                                 "-RightDefTol": self.rightDefTol.get(),
-                                "-tileSize": self.tileSize.get()}
+                                "-tileSize": self.tileSize.get(),
+                                "-ExpectedDefocus": self.expectedDefocusValue.get()}
 
             # Excluded views
             excludedViews = ts.getExcludedViewsIndex(caster=str)
