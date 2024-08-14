@@ -85,9 +85,9 @@ class ImodObjectView(pwviewer.CommandView):
         # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
         cmd = f"{Plugin.getImodCmd('3dmod')} "
+        prj = protocol.getProject()
 
         if isinstance(obj, tomoObj.TiltSeries):
-            prj = protocol.getProject()
             inputFn = obj.getFirstItem().getFileName()
             angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
             obj.generateTltFile(angleFilePath)
@@ -99,7 +99,6 @@ class ImodObjectView(pwviewer.CommandView):
             ts = obj.getTiltSeries()
             tsFn = ts.getFirstItem().getFileName()
             if ts.hasAlignment() and obj.applyTSTransformation():
-                prj = protocol.getProject()
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 extension = pwutils.getExt(tsFn)
 

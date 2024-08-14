@@ -34,6 +34,7 @@ import numpy as np
 
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
+from imod import Plugin
 from tomo.objects import TiltSeries
 
 logger = logging.getLogger(__name__)
@@ -192,14 +193,21 @@ def generateIMODFidFile(protocol, landmarkModel):
 
     if not os.path.exists(fiducialModelGapPath):
         paramsPoint2Model = {
-            '-InputFile': fiducialTextFile,
-            '-OutputFile': fiducialModelGapPath,
-            '-image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
-            '-ci': landmarkModel.getSize(),
-            '-zc': ""
+            'inputFile': fiducialTextFile,
+            'outputFile': fiducialModelGapPath,
+            'image': landmarkModel.getTiltSeries().getFirstItem().getFileName(),
+            'size': landmarkModel.getSize()
         }
+
+        # -sp <value> parameter: generate sphere with radius <value>
+        argsPoint2Model = "-InputFile %(inputFile)s " \
+                          "-OutputFile %(outputFile)s " \
+                          "-image %(image)s " \
+                          "-zc -ci %(size)s"
+
         protocol.setStepsExecutor()
-        protocol.runProgram(protocol, 'point2Model', paramsPoint2Model)
+        Plugin.runImod(protocol, 'point2model',
+                       argsPoint2Model % paramsPoint2Model)
 
     return fiducialModelGapPath
 
