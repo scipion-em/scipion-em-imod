@@ -34,7 +34,7 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, O
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
     ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
-    ProtImodExcludeViews
+    ProtImodExcludeViews, ProtImodCtfCorrection
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
@@ -44,8 +44,9 @@ from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
 from tomo.objects import TomoAcquisition
-from tomo.protocols import ProtImportTs, ProtImportTomograms
+from tomo.protocols import ProtImportTs, ProtImportTomograms, ProtImportTsCTF
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
+from tomo.protocols.protocol_import_ctf import ImportChoice
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
 from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
@@ -150,6 +151,18 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protImportTs)
         tsImported = getattr(protImportTs, 'outputTiltSeries', None)
         return tsImported
+
+    @classmethod
+    def _runImportCtf(cls, isTsSet):
+        print(magentaStr("\n==> Importing the CTFs:"))
+        protImportCtf = cls.newProtocol(ProtImportTsCTF,
+                                        filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
+                                        filesPattern=DataSetRe4STATuto.ctfPattern.value,
+                                        importFrom=ImportChoice.CTFFIND.value,
+                                        inputSetOfTiltSeries=isTsSet)
+        cls.launchProtocol(protImportCtf)
+        importedCtfs = getattr(protImportCtf, protImportCtf._possibleOutputs.CTFs.name, None)
+        return importedCtfs
 
     @classmethod
     def _runImportTomograms(cls, filesPattern=DataSetRe4STATuto.tomosPattern.value):
@@ -437,6 +450,24 @@ class TestImodBase(TestBaseCentralizedLayer):
             protExcViews.setObjLabel(objLabel)
         cls.launchProtocol(protExcViews)
         outTsSet = getattr(protExcViews, OUTPUT_TILTSERIES_NAME, None)
+        return outTsSet
+
+    @classmethod
+    def _runCtfCorrection(cls, inTsSet, inCtfSet, tsSetMsg, ctfSetMsg, defocusTol=200, interpWidth=15):
+        print(magentaStr(f"\n==> Running the CTF correction:"
+                         f"\n\t- Tilt-series = {tsSetMsg}"
+                         f"\n\t- CTFs: {ctfSetMsg}"
+                         f"\n\t- Defocus tolerance (nm) = {defocusTol}"
+                         f"\n\t- Interpolation width (px) = {interpWidth}"))
+        protCtfCorr = cls.newProtocol(ProtImodCtfCorrection,
+                                      inputSetOfTiltSeries=inTsSet,
+                                      inputSetOfCtfTomoSeries=inCtfSet,
+                                      defocusTol=defocusTol,
+                                      interpolationWidth=interpWidth)
+        objLabel = f'ts {tsSetMsg}, ctf {ctfSetMsg}'
+        protCtfCorr.setObjLabel(objLabel)
+        cls.launchProtocol(protCtfCorr)
+        outTsSet = getattr(protCtfCorr, OUTPUT_TILTSERIES_NAME, None)
         return outTsSet
 
 
@@ -1126,3 +1157,40 @@ class TestImodEcludeViews(TestImodBase):
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
         # Check the results
         self._checkTiltSeries(outTsSet, testAcqObjDictReStacked, anglesCountDictExcluded)
+
+
+class TestImodCtfCorrection(TestImodBase):
+    UNMODIFIED = 'unmodified'
+    EXC_VIEWS = 'exc. views'
+    RE_STACKED = 're-stacked'
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+        cls.importedCtfs = cls._runImportCtf(cls.importedTs)
+        cls.tsWithAlignment = cls._runImportTrMatrix(cls.importedTs)
+
+    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             isInterpolated=True,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),  # No swap, only translations
+                             testAcqObj=self.testInterpAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHeterogeneousSet=True,
+                             hasCtfCorrected=True,
+                             expectedOrigin=tsOriginAngst)
+
+
+
+    def testCtfCorrection01(self):
+        tsSetCtfCorr = self._runCtfCorrection(self.tsWithAlignment, self.importedCtfs,
+                                              tsSetMsg=self.UNMODIFIED,
+                                              ctfSetMsg=self.UNMODIFIED)
+        self._checkInterpTiltSeries(tsSetCtfCorr)
+
+
+
+#     @classmethod
+#     def _runCtfCorrection(cls, inTsSet, inCtfSet, tsSetMsg, ctfSetMsg, defocusTol=200, interpWidth=15):

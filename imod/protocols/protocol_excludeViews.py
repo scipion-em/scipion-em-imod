@@ -25,14 +25,11 @@
 # *****************************************************************************
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
-from pyworkflow.object import Boolean
+from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 import pyworkflow.utils.path as path
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
-
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, EVEN, ODD
 
@@ -68,24 +65,6 @@ class ProtImodExcludeViews(ProtImodBase):
                       label='Input set of tilt-series')
 
         self.addOddEvenParams(form)
-
-        # form.addParam('excludeViewsFile',
-        #               params.FileParam,
-        #               expertLevel=params.LEVEL_ADVANCED,
-        #               label='Exclude views file',
-        #               help='File containing the views to be excluded for each '
-        #                    'tilt-series belonging to the set.\n\n'
-        #                    'The format of the text file must be two columns, '
-        #                    'the first one being the tilt series ID of '
-        #                    'the series from which the views will be excluded '
-        #                    'and the second the views to exclude, numbered from '
-        #                    '1. The syntax for this exclude list is a comma '
-        #                    'separated list of ranges with no spaces between '
-        #                    'them (e.g., 1,4-5,60-70). \n\n'
-        #                    'An example of this file comes as follows:\n'
-        #                    'TS_01 1,4-6,8,44-47\n'
-        #                    'TS_02 3,10-12,24\n'
-        #                    '...')
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

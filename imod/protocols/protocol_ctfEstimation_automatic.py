@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.protocol.params as params
+from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
 from imod import utils
@@ -52,7 +53,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
         form.addParam('inputSet',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',

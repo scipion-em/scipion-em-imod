@@ -26,9 +26,11 @@
 # *****************************************************************************
 import os
 
+from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.utils import getCommonTsAndCtfElements
 
@@ -83,9 +85,9 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       label="Input tilt-series",
                       pointerClass='SetOfTiltSeries',
@@ -93,7 +95,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                            'CTF corrected. Usually this will be the '
                            'tilt-series with alignment information.')
 
-        form.addParam('inputSetOfCtfTomoSeries',
+        form.addParam(IN_CTF_TOMO_SET,
                       params.PointerParam,
                       label="Input CTF estimation",
                       pointerClass='SetOfCTFTomoSeries',
@@ -159,34 +161,23 @@ class ProtImodCtfCorrection(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Correct odd/even',
-                      help='If True, the full tilt series and the associated odd/even '
-                           'tilt series will be processed. The CTF correction applied '
-                           'to the odd/even tilt series will be exactly the same.')
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         for tsId in self.presentTsIds:
-            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId],
-                                                         self.ctfDict[tsId])
-            self._insertFunctionStep(self.convertInputsStep,
-                                     tsId, presentAcqOrders)
+            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
+            self._insertFunctionStep(self.convertInputsStep,tsId, presentAcqOrders)
             self._insertFunctionStep(self.ctfCorrection, tsId)
-            self._insertFunctionStep(self.createOutputStep,
-                                     tsId, presentAcqOrders)
+            self._insertFunctionStep(self.createOutputStep,tsId, presentAcqOrders)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
-        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[])
-                        for ctf in self.inputSetOfCtfTomoSeries.get()}
+        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
         tsIds = list(self.tsDict.keys())
         ctfTsIds = list(self.ctfDict.keys())
