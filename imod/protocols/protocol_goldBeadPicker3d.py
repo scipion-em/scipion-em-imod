@@ -26,13 +26,20 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TOMO_SET
 from pyworkflow.protocol.constants import STEPS_PARALLEL
+from pyworkflow.utils import Message
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
 
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
+
+
+# Beads color options
+DARK_BEADS = 0
+LIGHT_BEADS = 1
 
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
@@ -48,11 +55,12 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     def __init__(self, **args):
         super().__init__(**args)
         self.stepsExecutionMode = STEPS_PARALLEL
+        self.coordsBoxSize = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTomograms',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TOMO_SET,
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
@@ -72,7 +80,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       params.EnumParam,
                       choices=['Dark', 'Light'],
                       label='Bead contrast',
-                      default='0',
+                      default=DARK_BEADS,
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Contrast of the gold beads:\n'
                            '-Dark: beads are dark on light background.\n'
@@ -126,6 +134,8 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputSet()}
+        tomoSRate = getattr(self, IN_TOMO_SET, None).get().getSamplingRate()
+        self.coordsBoxSize = round(self.beadDiameter.get() * 10 / tomoSRate)
 
     def pickGoldBeadsStep(self, tsId):
         try:
@@ -142,7 +152,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 "-StorageThreshold": 0.0
             }
 
-            if self.beadsColor.get() == 1:
+            if self.beadsColor.get() == LIGHT_BEADS:
                 paramsFindbeads3d["-LightBeads"] = ""
 
             self.runProgram('findbeads3d', paramsFindbeads3d)
@@ -165,7 +175,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         else:
             coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
             if os.path.exists(coordFilePath):
-                beadDiam = self.beadDiameter.get()
                 coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
                 output = self.getOutputSetOfCoordinates3Ds(self.getInputSet(),
                                                            self.getInputSet())
@@ -180,7 +189,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                     # newCoord3D.setVolId(tsObjId)
                     output.append(newCoord3D)
                     output.update(newCoord3D)
-                    output.setBoxSize(beadDiam)
+                    output.setBoxSize(self.coordsBoxSize)
                     output.write()
 
                 self._store(output)

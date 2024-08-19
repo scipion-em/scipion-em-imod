@@ -31,11 +31,11 @@ import numpy as np
 from cistem.protocols import CistemProtTsCtffind
 from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
     FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME, OUTPUT_CTF_SERIE
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME, OUTPUT_CTF_SERIE, OUTPUT_COORDINATES_3D_NAME
 from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
     ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
     ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
-    ProtImodExcludeViews, ProtImodCtfCorrection, ProtImodAutomaticCtfEstimation
+    ProtImodExcludeViews, ProtImodCtfCorrection, ProtImodAutomaticCtfEstimation, ProtImodGoldBeadPicker3d
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
 from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
@@ -79,6 +79,7 @@ tomoDimsThk340 = [928, 928, 340]
 
 class TestImodBase(TestBaseCentralizedLayer):
     importedTs = None
+    importedTomos = None
     unbinnedSRate = DataSetRe4STATuto.unbinnedPixSize.value
     expectedTsSetSize = 2
     testAcqObjDict = {
@@ -505,8 +506,6 @@ class TestImodBase(TestBaseCentralizedLayer):
         outTsSet = getattr(protEstimateCtf, OUTPUT_CTF_SERIE, None)
         return outTsSet
 
-
-
     @classmethod
     def _runCtfCorrection(cls, inTsSet, inCtfSet, tsSetMsg, ctfSetMsg, defocusTol=200, interpWidth=15):
         print(magentaStr(f"\n==> Running the CTF correction:"
@@ -524,6 +523,19 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protCtfCorr)
         outTsSet = getattr(protCtfCorr, OUTPUT_TILTSERIES_NAME, None)
         return outTsSet
+
+    @classmethod
+    def _runGoldBeadPicker(cls, inTomoSet, beadDiameter=10, objLabel=None):
+        print(magentaStr(f"\n==> Running the gold bead picker:"
+                         f"\n\t- Bead diameter (nm) = {beadDiameter}"))
+        protGbp = cls.newProtocol(ProtImodGoldBeadPicker3d,
+                                  inputSetOfTomograms=inTomoSet,
+                                  beadDiameter=beadDiameter)
+        if objLabel:
+            protGbp.setObjLabel(objLabel)
+        cls.launchProtocol(protGbp)
+        outFiduCoords = getattr(protGbp, OUTPUT_COORDINATES_3D_NAME, None)
+        return outFiduCoords
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -711,7 +723,8 @@ class TestImodXcorrAlignment(TestImodBase):
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),  # No swap, only translations
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
+                             # No swap, only translations
                              testAcqObj=self.testInterpAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
@@ -1214,6 +1227,7 @@ class TestImodEcludeViews(TestImodBase):
                               testAcqObjDict=self._gentestAcqObjDictReStacked(),
                               anglesCountDict=anglesCountDictExcluded)
 
+
 class TestImodEstimateCtf(TestImodBase):
 
     def _checkCtfs(self, inCtfSet):
@@ -1223,6 +1237,7 @@ class TestImodEstimateCtf(TestImodBase):
     def testEstimateCtf01(self):
         ctfs = self._runEstimateCtf(self.importedTs)
         self._checkCtfs(ctfs)
+
 
 #     def _runEstimateCtf(cls, inTsSet, expectedDefocusValue, defocusTol=200, angleStep=2, angleRange=16, objLabel=None):
 
@@ -1243,6 +1258,7 @@ class TestImodCtfCorrection(TestImodBase):
         TS_03: 36,
         TS_54: 36,
     }
+
     # excludedViewsDict = {
     #     TS_03: [0, 38, 39],
     #     TS_54: [0, 1, 38, 39, 40]
@@ -1252,12 +1268,11 @@ class TestImodCtfCorrection(TestImodBase):
     #     TS_54: 36,
     # }
 
-
     @classmethod
     def _runPrevProts(cls):
         importedCtfs = cls._runImportCtf(cls.importedTs)
         tsWithAlignment = cls._runImportTrMatrix(cls.importedTs)
-        tsWithAliBin4 = cls. _runTsPreprocess(tsWithAlignment, binning=4)
+        tsWithAliBin4 = cls._runTsPreprocess(tsWithAlignment, binning=4)
         return importedCtfs, tsWithAliBin4
 
     @classmethod
@@ -1282,7 +1297,6 @@ class TestImodCtfCorrection(TestImodBase):
         reStackedTsSet = cls._runExcludeViewsProt(importedTs)
         # Estimate the CTF using the re-stacked TS
         return cls._runCistemEstimateCtf(reStackedTsSet)
-
 
     def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=4):
         expectedDimensions = self._getExpectedDimsDict(nImgsDict=anglesCountDict,
@@ -1310,7 +1324,8 @@ class TestImodCtfCorrection(TestImodBase):
 
     def testCtfCorrection02(self):
         importedCtfs, tsWithAliBin4 = self._runPrevProts()
-        self._excludeSetViews(importedCtfs, excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
+        self._excludeSetViews(importedCtfs,
+                              excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.UNMODIFIED,
                                               ctfSetMsg=self.EXC_VIEWS)
@@ -1342,7 +1357,8 @@ class TestImodCtfCorrection(TestImodBase):
     def testCtfCorrection05(self):
         importedCtfs, tsWithAliBin4 = self._runPrevProts()
         self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
-        self._excludeSetViews(tsWithAliBin4, excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
+        self._excludeSetViews(tsWithAliBin4,
+                              excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.EXC_VIEWS,
                                               ctfSetMsg=self.EXC_VIEWS)
@@ -1354,7 +1370,8 @@ class TestImodCtfCorrection(TestImodBase):
         importedCtfs, tsWithAliBin4 = self._runPrevProts()
         self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
         tsSetReStacked = self._runExcludeViewsProt(tsWithAliBin4)  # Re-stack the TS
-        self._excludeSetViews(importedCtfs, excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
+        self._excludeSetViews(importedCtfs,
+                              excludedViewsDict=self.ctfExcludedViewsDict)  # Excluded some views in the CTF at metadata level
         tsSetCtfCorr = self._runCtfCorrection(tsSetReStacked, importedCtfs,
                                               tsSetMsg=self.RE_STACKED,
                                               ctfSetMsg=self.EXC_VIEWS)
@@ -1396,4 +1413,21 @@ class TestImodCtfCorrection(TestImodBase):
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
 
+class TestImodGoldBeadPicker(TestImodBase):
 
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTomos = cls._runImportTomograms(filesPattern='*4*.mrc')  # TS_43, TS_45, TS_54
+
+    def testGoldBeadPicker01(self):
+        beadDiameter = 12
+        fiduCoords = self._runGoldBeadPicker(self.importedTomos, beadDiameter=beadDiameter)
+        # Check the results
+        tomoSRate = self.importedTomos.getSamplingRate()
+        coordsBoxSize = round(beadDiameter * 10 / tomoSRate)
+        self.checkCoordinates(fiduCoords,
+                              expectedSetSize=120,
+                              expectedBoxSize=coordsBoxSize,
+                              expectedSRate=tomoSRate)
+
+    #  def _runGoldBeadPicker(cls, inTomoSet, beadDiameter=10, objLabel=None):

@@ -489,11 +489,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if self.Coordinates3D:
             self.Coordinates3D.enableAppend()
         else:
-            coords3D = self._createSetOfCoordinates3D(volSet=outputSet,
-                                                      suffix='Fiducials3D')
+            coords3D = self._createSetOfCoordinates3D(volSet=outputSet, suffix='Fiducials3D')
             coords3D.setSamplingRate(outputSet.getSamplingRate())
             coords3D.setPrecedents(outputSet)
-            coords3D.setBoxSize(32)
+            coords3D.setBoxSize(self.coordsBoxSize)
             coords3D.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
