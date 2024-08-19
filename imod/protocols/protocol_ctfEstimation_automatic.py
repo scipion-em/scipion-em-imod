@@ -125,7 +125,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             groupAngleRange.addParam('angleStep',
                                      params.FloatParam,
                                      default=2.0,
-                                     label='Angle step',
+                                     label='Angle step (deg)',
                                      help='Step size between ranges. A value of '
                                           'zero for the step will make it fit to '
                                           'each single image separately, '
@@ -135,7 +135,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.FloatParam,
                                      condition="angleStep != 0",
                                      default=16.0,
-                                     label='Angle range',
+                                     label='Angle range (deg)',
                                      help='Size of the angle range for which the '
                                           'CTF is estimated.')
 
