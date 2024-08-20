@@ -487,7 +487,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runEstimateCtf(cls, inTsSet, expectedDefocusValue=6000, defocusTol=200, angleStep=2, angleRange=16,
+    def _runEstimateCtf(cls, inTsSet, expectedDefocusValue=1500, defocusTol=200, angleStep=0, angleRange=16,
                         objLabel=None):
         print(magentaStr(f"\n==> Running the CTF estimation:"
                          f"\n\t- Expected defocus value (nm) = {expectedDefocusValue}"
@@ -1235,11 +1235,21 @@ class TestImodEstimateCtf(TestImodBase):
         self.checkCTFs(inCtfSet, expectedSetSize=expectedSetSize)
 
     def testEstimateCtf01(self):
-        ctfs = self._runEstimateCtf(self.importedTs)
+        ctfs = self._runEstimateCtf(self.importedTs, objLabel='testEstimateCtf01')
         self._checkCtfs(ctfs)
 
+    def testEstimateCtf02(self):
+        ctfs = self._runEstimateCtf(self.importedTs,
+                                    angleStep=2,
+                                    objLabel='testEstimateCtf02')
+        self._checkCtfs(ctfs)
 
-#     def _runEstimateCtf(cls, inTsSet, expectedDefocusValue, defocusTol=200, angleStep=2, angleRange=16, objLabel=None):
+    def testEstimateCtf03(self):
+        ctfs = self._runEstimateCtf(self.importedTs,
+                                    angleStep=2,
+                                    angleRange=10,
+                                    objLabel='testEstimateCtf03')
+        self._checkCtfs(ctfs)
 
 
 class TestImodCtfCorrection(TestImodBase):
@@ -1269,8 +1279,10 @@ class TestImodCtfCorrection(TestImodBase):
     # }
 
     @classmethod
-    def _runPrevProts(cls):
-        importedCtfs = cls._runImportCtf(cls.importedTs)
+    def _runPrevProts(cls, importCtf=True):
+        importedCtfs = None
+        if importCtf:
+            importedCtfs = cls._runImportCtf(cls.importedTs)
         tsWithAlignment = cls._runImportTrMatrix(cls.importedTs)
         tsWithAliBin4 = cls._runTsPreprocess(tsWithAlignment, binning=4)
         return importedCtfs, tsWithAliBin4
@@ -1380,7 +1392,7 @@ class TestImodCtfCorrection(TestImodBase):
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
     def testCtfCorrection07(self):
-        _, tsWithAliBin4 = self._runPrevProts()
+        _, tsWithAliBin4 = self._runPrevProts(importCtf=False)
         ctfSetReStacked = self._genReStackedCtf()  # Gen a CTF estimated on a re-stacked TS
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, ctfSetReStacked,
                                               tsSetMsg=self.UNMODIFIED,
@@ -1390,7 +1402,7 @@ class TestImodCtfCorrection(TestImodBase):
                                     anglesCountDict=self.ctfAnglesCountDictExcluded)
 
     def testCtfCorrection08(self):
-        _, tsWithAliBin4 = self._runPrevProts()
+        _, tsWithAliBin4 = self._runPrevProts(importCtf=False)
         self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
         ctfSetReStacked = self._genReStackedCtf()  # Gen a CTF estimated on a re-stacked TS
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, ctfSetReStacked,
@@ -1401,7 +1413,7 @@ class TestImodCtfCorrection(TestImodBase):
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
     def testCtfCorrection09(self):
-        _, tsWithAliBin4 = self._runPrevProts()
+        _, tsWithAliBin4 = self._runPrevProts(importCtf=False)
         self._excludeSetViews(tsWithAliBin4)  # Excluded some views in the TS at metadata level
         tsSetReStacked = self._runExcludeViewsProt(tsWithAliBin4)  # Re-stack the TS
         ctfSetReStacked = self._genReStackedCtf()  # Gen a CTF estimated on a re-stacked TS
@@ -1429,5 +1441,3 @@ class TestImodGoldBeadPicker(TestImodBase):
                               expectedSetSize=120,
                               expectedBoxSize=coordsBoxSize,
                               expectedSRate=tomoSRate)
-
-    #  def _runGoldBeadPicker(cls, inTomoSet, beadDiameter=10, objLabel=None):
