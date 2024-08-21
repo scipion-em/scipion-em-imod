@@ -72,12 +72,6 @@ class TestImodBase(BaseTest):
         return cls.protDoseFilter
 
     @classmethod
-    def _runExcludeViews(cls, **kwargs):
-        cls.protExcludeViews = cls.newProtocol(ProtImodExcludeViews, **kwargs)
-        cls.launchProtocol(cls.protExcludeViews)
-        return cls.protExcludeViews
-
-    @classmethod
     def _runTSNormalization(cls, **kwargs):
         cls.protTSNormalization = cls.newProtocol(ProtImodTsNormalization, **kwargs)
         cls.launchProtocol(cls.protTSNormalization)
@@ -175,10 +169,7 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         cls.inputDataSet = DataSet.getDataSet('tomo-em')
         cls.inputSoTS = cls.inputDataSet.getFile('ts1')
-        cls.excludeViewsFile = cls.inputDataSet.getFile('excludeViewsFile')
         cls.inputTMFolder = os.path.split(cls.inputDataSet.getFile('tm1'))[0]
-
-        cls.excludeViewsOutputSizes = {cls.atsId: 57, cls.btsId: 56}
         cls.binningTsNormalization = 2
         cls.binningPrealignment = 2
         cls.binningFiducialAlignment = 2
@@ -213,9 +204,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                 initialDose=0,
                                                 inputDoseType=1,
                                                 fixedImageDose=2.0)
-
-        cls.protExcludeViews = cls._runExcludeViews(inputSetOfTiltSeries=cls.protXRaysEraser.TiltSeries,
-                                                    excludeViewsFile=cls.excludeViewsFile)
 
         cls.protTSNormalization = cls._runTSNormalization(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
                                                           binning=cls.binningTsNormalization,
@@ -294,18 +282,6 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(self.protXRaysEraser._getExtraPath(tsId,
                                                                           tsId + ".mrcs")))
-
-    def test_excludeViewsOutputTS(self):
-        ts = self.protExcludeViews.TiltSeries
-        self.assertSetSize(ts)
-
-        tsId = ts.getFirstItem().getTsId()
-
-        self.assertTrue(os.path.exists(self.protExcludeViews._getExtraPath(tsId,
-                                                                           tsId + ".mrcs")))
-
-        for index, tsOut in enumerate(ts):
-            self.assertEqual(tsOut.getSize(), self.excludeViewsOutputSizes[tsOut.getTsId()])
 
     def test_normalizationOutputTS(self):
         ts = self.protTSNormalization.TiltSeries
