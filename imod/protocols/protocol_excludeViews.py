@@ -69,9 +69,6 @@ class ProtImodExcludeViews(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        # if self.excludeViewsFile.get():
-        #     self.excludedViewsFromFile = utils.readExcludeViewsFile(self.excludeViewsFile.get())
-
         closeSetStepDeps = []
         for tsId in self.tsDict.keys():
             exclStepId = self._insertFunctionStep(self.excludeViewsStep, tsId, prerequisites=[])
@@ -177,9 +174,5 @@ class ProtImodExcludeViews(ProtImodBase):
     def getExcludedViews(ts):
         """ Returns the indexes of the tilt to exclude for a
         specific tilt series"""
-        # if self.excludeViewsFile.get():
-        #     matrix = self.excludedViewsFromFile
-        #     return matrix.get(ts.getTsId(), [])
-        # else:
         return ts.getExcludedViewsIndex()
 

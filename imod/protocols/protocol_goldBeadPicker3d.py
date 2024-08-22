@@ -27,6 +27,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TOMO_SET
+from pyworkflow.object import Set
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
@@ -55,7 +56,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     def __init__(self, **args):
         super().__init__(**args)
         self.stepsExecutionMode = STEPS_PARALLEL
-        self.coordsBoxSize = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -120,22 +120,14 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         allOutputId = []
         self._initialize()
         for tsId in self.tomoDict.keys():
-            pickId = self._insertFunctionStep(self.pickGoldBeadsStep, tsId,
-                                              prerequisites=[])
-
-            outputID = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                prerequisites=[pickId])
-
+            pickId = self._insertFunctionStep(self.pickGoldBeadsStep, tsId,prerequisites=[])
+            outputID = self._insertFunctionStep(self.createOutputStep, tsId, prerequisites=[pickId])
             allOutputId.append(outputID)
-
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=allOutputId)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=allOutputId)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputSet()}
-        tomoSRate = getattr(self, IN_TOMO_SET, None).get().getSamplingRate()
-        self.coordsBoxSize = round(self.beadDiameter.get() * 10 / tomoSRate)
 
     def pickGoldBeadsStep(self, tsId):
         try:
@@ -176,8 +168,8 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
             if os.path.exists(coordFilePath):
                 coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
-                output = self.getOutputSetOfCoordinates3Ds(self.getInputSet(),
-                                                           self.getInputSet())
+                boxSize = self.beadDiameter.get()
+                output = self.getOutputSetOfCoordinates3Ds()
 
                 for element in coordList:
                     newCoord3D = Coordinate3D()
@@ -189,7 +181,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                     # newCoord3D.setVolId(tsObjId)
                     output.append(newCoord3D)
                     output.update(newCoord3D)
-                    output.setBoxSize(self.coordsBoxSize)
+                    output.setBoxSize(boxSize)
                     output.write()
 
                 self._store(output)
@@ -206,3 +198,19 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
         return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms
+
+    def getOutputSetOfCoordinates3Ds(self):
+        if self.Coordinates3D:
+            self.Coordinates3D.enableAppend()
+        else:
+            inTomoSet = self.getInputSet()
+            coords3D = SetOfCoordinates3D.create(self.getPath(), template='coordinates3d%s.sqlite', suffix='Fiducials3D')
+            coords3D.setSamplingRate(inTomoSet.getSamplingRate())
+            coords3D.setPrecedents(inTomoSet)
+            coords3D.setBoxSize(self.beadDiameter.get())
+            coords3D.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
+            self._defineSourceRelation(inTomoSet, coords3D)
+
+        return self.Coordinates3D

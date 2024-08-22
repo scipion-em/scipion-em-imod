@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 from imod.protocols import ProtImodBase
-from imod.protocols.protocol_base import PROCESS_ODD_EVEN
 from pyworkflow.protocol import params
 
 # Float densities modes
@@ -33,6 +32,12 @@ FLOAT_DENSITIES_CHOICES = ['No adjust',
                            'scaled to common mean and standard deviation',
                            'shifted to a common mean without scaling',
                            'shifted to mean and rescaled to a min and max']
+# Float densities values
+NO_ADJUST = 0
+EACH_SECTION_FILL_RANGE = 1
+SCALED_COMMON_STD_MEAN = 2
+SHIFTED_COMMON_MEAN = 3
+SHIFTED_MEAN_AND_RESCALED = 4
 
 
 class ProtImodBasePreprocess(ProtImodBase):
@@ -94,10 +99,10 @@ class ProtImodBasePreprocess(ProtImodBase):
         # -meansd (-mea) OR -MeanAndStandardDeviation   Two floats
         #               Scale all images to the given mean and standard deviation.  This
         #               option implies -float 2 and is incompatible with all other scaling options.
+        floatDensMode2Cond = 'floatDensities == %i' % SCALED_COMMON_STD_MEAN
         groupMeanSd = form.addGroup('Mean and SD',
-                                    condition='floatDensities==2',
+                                    condition=floatDensMode2Cond,
                                     help=f'Scale all {objStr} to the given mean and standard deviation.')
-        floatDensMode2Cond = 'floatDensities == 2'
         groupMeanSd.addParam('scaleMean',
                              params.FloatParam,
                              condition=floatDensMode2Cond,
@@ -113,7 +118,7 @@ class ProtImodBasePreprocess(ProtImodBase):
                              help='Standard deviation value for the rescaling')
 
         groupScale = form.addGroup('Scaling values',
-                                   condition='floatDensities in [0, 4]')
+                                   condition='floatDensities in [%i, %i]' % (NO_ADJUST, SHIFTED_MEAN_AND_RESCALED))
         msg = 'This option will rescale the densities of all sections by the same factors so that the original ' \
               'minimum and maximum density will be mapped to the Min and Max values that are entered.'
         groupScale.addParam('scaleMax',

@@ -55,12 +55,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         ProtTomoImportFiles._defineImportParams(self, form)
-
-        form.addParam('exclusionWords', params.StringParam,
-                      label='Exclusion words:',
-                      help="List of words separated by a space that the "
-                           "path should not have",
-                      expertLevel=params.LEVEL_ADVANCED)
+        ProtTomoImportFiles.addExclusionWordsParam(form)
 
         form.addParam(IN_TS_SET,
                       params.PointerParam,
@@ -241,19 +236,3 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
             yield fileName, fileId
 
-    def _excludeByWords(self, files):
-        exclusionWords = self.exclusionWords.get()
-
-        if exclusionWords is None:
-            return files
-
-        exclusionWordList = exclusionWords.split()
-        allowedFiles = []
-
-        for file in files:
-            if any(bannedWord in file for bannedWord in exclusionWordList):
-                print(f"{file} excluded. Contains any of {exclusionWords}")
-                continue
-            allowedFiles.append(file)
-
-        return allowedFiles

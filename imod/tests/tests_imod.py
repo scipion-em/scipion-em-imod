@@ -1436,8 +1436,8 @@ class TestImodGoldBeadPicker(TestImodBase):
         fiduCoords = self._runGoldBeadPicker(self.importedTomos, beadDiameter=beadDiameter)
         # Check the results
         tomoSRate = self.importedTomos.getSamplingRate()
-        coordsBoxSize = round(beadDiameter * 10 / tomoSRate)
+
         self.checkCoordinates(fiduCoords,
                               expectedSetSize=120,
-                              expectedBoxSize=coordsBoxSize,
+                              expectedBoxSize=beadDiameter,
                               expectedSRate=tomoSRate)

@@ -30,15 +30,16 @@ import numpy as np
 import pyworkflow.protocol.params as params
 from pwem import ALIGN_NONE, ALIGN_2D
 from pwem.objects import Transform
+from pyworkflow.object import Set
 from pyworkflow.utils import Message
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
-                          TiltImage, TiltSeries, TiltSeriesCoordinate)
+                          TiltImage, TiltSeries, TiltSeriesCoordinate, SetOfTiltSeriesCoordinates)
 
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TS_COORDINATES_NAME)
 
 # Rotation solution types
 NO_ROTATION = 0
@@ -544,27 +545,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 output.write()
                 self._store(output)
 
-    # def eraseGoldBeadsStep(self, tsId):
-    #     """ Erase gold beads on aligned stack. """
-    #     if tsId not in self._failedTs:
-    #         try:
-    #             paramsCcderaser = {
-    #                 "-InputFile": self.getTmpOutFile(tsId),
-    #                 "-OutputFile": self.getExtraOutFile(tsId),
-    #                 "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-    #                 "-BetterRadius": self.betterRadius.get() / 2,
-    #                 "-PolynomialOrder": 0,
-    #                 "-CircleObjects": "/",
-    #                 "-MergePatches": 1,
-    #                 "-ExcludeAdjacent": "",
-    #                 "-SkipTurnedOffPoints": 1,
-    #                 "-ExpandCircleIterations": 3
-    #             }
-    #             self.runProgram('ccderaser', paramsCcderaser)
-    #         except Exception as e:
-    #             self._failedTs.append(tsId)
-    #             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
-
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
         ts = self.tsDict[tsId]
@@ -674,6 +654,19 @@ class ProtImodFiducialAlignment(ProtImodBase):
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
         return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
+
+    def getOutputSetOfTiltSeriesCoordinates(self, inputSet):
+        if self.TiltSeriesCoordinates:
+            self.TiltSeriesCoordinates.enableAppend()
+        else:
+            coords3D = SetOfTiltSeriesCoordinates.create(self._getPath(), suffix='Fiducials3D')
+            coords3D.setSetOfTiltSeries(inputSet)
+            coords3D.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: coords3D})
+            self._defineSourceRelation(inputSet, coords3D)
+
+        return self.TiltSeriesCoordinates
 
     def getRotationType(self):
         return {

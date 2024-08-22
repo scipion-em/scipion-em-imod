@@ -34,7 +34,7 @@ from pwem.protocols import EMProtocol
 
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries)
+                          CTFTomo, TiltSeries)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -455,51 +455,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return self.FiducialModelNoGaps
 
-    def getOutputFiducialModelGaps(self, inputSet):
-        if self.FiducialModelGaps:
-            self.FiducialModelGaps.enableAppend()
-        else:
-            fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
-
-            fidModelGaps.copyInfo(inputSet)
-            fidModelGaps.setSetOfTiltSeries(inputSet)
-            fidModelGaps.setHasResidualInfo(False)
-            fidModelGaps.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: fidModelGaps})
-            self._defineSourceRelation(inputSet, fidModelGaps)
-
-        return self.FiducialModelGaps
-
-    def getOutputSetOfTiltSeriesCoordinates(self, inputSet):
-        if self.TiltSeriesCoordinates:
-            self.TiltSeriesCoordinates.enableAppend()
-        else:
-            coords3D = SetOfTiltSeriesCoordinates.create(self._getPath(),
-                                                         suffix='Fiducials3D')
-            coords3D.setSetOfTiltSeries(inputSet)
-            coords3D.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: coords3D})
-            self._defineSourceRelation(inputSet, coords3D)
-
-        return self.TiltSeriesCoordinates
-
-    def getOutputSetOfCoordinates3Ds(self, inputSet, outputSet):
-        if self.Coordinates3D:
-            self.Coordinates3D.enableAppend()
-        else:
-            coords3D = self._createSetOfCoordinates3D(volSet=outputSet, suffix='Fiducials3D')
-            coords3D.setSamplingRate(outputSet.getSamplingRate())
-            coords3D.setPrecedents(outputSet)
-            coords3D.setBoxSize(self.coordsBoxSize)
-            coords3D.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
-            self._defineSourceRelation(inputSet, coords3D)
-
-        return self.Coordinates3D
-
     def getOutputSetOfTomograms(self, inputSet, binning=1):
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
@@ -540,7 +495,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSetOfCTFTomoSeries
 
-    def createOutputFailedSet(self, item, presentAcqOrders=None):
+    def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
         inputSet = self.getInputSet()
         output = self.getOutputFailedSet(inputSet)

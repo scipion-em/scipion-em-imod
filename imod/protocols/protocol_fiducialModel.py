@@ -36,6 +36,7 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
                             FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.object import Set
 from pyworkflow.utils import Message
 
 
@@ -551,3 +552,19 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         scaling = fiducialDiameterPixel / 12.5 if fiducialDiameterPixel > 12.5 else 1
 
         return fiducialDiameterPixel, boxSizeXandY, scaling
+
+    def getOutputFiducialModelGaps(self, inputSet):
+        if self.FiducialModelGaps:
+            self.FiducialModelGaps.enableAppend()
+        else:
+            fidModelGaps = self._createSetOfLandmarkModels(suffix='Gaps')
+
+            fidModelGaps.copyInfo(inputSet)
+            fidModelGaps.setSetOfTiltSeries(inputSet)
+            fidModelGaps.setHasResidualInfo(False)
+            fidModelGaps.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(**{OUTPUT_FIDUCIAL_GAPS_NAME: fidModelGaps})
+            self._defineSourceRelation(inputSet, fidModelGaps)
+
+        return self.FiducialModelGaps
