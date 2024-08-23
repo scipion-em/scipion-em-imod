@@ -49,7 +49,7 @@ from tomo.protocols import ProtImportTs, ProtImportTomograms, ProtImportTsCTF
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
 from tomo.protocols.protocol_import_ctf import ImportChoice
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
-from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
+from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto, TS_03, TS_54, TS_01, TS_43, TS_45
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
 
 # 5 TS with no. tilt-images:
@@ -65,16 +65,11 @@ from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
 #   - TS_43 = 300
 #   - TS_45 = 300
 #   - TS_54 = 280
-TS_01 = 'TS_01'
-TS_03 = 'TS_03'
-TS_43 = 'TS_43'
-TS_45 = 'TS_45'
-TS_54 = 'TS_54'
 unbinnedTiDims = [3710, 3838]
 tsOriginAngst = - DataSetRe4STATuto.unbinnedPixSize.value * np.array(unbinnedTiDims) / 2
-tomoDimsThk300 = [928, 928, 300]
-tomoDimsThk280 = [928, 928, 280]
-tomoDimsThk340 = [928, 928, 340]
+tomoDimsThk300 = DataSetRe4STATuto.tomoDimsThk300.value
+tomoDimsThk280 = DataSetRe4STATuto.tomoDimsThk280.value
+tomoDimsThk340 = DataSetRe4STATuto.tomoDimsThk340.value
 
 
 class TestImodBase(TestBaseCentralizedLayer):
@@ -163,11 +158,12 @@ class TestImodBase(TestBaseCentralizedLayer):
         return expectedDimensions
 
     @classmethod
-    def _runImportTs(cls, exclusionWords=DataSetRe4STATuto.exclusionWordsTs03ts54.value):
+    def _runImportTs(cls, filesPattern=DataSetRe4STATuto.tsPattern.value,
+                     exclusionWords=DataSetRe4STATuto.exclusionWordsTs03ts54.value):
         print(magentaStr("\n==> Importing the tilt series:"))
         protImportTs = cls.newProtocol(ProtImportTs,
                                        filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
-                                       filesPattern=DataSetRe4STATuto.tsPattern.value,
+                                       filesPattern=filesPattern,
                                        exclusionWords=exclusionWords,
                                        anglesFrom=2,  # From tlt file
                                        voltage=DataSetRe4STATuto.voltage.value,
@@ -239,13 +235,18 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsDoseFiltered
 
     @classmethod
-    def _runImportTrMatrix(cls, inTsSet, binningTM=1, binningTS=1):
+    def _runImportTrMatrix(cls, inTsSet, binningTM=1, binningTS=1,
+                           filesPattern=DataSetRe4STATuto.transformPattern.value,
+                           exclusionWords=None):
         print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"
+                         f"f\n\t- Files pattern = {filesPattern}"
+                         f"\n\t- Excluded words = {exclusionWords}"
                          f"\n\t- Transformation matrix binning = {binningTM}"
                          f"\n\t- TS binning = {binningTS}"))
         protImportTrMatrix = cls.newProtocol(ProtImodImportTransformationMatrix,
                                              filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
-                                             filesPattern=DataSetRe4STATuto.transformPattern.value,
+                                             filesPattern=filesPattern,
+                                             exclusionWords=exclusionWords,
                                              inputSetOfTiltSeries=inTsSet,
                                              binningTM=binningTM,
                                              binningTS=binningTS)
@@ -673,6 +674,62 @@ class TestImodImportTrMatrix(TestImodBase):
         tsPreprocessed = self._runTsPreprocess(self.importedTs, binning=binningFactor)
         tsImportedTrMat = self._runImportTrMatrix(tsPreprocessed, binningTS=binningFactor)
         self._checkTiltSeries(tsImportedTrMat, binningFactor=binningFactor)
+
+
+class TestImodImportTrMatrixWithPattern(TestImodBase):
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        # Import the 5 tilt-series
+        cls.importedTs = cls._runImportTs(filesPattern='*/{TS}.mrc', exclusionWords='output')
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, testAcqObjDict=None, expectedDimensionsDict=None,
+                         anglesCountDict=None):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=len(testAcqObjDict),
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             hasAlignment=True,
+                             alignment=ALIGN_2D,
+                             expectedDimensions=expectedDimensionsDict,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
+
+
+    def testImportTrMatrixWpat01(self):
+        # exclusionWords = '01 43 45'  # Imported CTF should be TS_03 and TS_54
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs, filesPattern='*/{TS}.xf')
+        testAcqObjDict, expectedDimensionsDict, anglesCountDict = DataSetRe4STATuto.genTestTsDicts()
+        self._checkTiltSeries(tsImportedTrMat,
+                              testAcqObjDict=testAcqObjDict,
+                              expectedDimensionsDict=expectedDimensionsDict,
+                              anglesCountDict=anglesCountDict)
+
+    def testImportTrMatrixWpat02(self):
+        exclusionWords = '01 43 45'  # Imported CTF should be TS_03 and TS_54
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs,
+                                                  filesPattern='*/{TS}.xf',
+                                                  exclusionWords=exclusionWords)
+        tsIdList = (TS_03, TS_54)
+        testAcqObjDict, expectedDimensionsDict, anglesCountDict = DataSetRe4STATuto.genTestTsDicts(tsIdList=tsIdList)
+        self._checkTiltSeries(tsImportedTrMat,
+                              testAcqObjDict=testAcqObjDict,
+                              expectedDimensionsDict=expectedDimensionsDict,
+                              anglesCountDict=anglesCountDict)
+
+    def testImportTrMatrixWpat03(self):
+        exclusionWords = '03 54'  # Imported CTF should be TS_01, TS_43, TS_45
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs,
+                                                  filesPattern='*/{TS}.xf',
+                                                  exclusionWords=exclusionWords)
+        tsIdList = (TS_01, TS_43, TS_45)
+        testAcqObjDict, expectedDimensionsDict, anglesCountDict = DataSetRe4STATuto.genTestTsDicts(tsIdList=tsIdList)
+        self._checkTiltSeries(tsImportedTrMat,
+                              testAcqObjDict=testAcqObjDict,
+                              expectedDimensionsDict=expectedDimensionsDict,
+                              anglesCountDict=anglesCountDict)
+
 
 
 class TestImodApplyTrMatrix(TestImodBase):
