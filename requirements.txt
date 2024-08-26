@@ -1,1 +1,1 @@
-scipion-em-tomo>=3.7.4
+scipion-em-tomo>=3.7.3
