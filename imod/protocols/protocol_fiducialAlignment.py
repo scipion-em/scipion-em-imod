@@ -41,6 +41,40 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             OUTPUT_TS_INTERPOLATED_NAME,
                             OUTPUT_TS_COORDINATES_NAME)
 
+# Rotation solution types
+NO_ROTATION = 0
+ONE_ROTATION = 1
+GROUP_ROTATIONS = 2
+ALL_ROTATIONS = 3
+ROT_SOLUTION_CHOICES = ['No rotation',
+                        'One rotation',
+                        'Group rotations',
+                        'Solve for all rotations']
+
+# Magnification solution types
+FIXED_MAG = 0
+GROUP_MAGS = 1
+ALL_MAGS = 2
+MAG_SOLUTION_CHOICES = ['Fixed magnification at 1.0',
+                        'Group magnifications',
+                        'Solve for all magnifications']
+
+# Tilt angle solution types
+FIXED_TILT = 0
+GROUP_TILTS = 1
+ALL_EXCEPT_MIN = 2
+TILT_SOLUTION_CHOICES = ['Fixed tilt angles',
+                         'Group tilt angles',
+                         'Solve for all except minimum tilt']
+
+# Distortion solution types
+DIST_DISABLED = 0
+DIST_FULL_SOLUTION = 1
+DIST_SKEW_ONLY = 2
+DISTORTION_SOLUTION_CHOICES = ['Disabled',
+                               'Full solution',
+                               'Skew only']
+
 
 class ProtImodFiducialAlignment(ProtImodBase):
     """

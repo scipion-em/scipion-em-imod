@@ -27,6 +27,8 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
 from imod.protocols import ProtImodBase
@@ -51,11 +53,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSet',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
-                      label='Tilt-series',
+                      label="Input tilt-series",
+                      pointerClass='SetOfTiltSeries',
                       help='This should be a *raw stack*, not an aligned stack, '
                            'because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and '
@@ -462,7 +464,5 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def getInputSet(self, pointer=False):
         """ Reimplemented from the base class for CTF case. """
-        if isinstance(self.inputSet.get(), SetOfCTFTomoSeries):
-            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
-
-        return self.inputSet.get() if not pointer else self.inputSet
+        inputSet = getattr(self, IN_TS_SET)
+        return inputSet.get() if not pointer else inputSet

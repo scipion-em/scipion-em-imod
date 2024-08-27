@@ -24,8 +24,9 @@
 # *
 # *****************************************************************************
 import logging
+from typing import Union
 
-from pyworkflow.object import Set, CsvList
+from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import path
@@ -41,6 +42,10 @@ from imod import Plugin, utils
 from imod.constants import *
 
 logger = logging.getLogger(__name__)
+IN_TS_SET = 'inputSetOfTiltSeries'
+IN_TOMO_SET = 'inputSetOfTomograms'
+IN_CTF_TOMO_SET = 'inputSetOfCtfTomoSeries'
+PROCESS_ODD_EVEN = 'processOddEven'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
@@ -62,8 +67,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
-    def trimingForm(form, pxTrimCondition=False, correlationCondition=True,
-                    levelType=params.LEVEL_ADVANCED):
+    def addOddEvenParams(form, isTomogram=False):
+        objStr = 'tomograms' if isTomogram else 'tilt-series'
+        form.addParam(PROCESS_ODD_EVEN,
+                      params.BooleanParam,
+                      default=False,
+                      label='Apply to odd/even',
+                      help=f'If True, the full {objStr} and the associated odd/even '
+                           f'{objStr} will be processed. The transformations applied '
+                           f'to the odd/even {objStr} will be exactly the same.')
+
+    @staticmethod
+    def addTrimingParams(form, pxTrimCondition=False, correlationCondition=True,
+                         levelType=params.LEVEL_ADVANCED):
         """
         Generally, this form will be integrated in a groupForm,
         the group form argument is form. A set of flags
@@ -539,6 +555,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 self.processOddEven.get() and
                 setOfTs.hasOddEven())
 
+    def warningOddEven(self, inSet: Union[SetOfTiltSeries, SetOfTomograms], warnMsgList: list):
+        if getattr(self, PROCESS_ODD_EVEN, Boolean(False).get()) and not inSet.hasOddEven():
+            warnMsgList.append('The even/odd tilt-series or tomograms were not found in the introduced tilt-series or '
+                               'tomograns metadata. Thus, only the full tilt-series or tomograms will be processed.')
+
+
     def runProgram(self, program, params, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
@@ -707,7 +729,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     updateTiCallback=None,
                     copyDisabled=False,
                     copyId=False, copyTM=True,
-                    excludedViews=None,
+                    excludedViews=(),
                     **kwargs):
         """ Re-implemented function from tomo.objects. Works on a single TS object.
         Params:
@@ -727,22 +749,33 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             updateTsCallback(tsId, ts, tsOut, **kwargs)
         outputTsSet.append(tsOut)
 
+        angleList = []
+        doseList = []
         index = 0
         for j, ti in enumerate(ts.iterItems()):
-            if not ti.isEnabled() and not copyDisabled:
-                continue
-            if (excludedViews is not None) and (j+1 in excludedViews):
-                continue
-            else:
+            # if not ti.isEnabled() and not copyDisabled:
+            #     continue
+            # if (excludedViews is not None) and (ti.getIndex() not in excludedViews):
+            #     continue
+            # else:
+            if (excludedViews and ti.getIndex() not in excludedViews) or not excludedViews:
                 tiOut = TiltImage(tsId=tsId)
-                tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM,
-                               copyStatus=True)
+                tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM, copyStatus=True)
                 if updateTiCallback:
-                    updateTiCallback(j, index, tsId, ts, ti,
-                                     tsOut, tiOut, **kwargs)
+                    updateTiCallback(j, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+                angleList.append(ti.getTiltAngle())
+                doseList.append(ti.getAcquisition().getAccumDose())
                 tsOut.append(tiOut)
-                index += 1
 
+
+        # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+        # these values may change if the removed tilt-images are the first or the last, for example.
+        acq = tsOut.getAcquisition()
+        acq.setAngleMin(min(angleList))
+        acq.setAngleMax(max(angleList))
+        acq.setAccumDose(max(doseList))
+        tsOut.setAcquisition(acq)
+        tsOut.setAnglesCount(len(tsOut))
         outputTsSet.update(tsOut)
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
@@ -756,3 +789,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                               ih.locationToXmipp(locationEven)])
         else:
             tiOut.setOddEven([])
+
+    # --------------------------- INFO functions ------------------------------
+    def _warnings(self):
+        warnMsgList = []
+        self.warningOddEven(self.getInputSet(), warnMsgList)
+        return warnMsgList

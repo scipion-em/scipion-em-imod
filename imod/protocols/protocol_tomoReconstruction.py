@@ -233,15 +233,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Reconstruct odd/even?',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be reconstructed. '
-                           'The alignment applied to the odd/even tilt series '
-                           'will be exactly the same.')
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

@@ -130,9 +130,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         trimming = form.addGroup('Trimming parameters',
                                  expertLevel=params.LEVEL_ADVANCED)
 
-        self.trimingForm(trimming, pxTrimCondition=False,
-                         correlationCondition=True,
-                         levelType=params.LEVEL_ADVANCED)
+        self.addTrimingParams(trimming, pxTrimCondition=False,
+                              correlationCondition=True,
+                              levelType=params.LEVEL_ADVANCED)
         self.filteringParametersForm(form, condition=True,
                                      levelType=params.LEVEL_ADVANCED)
 

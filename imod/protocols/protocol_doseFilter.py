@@ -27,7 +27,9 @@
 import os.path
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
 from imod import utils
@@ -58,9 +60,9 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -99,15 +101,7 @@ class ProtImodDoseFilter(ProtImodBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Filter odd/even',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be processed. The applied '
-                           'dose for the odd/even tilt series will be exactly the same.')
-
+        self.addOddEvenParams(form)
         form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------

@@ -219,15 +219,7 @@ class ProtImodTomoNormalization(ProtImodBase):
                            'based on images of natural scenes where there are '
                            'sharp edges.')
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Process odd/even?',
-                      help='If True, the full tilt series and the associated odd/even '
-                           'tilt series will be processed. The transformations applied '
-                           'to the odd/even tilt series will be exactly the same.')
-
+        self.addOddEvenParams(form)
         form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------

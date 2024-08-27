@@ -164,16 +164,7 @@ class ProtImodXraysEraser(ProtImodBase):
                            'may be needed to make extra-large peak removal '
                            'useful.')
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be processed. The filter '
-                           'applied to the odd/even tilt series will be exactly '
-                           'the same.')
-
+        self.addOddEvenParams(form)
         form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------

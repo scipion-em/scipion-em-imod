@@ -26,9 +26,9 @@
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
-
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME
 
@@ -55,32 +55,14 @@ class ProtImodExcludeViews(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Input set of tilt-series')
 
-        form.addParam('excludeViewsFile',
-                      params.FileParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label='Exclude views file',
-                      help='File containing the views to be excluded for each '
-                           'tilt-series belonging to the set.\n\n'
-                           'The format of the text file must be two columns, '
-                           'the first one being the tilt series ID of '
-                           'the series from which the views will be excluded '
-                           'and the second the views to exclude, numbered from '
-                           '1. The syntax for this exclude list is a comma '
-                           'separated list of ranges with no spaces between '
-                           'them (e.g., 1,4-5,60-70). \n\n'
-                           'An example of this file comes as follows:\n'
-                           'TS_01 1,4-6,8,44-47\n'
-                           'TS_02 3,10-12,24\n'
-                           '...')
-
-        form.addParallelSection(threads=4, mpi=0)
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -102,19 +84,16 @@ class ProtImodExcludeViews(ProtImodBase):
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
                        for ts in self.getInputSet()}
 
-        if self.excludeViewsFile.get():
-            self.excludedViewsFromFile = utils.readExcludeViewsFile(self.excludeViewsFile.get())
-
     def excludeViewsStep(self, tsId):
         ts = self.tsDict[tsId]
-        firstItem = ts.getFirstItem()
+        tsFileName = ts.getFirstItem().getFileName()
         self.genTsPaths(tsId)
 
         outputFileName = self.getExtraOutFile(tsId)
         excludedViews = self.getExcludedViews(ts)
 
         if excludedViews:
-            path.copyFile(firstItem.getFileName(), outputFileName)
+            path.copyFile(tsFileName, outputFileName)
             params = {
                 '-StackName': outputFileName,
                 '-ViewsToExclude': ",".join(map(str, excludedViews)),
@@ -123,22 +102,31 @@ class ProtImodExcludeViews(ProtImodBase):
         else:
             # Just create the link
             self.info(f"No views to exclude for {tsId}")
-            path.createLink(firstItem.getFileName(), outputFileName)
+            path.createLink(tsFileName, outputFileName)
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        if self.excludeViewsFile.get():
-            excludedViews = self.getExcludedViews(ts)
-        else:
-            excludedViews = None  # disabled ti are handled automatically
+        excludedViews = self.getExcludedViews(ts)
 
         with self._lock:
             output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+            if excludedViews:
+                self.copyTsItems(output, ts, tsId,
+                                 updateTiCallback=self.updateTi,
+                                 copyId=False, copyTM=True,
+                                 excludedViews=excludedViews)
+            else:
+                newTs = ts.clone(ignoreAttrs=[])
+                output.append(newTs)
+                for ti in ts:
+                    newTi = ti.clone()
+                    newTs.append(newTi)
 
-            self.copyTsItems(output, ts, tsId,
-                             updateTiCallback=self.updateTi,
-                             copyId=False, copyTM=True,
-                             excludedViews=excludedViews)
+                newTs.write(properties=False)
+                output.update(newTs)
+                output.write()
+                self._store(output)
+
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -157,11 +145,8 @@ class ProtImodExcludeViews(ProtImodBase):
         return summary
 
     # --------------------------- UTILS functions -----------------------------
-    def getExcludedViews(self, ts):
+    @staticmethod
+    def getExcludedViews(ts):
         """ Returns the indexes of the tilt to exclude for a
         specific tilt series starting from 1. """
-        if self.excludeViewsFile.get():
-            matrix = self.excludedViewsFromFile
-            return matrix.get(ts.getTsId(), [])
-        else:
-            return ts._getExcludedViewsIndex()
+        return ts.getExcludedViewsIndex()

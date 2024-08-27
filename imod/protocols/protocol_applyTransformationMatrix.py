@@ -28,10 +28,8 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pwem import ALIGN_NONE
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.objects import SetOfTiltSeries
 
 from imod import utils
@@ -87,7 +85,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'are filled in (e.g. because of rotation). '
                            'Decide whether tapering is done inwards or outwards '
                            'from the edge.')
-        
+
         form.addParam('linear',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -170,42 +168,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                                    attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                    suffix="Interpolated")
 
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setInterpolated(True)
-                newTs.setAlignment(ALIGN_NONE)
-                acq = newTs.getAcquisition()
-                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-                newTs.setAcquisition(acq)
-                output.append(newTs)
-
-                outputPixSize = self._getOutputSampling()
-                for index, tiltImage in enumerate(ts):
-                    if tiltImage.isEnabled():
-                        newTi = TiltImage()
-                        newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                        acq = tiltImage.getAcquisition()
-                        acq.setTiltAxisAngle(0.)
-                        newTi.setAcquisition(acq)
-                        newTi.setLocation(index+1, outputLocation)
-                        if self.oddEvenFlag:
-                            locationOdd = index+1, (self.getExtraOutFile(tsId, suffix=ODD))
-                            locationEven = index+1, (self.getExtraOutFile(tsId, suffix=EVEN))
-                            newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                              ih.locationToXmipp(locationEven)])
-                        else:
-                            newTi.setOddEven([])
-
-                        newTi.setSamplingRate(outputPixSize)
-                        newTs.append(newTi)
-
-                dims = self._getOutputDim(outputLocation)
-                newTs.setDim(dims)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
@@ -245,7 +207,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def updateTs(self, tsId, ts, tsOut, **kwargs):
+    @staticmethod
+    def updateTs(tsId, ts, tsOut, **kwargs):
         tsOut.setInterpolated(True)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
