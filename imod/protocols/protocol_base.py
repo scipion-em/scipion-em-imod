@@ -24,26 +24,23 @@
 # *
 # *****************************************************************************
 import logging
-from typing import Union
 
-from pyworkflow.object import Set, CsvList, Boolean
+from pyworkflow.object import Set, CsvList
 from pyworkflow.protocol import params
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import path
 from pwem.emlib.image import ImageHandler as ih
 from pwem.protocols import EMProtocol
 
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          CTFTomo, TiltSeries)
+                          CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
+                          TiltImage)
 
 from imod import Plugin, utils
 from imod.constants import *
 
 logger = logging.getLogger(__name__)
-IN_TS_SET = 'inputSetOfTiltSeries'
-IN_TOMO_SET = 'inputSetOfTomograms'
-IN_CTF_TOMO_SET = 'inputSetOfCtfTomoSeries'
-PROCESS_ODD_EVEN = 'processOddEven'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
@@ -53,39 +50,20 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def __init__(self, **kwargs):
         self.tsDict = None
         self.tomoDict = None
-        self._failedTs = []
-        self._failedTomos = []
+        self._failedItems = []
+        self.oddEvenFlag = False
 
         # Possible outputs (synchronize these names with the constants)
-        self.TiltSeriesCoordinates = None
-        self.FiducialModelNoGaps = None
-        self.FiducialModelGaps = None
         self.TiltSeries = None
-        self.InterpolatedTiltSeries = None
-        self.CTFTomoSeries = None
         self.Tomograms = None
-        self.Coordinates3D = None
-
-        self.FailedTiltSeries = None
-        self.FailedTomograms = None
 
         EMProtocol.__init__(self, **kwargs)
+        self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
-    def addOddEvenParams(form, isTomogram=False):
-        objStr = 'tomograms' if isTomogram else 'tilt-series'
-        form.addParam(PROCESS_ODD_EVEN,
-                      params.BooleanParam,
-                      default=False,
-                      label='Apply to odd/even',
-                      help=f'If True, the full {objStr} and the associated odd/even '
-                           f'{objStr} will be processed. The transformations applied '
-                           f'to the odd/even {objStr} will be exactly the same.')
-
-    @staticmethod
-    def addTrimingParams(form, pxTrimCondition=False, correlationCondition=True,
-                         levelType=params.LEVEL_ADVANCED):
+    def trimingForm(form, pxTrimCondition=False, correlationCondition=True,
+                    levelType=params.LEVEL_ADVANCED):
         """
         Generally, this form will be integrated in a groupForm,
         the group form argument is form. A set of flags
@@ -213,6 +191,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return False
 
     # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
+                       for ts in self.getInputSet()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
+
     def convertInputStep(self, tsId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False,
                          oddEven=False, presentAcqOrders=None):
@@ -356,117 +339,110 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTS(self, inputSet, binning=1) -> SetOfTiltSeries:
-        """ Method to generate output classes of set of tilt-series"""
-
-        outputSetOfTiltSeries = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if outputSetOfTiltSeries:
-            outputSetOfTiltSeries.enableAppend()
+    def getOutputSetOfTS(self, inputPtr, binning=1,
+                         attrName=OUTPUT_TILTSERIES_NAME,
+                         suffix="") -> SetOfTiltSeries:
+        """ Method to generate output of set of tilt-series.
+        :param inputPtr: input set pointer (TS or tomograms)
+        :param binning: binning factor
+        :param attrName: output attr name
+        :param suffix: output set suffix
+        """
+        inputSet = inputPtr.get()
+        outputTS = getattr(self, attrName, None)
+        if outputTS:
+            outputTS.enableAppend()
         else:
-            outputSetOfTiltSeries = self._createSetOfTiltSeries()
+            outputTS = self._createSetOfTiltSeries(suffix=suffix)
 
             if isinstance(inputSet, SetOfTiltSeries):
-                outputSetOfTiltSeries.copyInfo(inputSet)
-                outputSetOfTiltSeries.setDim(inputSet.getDim())
+                outputTS.copyInfo(inputSet)
 
             elif isinstance(inputSet, SetOfTomograms):
-                outputSetOfTiltSeries.setAcquisition(inputSet.getAcquisition())
-                outputSetOfTiltSeries.setSamplingRate(inputSet.getSamplingRate())
-                outputSetOfTiltSeries.setDim(inputSet.getDim())
+                # _anglesCount does not exist for SetOfTomograms, so we can't use copyInfo
+                outputTS.setAcquisition(inputSet.getAcquisition())
+                outputTS.setSamplingRate(inputSet.getSamplingRate())
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
                 samplingRate *= binning
-                outputSetOfTiltSeries.setSamplingRate(samplingRate)
+                outputTS.setSamplingRate(samplingRate)
 
-            outputSetOfTiltSeries.setStreamState(Set.STREAM_OPEN)
+            outputTS.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputSetOfTiltSeries})
-            self._defineSourceRelation(inputSet, outputSetOfTiltSeries)
+            self._defineOutputs(**{attrName: outputTS})
+            self._defineSourceRelation(inputPtr, outputTS)
 
-        return outputSetOfTiltSeries
+        return outputTS
 
-    def getOutputInterpolatedTS(self, inputSet, binning=1):
-        """ Method to generate output interpolated classes of set of tilt-series"""
-
-        if self.InterpolatedTiltSeries:
-            self.InterpolatedTiltSeries.enableAppend()
+    def getOutputFiducialModel(self, inputPtr,
+                               attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                               suffix="NoGaps"):
+        """ Method to generate output of set fiducial models.
+                :param inputPtr: input TS set pointer
+                :param attrName: output attr name
+                :param suffix: output set suffix
+        """
+        if not inputPtr.isPointer():
+            logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
+            inputSet = inputPtr
         else:
-            interpTS = self._createSetOfTiltSeries(suffix='Interpolated')
+            inputSet = inputPtr.get()
 
-            if isinstance(inputSet, SetOfTiltSeries):
-                interpTS.copyInfo(inputSet)
-                interpTS.setDim(inputSet.getDim())
-
-            elif isinstance(inputSet, SetOfTomograms):
-                interpTS.setAcquisition(inputSet.getAcquisition())
-                interpTS.setDim(inputSet.getDim())
-
-            if binning > 1:
-                samplingRate = inputSet.getSamplingRate() * binning
-                interpTS.setSamplingRate(samplingRate)
-
-            interpTS.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_TS_INTERPOLATED_NAME: interpTS})
-            self._defineSourceRelation(inputSet, interpTS)
-
-        return self.InterpolatedTiltSeries
-
-    def getOutputFailedSet(self, inputSet):
-        """ Create output set for failed TS or tomograms. """
-        if isinstance(inputSet, SetOfTiltSeries):
-            if self.FailedTiltSeries:
-                self.FailedTiltSeries.enableAppend()
-            else:
-                failedSet = self._createSetOfTiltSeries(suffix='Failed')
-                failedSet.copyInfo(inputSet)
-                failedSet.setStreamState(Set.STREAM_OPEN)
-                self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedSet})
-                self._defineSourceRelation(inputSet, failedSet)
-
-            return self.FailedTiltSeries
-
-        elif isinstance(inputSet, SetOfTomograms):
-            if self.FailedTomograms:
-                self.FailedTomograms.enableAppend()
-            else:
-                failedSet = self._createSetOfTomograms(suffix='Failed')
-                failedSet.copyInfo(inputSet)
-                failedSet.setStreamState(Set.STREAM_OPEN)
-                self._defineOutputs(**{OUTPUT_TOMOS_FAILED_NAME: failedSet})
-                self._defineSourceRelation(inputSet, failedSet)
-
-            return self.FailedTomograms
-
-    def getOutputFiducialModelNoGaps(self, inputSet):
-        if self.FiducialModelNoGaps:
-            self.FiducialModelNoGaps.enableAppend()
+        fidModel = getattr(self, attrName, None)
+        if fidModel is not None:
+            fidModel.enableAppend()
         else:
-            fidModelNoGaps = self._createSetOfLandmarkModels(suffix='NoGaps')
+            fidModel = self._createSetOfLandmarkModels(suffix=suffix)
+            fidModel.copyInfo(inputSet)
+            fidModel.setSetOfTiltSeries(inputPtr)
+            fidModel.setHasResidualInfo(True)
+            fidModel.setStreamState(Set.STREAM_OPEN)
 
-            fidModelNoGaps.copyInfo(inputSet)
-            fidModelNoGaps.setSetOfTiltSeries(inputSet)
-            fidModelNoGaps.setHasResidualInfo(True)
-            fidModelNoGaps.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{attrName: fidModel})
+            self._defineSourceRelation(inputPtr, fidModel)
 
-            self._defineOutputs(**{OUTPUT_FIDUCIAL_NO_GAPS_NAME: fidModelNoGaps})
-            self._defineSourceRelation(inputSet, fidModelNoGaps)
+        return fidModel
 
-        return self.FiducialModelNoGaps
+    def getOutputSetOfTiltSeriesCoordinates(self, inputPtr):
+        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
+        if tsCoords is not None:
+            tsCoords.enableAppend()
+        else:
+            tsCoords = SetOfTiltSeriesCoordinates.create(self._getPath(),
+                                                         suffix='Fiducials3D')
+            tsCoords.setSetOfTiltSeries(inputPtr)
+            tsCoords.setStreamState(Set.STREAM_OPEN)
 
-    def getOutputSetOfTomograms(self, inputSet, binning=1):
+            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: tsCoords})
+            self._defineSourceRelation(inputPtr, tsCoords)
+
+        return tsCoords
+
+    def getOutputSetOfCoordinates3Ds(self, inputPtr, outputSet):
+        coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
+        if coords3D is not None:
+            coords3D.enableAppend()
+        else:
+            coords3D = self._createSetOfCoordinates3D(volSet=outputSet,
+                                                      suffix='Fiducials3D')
+            coords3D.setSamplingRate(outputSet.getSamplingRate())
+            coords3D.setPrecedents(outputSet)
+            coords3D.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
+            self._defineSourceRelation(inputPtr, coords3D)
+
+        return coords3D
+
+    def getOutputSetOfTomograms(self, inputPtr, binning=1):
+        inputSet = inputPtr.get()
+
         if self.Tomograms:
             getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
         else:
             outputSetOfTomograms = self._createSetOfTomograms()
-
-            if isinstance(inputSet, SetOfTomograms):
-                outputSetOfTomograms.copyInfo(inputSet)
-
-            elif isinstance(inputSet, SetOfTiltSeries):
-                outputSetOfTomograms.setAcquisition(inputSet.getAcquisition())
-                outputSetOfTomograms.setSamplingRate(inputSet.getSamplingRate())
+            outputSetOfTomograms.copyInfo(inputSet)
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate() * binning
@@ -475,29 +451,60 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
 
             self._defineOutputs(**{OUTPUT_TOMOGRAMS_NAME: outputSetOfTomograms})
-            self._defineSourceRelation(inputSet, outputSetOfTomograms)
+            self._defineSourceRelation(inputPtr, outputSetOfTomograms)
 
         return self.Tomograms
 
-    def getOutputSetOfCTFTomoSeries(self, outputSetName):
+    def getOutputSetOfCTFTomoSeries(self, inputPtr, outputSetName):
+        inputSet = inputPtr.get()
+
         outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
 
-        if outputSetOfCTFTomoSeries:
+        if outputSetOfCTFTomoSeries is not None:
             outputSetOfCTFTomoSeries.enableAppend()
         else:
             outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
                                                                  template='CTFmodels%s.sqlite')
-            ts = self.getInputSet(pointer=True)
-            outputSetOfCTFTomoSeries.setSetOfTiltSeries(ts)
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
-            self._defineCtfRelation(outputSetOfCTFTomoSeries, ts.get())
+            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
 
         return outputSetOfCTFTomoSeries
 
+    def getOutputFailedSet(self, inputPtr):
+        """ Create output set for failed TS or tomograms. """
+        inputSet = inputPtr.get()
+        if isinstance(inputSet, SetOfTiltSeries):
+            failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+
+            if failedTs is not None:
+                failedTs.enableAppend()
+            else:
+                failedTs = self._createSetOfTiltSeries(suffix='Failed')
+                failedTs.copyInfo(inputSet)
+                failedTs.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TS_FAILED_NAME: failedTs})
+                self._defineSourceRelation(inputPtr, failedTs)
+
+            return failedTs
+
+        elif isinstance(inputSet, SetOfTomograms):
+            failedTomos = getattr(self, OUTPUT_TOMOS_FAILED_NAME, None)
+            if failedTomos is not None:
+                failedTomos.enableAppend()
+            else:
+                failedTomos = self._createSetOfTomograms(suffix='Failed')
+                failedTomos.copyInfo(inputSet)
+                failedTomos.setStreamState(Set.STREAM_OPEN)
+                self._defineOutputs(**{OUTPUT_TOMOS_FAILED_NAME: failedTomos})
+                self._defineSourceRelation(inputPtr, failedTomos)
+
+            return failedTomos
+
     def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
-        inputSet = self.getInputSet()
+        inputSet = self.getInputSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
         newItem = item.clone()
         newItem.copyInfo(item)
@@ -505,11 +512,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         if isinstance(item, TiltSeries):
             newItem.copyItems(item)
-            newItem.write(properties=False)
-
-        output.update(newItem)
-        output.write()
-        self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
     def genTsPaths(self, tsId):
@@ -532,27 +534,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def getInputSet(self, pointer=False):
         return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
-    def getTsFromTsId(self, tsId):
-        tsSet = self.getInputSet()
-        return tsSet.getItem(TiltSeries.TS_ID_FIELD, tsId)
-
     def applyToOddEven(self, setOfTs):
-        return getattr(self, PROCESS_ODD_EVEN, Boolean(False)).get() and setOfTs.hasOddEven()
+        return (hasattr(self, "processOddEven") and
+                self.processOddEven.get() and
+                setOfTs.hasOddEven())
 
-    def warningOddEven(self, inSet: Union[SetOfTiltSeries, SetOfTomograms], warnMsgList: list):
-        if getattr(self, PROCESS_ODD_EVEN, Boolean(False).get()) and not inSet.hasOddEven():
-            warnMsgList.append('The even/odd tilt-series or tomograms were not found in the introduced tilt-series or '
-                               'tomograns metadata. Thus, only the full tilt-series or tomograms will be processed.')
-
-    def runProgram(self, program, paramsDict, cwd=None):
+    def runProgram(self, program, params, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
-        args = ' '.join(['%s %s' % (k, str(v)) for k, v in paramsDict.items()])
+        args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])
         Plugin.runImod(self, program, args, cwd)
-
-    @staticmethod
-    def _getOutputDim(fn: str):
-        x, y, z, _ = ih.getDimensions(fn)
-        return x, y, z
 
     @staticmethod
     def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
@@ -601,8 +591,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 # swap x and y dimensions to adapt output image sizes to
                 # the final sample disposition.
                 if 45 < abs(rotationAngle) < 135:
-                    params["-size"] = f"{round(firstItem.getYDim() / binning)}," \
-                                      f"{round(firstItem.getXDim() / binning)}"
+                    dimX, dimY, _ = firstItem.getDim()
+                    params["-size"] = f"{round(dimY / binning)}," \
+                                      f"{round(dimX / binning)}"
 
         if tsExcludedIndices:
             params["-exclude"] = ",".join(map(str, tsExcludedIndices))
@@ -709,11 +700,59 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
-        newCTFTomoSeries.calculateDefocusUDeviation(defocusUTolerance=20)
-        newCTFTomoSeries.calculateDefocusVDeviation(defocusVTolerance=20)
 
-    # --------------------------- INFO functions ------------------------------
-    def _warnings(self):
-        warnMsgList = []
-        self.warningOddEven(self.getInputSet(), warnMsgList)
-        return warnMsgList
+    @staticmethod
+    def copyTsItems(outputTsSet, ts, tsId,
+                    updateTsCallback=None,
+                    updateTiCallback=None,
+                    copyDisabled=False,
+                    copyId=False, copyTM=True,
+                    excludedViews=None,
+                    **kwargs):
+        """ Re-implemented function from tomo.objects. Works on a single TS object.
+        Params:
+            outputSet: output set of tilt series.
+            ts: input TiltSeries.
+            tsId: can be used by other methods
+            updateTsCallback: optional callback after TiltSeries is created
+            updateTiCallback: optional callback after TiltImage is created
+            copyDisabled: if True, also copy disabled views.
+            copyId: copy ObjId.
+            copyTM: copy transformation matrix
+            excludedViews: list of excluded views, starting from 1
+        """
+        tsOut = TiltSeries(tsId=tsId)
+        tsOut.copyInfo(ts, copyId=copyId)
+        if updateTsCallback:
+            updateTsCallback(tsId, ts, tsOut, **kwargs)
+        outputTsSet.append(tsOut)
+
+        index = 0
+        for j, ti in enumerate(ts.iterItems()):
+            if not ti.isEnabled() and not copyDisabled:
+                continue
+            if (excludedViews is not None) and (j+1 in excludedViews):
+                continue
+            else:
+                tiOut = TiltImage(tsId=tsId)
+                tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM,
+                               copyStatus=True)
+                if updateTiCallback:
+                    updateTiCallback(j, index, tsId, ts, ti,
+                                     tsOut, tiOut, **kwargs)
+                tsOut.append(tiOut)
+                index += 1
+
+        outputTsSet.update(tsOut)
+
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        outputLocation = self.getExtraOutFile(tsId)
+        tiOut.setLocation(index + 1, outputLocation)
+
+        if self.oddEvenFlag:
+            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
+                              ih.locationToXmipp(locationEven)])
+        else:
+            tiOut.setOddEven([])

@@ -30,6 +30,7 @@ from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
 from pwem import ALIGN_NONE
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
@@ -80,6 +81,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
         self.matchingMsg = String()
         self.ctfDict = None
         self.presentTsIds = None
@@ -240,20 +242,18 @@ class ProtImodCtfCorrection(ProtImodBase):
                 self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f"ctfphaseflip execution failed for tsId {tsId} -> {e}")
 
     def createOutputStep(self, tsId, presentAcqOrders):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             outputFn = self.getExtraOutFile(tsId)
             if os.path.exists(outputFn):
-                inTsSet = self.getInputSet()
-                outputSetOfTs = self.getOutputSetOfTS(inTsSet)
+                outputSetOfTs = self.getOutputSetOfTS(self.getInputSet(pointer=True))
                 newTs = TiltSeries(tsId=tsId)
-                ts = self.tsDict[tsId]
                 newTs.copyInfo(ts)
                 newTs.setAlignment(ALIGN_NONE)
                 newTs.setAnglesCount(len(presentAcqOrders))
@@ -264,7 +264,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
                 for index, inTi in enumerate(ts):
                     if inTi.getAcquisitionOrder() in presentAcqOrders:
-                        newTi = TiltImage()
+                        newTi = TiltImage(tsId=tsId)
                         newTi.copyInfo(inTi, copyId=True, copyTM=False)
                         acq = inTi.getAcquisition()
                         acq.setTiltAxisAngle(0.)  # Is interpolated
@@ -279,10 +279,9 @@ class ProtImodCtfCorrection(ProtImodBase):
                             newTi.setOddEven([])
                         newTs.append(newTi)
 
-                newTs.write(properties=False)
                 outputSetOfTs.update(newTs)
-                outputSetOfTs.write()
-                self._store(outputSetOfTs)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- UTILS functions -----------------------------
     def generateDefocusFile(self, tsId, presentAcqOrders=None):

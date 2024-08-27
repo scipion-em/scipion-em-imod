@@ -27,10 +27,8 @@
 import os.path
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, PROCESS_ODD_EVEN
 from pwem.emlib.image import ImageHandler as ih
-from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries
 
 from imod import utils
 from imod.protocols import ProtImodBase
@@ -60,8 +58,9 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
+        form.addSection('Input')
+
+        form.addParam('inputSetOfTiltSeries',
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -100,21 +99,33 @@ class ProtImodDoseFilter(ProtImodBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
 
-        self.addOddEvenParams(form)
+        form.addParam('processOddEven',
+                      params.BooleanParam,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      default=True,
+                      label='Filter odd/even',
+                      help='If True, the full tilt series and the associated '
+                           'odd/even tilt series will be processed. The applied '
+                           'dose for the odd/even tilt series will be exactly the same.')
+
+        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.doseFilterStep, tsId)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.doseFilterStep,
+                                              tsId,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
         try:
@@ -122,7 +133,7 @@ class ProtImodDoseFilter(ProtImodBase):
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
-            paramDict = {
+            params = {
                 '-input': firstItem.getFileName(),
                 '-output': self.getExtraOutFile(tsId),
                 '-PixelSize': ts.getSamplingRate(),
@@ -130,66 +141,48 @@ class ProtImodDoseFilter(ProtImodBase):
             }
 
             if self.initialDose.get() != 0.0:
-                paramDict["-InitialDose"] = self.initialDose.get()
+                params["-InitialDose"] = self.initialDose.get()
 
             if self.inputDoseType.get() == SCIPION_IMPORT:
                 outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
                 utils.generateDoseFile(ts, outputDoseFilePath)
-                paramDict["-TypeOfDoseFile"] = 2
-                paramDict["-DoseWeightingFile"] = outputDoseFilePath
+                params["-TypeOfDoseFile"] = 2
+                params["-DoseWeightingFile"] = outputDoseFilePath
 
             elif self.inputDoseType.get() == FIXED_DOSE:
-                paramDict["-FixedImageDose"] = self.fixedImageDose.get()
+                params["-FixedImageDose"] = self.fixedImageDose.get()
 
-            self.runProgram("mtffilter", paramDict)
+            self.runProgram("mtffilter", params)
 
             if self.oddEvenFlag:
-                oddFn = firstItem.getOdd().split('@')[1]
-                evenFn = firstItem.getEven().split('@')[1]
-                paramDict['-input'] = oddFn
-                paramDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("mtffilter", paramDict)
+                params['-input'] = ts.getOddFileName()
+                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("mtffilter", params)
 
-                paramDict['-input'] = evenFn
-                paramDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("mtffilter", paramDict)
+                params['-input'] = ts.getEvenFileName()
+                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("mtffilter", params)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'Mtffilter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            outputLocation = self.getExtraOutFile(tsId)
-            if os.path.exists(outputLocation):
-                output = self.getOutputSetOfTS(self.getInputSet())
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                output.append(newTs)
+        with self._lock:
+            if tsId in self._failedItems:
+                self.createOutputFailedSet(ts)
+            else:
+                outputLocation = self.getExtraOutFile(tsId)
+                if os.path.exists(outputLocation):
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
 
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=True)
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, outputLocation)
-                    if self.oddEvenFlag:
-                        locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                        locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                        newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                          ih.locationToXmipp(locationEven)])
-                    else:
-                        newTi.setOddEven([])
-
-                    newTs.append(newTi)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTiCallback=self.updateTi,
+                                     copyId=True, copyTM=True)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -224,3 +217,22 @@ class ProtImodDoseFilter(ProtImodBase):
                            f"{self.TiltSeries.getSize()} "
                            "tilt-series using the IMOD *mtffilter* command.")
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        outputLocation = self.getExtraOutFile(tsId)
+        tiOut.setLocation(index + 1, outputLocation)
+
+        # output is dose-weighted
+        acq = ti.getAcquisition()
+        acq.setDoseInitial(0.)
+        acq.setAccumDose(0.)
+        tiOut.setAcquisition(acq)
+
+        if self.oddEvenFlag:
+            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
+                              ih.locationToXmipp(locationEven)])
+        else:
+            tiOut.setOddEven([])

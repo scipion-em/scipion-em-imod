@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol.constants import STEPS_SERIAL
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
 
@@ -53,6 +54,10 @@ class ProtImodFiducialModel(ProtImodBase):
 
     _label = 'Generate fiducial model'
     _possibleOutputs = {OUTPUT_FIDUCIAL_GAPS_NAME: tomoObj.SetOfLandmarkModels}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -257,12 +262,12 @@ class ProtImodFiducialModel(ProtImodBase):
                 path.moveTree("autofidseed.dir", autofidseedDirPath)
                 path.moveFile("autofidseed.info", self._getExtraPath(tsId))
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'autofidseed execution failed for tsId {tsId} -> {e}')
 
     def generateFiducialModelStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             try:
                 fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
 
@@ -327,7 +332,7 @@ class ProtImodFiducialModel(ProtImodBase):
                     self.runProgram('beadtrack', paramsBeadtrack)
 
             except Exception as e:
-                self._failedTs.append(tsId)
+                self._failedItems.append(tsId)
                 self.error(f'beadtrack execution failed for tsId {tsId} -> {e}')
 
     def xcorrStep(self, tsId):
@@ -365,11 +370,11 @@ class ProtImodFiducialModel(ProtImodBase):
             self.runProgram('tiltxcorr', paramsTiltXCorr)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tiltxcorr execution failed for tsId {tsId} -> {e}')
 
     def chopcontsStep(self, tsId):
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             try:
                 paramschopconts = {
                     "-InputModel": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
@@ -380,11 +385,11 @@ class ProtImodFiducialModel(ProtImodBase):
                 }
                 self.runProgram('imodchopconts', paramschopconts)
             except Exception as e:
-                self._failedTs.append(tsId)
+                self._failedItems.append(tsId)
                 self.error(f'imodchopconts execution failed for tsId {tsId} -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(gapsFidFile):
@@ -397,13 +402,14 @@ class ProtImodFiducialModel(ProtImodBase):
     def computeOutputModelsStep(self, tsId):
         """ Create the output set of landmark models with gaps. """
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(fiducialModelGapPath):
-                output = self.getOutputFiducialModelGaps(self.getInputSet())
+                output = self.getOutputFiducialModel(self.getInputSet(pointer=True),
+                                                     attrName=OUTPUT_FIDUCIAL_GAPS_NAME, suffix="Gaps")
                 landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
                 fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
 
@@ -436,25 +442,29 @@ class ProtImodFiducialModel(ProtImodBase):
 
                 output.append(landmarkModelGaps)
                 output.update(landmarkModelGaps)
-                output.write()
-                self._store(output)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.FiducialModelGaps:
+
+        fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
+        if fidModelGaps is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            "Fiducial models (with gaps) generated: "
-                           f"{self.FiducialModelGaps.getSize()}")
+                           f"{fidModelGaps.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.FiducialModelGaps:
+
+        fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
+        if fidModelGaps is not None:
             methods.append("The fiducial model (with gaps) has been computed for "
-                           f"{self.FiducialModelGaps.getSize()} tilt-series using "
+                           f"{fidModelGaps.getSize()} tilt-series using "
                            "the IMOD *beadtrack* command.")
 
         return methods

@@ -27,14 +27,10 @@
 import os
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
-
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase):
@@ -55,10 +51,10 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
+        form.addSection('Input')
+        form.addParam('inputSet',
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
+                      pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
                       label='Tilt-series',
                       help='This should be a *raw stack*, not an aligned stack, '
                            'because the interpolation used to make '
@@ -79,14 +75,38 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                            'defocus and are used to compute the initial CTF '
                            'after being further tessellated into tiles.')
 
+        form.addParam('expectedDefocusOrigin',
+                      params.EnumParam,
+                      choices=['Value', 'List'],
+                      default=0,
+                      label='Input expected defocus as:',
+                      important=True,
+                      display=params.EnumParam.DISPLAY_HLIST)
+
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
                       default=6000.,
                       label='Expected defocus value (nm)',
                       important=True,
+                      condition="expectedDefocusOrigin == 0",
                       help='This value will be applied as the expected '
                            'defocus in nanometers for every tilt-series '
                            'from the set.')
+
+        form.addParam('expectedDefocusFile',
+                      params.PathParam,
+                      label='Expected defocus file',
+                      important=True,
+                      condition="expectedDefocusOrigin == 1",
+                      help='File containing the expected defocus in nanometers for each '
+                           'tilt-series belonging to the set.\n\n'
+                           'The format of the text file must be two columns, '
+                           'the first one being the tilt series ID '
+                           'and the second the defocus value.\n\n'
+                           'An example of this file comes as follows:\n'
+                           'TS_01 4000\n'
+                           'TS_02 1500\n'
+                           '...')
 
         form.addParam('leftDefTol',
                       params.FloatParam,
@@ -125,7 +145,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             groupAngleRange.addParam('angleStep',
                                      params.FloatParam,
                                      default=2.0,
-                                     label='Angle step (deg)',
+                                     label='Angle step',
                                      help='Step size between ranges. A value of '
                                           'zero for the step will make it fit to '
                                           'each single image separately, '
@@ -135,7 +155,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.FloatParam,
                                      condition="angleStep != 0",
                                      default=16.0,
-                                     label='Angle range (deg)',
+                                     label='Angle range',
                                      help='Size of the angle range for which the '
                                           'CTF is estimated.')
 
@@ -180,6 +200,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                           default=False,
                           label='Skip astigmatic phase views?',
                           expertLevel=params.LEVEL_ADVANCED,
+                          display=params.EnumParam.DISPLAY_HLIST,
                           help='Skip or break views only when finding astigmatism '
                                'or phase shift')
 
@@ -190,6 +211,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.BooleanParam,
                                       default=False,
                                       label='Search astigmatism?',
+                                      display=params.EnumParam.DISPLAY_HLIST,
                                       help='Search for astigmatism when fitting.')
 
             groupAstigmatism.addParam('maximumAstigmatism',
@@ -231,6 +253,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.BooleanParam,
                                      default=False,
                                      label='Search phase shift?',
+                                     display=params.EnumParam.DISPLAY_HLIST,
                                      help='Search for phase shift when fitting.')
 
             groupPhaseShift.addParam('minimumViewsPhaseShift',
@@ -247,6 +270,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                     params.BooleanParam,
                                     default=False,
                                     label='Search cut-on frequency?',
+                                    display=params.EnumParam.DISPLAY_HLIST,
                                     help='Search for cut-on frequency when '
                                          'finding phase shift.')
 
@@ -262,14 +286,25 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
+            form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        expDefoci = self.getExpectedDefocus()
+
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.ctfEstimation, tsId)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            convId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                              prerequisites=[])
+            compId = self._insertFunctionStep(self.ctfEstimation, tsId,
+                                              expDefoci, prerequisites=[convId])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -280,27 +315,38 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def convertInputStep(self, tsId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsId, imodInterpolation=None)
+        super().convertInputStep(tsId, imodInterpolation=False)
 
-    def ctfEstimation(self, tsId):
+    def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
         try:
             ts = self.tsDict[tsId]
 
-            paramsCtfPlotter = {"-InputStack": self.getTmpOutFile(tsId),
-                                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-                                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
-                                "-PixelSize": self.sRate / 10,
-                                "-Voltage": int(self.acq.getVoltage()),
-                                "-SphericalAberration": self.acq.getSphericalAberration(),
-                                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
-                                "-DefocusTol": self.defocusTol.get(),
-                                "-PSResolution": 101,
-                                "-LeftDefTol": self.leftDefTol.get(),
-                                "-RightDefTol": self.rightDefTol.get(),
-                                "-tileSize": self.tileSize.get(),
-                                "-ExpectedDefocus": self.expectedDefocusValue.get()}
+            paramsCtfPlotter = {
+                "-InputStack": self.getTmpOutFile(tsId),
+                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-PixelSize": self.sRate / 10,  # nm
+                "-Voltage": int(self.acq.getVoltage()),
+                "-SphericalAberration": self.acq.getSphericalAberration(),
+                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+                "-DefocusTol": self.defocusTol.get(),
+                "-PSResolution": 101,
+                "-LeftDefTol": self.leftDefTol.get(),
+                "-RightDefTol": self.rightDefTol.get(),
+                "-tileSize": self.tileSize.get(),
+            }
+
+            if self.expectedDefocusOrigin.get() == 0:
+                paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
+            else:
+                self.debug(f"Expected defoci: {expDefoci}")
+                defocus = expDefoci.get(tsId, None)
+                if defocus is None:
+                    raise ValueError(f"{tsId} not found in the provided defocus file.")
+
+                paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
 
             # Excluded views
             excludedViews = ts.getExcludedViewsIndex(caster=str)
@@ -349,58 +395,74 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.runProgram('ctfplotter', paramsCtfPlotter)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-            if os.path.exists(defocusFilePath):
-                output = self.getOutputSetOfCTFTomoSeries(outputSetName)
-                defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-                newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
-                newCTFTomoSeries.copyInfo(ts)
-                newCTFTomoSeries.setTiltSeries(ts)
-                newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-                newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-                output.append(newCTFTomoSeries)
+        with self._lock:
+            if tsId in self._failedItems:
+                self.createOutputFailedSet(ts)
+            else:
+                defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+                if os.path.exists(defocusFilePath):
+                    output = self.getOutputSetOfCTFTomoSeries(self.getInputSet(pointer=True),
+                                                              outputSetName)
+                    newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
+                    newCTFTomoSeries.copyInfo(ts)
+                    newCTFTomoSeries.setTiltSeries(ts)
 
-                self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+                    # flags below will be updated in parseTSDefocusFile
+                    newCTFTomoSeries.setIMODDefocusFileFlag(1)
+                    newCTFTomoSeries.setNumberOfEstimationsInRange(0)
+                    output.append(newCTFTomoSeries)
 
-                if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                    newCTFTomoSeries.setEnabled(False)
+                    self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
-                output.update(newCTFTomoSeries)
-                output.write()
-                self._store(output)
+                    output.update(newCTFTomoSeries)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.CTFTomoSeries:
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Number of CTF estimated: {self.CTFTomoSeries.getSize()}")
+                           f"Number of CTF estimated: {ctfSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.CTFTomoSeries:
-            methods.append(f"{self.CTFTomoSeries.getSize()} tilt-series CTF "
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
+            methods.append(f"{ctfSeries.getSize()} tilt-series CTF "
                            "have been estimated using the IMOD *ctfplotter* "
                            "command.")
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-
     def allowsDelete(self, obj):
         return True
 
+    def getExpectedDefocus(self):
+        if self.expectedDefocusOrigin.get() == 1:
+            with open(self.expectedDefocusFile.get()) as f:
+                lines = f.readlines()
+                lines = filter(lambda x: x.strip(), lines)
+            result = {line.split()[0]: line.split()[1] for line in lines}
+            return result
+        else:
+            return None
+
     def getInputSet(self, pointer=False):
-        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+        """ Reimplemented from the base class for CTF case. """
+        if isinstance(self.inputSet.get(), SetOfCTFTomoSeries):
+            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
+
+        return self.inputSet.get() if not pointer else self.inputSet
