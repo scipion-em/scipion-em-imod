@@ -30,8 +30,7 @@ from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
-from imod.constants import OUTPUT_TILTSERIES_NAME, XF_EXT, ODD, EVEN
-from imod.utils import genXfFile
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
 
 
 class ProtImodTsNormalization(ProtImodBasePreprocess):
@@ -153,9 +152,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                                   binning)
-
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True), binning)
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
                                      copyId=True,
@@ -214,10 +211,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         tiOut.setLocation(index + 1, outputLocation)
 
         # Transformation matrix
-        if ti.hasTransform() and not self.applyAlignment.get():
-            tiOut = self.updateTM(tiOut, kwargs.get("binning", 1))
-        else:
-            tiOut.setTransform(None)
+        if ti.hasTransform():
+            tiOut = self.updateTM(tiOut, binning=self.binning.get())
 
         if self.oddEvenFlag:
             locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)

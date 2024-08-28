@@ -239,7 +239,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                            filesPattern=DataSetRe4STATuto.transformPattern.value,
                            exclusionWords=None):
         print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"
-                         f"f\n\t- Files pattern = {filesPattern}"
+                         f"\n\t- Files pattern = {filesPattern}"
                          f"\n\t- Excluded words = {exclusionWords}"
                          f"\n\t- Transformation matrix binning = {binningTM}"
                          f"\n\t- TS binning = {binningTS}"))
@@ -562,7 +562,8 @@ class TestImodDoseFilter(TestImodBase):
                              expectedSRate=self.unbinnedSRate,
                              imported=True,
                              expectedDimensions=self._getExpectedDimsDict(),
-                             testAcqObj=self.testAcqObjDict,
+                             testAcqObj=self.testInterpAcqObjDict,  # With initial dose and accum dose set to 0 as the
+                             # output ts are dose-weighted
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
@@ -1159,7 +1160,6 @@ class TestImodTomoProjection(TestImodBase):
                              imported=True,
                              testAcqObj=testAcqObjDict,
                              anglesCount=anglesCountDict,
-                             isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict], currentAcq: TomoAcquisition,

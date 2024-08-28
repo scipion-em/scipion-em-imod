@@ -26,6 +26,8 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
 from imod.protocols import ProtImodBase
@@ -113,9 +115,8 @@ class ProtImodXraysEraser(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
 
     def _defineParams(self, form):
-        form.addSection('Input')
-
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -239,18 +240,18 @@ class ProtImodXraysEraser(ProtImodBase):
 
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
-                                     copyId=True, copyTM=True)
+                                     copyId=True,
+                                     copyTM=True)
                 else:
                     self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if output is not None:
+        if self.TiltSeries:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            "X-rays erased output tilt series: "
-                           f"{output.getSize()}")
+                           f"{self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
 
@@ -258,10 +259,9 @@ class ProtImodXraysEraser(ProtImodBase):
 
     def _methods(self):
         methods = []
-        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if output is not None:
+        if self.TiltSeries:
             methods.append(f"The x-rays artifacts have been erased for "
-                           f"{output.getSize()} tilt-series using "
+                           f"{self.TiltSeries.getSize()} tilt-series using "
                            "the IMOD *ccderaser* command.")
 
         return methods

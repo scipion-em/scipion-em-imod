@@ -28,7 +28,10 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pwem import ALIGN_NONE
 from pwem.objects import Transform
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
 from imod import utils
@@ -60,9 +63,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -72,12 +75,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Use cumulative correlation?',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='The program will take the image at zero tilt as the first'
                            'reference, and correlate it with the image at the next '
                            'most negative tilt. It will then add the aligned image '
                            'to the first reference to make the reference for the next '
-                           'tilt.  At each tilt, the reference will be the sum of '
+                           'tilt. At each tilt, the reference will be the sum of '
                            'images that have already been aligned. When the most '
                            'negative tilt angle is reached, the procedure is repeated '
                            'from the zero-tilt view to more positive tilt angles.')
@@ -87,7 +89,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                       default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying '
                            'the obtained transformation matrices.\n'
                            'By default, the output of this protocol will be a tilt '
@@ -130,10 +131,12 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         trimming = form.addGroup('Trimming parameters',
                                  expertLevel=params.LEVEL_ADVANCED)
 
-        self.addTrimingParams(trimming, pxTrimCondition=False,
+        self.addTrimingParams(trimming,
+                              pxTrimCondition=False,
                               correlationCondition=True,
                               levelType=params.LEVEL_ADVANCED)
-        self.filteringParametersForm(form, condition=True,
+        self.filteringParametersForm(form,
+                                     condition=True,
                                      levelType=params.LEVEL_ADVANCED)
 
     # -------------------------- INSERT steps functions -----------------------
@@ -142,21 +145,16 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         binning = self.binning.get()
         closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            convId = self._insertFunctionStep(self.convertInputStep, tsId,
-                                              prerequisites=[])
-            compId = self._insertFunctionStep(self.computeXcorrStep, tsId,
-                                              prerequisites=[convId])
-            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId,
-                                             prerequisites=[compId])
+            convId = self._insertFunctionStep(self.convertInputStep, tsId, prerequisites=[])
+            compId = self._insertFunctionStep(self.computeXcorrStep, tsId, prerequisites=[convId])
+            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId, prerequisites=[compId])
+            closeSetStepDeps.append(outId)
             if self.computeAlignment:
-                intpId = self._insertFunctionStep(self.computeInterpolatedStackStep,
-                                                  tsId, binning, prerequisites=[outId])
+                intpId = self._insertFunctionStep(self.computeInterpolatedStackStep, tsId, binning,
+                                                  prerequisites=[outId])
                 closeSetStepDeps.append(intpId)
-            else:
-                closeSetStepDeps.append(outId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
@@ -222,32 +220,12 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                 if os.path.exists(outputFn):
                     output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
                     alignmentMatrix = utils.formatTransformationMatrix(outputFn)
-
-                    newTs = TiltSeries(tsId=tsId)
-                    newTs.copyInfo(ts, copyId=True)
-                    newTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-                    output.append(newTs)
-
-                    for index, tiltImage in enumerate(ts):
-                        newTi = TiltImage(tsId=tsId)
-                        newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-
-                        transform = Transform()
-                        newTransform = alignmentMatrix[:, :, index]
-                        newTransformArray = np.array(newTransform)
-
-                        if tiltImage.hasTransform():
-                            previousTransform = tiltImage.getTransform().getMatrix()
-                            previousTransformArray = np.array(previousTransform)
-                            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-                            transform.setMatrix(outputTransformMatrix)
-                        else:
-                            transform.setMatrix(newTransformArray)
-
-                        newTi.setTransform(transform)
-                        newTs.append(newTi)
-
-                    output.update(newTs)
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTsCallback=self.updateTsNonInterp,
+                                     updateTiCallback=self.updateTiNonInterp,
+                                     copyId=True,
+                                     copyTM=False,
+                                     alignmentMatrix=alignmentMatrix)
                 else:
                     self.createOutputFailedSet(ts)
 
@@ -271,9 +249,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                 self.runProgram('newstack', params)
 
                 self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTs,
+                                 updateTsCallback=self.updateTsInterp,
                                  updateTiCallback=self.updateTi,
-                                 copyId=True, copyTM=False)
+                                 copyId=True,
+                                 copyTM=False)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -306,6 +285,31 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         else:
             return ts.getAcquisition().getTiltAxisAngle()
 
-    def updateTs(self, tsId, ts, tsOut, **kwargs):
+    def updateTsNonInterp(self, tsId, ts, tsOut, **kwargs):
         tsOut.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+        tsOut.setAlignment2D()
+
+    @staticmethod
+    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, **kwargs):
+        transform = Transform()
+        newTransform = alignmentMatrix[:, :, index]
+        newTransformArray = np.array(newTransform)
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            previousTransformArray = np.array(previousTransform)
+            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+        else:
+            transform.setMatrix(newTransformArray)
+
+        tiOut.setTransform(transform)
+
+    @staticmethod
+    def updateTsInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.getAcquisition().setTiltAxisAngle(0.)
+        tsOut.setAlignment(ALIGN_NONE)
         tsOut.setInterpolated(True)
+
+
+

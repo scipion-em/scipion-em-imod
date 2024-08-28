@@ -99,7 +99,7 @@ class ProtImodFiducialModel(ProtImodBase):
                             default=PT_FRACTIONAL_OVERLAP,
                             label='Patch layout',
                             display=params.EnumParam.DISPLAY_HLIST)
-                            # TODO: # help='To be added')
+        # TODO: # help='To be added')
 
         patchtrack.addParam('overlapPatches',
                             params.NumericListParam,

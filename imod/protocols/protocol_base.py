@@ -231,7 +231,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
-                               doSwap=doSwap, oddEven=oddEven,
+                               doSwap=doSwap,
+                               oddEven=oddEven,
                                presentAcqOrders=presentAcqOrders)
 
     def closeOutputSetsStep(self):
@@ -355,7 +356,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
     # --------------------------- OUTPUT functions ----------------------------
-    def getOutputSetOfTS(self, inputPtr, binning=1,
+    def getOutputSetOfTS(self,
+                         inputPtr, binning=1,
                          attrName=OUTPUT_TILTSERIES_NAME,
                          suffix="") -> SetOfTiltSeries:
         """ Method to generate output of set of tilt-series.
@@ -723,13 +725,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
 
-    @staticmethod
-    def copyTsItems(outputTsSet, ts, tsId,
+    def copyTsItems(self, outputTsSet, ts, tsId,
                     updateTsCallback=None,
                     updateTiCallback=None,
                     copyDisabled=False,
-                    copyId=False, copyTM=True,
+                    copyId=False,
+                    copyTM=True,
                     excludedViews=(),
+                    isSemiStreamified=True,
                     **kwargs):
         """ Re-implemented function from tomo.objects. Works on a single TS object.
         Params:
@@ -742,6 +745,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             copyId: copy ObjId.
             copyTM: copy transformation matrix
             excludedViews: list of excluded views, starting from 1
+            isSemiStreamified: boolean used to indicate if the protocol is semiStreamified or not. If True, the outputs
+            will be generated updated and stored in the execution of the createOutputStep for each batch of steps
+            generated and executed.
         """
         tsOut = TiltSeries(tsId=tsId)
         tsOut.copyInfo(ts, copyId=copyId)
@@ -751,8 +757,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         angleList = []
         doseList = []
-        index = 0
-        for j, ti in enumerate(ts.iterItems()):
+        for index, ti in enumerate(ts.iterItems()):
             # if not ti.isEnabled() and not copyDisabled:
             #     continue
             # if (excludedViews is not None) and (ti.getIndex() not in excludedViews):
@@ -762,7 +767,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 tiOut = TiltImage(tsId=tsId)
                 tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM, copyStatus=True)
                 if updateTiCallback:
-                    updateTiCallback(j, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+                    originIndex = ti.getIndex()
+                    updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
                 angleList.append(ti.getTiltAngle())
                 doseList.append(ti.getAcquisition().getAccumDose())
                 tsOut.append(tiOut)
@@ -775,8 +781,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         acq.setAngleMax(max(angleList))
         acq.setAccumDose(max(doseList))
         tsOut.setAcquisition(acq)
-        tsOut.setAnglesCount(len(tsOut))
+        # tsOut.setAnglesCount(len(tsOut))
         outputTsSet.update(tsOut)
+        if isSemiStreamified:
+            self._store(outputTsSet)
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
         outputLocation = self.getExtraOutFile(tsId)

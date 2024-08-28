@@ -51,7 +51,6 @@ class ProtImodExcludeViews(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.excludedViewsFromFile = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

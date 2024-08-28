@@ -24,15 +24,18 @@
 # *
 # *****************************************************************************
 import os
-
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TOMO_SET
+from pyworkflow.utils import Message
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
-
 from imod import utils
 from imod.protocols import ProtImodBase
-from imod.constants import (XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME,
-                            OUTPUT_COORDINATES_3D_NAME)
+from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
+
+# Beads color options
+DARK_BEADS = 0
+LIGHT_BEADS = 1
 
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
@@ -45,10 +48,13 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     _label = 'Gold bead picker 3D'
     _possibleOutputs = {OUTPUT_COORDINATES_3D_NAME: SetOfCoordinates3D}
 
+    def __init__(self, **args):
+        super().__init__(**args)
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTomograms',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TOMO_SET,
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
@@ -110,19 +116,15 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         allOutputId = []
         self._initialize()
         for tsId in self.tomoDict.keys():
-            pickId = self._insertFunctionStep(self.pickGoldBeadsStep, tsId,
-                                              prerequisites=[])
-            outputID = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                prerequisites=[pickId])
+            pickId = self._insertFunctionStep(self.pickGoldBeadsStep, tsId, prerequisites=[])
+            outputID = self._insertFunctionStep(self.createOutputStep, tsId, prerequisites=[pickId])
             allOutputId.append(outputID)
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=allOutputId)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=allOutputId)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for
-                         tomo in self.getInputSet()}
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputSet()}
 
     def pickGoldBeadsStep(self, tsId):
         try:
@@ -178,6 +180,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
                         output.append(newCoord3D)
                         output.update(newCoord3D)
+                    self._store(output)
                 else:
                     self.createOutputFailedSet(tomo)
 

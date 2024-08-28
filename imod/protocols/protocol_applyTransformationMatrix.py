@@ -171,7 +171,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
-                                     copyId=False, copyTM=False)
+                                     copyId=False,
+                                     copyTM=False)
                 else:
                     self.createOutputFailedSet(ts)
 

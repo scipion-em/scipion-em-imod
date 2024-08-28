@@ -27,7 +27,10 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.object import String
 from pyworkflow.protocol.constants import STEPS_SERIAL
+from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
@@ -67,12 +70,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.stepsExecutionMode = STEPS_SERIAL
+        self.widthWarnMsg = String()
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -93,7 +97,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       help='Number of pixels to cut out in X, centered on the middle in X. '
                            'Leave 0 for default X.')
 
-        lineShift = form.addLine('Tomogram shift (Å)',
+        lineShift = form.addLine('Tomogram shift (px)',
                                  expertLevel=params.LEVEL_ADVANCED,
                                  help="This entry allows one to shift the reconstructed"
                                       " slice in X or Z before it is output.  If the "
@@ -237,20 +241,31 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        widthWarnTsIds = []
         self._initialize()
-        for tsId in self.tsDict.keys():
+        for tsId, ts in self.tsDict.items():
+            xDim = ts.getXDim()
+            tomoWidth = self.tomoWidth.get()
+            if tomoWidth > xDim:
+                tomoWidth = 0
+                widthWarnTsIds.append(tsId)
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeReconstructionStep, tsId)
+            self._insertFunctionStep(self.computeReconstructionStep, tsId, tomoWidth)
             self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
+
+        if widthWarnTsIds:
+            self.widthWarnMsg.set(f'\n\n*WARNING!:*'
+                                  f'\nThe introduced width is greater than the X dimension of the tomograms: '
+                                  f'*{widthWarnTsIds}*.'
+                                  f'\nValue 0 was assumed for all of them.')
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
         super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
 
-    # @ProtImodBase.tryExceptDecorator
-    def computeReconstructionStep(self, tsId):
+    def computeReconstructionStep(self, tsId, tomoWidth):
         try:
             ts = self.tsDict[tsId]
 
@@ -298,18 +313,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 self.runProgram('tilt', paramsTilt)
 
             # run trimvol
-            def _getTrimOptions():
-                args = "-rx "
-
-                if self.tomoWidth.get():
-                    args += f" -nx {self.tomoWidth.get()}"
-
-                return args
+            trimVolOpts = "-rx "
+            if tomoWidth > 0:
+                trimVolOpts += f" -nx {tomoWidth}"
 
             paramsTrimVol = {
                 'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
                 'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
-                'options': _getTrimOptions()
+                'options': trimVolOpts
             }
 
             argsTrimvol = "%(options)s %(input)s %(output)s"
@@ -325,7 +336,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self._failedTs.append(tsId)
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
@@ -348,14 +359,18 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
-                if self.tomoShiftZ.get():
+                shiftX = self.tomoShiftX.get()
+                shiftZ = self.tomoShiftZ.get()
+                if shiftX or shiftZ:
+                    sRate = newTomogram.getSamplingRate()
                     x, y, z = newTomogram.getShiftsFromOrigin()
-                    shiftZang = self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-                    newTomogram.setShiftsInOrigin(x=x, y=y, z=z + shiftZang)
+                    shiftXang = shiftX * sRate
+                    shiftZang = shiftZ * sRate
+                    newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
 
                 output.append(newTomogram)
-                output.updateDim()
                 output.update(newTomogram)
+                self._store(output)
             else:
                 self.createOutputFailedSet(ts)
 
@@ -365,6 +380,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
         if self.Tomograms:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            f"Tomograms reconstructed: {self.Tomograms.getSize()}")
+            widthWarnings = self.widthWarnMsg.get()
+            if widthWarnings:
+                summary.append(widthWarnings)
         else:
             summary.append("Outputs are not ready yet.")
         return summary

@@ -174,7 +174,8 @@ class ProtImodDoseFilter(ProtImodBase):
 
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
-                                     copyId=True, copyTM=True)
+                                     copyId=True,
+                                     copyTM=True)
                 else:
                     self.createOutputFailedSet(ts)
 

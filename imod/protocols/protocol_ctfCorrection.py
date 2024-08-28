@@ -252,34 +252,12 @@ class ProtImodCtfCorrection(ProtImodBase):
         else:
             outputFn = self.getExtraOutFile(tsId)
             if os.path.exists(outputFn):
-                outputSetOfTs = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setAlignment(ALIGN_NONE)
-                newTs.setAnglesCount(len(presentAcqOrders))
-                newTs.setCtfCorrected(True)
-                newTs.setInterpolated(True)
-                newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
-                outputSetOfTs.append(newTs)
-
-                for index, inTi in enumerate(ts):
-                    if inTi.getAcquisitionOrder() in presentAcqOrders:
-                        newTi = TiltImage(tsId=tsId)
-                        newTi.copyInfo(inTi, copyId=True, copyTM=False)
-                        acq = inTi.getAcquisition()
-                        acq.setTiltAxisAngle(0.)  # Is interpolated
-                        newTi.setAcquisition(acq)
-                        newTi.setLocation(index + 1, outputFn)
-                        if self.oddEvenFlag:
-                            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                            newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                              ih.locationToXmipp(locationEven)])
-                        else:
-                            newTi.setOddEven([])
-                        newTs.append(newTi)
-
-                outputSetOfTs.update(newTs)
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsInterp,
+                                 updateTiCallback=self.updateTi,
+                                 copyId=True,
+                                 copyTM=False)
             else:
                 self.createOutputFailedSet(ts)
 
@@ -294,7 +272,14 @@ class ProtImodCtfCorrection(ProtImodBase):
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
 
-    # --------------------------- INFO functions ------------------------------
+    @staticmethod
+    def updateTsInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.setAlignment(ALIGN_NONE)
+        tsOut.setCtfCorrected(True)
+        tsOut.setInterpolated(True)
+        tsOut.getAcquisition().setTiltAxisAngle(0.)
+
+        # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
         for ts in self.getInputSet():
