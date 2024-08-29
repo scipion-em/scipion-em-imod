@@ -165,6 +165,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
                     x, y, z, _ = ih.getDimensions(outputFn)
                     newTs.setDim((x, y, z))
+                    newTs.setAnglesCount(len(newTs))
 
                     # Set origin to output tilt-series
                     origin = Transform()

@@ -781,7 +781,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         acq.setAngleMax(max(angleList))
         acq.setAccumDose(max(doseList))
         tsOut.setAcquisition(acq)
-        # tsOut.setAnglesCount(len(tsOut))
+        tsOut.setAnglesCount(len(tsOut))
         outputTsSet.update(tsOut)
         if isSemiStreamified:
             self._store(outputTsSet)

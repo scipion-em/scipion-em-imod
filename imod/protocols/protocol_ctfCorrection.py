@@ -30,7 +30,6 @@ from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
 from pwem import ALIGN_NONE
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
-from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
@@ -81,7 +80,6 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
         self.matchingMsg = String()
         self.ctfDict = None
         self.presentTsIds = None
@@ -242,7 +240,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                 self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self._failedTs.append(tsId)
             self.error(f"ctfphaseflip execution failed for tsId {tsId} -> {e}")
 
     def createOutputStep(self, tsId, presentAcqOrders):
@@ -252,14 +250,37 @@ class ProtImodCtfCorrection(ProtImodBase):
         else:
             outputFn = self.getExtraOutFile(tsId)
             if os.path.exists(outputFn):
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsInterp,
-                                 updateTiCallback=self.updateTi,
-                                 copyId=True,
-                                 copyTM=False)
-            else:
-                self.createOutputFailedSet(ts)
+                inTsSet = self.getInputSet(pointer=True)
+                outputSetOfTs = self.getOutputSetOfTS(inTsSet)
+                newTs = TiltSeries(tsId=tsId)
+                ts = self.tsDict[tsId]
+                newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_NONE)
+                newTs.setAnglesCount(len(presentAcqOrders))
+                newTs.setCtfCorrected(True)
+                newTs.setInterpolated(True)
+                newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+                outputSetOfTs.append(newTs)
+
+                for index, inTi in enumerate(ts):
+                    if inTi.getAcquisitionOrder() in presentAcqOrders:
+                        newTi = TiltImage()
+                        newTi.copyInfo(inTi, copyId=True, copyTM=False)
+                        acq = inTi.getAcquisition()
+                        acq.setTiltAxisAngle(0.)  # Is interpolated
+                        newTi.setAcquisition(acq)
+                        newTi.setLocation(index + 1, outputFn)
+                        if self.oddEvenFlag:
+                            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
+                            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
+                            newTi.setOddEven([ih.locationToXmipp(locationOdd),
+                                              ih.locationToXmipp(locationEven)])
+                        else:
+                            newTi.setOddEven([])
+                        newTs.append(newTi)
+
+                outputSetOfTs.update(newTs)
+                self._store(outputSetOfTs)
 
     # --------------------------- UTILS functions -----------------------------
     def generateDefocusFile(self, tsId, presentAcqOrders=None):
@@ -272,14 +293,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
 
-    @staticmethod
-    def updateTsInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.setAlignment(ALIGN_NONE)
-        tsOut.setCtfCorrected(True)
-        tsOut.setInterpolated(True)
-        tsOut.getAcquisition().setTiltAxisAngle(0.)
-
-        # --------------------------- INFO functions ------------------------------
+    # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
         for ts in self.getInputSet():

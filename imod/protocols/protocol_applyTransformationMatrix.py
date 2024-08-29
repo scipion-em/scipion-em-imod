@@ -28,6 +28,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem import ALIGN_NONE
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
@@ -211,6 +212,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     @staticmethod
     def updateTs(tsId, ts, tsOut, **kwargs):
         tsOut.setInterpolated(True)
+        tsOut.setAlignment(ALIGN_NONE)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):

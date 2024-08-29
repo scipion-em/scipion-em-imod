@@ -557,13 +557,20 @@ class TestImodXRayEraser(TestImodBase):
 class TestImodDoseFilter(TestImodBase):
 
     def _checkTiltSeries(self, inTsSet):
+        testAcqDict = {}
+        for tsId, acq in self.testAcqObjDict.items():
+            # Set initial dose and accum dose to 0 as the output ts are dose-weighted
+            newAcq = acq.clone()
+            newAcq.setAccumDose(0)
+            newAcq.setDoseInitial(0)
+            testAcqDict[tsId] = newAcq
+
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate,
                              imported=True,
                              expectedDimensions=self._getExpectedDimsDict(),
-                             testAcqObj=self.testInterpAcqObjDict,  # With initial dose and accum dose set to 0 as the
-                             # output ts are dose-weighted
+                             testAcqObj=testAcqDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
