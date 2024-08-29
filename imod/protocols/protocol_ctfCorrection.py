@@ -167,12 +167,15 @@ class ProtImodCtfCorrection(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        pIdList = []
         for tsId in self.presentTsIds:
             presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
-            self._insertFunctionStep(self.convertInputsStep,tsId, presentAcqOrders)
-            self._insertFunctionStep(self.ctfCorrection, tsId)
-            self._insertFunctionStep(self.createOutputStep,tsId, presentAcqOrders)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            pidConvert = self._insertFunctionStep(self.convertInputsStep,tsId, presentAcqOrders, prerequisites=[])
+            pidProcess = self._insertFunctionStep(self.ctfCorrection, tsId, prerequisites=pidConvert)
+            pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders,
+                                                       prerequisites=pidProcess)
+            pIdList.append(pidCreateOutput)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
