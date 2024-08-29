@@ -2,6 +2,7 @@
  Users:
   - fix default params (close check default values #281 )
   - change several form params from Enum to Boolean and from Float to Int, change default values from wrong str to int/float
+  - Protocol Import transformation matrix admits {TS} pattern
  Developers:
   - move constants to a dedicated file
   - remove BETA status
@@ -21,7 +22,7 @@
   - implemented parallel steps for many protocols
   - add a new batch of tests based TCL.
   - some fixes from errors detected with the new tests.
-  - protocl excluded views: remove the in file option.
+  - protocol excluded views: remove the in file option.
 3.5.1:
   - CTF correction: get rid of the decorator. Manage the failed TS in the createOutputStep.
   - Fix a bug in the base class for the generation of alignment files when there input TS are not aligned and there
