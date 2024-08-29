@@ -202,7 +202,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                           default=False,
                           label='Skip astigmatic phase views?',
                           expertLevel=params.LEVEL_ADVANCED,
-                          display=params.EnumParam.DISPLAY_HLIST,
                           help='Skip or break views only when finding astigmatism '
                                'or phase shift')
 
@@ -213,7 +212,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.BooleanParam,
                                       default=False,
                                       label='Search astigmatism?',
-                                      display=params.EnumParam.DISPLAY_HLIST,
                                       help='Search for astigmatism when fitting.')
 
             groupAstigmatism.addParam('maximumAstigmatism',
@@ -255,7 +253,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.BooleanParam,
                                      default=False,
                                      label='Search phase shift?',
-                                     display=params.EnumParam.DISPLAY_HLIST,
                                      help='Search for phase shift when fitting.')
 
             groupPhaseShift.addParam('minimumViewsPhaseShift',
@@ -272,7 +269,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                     params.BooleanParam,
                                     default=False,
                                     label='Search cut-on frequency?',
-                                    display=params.EnumParam.DISPLAY_HLIST,
                                     help='Search for cut-on frequency when '
                                          'finding phase shift.')
 

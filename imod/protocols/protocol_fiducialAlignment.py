@@ -196,7 +196,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.BooleanParam,
                       default=False,
                       label='Assume beads on two surfaces?',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
                            "IMPORTANT: It is highly recommended to match the option selected in the "
                            "generation of the fiducial models. In case they  do not match, it is not "
@@ -210,7 +209,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying the obtained transformation '
                            'matrices.\n'
                            'By default, the output of this protocol will be a tilseries that will have associated'
