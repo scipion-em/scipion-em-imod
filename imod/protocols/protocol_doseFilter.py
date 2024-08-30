@@ -173,6 +173,7 @@ class ProtImodDoseFilter(ProtImodBase):
                     output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
 
                     self.copyTsItems(output, ts, tsId,
+                                     updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
                                      copyId=True,
                                      copyTM=True)
@@ -231,3 +232,10 @@ class ProtImodDoseFilter(ProtImodBase):
                               ih.locationToXmipp(locationEven)])
         else:
             tiOut.setOddEven([])
+
+    @staticmethod
+    def updateTs(tsId, ts, tsOut, **kwargs):
+        acq = tsOut.getAcquisition()
+        acq.setAccumDose(0.)
+        acq.setDoseInitial(0.)
+        tsOut.setAcquisition(acq)

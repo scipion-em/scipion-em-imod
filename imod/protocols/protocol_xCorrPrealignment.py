@@ -32,7 +32,7 @@ from imod.protocols.protocol_base import IN_TS_SET
 from pwem import ALIGN_NONE
 from pwem.objects import Transform
 from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries
 
 from imod import utils
 from imod.protocols import ProtImodBase

@@ -121,11 +121,8 @@ class ProtImodExcludeViews(ProtImodBase):
                     newTi = ti.clone()
                     newTs.append(newTi)
 
-                newTs.write(properties=False)
                 output.update(newTs)
-                output.write()
                 self._store(output)
-
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

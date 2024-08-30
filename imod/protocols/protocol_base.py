@@ -728,7 +728,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def copyTsItems(self, outputTsSet, ts, tsId,
                     updateTsCallback=None,
                     updateTiCallback=None,
-                    copyDisabled=False,
+                    copyDisabledViews=False,
                     copyId=False,
                     copyTM=True,
                     excludedViews=(),
@@ -755,33 +755,36 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             updateTsCallback(tsId, ts, tsOut, **kwargs)
         outputTsSet.append(tsOut)
 
-        angleList = []
-        doseList = []
+        angleMin = 999
+        angleMax = -999
+        accumDose = 0
+        initialDose = 999
         for index, ti in enumerate(ts.iterItems()):
-            # if not ti.isEnabled() and not copyDisabled:
-            #     continue
-            # if (excludedViews is not None) and (ti.getIndex() not in excludedViews):
-            #     continue
-            # else:
-            if (excludedViews and ti.getIndex() not in excludedViews) or not excludedViews:
+            if ti.isEnabled() or (not ti.isEnabled() and copyDisabledViews):
                 tiOut = TiltImage(tsId=tsId)
                 tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM, copyStatus=True)
                 if updateTiCallback:
                     originIndex = ti.getIndex()
                     updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-                angleList.append(ti.getTiltAngle())
-                doseList.append(ti.getAcquisition().getAccumDose())
                 tsOut.append(tiOut)
+            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+            # these values may change if the removed tilt-images are the first or the last, for example.
+            if excludedViews:
+                tiAngle = ti.getTiltAngle()
+                angleMin = min(tiAngle, angleMin)
+                angleMax = max(tiAngle, angleMax)
+                accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+                initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
 
-
-        # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-        # these values may change if the removed tilt-images are the first or the last, for example.
-        acq = tsOut.getAcquisition()
-        acq.setAngleMin(min(angleList))
-        acq.setAngleMax(max(angleList))
-        acq.setAccumDose(max(doseList))
-        tsOut.setAcquisition(acq)
-        tsOut.setAnglesCount(len(tsOut))
+        if excludedViews:
+            acq = tsOut.getAcquisition()
+            acq.setAngleMin(angleMin)
+            acq.setAngleMax(angleMax)
+            acq.setAccumDose(accumDose)
+            acq.setDoseInitial(initialDose)
+            tsOut.setAcquisition(acq)
+            tsOut.setAnglesCount(len(tsOut))
+            
         outputTsSet.update(tsOut)
         if isSemiStreamified:
             self._store(outputTsSet)
