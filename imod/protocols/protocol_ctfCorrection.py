@@ -243,7 +243,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                 self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f"ctfphaseflip execution failed for tsId {tsId} -> {e}")
 
     def createOutputStep(self, tsId, presentAcqOrders):
