@@ -180,6 +180,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
                         output.append(newCoord3D)
                         output.update(newCoord3D)
+                    output.write()
                     self._store(output)
                 else:
                     self.createOutputFailedSet(tomo)

@@ -419,6 +419,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                     self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
                     output.update(newCTFTomoSeries)
+                    output.write()
+                    self._store(output)
                 else:
                     self.createOutputFailedSet(ts)
 

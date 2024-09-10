@@ -28,7 +28,7 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
 from pwem.objects import Transform
 from pyworkflow.utils import Message
@@ -98,7 +98,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'is generated. The interpolated tilt series should be used '
                            'for visualization purpose but not for image processing.')
 
-        form.addParam('binning',
+        form.addParam(BINNING_FACTOR,
                       params.IntParam,
                       condition='computeAlignment',
                       default=1,

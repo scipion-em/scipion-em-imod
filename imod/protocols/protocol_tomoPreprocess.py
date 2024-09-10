@@ -212,6 +212,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                 output.append(newTomogram)
                 output.updateDim()
                 output.update(newTomogram)
+                output.write()
                 self._store(output)
 
     # --------------------------- INFO functions ------------------------------

@@ -370,6 +370,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
                 output.append(newTomogram)
                 output.update(newTomogram)
+                output.write()
                 self._store(output)
             else:
                 self.createOutputFailedSet(ts)

@@ -28,6 +28,7 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import BINNING_FACTOR
 from pwem import ALIGN_2D, ALIGN_NONE
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.objects import Transform
@@ -219,7 +220,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment')
 
-        groupInterpolation.addParam('binning',
+        groupInterpolation.addParam(BINNING_FACTOR,
                                     params.IntParam,
                                     default=1,
                                     label='Binning for the interpolated',

@@ -46,6 +46,7 @@ IN_TS_SET = 'inputSetOfTiltSeries'
 IN_TOMO_SET = 'inputSetOfTomograms'
 IN_CTF_TOMO_SET = 'inputSetOfCtfTomoSeries'
 PROCESS_ODD_EVEN = 'processOddEven'
+BINNING_FACTOR = 'binning'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):

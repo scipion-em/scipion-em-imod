@@ -27,7 +27,7 @@
 import os
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
@@ -65,7 +65,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       important=True,
                       label='Tilt-series to apply the transformation matrix')
 
-        form.addParam('binning', params.IntParam,
+        form.addParam(BINNING_FACTOR, params.IntParam,
                       default=1,
                       label='Binning for the interpolated',
                       help='Binning to be applied to the interpolated tilt-series '
