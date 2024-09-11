@@ -90,7 +90,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         TS_03: 40,
         TS_54: 41,
     }
-    # Exluded views stuff
+    # Excluded views stuff
     excludedViewsDict = {
         TS_03: [0, 38, 39],
         TS_54: [0, 1, 38, 39, 40]
@@ -273,16 +273,22 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runTsPreprocess(cls, inTsSet, binning=1, densAdjustMode=2, **kwargs):
+    def _runTsPreprocess(cls, inTsSet, binning=1, densAdjustMode=2, excludedViews=False, **kwargs):
         print(magentaStr(f"\n==> Running the TS preprocessing:"
                          f"\n\t- Binning factor = {binning}"
+                         f"\n\t- Excluded views = {excludedViews}"
                          f"\n\t- Adjust densities mode = {FLOAT_DENSITIES_CHOICES[densAdjustMode]}"))
+        excludeViewsMsg = ''
         protTsNorm = cls.newProtocol(ProtImodTsNormalization,
                                      inputSetOfTiltSeries=inTsSet,
                                      binning=binning,
                                      floatDensities=densAdjustMode,
                                      **kwargs)
-        protTsNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode}')
+        if excludedViews:
+            # Exclude some views at metadata level
+            cls._excludeSetViews(inTsSet)
+            excludeViewsMsg = 'eV'
+        protTsNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode} {excludeViewsMsg}')
         cls.launchProtocol(protTsNorm)
         tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
         return tsPreprocessed
@@ -398,7 +404,7 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @classmethod
     def _runTomoRec(cls, inTsSet, tomoThickness=-1, tomoWidth=0, tomoShiftX=0, tomoShiftZ=0, superSampleFactor=2,
-                    angleOffset=0, tiltAxisOffset=0, fakeInteractionsSIRT=0, excludedViews=True, objLabel=None):
+                    angleOffset=0, tiltAxisOffset=0, fakeInteractionsSIRT=0, excludedViews=False, objLabel=None):
         print(magentaStr(f"\n==> Reconstructing the tomogram:"
                          f"\n\t- Tomogram thickness = {tomoThickness}"
                          f"\n\t- Tomogram width = {tomoWidth}"
@@ -592,16 +598,22 @@ class TestImodDoseFilter(TestImodBase):
 
 class TestImodTsPreprocess(TestImodBase):
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1, imported=True, hasAlignment=False, alignment=ALIGN_NONE):
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, imported=True, hasAlignment=False, alignment=ALIGN_NONE,
+                         testAcqObjDict=None, anglesCountDict=None):
+        if not testAcqObjDict:
+            testAcqObjDict = self.testAcqObjDict
+        if not anglesCountDict:
+            anglesCountDict = self.anglesCountDict
+        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor, nImgsDict=anglesCountDict)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              imported=imported,
                              hasAlignment=hasAlignment,
                              alignment=alignment,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
-                             testAcqObj=self.testAcqObjDict,
-                             anglesCount=self.anglesCountDict,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=anglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 

@@ -97,7 +97,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        # Interpolation will be done in the generateOutputStep
         super().convertInputStep(tsId,
                                  imodInterpolation=None,
                                  generateAngleFile=False,

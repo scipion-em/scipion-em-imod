@@ -36,10 +36,11 @@ from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage)
+                          TiltImage, CTFTomoSeries)
 
 from imod import Plugin, utils
 from imod.constants import *
+from tomo.utils import getCommonTsAndCtfElements
 
 logger = logging.getLogger(__name__)
 IN_TS_SET = 'inputSetOfTiltSeries'
@@ -54,6 +55,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     _label = None
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.tsDict = None
         self.tomoDict = None
         self._failedItems = []
@@ -63,7 +65,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.TiltSeries = None
         self.Tomograms = None
 
-        EMProtocol.__init__(self, **kwargs)
         self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
@@ -213,6 +214,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                        for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
+    @staticmethod
+    def getPresentAcqOrders(ts: Union[TiltSeries, None] = None,
+                            ctf: Union[CTFTomoSeries, None] = None,
+                            onlyEnabled: bool = True):
+        if not ts or not ctf:
+            obj = ts if ts else ctf
+            if onlyEnabled:
+                return {ti.getAcquisitionOrder() for ti in obj if ti.isEnabled()}
+            else:
+                return {ti.getAcquisitionOrder() for ti in obj}
+        else:
+            return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
+
     def convertInputStep(self, tsId, generateAngleFile=True,
                          imodInterpolation=True, doSwap=False,
                          oddEven=False, presentAcqOrders=None):
@@ -252,9 +266,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         self.runProgram("newstack", params)
 
-    def genAlignmentFiles(self, ts, generateAngleFile=True,
-                          imodInterpolation=True, doSwap=False,
-                          oddEven=False, presentAcqOrders=None):
+    def genAlignmentFiles(self, ts: TiltSeries,
+                          generateAngleFile: bool = True,
+                          imodInterpolation: bool = True,
+                          doSwap: bool = False,
+                          oddEven: bool = False,
+                          presentAcqOrders: Union[set, None] = None):
         """
         :param ts: Tilt-series
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -264,7 +281,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param doSwap: if applying alignment, consider swapping X/Y
         :param oddEven: process odd/even sets
         :param presentAcqOrders: set containing the present acq orders in both the
-        given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
+        given TS and/or the CTFTomoSeries. Used to generate the xf file, the tlt file,
         and the interpolated TS with IMOD's newstack program.
         """
         def _linkTs():
@@ -293,10 +310,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         # Initialization
         tsId = ts.getTsId()
+        tsExcludedIndices = None
         firstTi = ts.getFirstItem()
         inTsFileName = firstTi.getFileName()
         outputTsFileName = self.getTmpOutFile(tsId)
-        tsExcludedIndices = ts.getExcludedViewsIndex()
         fnOdd = None
         fnEven = None
         outputOddTsFileName = None
@@ -321,8 +338,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
                 # Generate the interpolated TS with IMOD's newstack program
                 logger.info(f"TS [{tsId}] will be interpolated with IMOD")
-                if presentAcqOrders:
+                if presentAcqOrders and len(ts) != len(presentAcqOrders):
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                # else:
+                #     tsExcludedIndices = ts.getExcludedViewsIndex()
                 _applyNewStackBasic()
 
                 # If some views were excluded to generate the new stack,

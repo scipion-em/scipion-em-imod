@@ -263,12 +263,15 @@ class ProtImodTomoReconstruction(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
+        presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
+                                                    onlyEnabled=True)  # Re-stack excluding views before reconstructing
+        super().convertInputStep(tsId,
+                                 doSwap=True,
+                                 oddEven=self.oddEvenFlag,
+                                 presentAcqOrders=presentAcqOrders)
 
     def computeReconstructionStep(self, tsId, tomoWidth):
         try:
-            ts = self.tsDict[tsId]
-
             # run tilt
             paramsTilt = {
                 "-InputProjections": self.getTmpOutFile(tsId),
@@ -290,6 +293,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
             # # Excluded views
+            # ts = self.tsDict[tsId]
             # excludedViews = ts.getExcludedViewsIndex(caster=str)
             # if len(excludedViews):
             #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
