@@ -398,15 +398,19 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @classmethod
     def _runTomoRec(cls, inTsSet, tomoThickness=-1, tomoWidth=0, tomoShiftX=0, tomoShiftZ=0, superSampleFactor=2,
-                    angleOffset=0, tiltAxisOffset=0, fakeInteractionsSIRT=0, objLabel=None):
+                    angleOffset=0, tiltAxisOffset=0, fakeInteractionsSIRT=0, excludedViews=True, objLabel=None):
         print(magentaStr(f"\n==> Reconstructing the tomogram:"
                          f"\n\t- Tomogram thickness = {tomoThickness}"
                          f"\n\t- Tomogram width = {tomoWidth}"
                          f"\n\t- Tomogram shift [x, z] = [{tomoShiftX}, {tomoShiftZ}]"
+                         f"\n\t- Excluded views = {excludedViews}"
                          f"\n\t- Tilt angles offset (deg) = {angleOffset}"
                          f"\n\t- Tilt axis angle offset (deg) = {tiltAxisOffset}"
                          f"\n\t- Super-sampling factor = {superSampleFactor}"
                          f"\n\t- Iter. SIRT equivalent filter = {fakeInteractionsSIRT}"))
+        if excludedViews:
+            # Exclude some views at metadata level
+            cls._excludeSetViews(inTsSet)
         protTomoRec = cls.newProtocol(ProtImodTomoReconstruction,
                                       inputSetOfTiltSeries=inTsSet,
                                       tomoThickness=tomoThickness,
@@ -1060,6 +1064,18 @@ class TestImodTomoReconstruction(TestImodBase):
         # Check the tomograms
         self._checkTomos(tomograms, expectedTomoDims=[960, 928, tomoThk])
 
+    def testTomoRec06(self):
+        tomoThk = 320
+        tomoWidth = 900
+        tomograms = self._runTomoRec(self.tsAli,
+                                     objLabel='testTomoRec06',
+                                     tomoThickness=tomoThk,
+                                     tomoWidth=tomoWidth,
+                                     superSampleFactor=4,
+                                     excludedViews=True)
+        # Check the tomograms
+        self._checkTomos(tomograms, expectedTomoDims=[tomoWidth, 928, tomoThk])
+
 
 class TestImodTomogramPreprocess(TestImodBase):
     binningFactor = 4
@@ -1271,7 +1287,7 @@ class TestImodEcludeViews(TestImodBase):
                               anglesCountDict=self.anglesCountDictExcluded)
 
     def testExcludeViews03(self):
-        # Other views excluded respecting the previuos tests
+        # Other views excluded respecting the previous tests
         excludedViewsDict = {
             TS_03: [0, 1, 38, 39],
             TS_54: [0, 39, 40]

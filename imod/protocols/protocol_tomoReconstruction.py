@@ -288,29 +288,17 @@ class ProtImodTomoReconstruction(ProtImodBase):
             if self.fakeInteractionsSIRT.get() != 0:
                 paramsTilt["-FakeSIRTiterations"] = self.fakeInteractionsSIRT.get()
 
-            # Excluded views
-            excludedViews = ts.getExcludedViewsIndex(caster=str)
-            if len(excludedViews):
-                paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
+            # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
+            # # Excluded views
+            # excludedViews = ts.getExcludedViewsIndex(caster=str)
+            # if len(excludedViews):
+            #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
 
             if self.usesGpu():
                 paramsTilt["-UseGPU"] = self.getGpuList()[0]
                 paramsTilt["-ActionIfGPUFails"] = "2,2"
 
             self.runProgram('tilt', paramsTilt)
-
-            oddEvenTmp = [[], []]
-
-            if self.oddEvenFlag:
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
-                oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[0]
-                self.runProgram('tilt', paramsTilt)
-
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[1]
-                self.runProgram('tilt', paramsTilt)
 
             # run trimvol
             trimVolOpts = "-rx "
@@ -326,10 +314,23 @@ class ProtImodTomoReconstruction(ProtImodBase):
             argsTrimvol = "%(options)s %(input)s %(output)s"
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
+            oddEvenTmp = [[], []]
             if self.oddEvenFlag:
+                # Odd
+                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
+                oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                paramsTilt['-OutputFile'] = oddEvenTmp[0]
+                self.runProgram('tilt', paramsTilt)
+
                 paramsTrimVol['input'] = oddEvenTmp[0]
                 paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
+                # Even
+                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                paramsTilt['-OutputFile'] = oddEvenTmp[1]
+                self.runProgram('tilt', paramsTilt)
 
                 paramsTrimVol['input'] = oddEvenTmp[1]
                 paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)

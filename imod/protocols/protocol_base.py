@@ -296,6 +296,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         firstTi = ts.getFirstItem()
         inTsFileName = firstTi.getFileName()
         outputTsFileName = self.getTmpOutFile(tsId)
+        tsExcludedIndices = ts.getExcludedViewsIndex()
         fnOdd = None
         fnEven = None
         outputOddTsFileName = None
@@ -322,8 +323,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 logger.info(f"TS [{tsId}] will be interpolated with IMOD")
                 if presentAcqOrders:
                     tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
-                else:
-                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder()]
                 _applyNewStackBasic()
 
                 # If some views were excluded to generate the new stack,
