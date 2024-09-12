@@ -137,6 +137,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         if isInterp:
             acq_TS_54.setTiltAxisAngle(0)
         testAcqObjDictReStacked[TS_54] = acq_TS_54
+        return testAcqObjDictReStacked
 
     @classmethod
     def _getExpectedDimsDict(cls, unbinnedXYDims=None, nImgsDict=None, binningFactor=1, swapXY=False):
@@ -256,8 +257,9 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runApplytTrMatrix(cls, inTsSet, binning=1, taperInside=False, linearInterp=False):
+    def _runApplytTrMatrix(cls, inTsSet, binning=1, taperInside=False, linearInterp=False, excludeViews=False):
         interpMsg = 'linear' if linearInterp else 'cubic'
+        excludeViewsMsg = ''
         print(magentaStr(f"\n==> Applying the TS' transformation matrices with IMOD:"
                          f"\n\t- Binning = {binning}"
                          f"\n\t- Tapper inside = {taperInside}"
@@ -267,7 +269,11 @@ class TestImodBase(TestBaseCentralizedLayer):
                                          binning=binning,
                                          taperInside=taperInside,
                                          linear=linearInterp)
-        protApplyTrMat.setObjLabel(f'b_{binning} tapIns_{taperInside} interp_{interpMsg}')
+        if excludeViews:
+            # Exclude some views at metadata level
+            cls._excludeSetViews(inTsSet)
+            excludeViewsMsg = 'eV'
+        protApplyTrMat.setObjLabel(f'b_{binning} tapIns_{taperInside} interp_{interpMsg} {excludeViewsMsg}')
         cls.launchProtocol(protApplyTrMat)
         outTsSet = getattr(protApplyTrMat, OUTPUT_TS_INTERPOLATED_NAME, None)
         return outTsSet
@@ -758,31 +764,61 @@ class TestImodImportTrMatrixWithPattern(TestImodBase):
 
 class TestImodApplyTrMatrix(TestImodBase):
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, testAcqObjDict=None, testAnglesCountDict=None):
+        if not testAcqObjDict:
+            testAcqObjDict = self.testAcqObjDict
+        if not testAnglesCountDict:
+            testAnglesCountDict = self.anglesCountDict
+        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor,
+                                                       swapXY=True,
+                                                       nImgsDict=testAnglesCountDict)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor, swapXY=True),
-                             testAcqObj=self.testInterpAcqObjDict,
-                             anglesCount=self.anglesCountDict,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=testAnglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
     def testApplyTrMatrix01(self):
         binningFactor = 4
         tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        # Run the protocol
         tsTrMatrixApplied = self._runApplytTrMatrix(tsImportedTrMat, binning=binningFactor)
-        self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)
+        # Check the results
+        self._checkTiltSeries(tsTrMatrixApplied,
+                              binningFactor=binningFactor,
+                              testAcqObjDict=self.testInterpAcqObjDict)
 
     def testApplyTrMatrix02(self):
         binningFactor = 8
         tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        # Run the protocol
         tsTrMatrixApplied = self._runApplytTrMatrix(tsImportedTrMat,
                                                     binning=binningFactor,
                                                     taperInside=True,
                                                     linearInterp=True)
-        self._checkTiltSeries(tsTrMatrixApplied, binningFactor=binningFactor)
+        # Check the results
+        self._checkTiltSeries(tsTrMatrixApplied,
+                              binningFactor=binningFactor,
+                              testAcqObjDict=self.testInterpAcqObjDict)
+
+    def testApplyTrMatrix03(self):
+        binningFactor = 4
+        tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
+        # Exclude some views at metadata level
+        self._excludeSetViews(tsImportedTrMat)
+        # Run the protocol
+        tsTrMatrixApplied = self._runApplytTrMatrix(tsImportedTrMat,
+                                                    binning=binningFactor,
+                                                    excludeViews=True)
+        # Check the results
+        self._checkTiltSeries(tsTrMatrixApplied,
+                              binningFactor=binningFactor,
+                              testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                              testAnglesCountDict=self.anglesCountDictExcluded)
 
 
 class TestImodXcorrAlignment(TestImodBase):
@@ -1079,8 +1115,12 @@ class TestImodTomoReconstruction(TestImodBase):
     def testTomoRec06(self):
         tomoThk = 320
         tomoWidth = 900
-        tomograms = self._runTomoRec(self.tsAli,
-                                     objLabel='testTomoRec06',
+        tsAli, _, _ = self._runFiducialAli(self.fiducialModels)
+        # Exclude some views at metadata level
+        self._excludeSetViews(tsAli)
+        # Run the protocol
+        tomograms = self._runTomoRec(tsAli,
+                                     objLabel='testTomoRec06, eV',
                                      tomoThickness=tomoThk,
                                      tomoWidth=tomoWidth,
                                      superSampleFactor=4,

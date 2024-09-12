@@ -750,7 +750,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     copyDisabledViews=False,
                     copyId=False,
                     copyTM=True,
-                    excludedViews=(),
+                    excludedViews=None,
                     isSemiStreamified=True,
                     **kwargs):
         """ Re-implemented function from tomo.objects. Works on a single TS object.
@@ -778,6 +778,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         angleMax = -999
         accumDose = 0
         initialDose = 999
+        tiList = []
         for index, ti in enumerate(ts.iterItems()):
             if ti.isEnabled() or (not ti.isEnabled() and copyDisabledViews):
                 tiOut = TiltImage(tsId=tsId)
@@ -785,10 +786,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 if updateTiCallback:
                     originIndex = ti.getIndex()
                     updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-                tsOut.append(tiOut)
-            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-            # these values may change if the removed tilt-images are the first or the last, for example.
-            if excludedViews:
+                tiList.append(tiOut)
+                # tsOut.append(tiOut)
+                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = ti.getTiltAngle()
                 angleMin = min(tiAngle, angleMin)
                 angleMax = max(tiAngle, angleMax)
@@ -796,14 +797,26 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
 
         if excludedViews:
+            # Update the acquisition minAngle and maxAngle values of the tilt-series
             acq = tsOut.getAcquisition()
             acq.setAngleMin(angleMin)
             acq.setAngleMax(angleMax)
             acq.setAccumDose(accumDose)
             acq.setDoseInitial(initialDose)
             tsOut.setAcquisition(acq)
+            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+            # specific accum and initial dose values
+            for tiOut in tiList:
+                tiAcq = tiOut.getAcquisition()
+                tiAcq.setAngleMin(angleMin)
+                tiAcq.setAngleMax(angleMax)
+                tiOut.setAcquisition(tiAcq)
+                tsOut.append(tiOut)
             tsOut.setAnglesCount(len(tsOut))
-            
+        else:
+            for tiOut in tiList:
+                tsOut.append(tiOut)
+
         outputTsSet.update(tsOut)
         if isSemiStreamified:
             self._store(outputTsSet)

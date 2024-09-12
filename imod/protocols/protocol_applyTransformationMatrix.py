@@ -128,29 +128,29 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.genTsPaths(tsId)
             utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
 
-            params = self.getBasicNewstackParams(ts,
-                                                 self.getExtraOutFile(tsId),
-                                                 firstItem=firstItem,
-                                                 xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
-                                                 binning=self.binning.get(),
-                                                 doSwap=True,
-                                                 tsExcludedIndices=ts.getExcludedViewsIndex(),
-                                                 doTaper=True)
-            params["-taper"] = "1,1" if self.taperInside else "1,0"
+            paramsDict = self.getBasicNewstackParams(ts,
+                                                     self.getExtraOutFile(tsId),
+                                                     firstItem=firstItem,
+                                                     xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
+                                                     binning=self.binning.get(),
+                                                     doSwap=True,
+                                                     tsExcludedIndices=ts.getExcludedViewsIndex(),
+                                                     doTaper=True)
+            paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
 
             if self.linear:
-                params["-linear"] = ""
+                paramsDict["-linear"] = ""
 
-            self.runProgram("newstack", params)
+            self.runProgram("newstack", paramsDict)
 
             if self.oddEvenFlag:
-                params['-input'] = ts.getOddFileName()
-                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = ts.getOddFileName()
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("newstack", paramsDict)
 
-                params['-input'] = ts.getEvenFileName()
-                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = ts.getEvenFileName()
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("newstack", paramsDict)
 
         except Exception as e:
             self._failedItems.append(tsId)
@@ -167,13 +167,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
                                                    binning=self.binning.get(),
                                                    attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                                   suffix="Interpolated")
+                                                   suffix="Interpolated",)
 
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
                                      copyId=False,
-                                     copyTM=False)
+                                     copyTM=False,
+                                     excludedViews=ts.getExcludedViewsIndex())
                 else:
                     self.createOutputFailedSet(ts)
 
