@@ -262,7 +262,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        # Considering swapXY is required to make tilt axis vertical
         presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
                                                     onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,

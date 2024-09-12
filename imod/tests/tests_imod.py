@@ -987,6 +987,15 @@ class TestImodGenFiducialModel(TestImodBase):
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
+    def testFiducialModel08(self):
+        preAliTsSet, _ = self._runXcorrAli(self.tsPreprocessed, genInterp=False)
+        # Exclude some views at metadata level
+        self._excludeSetViews(preAliTsSet)
+        # Run the protocol
+        fiducialModels = self._genFiducialModel(preAliTsSet, objLabel='testFiducialModel08, eV')
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
 
 class TestImodTsAlignment(TestImodBase):
     binningFactor = 4

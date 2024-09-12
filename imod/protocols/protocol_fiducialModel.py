@@ -216,6 +216,14 @@ class ProtImodFiducialModel(ProtImodBase):
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
+    def convertInputStep(self, tsId, **kwargs):
+        presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
+                                                    onlyEnabled=True)  # Re-stack excluding views before generating the model
+        super().convertInputStep(tsId,
+                                 doSwap=True,
+                                 oddEven=self.oddEvenFlag,
+                                 presentAcqOrders=presentAcqOrders)
+
     def generateTrackComStep(self, tsId):
         ts = self.tsDict[tsId]
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
