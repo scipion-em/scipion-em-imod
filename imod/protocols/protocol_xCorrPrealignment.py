@@ -223,6 +223,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTsNonInterp,
                                      updateTiCallback=self.updateTiNonInterp,
+                                     copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=False,
                                      alignmentMatrix=alignmentMatrix)
@@ -239,20 +240,23 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                                attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                suffix="Interpolated")
                 firstItem = ts.getFirstItem()
-                params = self.getBasicNewstackParams(ts,
-                                                     self.getExtraOutFile(tsId),
-                                                     inputTsFileName=self.getTmpOutFile(tsId),
-                                                     xfFile=xfFile,
-                                                     firstItem=firstItem,
-                                                     binning=binning,
-                                                     doNorm=True)
-                self.runProgram('newstack', params)
+                tsExcludedIndices = ts.getExcludedViewsIndex()
+                paramsDict = self.getBasicNewstackParams(ts,
+                                                         self.getExtraOutFile(tsId),
+                                                         inputTsFileName=self.getTmpOutFile(tsId),
+                                                         xfFile=xfFile,
+                                                         firstItem=firstItem,
+                                                         binning=binning,
+                                                         tsExcludedIndices=tsExcludedIndices,
+                                                         doNorm=True)
+                self.runProgram('newstack', paramsDict)
 
                 self.copyTsItems(output, ts, tsId,
                                  updateTsCallback=self.updateTsInterp,
                                  updateTiCallback=self.updateTi,
                                  copyId=True,
-                                 copyTM=False)
+                                 copyTM=False,
+                                 excludedViews=len(tsExcludedIndices) > 0)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -22,6 +22,7 @@
 # *  e-mail address 'scipion-users@lists.sourceforge.net'
 # *
 # **************************************************************************
+import copy
 import math
 from os.path import exists
 from typing import Union
@@ -270,7 +271,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                                          taperInside=taperInside,
                                          linear=linearInterp)
         if excludeViews:
-            # Exclude some views at metadata level
+            # Some views were excluded in the input at metadata level
             cls._excludeSetViews(inTsSet)
             excludeViewsMsg = 'eV'
         protApplyTrMat.setObjLabel(f'b_{binning} tapIns_{taperInside} interp_{interpMsg} {excludeViewsMsg}')
@@ -300,8 +301,10 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsPreprocessed
 
     @classmethod
-    def _runXcorrAli(cls, inTsSet, genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None):
+    def _runXcorrAli(cls, inTsSet, genInterp=False, cumulativeCorr=False, interpBinning=1, tiltAxisAngle=None,
+                     excludeViews=False):
         tAxMsg = f'manually introduced of {tiltAxisAngle} deg.' if tiltAxisAngle else 'from Scipion metadata'
+        excludeViewsMsg = ''
         print(magentaStr(f"\n==> Running the TS xCorr pre-alignment:"
                          f"\n\t- Generate the interpolated TS = {genInterp}"
                          f"\n\t- Interpolated binning = {interpBinning}"
@@ -313,8 +316,12 @@ class TestImodBase(TestBaseCentralizedLayer):
                                     cumulativeCorr=cumulativeCorr)
         if tiltAxisAngle:
             protXcorr.tiltAxisAngle.set(tiltAxisAngle)
-
-        protXcorr.setObjLabel(f'GenInterp_{genInterp} cumCor_{cumulativeCorr} ib_{interpBinning} tAx_{tiltAxisAngle}')
+        if excludeViews:
+            # Some views were excluded in the input at metadata level
+            cls._excludeSetViews(inTsSet)
+            excludeViewsMsg = 'eV'
+        protXcorr.setObjLabel(f'GenInterp_{genInterp} cumCor_{cumulativeCorr} ib_{interpBinning} tAx_{tiltAxisAngle} '
+                              f'{excludeViewsMsg}')
         cls.launchProtocol(protXcorr)
         tsXcorr = getattr(protXcorr, OUTPUT_TILTSERIES_NAME, None)
         tsXcorrInterp = getattr(protXcorr, OUTPUT_TS_INTERPOLATED_NAME, None)
@@ -823,27 +830,32 @@ class TestImodApplyTrMatrix(TestImodBase):
 
 class TestImodXcorrAlignment(TestImodBase):
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkTiltSeries(self, inTsSet, testAcqObjDict=None, binningFactor=1, excludedViewsDict=None):
+        if not testAcqObjDict:
+            testAcqObjDict = self.testAcqObjDict
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
                              hasAlignment=True,
                              alignment=ALIGN_2D,
-                             testAcqObj=self.testAcqObjDict,
+                             testAcqObj=testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
 
-    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict, testAnglesCountDict, binningFactor=1):
+        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor,
+                                                       swapXY=False,  # No swap, only translations
+                                                       nImgsDict=testAnglesCountDict)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
-                             # No swap, only translations
-                             testAcqObj=self.testInterpAcqObjDict,
-                             anglesCount=self.anglesCountDict,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=testAnglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
@@ -863,7 +875,10 @@ class TestImodXcorrAlignment(TestImodBase):
         # Check the TS
         self._checkTiltSeries(xCorrTs)
         # Check the interpolated TS
-        self._checkInterpTiltSeries(xCorrTsInterp, binningFactor=interptBinningFactor)
+        self._checkInterpTiltSeries(xCorrTsInterp,
+                                    self.testInterpAcqObjDict,
+                                    self.anglesCountDict,
+                                    binningFactor=interptBinningFactor)
 
     def testXcorAli03(self):
         xCorrTs, xCorrTsInterp = self._runXcorrAli(self.importedTs, genInterp=False)
@@ -880,13 +895,36 @@ class TestImodXcorrAlignment(TestImodBase):
                                                    interpBinning=interptBinningFactor,
                                                    tiltAxisAngle=tiltAxisAngle)
         # Check the TS
-        for tsId, acq in self.testAcqObjDict.items():
+        testAcqDict = copy.deepcopy(self.testAcqObjDict)
+        for tsId, acq in testAcqDict.items():
             # Update the expected acquisition with the tilt axis angle value introduced manually
             acq.setTiltAxisAngle(tiltAxisAngle)
-            self.testAcqObjDict[tsId] = acq
-        self._checkTiltSeries(xCorrTs)
+            testAcqDict[tsId] = acq
+        self._checkTiltSeries(xCorrTs, testAcqObjDict=testAcqDict)
         # Check the interpolated TS
-        self._checkInterpTiltSeries(xCorrTsInterp, binningFactor=interptBinningFactor)
+        self._checkInterpTiltSeries(xCorrTsInterp,
+                                    self.testInterpAcqObjDict,
+                                    self.anglesCountDict,
+                                    binningFactor=interptBinningFactor)
+
+
+    def testXcorAli05(self):
+        interptBinningFactor = 4
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        xCorrTs, xCorrTsInterp = self._runXcorrAli(importedTs,
+                                                   genInterp=True,
+                                                   cumulativeCorr=True,
+                                                   interpBinning=interptBinningFactor)
+        # Check the TS
+        self._checkTiltSeries(xCorrTs, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(xCorrTsInterp,
+                                    self._gentestAcqObjDictReStacked(isInterp=True),
+                                    self.anglesCountDictExcluded,
+                                    binningFactor=interptBinningFactor)
 
 
 class TestImodGenFiducialModel(TestImodBase):
