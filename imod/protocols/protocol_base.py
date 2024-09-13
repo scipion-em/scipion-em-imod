@@ -786,8 +786,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 if updateTiCallback:
                     originIndex = ti.getIndex()
                     updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-                tiList.append(tiOut)
-                # tsOut.append(tiOut)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = ti.getTiltAngle()
@@ -795,6 +793,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 angleMax = max(tiAngle, angleMax)
                 accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
                 initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+
+                tiList.append(tiOut)
 
         if excludedViews:
             # Update the acquisition minAngle and maxAngle values of the tilt-series

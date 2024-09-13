@@ -212,23 +212,22 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def generateOutputStackStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
         ts = self.tsDict[tsId]
-        with self._lock:
-            if tsId in self._failedItems:
-                self.createOutputFailedSet(ts)
+        if tsId in self._failedItems:
+            self.createOutputFailedSet(ts)
+        else:
+            outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+            if os.path.exists(outputFn):
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                alignmentMatrix = utils.formatTransformationMatrix(outputFn)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsNonInterp,
+                                 updateTiCallback=self.updateTiNonInterp,
+                                 copyDisabledViews=True,
+                                 copyId=True,
+                                 copyTM=False,
+                                 alignmentMatrix=alignmentMatrix)
             else:
-                outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                    alignmentMatrix = utils.formatTransformationMatrix(outputFn)
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTsCallback=self.updateTsNonInterp,
-                                     updateTiCallback=self.updateTiNonInterp,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=False,
-                                     alignmentMatrix=alignmentMatrix)
-                else:
-                    self.createOutputFailedSet(ts)
+                self.createOutputFailedSet(ts)
 
     def computeInterpolatedStackStep(self, tsId, binning):
         if tsId not in self._failedItems:

@@ -216,22 +216,12 @@ class ProtImodDoseFilter(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        outputLocation = self.getExtraOutFile(tsId)
-        tiOut.setLocation(index + 1, outputLocation)
-
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
         # output is dose-weighted
         acq = ti.getAcquisition()
         acq.setDoseInitial(0.)
         acq.setAccumDose(0.)
         tiOut.setAcquisition(acq)
-
-        if self.oddEvenFlag:
-            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
-                              ih.locationToXmipp(locationEven)])
-        else:
-            tiOut.setOddEven([])
 
     @staticmethod
     def updateTs(tsId, ts, tsOut, **kwargs):

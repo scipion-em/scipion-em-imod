@@ -217,14 +217,5 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        outputLocation = self.getExtraOutFile(tsId)
-        tiOut.setLocation(index + 1, outputLocation)
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
         tiOut.getAcquisition().setTiltAxisAngle(0.)
-
-        if self.oddEvenFlag:
-            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
-                              ih.locationToXmipp(locationEven)])
-        else:
-            tiOut.setOddEven([])

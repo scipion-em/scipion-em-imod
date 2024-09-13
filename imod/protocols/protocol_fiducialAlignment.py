@@ -323,7 +323,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
     # NOTE:
     # The gold bead eraser only remove the fiducial markers in the interpolated TS and only the ones used for the
     #  TS alignment, so for now this functionality will be removed. Jorge (07/08/2024)
-
+    #
     # form.addSection('Erase gold beads')
     #
     # form.addParam('eraseGoldBeads',

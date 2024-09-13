@@ -265,9 +265,12 @@ class ProtImodCtfCorrection(ProtImodBase):
                 newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
                 outputSetOfTs.append(newTs)
 
-                for index, inTi in enumerate(ts):
+                angleMin = 999
+                angleMax = -999
+                tiList = []
+                for index, inTi in enumerate(ts.iterItems()):
                     if inTi.getAcquisitionOrder() in presentAcqOrders:
-                        newTi = TiltImage()
+                        newTi = TiltImage(tsId=tsId)
                         newTi.copyInfo(inTi, copyId=True, copyTM=False)
                         acq = inTi.getAcquisition()
                         acq.setTiltAxisAngle(0.)  # Is interpolated
@@ -280,7 +283,35 @@ class ProtImodCtfCorrection(ProtImodBase):
                                               ih.locationToXmipp(locationEven)])
                         else:
                             newTi.setOddEven([])
-                        newTs.append(newTi)
+                        # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                        # these values may change if the removed tilt-images are the first or the last, for example.
+                        tiAngle = newTi.getTiltAngle()
+                        angleMin = min(tiAngle, angleMin)
+                        angleMax = max(tiAngle, angleMax)
+
+                        tiList.append(newTi)
+                    
+                if len(presentAcqOrders) != max(len(ts), len(self.ctfDict[tsId])):
+                    # Update the acquisition minAngle and maxAngle values of the tilt-series
+                    acq = newTs.getAcquisition()
+                    acq.setAngleMin(angleMin)
+                    acq.setAngleMax(angleMax)
+                    acq.setAccumDose(0)
+                    acq.setDoseInitial(0)
+                    newTs.setAcquisition(acq)
+                    # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                    # specific accum and initial dose values
+                    for tiOut in tiList:
+                        tiAcq = tiOut.getAcquisition()
+                        tiAcq.setAngleMin(angleMin)
+                        tiAcq.setAngleMax(angleMax)
+                        tiAcq.setAccumDose(0)
+                        tiAcq.setDoseInitial(0)
+                        newTs.append(tiOut)
+                    newTs.setAnglesCount(len(newTs))
+                else:
+                    for tiOut in tiList:
+                        newTs.append(tiOut)
 
                 outputSetOfTs.update(newTs)
                 self._store(outputSetOfTs)

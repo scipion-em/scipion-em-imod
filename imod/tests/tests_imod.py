@@ -1348,7 +1348,7 @@ class TestImodTomoProjection(TestImodBase):
         self._checkTiltSeries(projTs, acqDict, nImgsDict)
 
 
-class TestImodEcludeViews(TestImodBase):
+class TestImodExcludeViews(TestImodBase):
 
     @classmethod
     def _runPreviousProtocols(cls):
@@ -1395,6 +1395,18 @@ class TestImodEcludeViews(TestImodBase):
             TS_03: 36,
             TS_54: 38,
         }
+        testAcqObjDictReStacked = {}
+        acq_TS_03 = self.testAcqObjDict[TS_03].clone()
+        acq_TS_03.setAccumDose(111)
+        acq_TS_03.setAngleMin(-51)
+        acq_TS_03.setAngleMax(54)
+        testAcqObjDictReStacked[TS_03] = acq_TS_03
+
+        acq_TS_54 = self.testAcqObjDict[TS_54].clone()
+        acq_TS_54.setAccumDose(117)
+        acq_TS_54.setAngleMin(-57)
+        acq_TS_54.setAngleMax(54)
+        testAcqObjDictReStacked[TS_54] = acq_TS_54
 
         importedTs = self._runImportTs()
         # Exclude some views at metadata level
@@ -1403,7 +1415,7 @@ class TestImodEcludeViews(TestImodBase):
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews03')
         # Check the results
         self._checkTiltSeries(outTsSet,
-                              testAcqObjDict=self._gentestAcqObjDictReStacked(),
+                              testAcqObjDict=testAcqObjDictReStacked,
                               anglesCountDict=anglesCountDictExcluded)
 
 
@@ -1467,6 +1479,29 @@ class TestImodCtfCorrection(TestImodBase):
         return importedCtfs, tsWithAliBin4
 
     @classmethod
+    def _gentestAcqObjDictReStacked(cls, ts03MinAngle=-999, ts03MaxAngle=999, ts54MinAngle=-999, ts54MaxAngle=999):
+        # The angle min and angle max for the re-stacked TS, as these values may change if the
+        # removed tilt-images are the first or the last, for example. FGor the CTF correction, the tilt
+        # axis angle and the initial and accum dose will be always 0.
+        testAcqObjDictReStacked = {}
+        acq_TS_03 = cls.testAcqObjDict[TS_03].clone()
+        acq_TS_03.setDoseInitial(0)
+        acq_TS_03.setAccumDose(0)
+        acq_TS_03.setTiltAxisAngle(0)
+        acq_TS_03.setAngleMin(ts03MinAngle)
+        acq_TS_03.setAngleMax(ts03MaxAngle)
+        testAcqObjDictReStacked[TS_03] = acq_TS_03
+
+        acq_TS_54 = cls.testAcqObjDict[TS_54].clone()
+        acq_TS_54.setDoseInitial(0)
+        acq_TS_54.setAccumDose(0)
+        acq_TS_54.setTiltAxisAngle(0)
+        acq_TS_54.setAngleMin(ts54MinAngle)
+        acq_TS_54.setAngleMax(ts54MaxAngle)
+        testAcqObjDictReStacked[TS_54] = acq_TS_54
+        return testAcqObjDictReStacked
+
+    @classmethod
     def _runCistemEstimateCtf(cls, inTsSet):
         print(magentaStr("\n==> Estimating the CTF with Cistem:"))
         protEstimateCtf = cls.newProtocol(CistemProtTsCtffind,
@@ -1520,8 +1555,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.UNMODIFIED,
                                               ctfSetMsg=self.EXC_VIEWS)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-57,
+                                                          ts54MaxAngle=54)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.ctfAnglesCountDictExcluded)
 
     def testCtfCorrection03(self):
@@ -1530,8 +1570,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.EXC_VIEWS,
                                               ctfSetMsg=self.UNMODIFIED)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-54,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.anglesCountDictExcluded)
 
     def testCtfCorrection04(self):
@@ -1541,8 +1586,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsSetReStacked, importedCtfs,
                                               tsSetMsg=self.RE_STACKED,
                                               ctfSetMsg=self.UNMODIFIED)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-54,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.anglesCountDictExcluded)
 
     def testCtfCorrection05(self):
@@ -1553,8 +1603,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, importedCtfs,
                                               tsSetMsg=self.EXC_VIEWS,
                                               ctfSetMsg=self.EXC_VIEWS)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
     def testCtfCorrection06(self):
@@ -1566,8 +1621,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsSetReStacked, importedCtfs,
                                               tsSetMsg=self.RE_STACKED,
                                               ctfSetMsg=self.EXC_VIEWS)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
     def testCtfCorrection07(self):
@@ -1576,8 +1636,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, ctfSetReStacked,
                                               tsSetMsg=self.UNMODIFIED,
                                               ctfSetMsg=self.RE_STACKED)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-57,
+                                                          ts54MaxAngle=54)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.ctfAnglesCountDictExcluded)
 
     def testCtfCorrection08(self):
@@ -1587,8 +1652,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsWithAliBin4, ctfSetReStacked,
                                               tsSetMsg=self.EXC_VIEWS,
                                               ctfSetMsg=self.RE_STACKED)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
     def testCtfCorrection09(self):
@@ -1599,8 +1669,13 @@ class TestImodCtfCorrection(TestImodBase):
         tsSetCtfCorr = self._runCtfCorrection(tsSetReStacked, ctfSetReStacked,
                                               tsSetMsg=self.RE_STACKED,
                                               ctfSetMsg=self.RE_STACKED)
+        # Check the results
+        testAcqObjDict = self._gentestAcqObjDictReStacked(ts03MinAngle=-51,
+                                                          ts03MaxAngle=54,
+                                                          ts54MinAngle=-54,
+                                                          ts54MaxAngle=51)
         self._checkInterpTiltSeries(tsSetCtfCorr,
-                                    testAcqObjDict=self._gentestAcqObjDictReStacked(isInterp=True),
+                                    testAcqObjDict=testAcqObjDict,
                                     anglesCountDict=self.intersectAnglesCountDictExcluded)
 
 

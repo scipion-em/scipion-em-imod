@@ -203,20 +203,9 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
             transform.setMatrix(matrix)
             newTi.setTransform(transform)
 
-        return newTi
-
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        outputLocation = self.getExtraOutFile(tsId)
-        tiOut.setLocation(index + 1, outputLocation)
-
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
         # Transformation matrix
         if ti.hasTransform():
-            tiOut = self.updateTM(tiOut, binning=self.binning.get())
+            self.updateTM(tiOut, binning=self.binning.get())
 
-        if self.oddEvenFlag:
-            locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-            locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-            tiOut.setOddEven([ih.locationToXmipp(locationOdd),
-                              ih.locationToXmipp(locationEven)])
-        else:
-            tiOut.setOddEven([])
