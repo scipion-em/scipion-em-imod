@@ -460,42 +460,24 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsId):
+        ts = self.tsDict[tsId]
         if tsId not in self._failedItems:
-            ts = self.tsDict[tsId]
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
-                newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
+                alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
                 output = self.getOutputSetOfTS(self.inputTSPointer)
-
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setAlignment(ALIGN_2D)
-                output.append(newTs)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage(tsId=tsId)
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setTiltAngle(float(tltList[index]))
-
-                    transform = Transform()
-                    newTransform = newTransformationMatricesList[:, :, index]
-                    newTransformArray = np.array(newTransform)
-
-                    if tiltImage.hasTransform():
-                        previousTransform = tiltImage.getTransform().getMatrix()
-                        previousTransformArray = np.array(previousTransform)
-                        outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-                        transform.setMatrix(outputTransformMatrix)
-                    else:
-                        transform.setMatrix(newTransformArray)
-
-                    newTi.setTransform(transform)
-                    newTs.append(newTi)
-
-                output.update(newTs)
-                self._store(output)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsNonInterp,
+                                 updateTiCallback=self.updateTiNonInterp,
+                                 copyDisabledViews=True,
+                                 copyId=True,
+                                 copyTM=False,
+                                 alignmentMatrix=alignmentMatrix,
+                                 tltList=tltList)
+            else:
+                self.createOutputFailedSet(ts)
 
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         """ Generate interpolated stack. """
@@ -503,12 +485,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
-                firstItem = ts.getFirstItem()
                 output = self.getOutputSetOfTS(self.inputTSPointer, binning,
                                                attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                suffix="Interpolated")
 
-                params = self.getBasicNewstackParams(
+                firstItem = ts.getFirstItem()
+                tsExcludedIndices = ts.getExcludedViewsIndex()
+                paramsDict = self.getBasicNewstackParams(
                     ts,
                     self.getExtraOutFile(tsId),
                     inputTsFileName=self.getTmpOutFile(tsId),
@@ -516,37 +499,58 @@ class ProtImodFiducialAlignment(ProtImodBase):
                     firstItem=firstItem,
                     binning=binning,
                     doSwap=True,
-                    doTaper=True)
-
-                self.runProgram('newstack', params)
-
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setAlignment(ALIGN_NONE)
-                newTs.setInterpolated(True)
-                output.append(newTs)
+                    doTaper=True,
+                    tsExcludedIndices=tsExcludedIndices,
+                )
+                self.runProgram('newstack', paramsDict)
 
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsInterp,
+                                 updateTiCallback=self.updateTiInterp,
+                                 copyId=True,
+                                 copyTM=False,
+                                 excludedViews=len(tsExcludedIndices) > 0,
+                                 tltList=tltList)
 
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
+    @staticmethod
+    def updateTsInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.getAcquisition().setTiltAxisAngle(0.)
+        tsOut.setAlignment(ALIGN_NONE)
+        tsOut.setInterpolated(True)
 
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
-                    newTi.setTiltAngle(float(tltList[index]))
-                    if binning > 1:
-                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                    newTs.append(newTi)
+    def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+        tiOut.setTiltAngle(float(tltList[index]))
 
-                newTs.getAcquisition().setTiltAxisAngle(0)
-                newTs.write(properties=False)
-
-                output.update(newTs)
-                self._store(output)
+                # newTs = TiltSeries(tsId=tsId)
+                # newTs.copyInfo(ts)
+                # newTs.setAlignment(ALIGN_NONE)
+                # newTs.setInterpolated(True)
+                # output.append(newTs)
+                #
+                # tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
+                # tltList = utils.formatAngleList(tltFilePath)
+                #
+                # if binning > 1:
+                #     newTs.setSamplingRate(ts.getSamplingRate() * binning)
+                #
+                # for index, tiltImage in enumerate(ts):
+                #     newTi = TiltImage()
+                #     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
+                #     newTi.setAcquisition(tiltImage.getAcquisition())
+                #     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
+                #     newTi.setTiltAngle(float(tltList[index]))
+                #     if binning > 1:
+                #         newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
+                #     newTs.append(newTi)
+                #
+                # newTs.getAcquisition().setTiltAxisAngle(0)
+                # newTs.write(properties=False)
+                #
+                # output.update(newTs)
+                # self._store(output)
 
     # def eraseGoldBeadsStep(self, tsId):
     #     """ Erase gold beads on aligned stack. """
@@ -722,3 +726,24 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def getSurfaceToAnalyze(self):
         return 2 if self.twoSurfaces else 1
+
+    @staticmethod
+    def updateTsNonInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.setAlignment2D()
+
+    @staticmethod
+    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
+        transform = Transform()
+        newTransform = alignmentMatrix[:, :, index]
+        newTransformArray = np.array(newTransform)
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            previousTransformArray = np.array(previousTransform)
+            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+        else:
+            transform.setMatrix(newTransformArray)
+
+        tiOut.setTransform(transform)
+        tiOut.setTiltAngle(float(tltList[index]))

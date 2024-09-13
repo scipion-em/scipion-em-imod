@@ -1006,7 +1006,7 @@ class TestImodTsAlignment(TestImodBase):
         cls.preAliTsSet, _ = cls._runXcorrAli(cls.importedTs, genInterp=False)
         cls.fiducialModels = cls._genFiducialModel(cls.preAliTsSet)
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, excludedViewsDict=None):
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
@@ -1016,16 +1016,24 @@ class TestImodTsAlignment(TestImodBase):
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
 
-    def _checkInterpTiltSeries(self, inTsSet, binningFactor=1):
+    def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict=None, testAnglesCountDict=None, binningFactor=1):
+        if not testAcqObjDict:
+            testAcqObjDict = self.testInterpAcqObjDict
+        if not testAnglesCountDict:
+            testAnglesCountDict = self.anglesCountDict
+        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor,
+                                                       swapXY=True,
+                                                       nImgsDict=testAnglesCountDict)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
                              isInterpolated=True,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor, swapXY=True),
-                             testAcqObj=self.testInterpAcqObjDict,
-                             anglesCount=self.anglesCountDict,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=testAnglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
@@ -1075,6 +1083,27 @@ class TestImodTsAlignment(TestImodBase):
         self._checkTiltSeries(tsAli)
         # Check the interpolated TS
         self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialAli05(self):
+        preAliTsSet, _ = self._runXcorrAli(self.importedTs, genInterp=False)
+        # Exclude some views at metadata level and commpute the fiducial models using them
+        self._excludeSetViews(preAliTsSet)
+        fiducialModels = self._genFiducialModel(preAliTsSet)
+        # Run the protocol
+        tsAli, tsInterp, fiducialModels = self._runFiducialAli(fiducialModels,
+                                                               objLabel='testFiducialAli05, eV',
+                                                               bothSurfaces=True,
+                                                               genInterp=True,
+                                                               interpBinFactor=self.binningFactor)
+        # Check the generated TS
+        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp,
+                                    self._gentestAcqObjDictReStacked(isInterp=True),
+                                    self.anglesCountDictExcluded,
+                                    binningFactor=self.binningFactor)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
