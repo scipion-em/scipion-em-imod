@@ -686,59 +686,66 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 f"Defocus file flag {defocusFileFlag} is not supported. Only supported formats "
                 "correspond to flags 0, 1, 4, 5, and 37.")
 
-        for ti in inputTs:
+        for i, ti in enumerate(inputTs):
             tiObjId = ti.getObjId()
             newCTFTomo = CTFTomo()
-            newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
-            newCTFTomo.setIndex(ti.getIndex())
-
-            if tiObjId not in defocusUDict.keys() and not ti.isEnabled():
-                raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                    inputTs.getTsId(), tiObjId, inputTs[tiObjId].getTiltAngle()))
-
             " Plain estimation (any defocus flag)"
             newCTFTomo._defocusUList = CsvList(pType=float)
             newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
 
-            if defocusFileFlag == 1:
-                " Astigmatism estimation "
-                newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
+            if ti.isEnabled():
+                # newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
+                # newCTFTomo.setIndex(ti.getIndex())
 
-                newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
+                # if tiObjId not in defocusUDict.keys() and not ti.isEnabled():
+                #     raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
+                #         inputTs.getTsId(), tiObjId, inputTs[tiObjId].getTiltAngle()))
 
-            elif defocusFileFlag == 4:
-                " Phase-shift information "
-                newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
+                if defocusFileFlag == 1:
+                    " Astigmatism estimation "
+                    newCTFTomo._defocusVList = CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
-            elif defocusFileFlag == 5:
-                " Astigmatism and phase shift estimation "
-                newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
+                    newCTFTomo._defocusAngleList = CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
-                newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
+                elif defocusFileFlag == 4:
+                    " Phase-shift information "
+                    newCTFTomo._phaseShiftList = CsvList(pType=float)
+                    newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
-                newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
+                elif defocusFileFlag == 5:
+                    " Astigmatism and phase shift estimation "
+                    newCTFTomo._defocusVList = CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
-            elif defocusFileFlag == 37:
-                " Astigmatism, phase shift and cut-on frequency estimation "
-                newCTFTomo._defocusVList = CsvList(pType=float)
-                newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
+                    newCTFTomo._defocusAngleList = CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
-                newCTFTomo._defocusAngleList = CsvList(pType=float)
-                newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
+                    newCTFTomo._phaseShiftList = CsvList(pType=float)
+                    newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
-                newCTFTomo._phaseShiftList = CsvList(pType=float)
-                newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
+                elif defocusFileFlag == 37:
+                    " Astigmatism, phase shift and cut-on frequency estimation "
+                    newCTFTomo._defocusVList = CsvList(pType=float)
+                    newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
-                newCTFTomo._cutOnFreqList = CsvList(pType=float)
-                newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(tiObjId, [0.]))
+                    newCTFTomo._defocusAngleList = CsvList(pType=float)
+                    newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
-            newCTFTomo.completeInfoFromList()
+                    newCTFTomo._phaseShiftList = CsvList(pType=float)
+                    newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
+
+                    newCTFTomo._cutOnFreqList = CsvList(pType=float)
+                    newCTFTomo.setCutOnFreqList(cutOnFreqDict.get(tiObjId, [0.]))
+
+                newCTFTomo.completeInfoFromList()
+            else:
+                newCTFTomo.setWrongDefocus()
+                newCTFTomo.setEnabled(False)
+
+            newCTFTomo.setIndex(i + 1)
+            newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
             newCTFTomoSeries.append(newCTFTomo)
 
         newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)

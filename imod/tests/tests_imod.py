@@ -1450,9 +1450,11 @@ class TestImodExcludeViews(TestImodBase):
 
 class TestImodEstimateCtf(TestImodBase):
 
-    def _checkCtfs(self, inCtfSet):
+    def _checkCtfs(self, inCtfSet, excludedViewsDict=None):
         expectedSetSize = 2  # TS_03 and TS_54
-        self.checkCTFs(inCtfSet, expectedSetSize=expectedSetSize)
+        self.checkCTFs(inCtfSet,
+                       expectedSetSize=expectedSetSize,
+                       excludedViewsDict=excludedViewsDict)
 
     def testEstimateCtf01(self):
         ctfs = self._runEstimateCtf(self.importedTs, objLabel='testEstimateCtf01')
@@ -1470,6 +1472,14 @@ class TestImodEstimateCtf(TestImodBase):
                                     angleRange=10,
                                     objLabel='testEstimateCtf03')
         self._checkCtfs(ctfs)
+
+    def testEstimateCtf04(self):
+        importedTs = self._runImportTs()
+        self._excludeSetViews(importedTs)  # Excluded some views in the TS at metadata level
+        # Run the protocol
+        ctfs = self._runEstimateCtf(importedTs, objLabel='testEstimateCtf04, eV')
+        # Check the results
+        self._checkCtfs(ctfs, excludedViewsDict=self.excludedViewsDict)
 
 
 class TestImodCtfCorrection(TestImodBase):

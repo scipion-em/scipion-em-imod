@@ -94,6 +94,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.IntParam,
                       default=0,
                       label='Tomogram width (voxels)',
+                      expertLevel=params.LEVEL_ADVANCED,
                       help='Number of pixels to cut out in X, centered on the middle in X. '
                            'Leave 0 for default X.')
 
