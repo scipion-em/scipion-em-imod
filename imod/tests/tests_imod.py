@@ -42,7 +42,7 @@ from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TIL
     ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
     ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
     DIST_SKEW_ONLY
-from pwem import ALIGN_NONE, ALIGN_2D
+from pwem import ALIGN_NONE, ALIGN_2D, NO_VERSION_FOUND_STR
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
 from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries
@@ -209,10 +209,13 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTomos
 
     @classmethod
-    def _runXRayEraser(cls, inTsSet):
-        print(magentaStr("\n==> Running the X-Ray eraser:"))
+    def _runXRayEraser(cls, inTsSet, excludedViews=None):
+        excludedViewsMsg = 'eV' if excludedViews else ''
+        print(magentaStr(f"\n==> Running the X-Ray eraser:"
+                         f"\n\t- Excluded views = {excludedViews is not None}"))
 
         protXRayEraser = cls.newProtocol(ProtImodXraysEraser, inputSetOfTiltSeries=inTsSet)
+        protXRayEraser.setObjLabel(f'X-Ray eraser {excludedViewsMsg}')
         cls.launchProtocol(protXRayEraser)
         tsXRayErased = getattr(protXRayEraser, OUTPUT_TILTSERIES_NAME, None)
         return tsXRayErased
@@ -287,16 +290,16 @@ class TestImodBase(TestBaseCentralizedLayer):
                          f"\n\t- Binning factor = {binning}"
                          f"\n\t- Excluded views = {excludedViews}"
                          f"\n\t- Adjust densities mode = {FLOAT_DENSITIES_CHOICES[densAdjustMode]}"))
-        excludeViewsMsg = ''
+        excludeViewsMsg = 'eV' if excludedViews else ''
         protTsNorm = cls.newProtocol(ProtImodTsNormalization,
                                      inputSetOfTiltSeries=inTsSet,
                                      binning=binning,
                                      floatDensities=densAdjustMode,
                                      **kwargs)
-        if excludedViews:
-            # Exclude some views at metadata level
-            cls._excludeSetViews(inTsSet)
-            excludeViewsMsg = 'eV'
+        # if excludedViews:
+            # # # Exclude some views at metadata level
+            # # cls._excludeSetViews(inTsSet)
+            # excludeViewsMsg = 'eV'
         protTsNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode} {excludeViewsMsg}')
         cls.launchProtocol(protTsNorm)
         tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
@@ -587,7 +590,7 @@ class TestImodXRayEraser(TestImodBase):
         # Exclude some views at metadata level
         self._excludeSetViews(importedTs)
         # Run the protocol
-        tsXRayErased = self._runXRayEraser(importedTs)
+        tsXRayErased = self._runXRayEraser(importedTs, excludedViews=True)
         # Check the results
         self._checkTiltSeries(tsXRayErased, excludedViewsDict=self.excludedViewsDict)
 
@@ -636,7 +639,7 @@ class TestImodDoseFilter(TestImodBase):
 class TestImodTsPreprocess(TestImodBase):
 
     def _checkTiltSeries(self, inTsSet, binningFactor=1, imported=True, hasAlignment=False, alignment=ALIGN_NONE,
-                         testAcqObjDict=None, anglesCountDict=None):
+                         testAcqObjDict=None, anglesCountDict=None, excludedViewsDict=None):
         if not testAcqObjDict:
             testAcqObjDict = self.testAcqObjDict
         if not anglesCountDict:
@@ -652,7 +655,8 @@ class TestImodTsPreprocess(TestImodBase):
                              testAcqObj=testAcqObjDict,
                              anglesCount=anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
 
     def testTsPreprocess00(self):
         binningFactor = 4
@@ -710,6 +714,19 @@ class TestImodTsPreprocess(TestImodBase):
                                                scaleMax=200,
                                                scaleMin=20)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+
+    def testTsPreprocess07(self):
+        binningFactor = 4
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        tsPreprocessed = self._runTsPreprocess(importedTs,
+                                               binning=binningFactor,
+                                               densAdjustMode=0)  # No adjust
+        self._checkTiltSeries(tsPreprocessed,
+                              binningFactor=binningFactor,
+                              excludedViewsDict=self.excludedViewsDict)
 
 
 class TestImodImportTrMatrix(TestImodBase):

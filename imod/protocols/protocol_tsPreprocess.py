@@ -154,6 +154,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                     output = self.getOutputSetOfTS(self.getInputSet(pointer=True), binning)
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
+                                     copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=True,
                                      binning=binning)
