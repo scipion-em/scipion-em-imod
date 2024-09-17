@@ -240,6 +240,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
+                                     copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=True)
                 else:

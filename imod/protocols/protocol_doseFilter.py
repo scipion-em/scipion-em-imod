@@ -175,6 +175,7 @@ class ProtImodDoseFilter(ProtImodBase):
                     self.copyTsItems(output, ts, tsId,
                                      updateTsCallback=self.updateTs,
                                      updateTiCallback=self.updateTi,
+                                     copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=True)
                 else:

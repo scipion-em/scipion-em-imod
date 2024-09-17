@@ -218,20 +218,22 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsXRayErased
 
     @classmethod
-    def _runDoseFilter(cls, inTsSet, fixedDose=False, fixedDoseValue=0):
+    def _runDoseFilter(cls, inTsSet, fixedDose=False, fixedDoseValue=0, excludedViews=None):
         if fixedDose:
             doseMsg = 'fixed dose'
             doseType = FIXED_DOSE
         else:
             doseMsg = 'Scipion import dose'
             doseType = SCIPION_IMPORT
-        print(magentaStr(f"\n==> Running the dose filter with {doseMsg}:"))
+        excludedViewsMsg = 'eV' if excludedViews else None
+        print(magentaStr(f"\n==> Running the dose filter with {doseMsg}:"
+                         f"\n\tExcluded views = {excludedViews is not None}"))
         protDoseFilter = cls.newProtocol(ProtImodDoseFilter,
                                          inputSetOfTiltSeries=inTsSet,
                                          inputDoseType=doseType)
         if fixedDose:
             protDoseFilter.fixedImageDose.set(fixedDoseValue)
-        protDoseFilter.setObjLabel(doseMsg)
+        protDoseFilter.setObjLabel(f'{doseMsg}, {excludedViewsMsg}')
         cls.launchProtocol(protDoseFilter)
         tsDoseFiltered = getattr(protDoseFilter, OUTPUT_TILTSERIES_NAME, None)
         return tsDoseFiltered
@@ -564,9 +566,8 @@ class TestImodBase(TestBaseCentralizedLayer):
 
 class TestImodXRayEraser(TestImodBase):
 
-    def testXRayEraser(self):
-        tsXRayErased = self._runXRayEraser(self.importedTs)
-        self.checkTiltSeries(tsXRayErased,
+    def _checkTiltSeries(self, inTsSet, excludedViewsDict=None):
+        self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate,
                              imported=True,
@@ -574,12 +575,25 @@ class TestImodXRayEraser(TestImodBase):
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
 
+    def testXRayEraser01(self):
+        tsXRayErased = self._runXRayEraser(self.importedTs)
+        self._checkTiltSeries(tsXRayErased)
+
+    def testXRayEraser02(self):
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        tsXRayErased = self._runXRayEraser(importedTs)
+        # Check the results
+        self._checkTiltSeries(tsXRayErased, excludedViewsDict=self.excludedViewsDict)
 
 class TestImodDoseFilter(TestImodBase):
 
-    def _checkTiltSeries(self, inTsSet):
+    def _checkTiltSeries(self, inTsSet, excludedViewsDict=None):
         testAcqDict = {}
         for tsId, acq in self.testAcqObjDict.items():
             # Set initial dose and accum dose to 0 as the output ts are dose-weighted
@@ -596,7 +610,8 @@ class TestImodDoseFilter(TestImodBase):
                              testAcqObj=testAcqDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
 
     def testDoseFilter01(self):
         tsDoseFilterred = self._runDoseFilter(self.importedTs, fixedDose=SCIPION_IMPORT)
@@ -607,6 +622,15 @@ class TestImodDoseFilter(TestImodBase):
                                               fixedDose=FIXED_DOSE,
                                               fixedDoseValue=DataSetRe4STATuto.dosePerTiltImgWithTltFile.value)
         self._checkTiltSeries(tsDoseFilterred)
+
+    def testDoseFilter03(self):
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        tsDoseFilterred = self._runDoseFilter(importedTs, fixedDose=SCIPION_IMPORT)
+        # Check the results
+        self._checkTiltSeries(tsDoseFilterred, excludedViewsDict=self.excludedViewsDict)
 
 
 class TestImodTsPreprocess(TestImodBase):
