@@ -376,9 +376,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.inputTSPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
+        inFiduSet = self.getInputSet()
+        self.inputTSPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
         self.inputTS = self.inputTSPointer.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputTS if ts.getTsId() in self.inputTS.getTSIds()}
+        # There can be failed fiducial models, so the TsIds used as reference must be the ones present in the input set
+        # of landmark models
+        fidTsIds = inFiduSet.getUniqueValues(TiltSeries.TS_ID_FIELD)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputTS if ts.getTsId() in fidTsIds}
 
         lms = self.getInputSet().aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
                                            [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
