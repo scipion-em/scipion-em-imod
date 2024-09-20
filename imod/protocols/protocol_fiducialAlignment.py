@@ -378,7 +378,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _initialize(self):
         self.inputTSPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
         self.inputTS = self.inputTSPointer.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputTS if ts.getTsId() is self.inputTS.getTSIds()}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputTS if ts.getTsId() in self.inputTS.getTSIds()}
 
         lms = self.getInputSet().aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
                                            [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
