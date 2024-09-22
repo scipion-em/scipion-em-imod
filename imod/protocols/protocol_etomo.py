@@ -408,7 +408,6 @@ class ProtImodEtomo(ProtImodBase):
                     outputTSCoords.append(newCoord3D)
                     outputTSCoords.update(newCoord3D)
 
-
             """Landmark models with no gaps"""
             modelFilePath = self.getExtraOutFile(tsId, suffix="nogaps", ext=FID_EXT)
             residFilePath = self.getExtraOutFile(tsId, ext=RESID_EXT)

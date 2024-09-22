@@ -29,12 +29,12 @@ import numpy as np
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import BINNING_FACTOR
-from pwem import ALIGN_2D, ALIGN_NONE
+from pwem import ALIGN_NONE
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.objects import Transform
 from pyworkflow.utils import Message
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
-                          TiltImage, TiltSeries, TiltSeriesCoordinate)
+                          TiltSeries, TiltSeriesCoordinate)
 
 from imod import utils
 from imod.protocols import ProtImodBase
@@ -646,7 +646,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 output.append(newCoord3D)
 
             self._store(output)
-
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

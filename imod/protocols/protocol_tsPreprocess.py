@@ -27,7 +27,6 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
-from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
