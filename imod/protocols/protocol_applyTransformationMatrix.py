@@ -29,7 +29,6 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
-from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
@@ -117,10 +116,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                  prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions ------------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def computeAlignmentStep(self, tsId):
         try:
             ts = self.tsDict[tsId]

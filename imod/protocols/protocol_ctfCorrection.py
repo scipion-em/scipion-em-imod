@@ -170,7 +170,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         pIdList = []
         for tsId in self.presentTsIds:
             presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
-            pidConvert = self._insertFunctionStep(self.convertInputsStep,tsId, presentAcqOrders, prerequisites=[])
+            pidConvert = self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders, prerequisites=[])
             pidProcess = self._insertFunctionStep(self.ctfCorrection, tsId, prerequisites=pidConvert)
             pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders,
                                                        prerequisites=pidProcess)

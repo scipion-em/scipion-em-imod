@@ -26,23 +26,9 @@ import copy
 import math
 from os.path import exists
 from typing import Union
-
 import numpy as np
 
-from cistem.protocols import CistemProtTsCtffind
-from imod.constants import OUTPUT_TILTSERIES_NAME, SCIPION_IMPORT, FIXED_DOSE, OUTPUT_TS_INTERPOLATED_NAME, \
-    FIDUCIAL_MODEL, PT_FRACTIONAL_OVERLAP, OUTPUT_FIDUCIAL_GAPS_NAME, PATCH_TRACKING, PT_NUM_PATCHES, \
-    OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME, OUTPUT_CTF_SERIE, OUTPUT_COORDINATES_3D_NAME
-from imod.protocols import ProtImodXraysEraser, ProtImodDoseFilter, ProtImodTsNormalization, \
-    ProtImodApplyTransformationMatrix, ProtImodImportTransformationMatrix, ProtImodXcorrPrealignment, \
-    ProtImodFiducialModel, ProtImodTomoReconstruction, ProtImodTomoNormalization, ProtImodTomoProjection, \
-    ProtImodExcludeViews, ProtImodCtfCorrection, ProtImodAutomaticCtfEstimation, ProtImodGoldBeadPicker3d
-from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
-from imod.protocols.protocol_fiducialAlignment import GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED, \
-    ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES, TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES, \
-    ProtImodFiducialAlignment, ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION, ALL_ROTATIONS, ALL_EXCEPT_MIN, \
-    DIST_SKEW_ONLY
-from pwem import ALIGN_NONE, ALIGN_2D, NO_VERSION_FOUND_STR
+from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
 from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries
@@ -52,6 +38,16 @@ from tomo.protocols.protocol_import_ctf import ImportChoice
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
 from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto, TS_03, TS_54, TS_01, TS_43, TS_45
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
+
+from cistem.protocols import CistemProtTsCtffind
+from imod.constants import *
+from imod.protocols import *
+from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
+from imod.protocols.protocol_fiducialAlignment import (GROUP_ROTATIONS, GROUP_TILTS, DIST_DISABLED,
+                                                       ROT_SOLUTION_CHOICES, MAG_SOLUTION_CHOICES,
+                                                       TILT_SOLUTION_CHOICES, DISTORTION_SOLUTION_CHOICES,
+                                                       ONE_ROTATION, FIXED_MAG, DIST_FULL_SOLUTION,
+                                                       ALL_ROTATIONS, ALL_EXCEPT_MIN, DIST_SKEW_ONLY)
 
 # 5 TS with no. tilt-images:
 #   - TS_01 = 40
@@ -594,6 +590,7 @@ class TestImodXRayEraser(TestImodBase):
         # Check the results
         self._checkTiltSeries(tsXRayErased, excludedViewsDict=self.excludedViewsDict)
 
+
 class TestImodDoseFilter(TestImodBase):
 
     def _checkTiltSeries(self, inTsSet, excludedViewsDict=None):
@@ -774,7 +771,6 @@ class TestImodImportTrMatrixWithPattern(TestImodBase):
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst)
 
-
     def testImportTrMatrixWpat01(self):
         # exclusionWords = '01 43 45'  # Imported CTF should be TS_03 and TS_54
         tsImportedTrMat = self._runImportTrMatrix(self.importedTs, filesPattern='*/{TS}.xf')
@@ -807,7 +803,6 @@ class TestImodImportTrMatrixWithPattern(TestImodBase):
                               testAcqObjDict=testAcqObjDict,
                               expectedDimensionsDict=expectedDimensionsDict,
                               anglesCountDict=anglesCountDict)
-
 
 
 class TestImodApplyTrMatrix(TestImodBase):
@@ -947,7 +942,6 @@ class TestImodXcorrAlignment(TestImodBase):
                                     self.testInterpAcqObjDict,
                                     self.anglesCountDict,
                                     binningFactor=interptBinningFactor)
-
 
     def testXcorAli05(self):
         interptBinningFactor = 4

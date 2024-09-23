@@ -49,9 +49,6 @@ class ProtImodExcludeViews(ProtImodBase):
     _label = 'Exclude views'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)

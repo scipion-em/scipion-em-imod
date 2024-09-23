@@ -581,7 +581,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             warnMsgList.append('The even/odd tilt-series or tomograms were not found in the introduced tilt-series or '
                                'tomograns metadata. Thus, only the full tilt-series or tomograms will be processed.')
 
-
     def runProgram(self, program, params, cwd=None):
         """ Shortcut method to run IMOD's command given input params dict. """
         args = ' '.join(['%s %s' % (k, str(v)) for k, v in params.items()])

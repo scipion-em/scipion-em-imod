@@ -90,7 +90,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         self._initialize()
         matchBinningFactor = self.binningTM.get() / self.binningTS.get()
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.generateTransformFileStep,tsId, matchBinningFactor)
+            self._insertFunctionStep(self.generateTransformFileStep, tsId, matchBinningFactor)
             self._insertFunctionStep(self.assignTransformationMatricesStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
