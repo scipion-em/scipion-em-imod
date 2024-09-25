@@ -238,7 +238,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       params.EnumParam,
                       display=params.EnumParam.DISPLAY_HLIST,
                       choices=ROT_SOLUTION_CHOICES,
-                      default=ONE_ROTATION,
+                      default=GROUP_ROTATIONS,
                       label='Rotation solution type',
                       help='Type of rotation solution: See rotOption in tiltalign IMOD command \n'
                            '* No rotation: The in-plane rotation will not be estimated\n'
