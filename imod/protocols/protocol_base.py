@@ -376,41 +376,47 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
-                         inputPtr, binning=1,
+                         inputPtr,
+                         binning=1,
                          attrName=OUTPUT_TILTSERIES_NAME,
+                         tiltAxisAngle=None,
                          suffix="") -> SetOfTiltSeries:
         """ Method to generate output of set of tilt-series.
         :param inputPtr: input set pointer (TS or tomograms)
         :param binning: binning factor
         :param attrName: output attr name
+        :param tiltAxisAngle: Only applies to TS. If not None, the corresponding value of the
+        set acquisition will be updated (xCorr prot)
         :param suffix: output set suffix
         """
         inputSet = inputPtr.get()
-        outputTS = getattr(self, attrName, None)
-        if outputTS:
-            outputTS.enableAppend()
+        outputSet = getattr(self, attrName, None)
+        if outputSet:
+            outputSet.enableAppend()
         else:
-            outputTS = self._createSetOfTiltSeries(suffix=suffix)
+            outputSet = self._createSetOfTiltSeries(suffix=suffix)
 
             if isinstance(inputSet, SetOfTiltSeries):
-                outputTS.copyInfo(inputSet)
+                outputSet.copyInfo(inputSet)
+                if tiltAxisAngle:
+                    outputSet.getAcquisition().setTiltAxisAngle(tiltAxisAngle)
 
             elif isinstance(inputSet, SetOfTomograms):
                 # _anglesCount does not exist for SetOfTomograms, so we can't use copyInfo
-                outputTS.setAcquisition(inputSet.getAcquisition())
-                outputTS.setSamplingRate(inputSet.getSamplingRate())
+                outputSet.setAcquisition(inputSet.getAcquisition())
+                outputSet.setSamplingRate(inputSet.getSamplingRate())
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate()
                 samplingRate *= binning
-                outputTS.setSamplingRate(samplingRate)
+                outputSet.setSamplingRate(samplingRate)
 
-            outputTS.setStreamState(Set.STREAM_OPEN)
+            outputSet.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{attrName: outputTS})
-            self._defineSourceRelation(inputPtr, outputTS)
+            self._defineOutputs(**{attrName: outputSet})
+            self._defineSourceRelation(inputPtr, outputSet)
 
-        return outputTS
+        return outputSet
 
     def getOutputFiducialModel(self, inputPtr,
                                attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,

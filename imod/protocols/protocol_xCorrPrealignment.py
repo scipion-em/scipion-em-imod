@@ -217,7 +217,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         else:
             outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(outputFn):
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                tAx = self.tiltAxisAngle.get()
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                               tiltAxisAngle=tAx)
                 alignmentMatrix = utils.formatTransformationMatrix(outputFn)
                 self.copyTsItems(output, ts, tsId,
                                  updateTsCallback=self.updateTsNonInterp,
@@ -225,7 +227,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                  copyDisabledViews=True,
                                  copyId=True,
                                  copyTM=False,
-                                 alignmentMatrix=alignmentMatrix)
+                                 alignmentMatrix=alignmentMatrix,
+                                 tiltAxisAngle=tAx)
             else:
                 self.createOutputFailedSet(ts)
 
@@ -293,7 +296,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         tsOut.setAlignment2D()
 
     @staticmethod
-    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, **kwargs):
+    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None,
+                          tiltAxisAngle=None, **kwargs):
         transform = Transform()
         newTransform = alignmentMatrix[:, :, index]
         newTransformArray = np.array(newTransform)
@@ -307,6 +311,8 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             transform.setMatrix(newTransformArray)
 
         tiOut.setTransform(transform)
+        if tiltAxisAngle:
+            tiOut.getAcquisition().setTiltAxisAngle(tiltAxisAngle)
 
     @staticmethod
     def updateTsInterp(tsId, ts, tsOut, **kwargs):
