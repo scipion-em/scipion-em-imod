@@ -464,7 +464,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def computeOutputStackStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId not in self._failedItems:
+        if tsId in self._failedItems:
+            self.createOutputFailedSet(ts)
+        else:
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
