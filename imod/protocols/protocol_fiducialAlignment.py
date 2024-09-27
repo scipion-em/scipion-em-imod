@@ -171,28 +171,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       important=True,
                       label='Fiducial model')
 
-        # TODO: Allow for a different set of tilt-series input source than the one from the landmark model. This is not
-        # TODO: possible due to a change of data type when applying the transformation with scipion applyTransform
-        # TODO: method due to in a change in the output datatype (always float) which triggers the following error in
-        # TODO: the imod tiltalign program:
-        # TODO: ERROR: TILTALIGN - TWO POINTS (#    2 AND    3) ON VIEW    2 IN CONTOUR    1 OF OBJECT   1
-
-        # form.addParam('setOfTiltSeriesSource',
-        #               params.EnumParam,
-        #               choices=['Yes', 'No'],
-        #               default=0,
-        #               label='Use same set of tilt-series form model',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help="By default the set of tilt-series to be algined is the same from which the fiducial models"
-        #                    "have been obtained. If the user wants to sepecify the set of tilt series to be aligned "
-        #                    "then select No.")
-        #
-        # form.addParam('inputSetOfTiltSeries',
-        #               params.PointerParam,
-        #               pointerClass='SetOfTiltSeries',
-        #               condition='setOfTiltSeriesSource==1',
-        #               label='Input set of tilt-series.')
-
         form.addParam('twoSurfaces',
                       params.BooleanParam,
                       default=False,
@@ -376,16 +354,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        inFiduSet = self.getInputSet()
-        self.inputTSPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
-        self.inputTS = self.inputTSPointer.get()
+        inFiduSet = self.getInputFiduSet()
+        self.inTsSetPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
         # There can be failed fiducial models, so the TsIds used as reference must be the ones present in the input set
         # of landmark models
         fidTsIds = inFiduSet.getUniqueValues(TiltSeries.TS_ID_FIELD)
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputTS if ts.getTsId() in fidTsIds}
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inTsSetPointer.get()
+                       if ts.getTsId() in fidTsIds}
 
-        lms = self.getInputSet().aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
-                                           [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
+        lms = inFiduSet.aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
+                                  [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
         self.lmDict = {lm[TiltSeries.TS_ID_FIELD]: (lm["_size"], lm["_modelName"]) for lm in lms}
 
     def computeFiducialAlignmentStep(self, tsId):
@@ -464,15 +442,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def computeOutputStackStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId in self._failedItems:
-            self.createOutputFailedSet(ts)
-        else:
+        if tsId not in self._failedItems:
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
                 alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
-                output = self.getOutputSetOfTS(self.inputTSPointer)
+                output = self.getOutputSetOfTS(self.inTsSetPointer)
                 self.copyTsItems(output, ts, tsId,
                                  updateTsCallback=self.updateTsNonInterp,
                                  updateTiCallback=self.updateTiNonInterp,
@@ -490,7 +466,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
-                output = self.getOutputSetOfTS(self.inputTSPointer, binning,
+                output = self.getOutputSetOfTS(self.inTsSetPointer, binning,
                                                attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                suffix="Interpolated")
 
@@ -518,44 +494,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                  copyTM=False,
                                  excludedViews=len(tsExcludedIndices) > 0,
                                  tltList=tltList)
-
-    @staticmethod
-    def updateTsInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.getAcquisition().setTiltAxisAngle(0.)
-        tsOut.setAlignment(ALIGN_NONE)
-        tsOut.setInterpolated(True)
-
-    def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        tiOut.setTiltAngle(float(tltList[index]))
-
-                # newTs = TiltSeries(tsId=tsId)
-                # newTs.copyInfo(ts)
-                # newTs.setAlignment(ALIGN_NONE)
-                # newTs.setInterpolated(True)
-                # output.append(newTs)
-                #
-                # tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
-                # tltList = utils.formatAngleList(tltFilePath)
-                #
-                # if binning > 1:
-                #     newTs.setSamplingRate(ts.getSamplingRate() * binning)
-                #
-                # for index, tiltImage in enumerate(ts):
-                #     newTi = TiltImage()
-                #     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                #     newTi.setAcquisition(tiltImage.getAcquisition())
-                #     newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
-                #     newTi.setTiltAngle(float(tltList[index]))
-                #     if binning > 1:
-                #         newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                #     newTs.append(newTi)
-                #
-                # newTs.getAcquisition().setTiltAxisAngle(0)
-                # newTs.write(properties=False)
-                #
-                # output.update(newTs)
-                # self._store(output)
 
     # def eraseGoldBeadsStep(self, tsId):
     #     """ Erase gold beads on aligned stack. """
@@ -587,7 +525,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             if os.path.exists(fiducialNoGapFilePath):
-                output = self.getOutputFiducialModel(self.inputTSPointer)
+                output = self.getOutputFiducialModel(self.inTsSetPointer)
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
                 fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
@@ -636,7 +574,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         # Create the output set of 3D coordinates
         coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT)
         if os.path.exists(coordFilePath):
-            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputTSPointer)
+            output = self.getOutputSetOfTiltSeriesCoordinates(self.inTsSetPointer)
             coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
@@ -689,8 +627,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
+    def getInputFiduSet(self, pointer=False):
         return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
+    
+    def getInputSet(self, pointer=False):
+        inFiduSet = self.getInputFiduSet()
+        return inFiduSet.getSetOfTiltSeries(pointer=pointer)
 
     def getRotationType(self):
         return {
@@ -750,4 +692,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
             transform.setMatrix(newTransformArray)
 
         tiOut.setTransform(transform)
+        tiOut.setTiltAngle(float(tltList[index]))
+
+    @staticmethod
+    def updateTsInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.getAcquisition().setTiltAxisAngle(0.)
+        tsOut.setAlignment(ALIGN_NONE)
+        tsOut.setInterpolated(True)
+
+    def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
         tiOut.setTiltAngle(float(tltList[index]))
