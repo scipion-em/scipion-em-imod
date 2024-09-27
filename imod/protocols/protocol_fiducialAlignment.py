@@ -457,6 +457,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                  copyTM=False,
                                  alignmentMatrix=alignmentMatrix,
                                  tltList=tltList)
+            else:
+                self.createOutputFailedSet(ts)
 
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         """ Generate interpolated stack. """
