@@ -558,6 +558,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         if isinstance(item, TiltSeries):
             newItem.copyItems(item)
+            # newItem.write(properties=False)
+            output.update(newItem)
+            # output.write()
 
         self._store(output)
 
