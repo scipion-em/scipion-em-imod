@@ -559,6 +559,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if isinstance(item, TiltSeries):
             newItem.copyItems(item)
 
+        self._store(output)
+
     # --------------------------- UTILS functions -----------------------------
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
