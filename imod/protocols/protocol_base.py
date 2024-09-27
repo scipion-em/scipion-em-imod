@@ -547,6 +547,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
+        logger.info(f'Failed TS ---> {item.getTsId()}')
         inputSet = self.getInputSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
         newItem = item.clone()
