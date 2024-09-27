@@ -521,9 +521,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if isinstance(inputSet, SetOfTiltSeries):
             failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
 
-            if failedTs is not None:
+            if failedTs:
                 failedTs.enableAppend()
             else:
+                logger.info('Create the set of failed TS')
                 failedTs = self._createSetOfTiltSeries(suffix='Failed')
                 failedTs.copyInfo(inputSet)
                 failedTs.setStreamState(Set.STREAM_OPEN)
@@ -534,9 +535,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         elif isinstance(inputSet, SetOfTomograms):
             failedTomos = getattr(self, OUTPUT_TOMOS_FAILED_NAME, None)
-            if failedTomos is not None:
+            if failedTomos:
                 failedTomos.enableAppend()
             else:
+                logger.info('Create the set of failed tomograms')
                 failedTomos = self._createSetOfTomograms(suffix='Failed')
                 failedTomos.copyInfo(inputSet)
                 failedTomos.setStreamState(Set.STREAM_OPEN)
