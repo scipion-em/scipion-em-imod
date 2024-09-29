@@ -326,8 +326,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         # Interpolation
         if imodInterpolation is None:
-            logger.info(f"TS [{tsId}] linked")
-            path.createLink(inTsFileName, outputTsFileName)
+            _linkTs()
 
         elif imodInterpolation:
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)

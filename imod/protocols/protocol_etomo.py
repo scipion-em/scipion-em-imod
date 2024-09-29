@@ -676,6 +676,7 @@ ProcessTrack.TomogramCombination=Not started
 
         preAliTs = getattr(self, OUTPUT_PREALI_TILTSERIES_NAME, None)
         aliTs = getattr(self, OUTPUT_ALI_TILTSERIES_NAME, None)
+        outputTsWithAli = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
         fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
@@ -687,6 +688,9 @@ ProcessTrack.TomogramCombination=Not started
 
         if aliTs is not None:
             summary.append("- Aligned tilt-series")
+
+        if outputTsWithAli is not None:
+            summary.append("- Tilt-series with alignment")
 
         if tsCoords is not None:
             summary.append("- Landmark 3D coordinates")
