@@ -84,7 +84,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         form.addParam('tomoThickness',
                       params.IntParam,
-                      default=1000,
+                      default=300,
                       label='Tomogram thickness (voxels)',
                       important=True,
                       help='Size in voxels of the tomogram along the z '

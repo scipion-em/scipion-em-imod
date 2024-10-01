@@ -154,8 +154,7 @@ class ProtImodFiducialModel(ProtImodBase):
         seedModel.addParam('numberFiducial',
                            params.IntParam,
                            label='Number of fiducials',
-                           default=25,
-                           expertLevel=params.LEVEL_ADVANCED,
+                           default=10,
                            help="Number of fiducials to be tracked for alignment.")
 
         seedModel.addParam('doTrackWithModel', params.BooleanParam,
