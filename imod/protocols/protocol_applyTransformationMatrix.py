@@ -27,12 +27,15 @@
 import os
 
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler as ih
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
+from pwem import ALIGN_NONE
+from pyworkflow.utils import Message
+from tomo.objects import SetOfTiltSeries
 
 from imod import utils
 from imod.protocols import ProtImodBase
-from imod.constants import XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME
+from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME,
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -54,14 +57,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTiltSeries',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Tilt-series to apply the transformation matrix')
 
-        form.addParam('binning', params.IntParam,
+        form.addParam(BINNING_FACTOR, params.IntParam,
                       default=1,
                       label='Binning for the interpolated',
                       help='Binning to be applied to the interpolated tilt-series '
@@ -79,10 +82,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       default=True,
                       label='Taper inwards from the edge?',
                       help='When the image is transformed areas with no information '
-                           'are filled in (e.g. because of rotation).'
+                           'are filled in (e.g. because of rotation). '
                            'Decide whether tapering is done inwards or outwards '
                            'from the edge.')
-        
+
         form.addParam('linear',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -93,31 +96,26 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is more suitable when images are very noisy, but cubic '
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
-        
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Apply to odd/even',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be processed. The '
-                           'transformations applied to the odd/even tilt-series '
-                           'will be exactly the same.')
+
+        self.addOddEvenParams(form)
+
+        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.computeAlignmentStep, tsId)
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.computeAlignmentStep,
+                                              tsId,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions ------------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def computeAlignmentStep(self, tsId):
         try:
             ts = self.tsDict[tsId]
@@ -125,81 +123,55 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.genTsPaths(tsId)
             utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
 
-            params = self.getBasicNewstackParams(ts,
-                                                 self.getExtraOutFile(tsId),
-                                                 firstItem=firstItem,
-                                                 xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
-                                                 binning=self.binning.get(),
-                                                 doSwap=True,
-                                                 tsExcludedIndices=ts.getExcludedViewsIndex(),
-                                                 doTaper=True)
-            params["-taper"] = "1,1" if self.taperInside else "1,0"
+            paramsDict = self.getBasicNewstackParams(ts,
+                                                     self.getExtraOutFile(tsId),
+                                                     firstItem=firstItem,
+                                                     xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
+                                                     binning=self.binning.get(),
+                                                     doSwap=True,
+                                                     tsExcludedIndices=ts.getExcludedViewsIndex(),
+                                                     doTaper=True)
+            paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
 
             if self.linear:
-                params["-linear"] = ""
+                paramsDict["-linear"] = ""
 
-            self.runProgram("newstack", params)
+            self.runProgram("newstack", paramsDict)
 
             if self.oddEvenFlag:
-                oddFn = firstItem.getOdd().split('@')[1]
-                evenFn = firstItem.getEven().split('@')[1]
-                params['-input'] = oddFn
-                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = ts.getOddFileName()
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram("newstack", paramsDict)
 
-                params['-input'] = evenFn
-                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", params)
+                paramsDict['-input'] = ts.getEvenFileName()
+                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram("newstack", paramsDict)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
-    def generateOutputStackStep(self, tsId):
+    def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            outputLocation = self.getExtraOutFile(tsId)
-            if os.path.exists(outputLocation):
-                output = self.getOutputInterpolatedTS(self.getInputSet(),
-                                                      binning=self.binning.get())
+        with self._lock:
+            if tsId in self._failedItems:
+                self.createOutputFailedSet(ts)
+            else:
+                outputLocation = self.getExtraOutFile(tsId)
+                if os.path.exists(outputLocation):
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                   binning=self.binning.get(),
+                                                   attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                                   suffix="Interpolated",)
 
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setInterpolated(True)
-                acq = newTs.getAcquisition()
-                acq.setTiltAxisAngle(0.)  # 0 because TS is aligned
-                newTs.setAcquisition(acq)
-                output.append(newTs)
-
-                outputPixSize = self._getOutputSampling()
-                for index, tiltImage in enumerate(ts):
-                    if tiltImage.isEnabled():
-                        newTi = TiltImage()
-                        newTi.copyInfo(tiltImage, copyId=False, copyTM=False)
-                        acq = tiltImage.getAcquisition()
-                        acq.setTiltAxisAngle(0.)
-                        newTi.setAcquisition(acq)
-                        newTi.setLocation(index+1, outputLocation)
-                        if self.oddEvenFlag:
-                            locationOdd = index+1, (self.getExtraOutFile(tsId, suffix=ODD))
-                            locationEven = index+1, (self.getExtraOutFile(tsId, suffix=EVEN))
-                            newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                              ih.locationToXmipp(locationEven)])
-                        else:
-                            newTi.setOddEven([])
-
-                        newTi.setSamplingRate(outputPixSize)
-                        newTs.append(newTi)
-
-                dims = self._getOutputDim(outputLocation)
-                newTs.setDim(dims)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTsCallback=self.updateTs,
+                                     updateTiCallback=self.updateTi,
+                                     copyId=False,
+                                     copyTM=False,
+                                     excludedViews=ts.getExcludedViewsIndex())
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -215,21 +187,30 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     def _summary(self):
         summary = []
-        if self.InterpolatedTiltSeries:
+        output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Interpolations applied: {self.InterpolatedTiltSeries.getSize()}")
+                           f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.InterpolatedTiltSeries:
+        output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        if output is not None:
             methods.append("The interpolation has been computed for "
-                           f"{self.InterpolatedTiltSeries.getSize()} "
+                           f"{output.getSize()} "
                            "tilt-series using the IMOD *newstack* command.")
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def _getOutputSampling(self) -> float:
-        return self.getInputSet().getSamplingRate() * self.binning.get()
+    @staticmethod
+    def updateTs(tsId, ts, tsOut, **kwargs):
+        tsOut.setInterpolated(True)
+        tsOut.setAlignment(ALIGN_NONE)
+        tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+        tiOut.getAcquisition().setTiltAxisAngle(0.)

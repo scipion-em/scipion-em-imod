@@ -27,6 +27,10 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.object import String
+from pyworkflow.protocol.constants import STEPS_SERIAL
+from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
@@ -63,11 +67,16 @@ class ProtImodTomoReconstruction(ProtImodBase):
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
+        self.widthWarnMsg = String()
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -75,7 +84,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
         form.addParam('tomoThickness',
                       params.IntParam,
-                      default=1000,
+                      default=300,
                       label='Tomogram thickness (voxels)',
                       important=True,
                       help='Size in voxels of the tomogram along the z '
@@ -85,10 +94,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
                       params.IntParam,
                       default=0,
                       label='Tomogram width (voxels)',
+                      expertLevel=params.LEVEL_ADVANCED,
                       help='Number of pixels to cut out in X, centered on the middle in X. '
                            'Leave 0 for default X.')
 
-        lineShift = form.addLine('Tomogram shift (Å)',
+        lineShift = form.addLine('Tomogram shift (px)',
                                  expertLevel=params.LEVEL_ADVANCED,
                                  help="This entry allows one to shift the reconstructed"
                                       " slice in X or Z before it is output.  If the "
@@ -228,40 +238,40 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Reconstruct odd/even?',
-                      help='If True, the full tilt series and the associated '
-                           'odd/even tilt series will be reconstructed. '
-                           'The alignment applied to the odd/even tilt series '
-                           'will be exactly the same.')
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
+        widthWarnTsIds = []
         self._initialize()
-        for tsId in self.tsDict.keys():
+        for tsId, ts in self.tsDict.items():
+            xDim = ts.getXDim()
+            tomoWidth = self.tomoWidth.get()
+            if tomoWidth > xDim:
+                tomoWidth = 0
+                widthWarnTsIds.append(tsId)
             self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeReconstructionStep, tsId)
+            self._insertFunctionStep(self.computeReconstructionStep, tsId, tomoWidth)
             self._insertFunctionStep(self.createOutputStep, tsId)
         self._insertFunctionStep(self.closeOutputSetsStep)
 
+        if widthWarnTsIds:
+            self.widthWarnMsg.set(f'\n\n*WARNING!:*'
+                                  f'\nThe introduced width is greater than the X dimension of the tomograms: '
+                                  f'*{widthWarnTsIds}*.'
+                                  f'\nValue 0 was assumed for all of them.')
+
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def convertInputStep(self, tsId, **kwargs):
-        # Considering swapXY is required to make tilt axis vertical
-        super().convertInputStep(tsId, doSwap=True, oddEven=self.oddEvenFlag)
+        presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
+                                                    onlyEnabled=True)  # Re-stack excluding views before reconstructing
+        super().convertInputStep(tsId,
+                                 doSwap=True,
+                                 oddEven=self.oddEvenFlag,
+                                 presentAcqOrders=presentAcqOrders)
 
-    # @ProtImodBase.tryExceptDecorator
-    def computeReconstructionStep(self, tsId):
+    def computeReconstructionStep(self, tsId, tomoWidth):
         try:
-            ts = self.tsDict[tsId]
-
             # run tilt
             paramsTilt = {
                 "-InputProjections": self.getTmpOutFile(tsId),
@@ -281,10 +291,12 @@ class ProtImodTomoReconstruction(ProtImodBase):
             if self.fakeInteractionsSIRT.get() != 0:
                 paramsTilt["-FakeSIRTiterations"] = self.fakeInteractionsSIRT.get()
 
-            # Excluded views
-            excludedViews = ts.getExcludedViewsIndex(caster=str)
-            if len(excludedViews):
-                paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
+            # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
+            # # Excluded views
+            # ts = self.tsDict[tsId]
+            # excludedViews = ts.getExcludedViewsIndex(caster=str)
+            # if len(excludedViews):
+            #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
 
             if self.usesGpu():
                 paramsTilt["-UseGPU"] = self.getGpuList()[0]
@@ -292,58 +304,54 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             self.runProgram('tilt', paramsTilt)
 
-            oddEvenTmp = [[], []]
-
-            if self.oddEvenFlag:
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
-                oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[0]
-                self.runProgram('tilt', paramsTilt)
-
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[1]
-                self.runProgram('tilt', paramsTilt)
-
             # run trimvol
-            def _getTrimOptions():
-                args = "-rx "
-
-                if self.tomoWidth.get():
-                    args += f" -nx {self.tomoWidth.get()}"
-
-                return args
+            trimVolOpts = "-rx "
+            if tomoWidth > 0:
+                trimVolOpts += f" -nx {tomoWidth}"
 
             paramsTrimVol = {
                 'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
                 'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
-                'options': _getTrimOptions()
+                'options': trimVolOpts
             }
 
             argsTrimvol = "%(options)s %(input)s %(output)s"
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
+            oddEvenTmp = [[], []]
             if self.oddEvenFlag:
+                # Odd
+                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
+                oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                paramsTilt['-OutputFile'] = oddEvenTmp[0]
+                self.runProgram('tilt', paramsTilt)
+
                 paramsTrimVol['input'] = oddEvenTmp[0]
                 paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
+
+                # Even
+                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                paramsTilt['-OutputFile'] = oddEvenTmp[1]
+                self.runProgram('tilt', paramsTilt)
 
                 paramsTrimVol['input'] = oddEvenTmp[1]
                 paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
             if os.path.exists(tomoLocation):
-                output = self.getOutputSetOfTomograms(self.getInputSet())
+                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
 
                 newTomogram = Tomogram(tsId=tsId)
                 newTomogram.copyInfo(ts)
@@ -356,17 +364,21 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
                 # Set default tomogram origin
                 newTomogram.setOrigin(newOrigin=None)
-                if self.tomoShiftZ.get():
+                shiftX = self.tomoShiftX.get()
+                shiftZ = self.tomoShiftZ.get()
+                if shiftX or shiftZ:
+                    sRate = newTomogram.getSamplingRate()
                     x, y, z = newTomogram.getShiftsFromOrigin()
-                    shiftZang = self.tomoShiftZ.get() * newTomogram.getSamplingRate()
-                    newTomogram.setShiftsInOrigin(x=x, y=y, z=z + shiftZang)
+                    shiftXang = shiftX * sRate
+                    shiftZang = shiftZ * sRate
+                    newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
 
                 output.append(newTomogram)
-                output.updateDim()
                 output.update(newTomogram)
-
                 output.write()
                 self._store(output)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
@@ -374,6 +386,9 @@ class ProtImodTomoReconstruction(ProtImodBase):
         if self.Tomograms:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            f"Tomograms reconstructed: {self.Tomograms.getSize()}")
+            widthWarnings = self.widthWarnMsg.get()
+            if widthWarnings:
+                summary.append(widthWarnings)
         else:
             summary.append("Outputs are not ready yet.")
         return summary

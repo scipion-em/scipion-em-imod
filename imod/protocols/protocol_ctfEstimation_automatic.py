@@ -27,9 +27,10 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
@@ -52,11 +53,11 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSet',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
-                      pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
-                      label='Tilt-series',
+                      label="Input tilt-series",
+                      pointerClass='SetOfTiltSeries',
                       help='This should be a *raw stack*, not an aligned stack, '
                            'because the interpolation used to make '
                            'an aligned stack attenuates high frequencies and '
@@ -201,7 +202,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                           default=False,
                           label='Skip astigmatic phase views?',
                           expertLevel=params.LEVEL_ADVANCED,
-                          display=params.EnumParam.DISPLAY_HLIST,
                           help='Skip or break views only when finding astigmatism '
                                'or phase shift')
 
@@ -212,7 +212,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                       params.BooleanParam,
                                       default=False,
                                       label='Search astigmatism?',
-                                      display=params.EnumParam.DISPLAY_HLIST,
                                       help='Search for astigmatism when fitting.')
 
             groupAstigmatism.addParam('maximumAstigmatism',
@@ -254,7 +253,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                      params.BooleanParam,
                                      default=False,
                                      label='Search phase shift?',
-                                     display=params.EnumParam.DISPLAY_HLIST,
                                      help='Search for phase shift when fitting.')
 
             groupPhaseShift.addParam('minimumViewsPhaseShift',
@@ -271,7 +269,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                     params.BooleanParam,
                                     default=False,
                                     label='Search cut-on frequency?',
-                                    display=params.EnumParam.DISPLAY_HLIST,
                                     help='Search for cut-on frequency when '
                                          'finding phase shift.')
 
@@ -287,15 +284,25 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
+            form.addParallelSection(threads=4, mpi=0)
+
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         expDefoci = self.getExpectedDefocus()
+
+        closeSetStepDeps = []
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.ctfEstimation, tsId, expDefoci)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            convId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                              prerequisites=[])
+            compId = self._insertFunctionStep(self.ctfEstimation, tsId,
+                                              expDefoci, prerequisites=[convId])
+            outId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -306,7 +313,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def convertInputStep(self, tsId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsId, imodInterpolation=None)
+        super().convertInputStep(tsId, imodInterpolation=False)
 
     def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
@@ -386,56 +393,60 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.runProgram('ctfplotter', paramsCtfPlotter)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
-            self.createOutputFailedSet(ts)
-        else:
-            defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-            if os.path.exists(defocusFilePath):
-                output = self.getOutputSetOfCTFTomoSeries(outputSetName)
-                defocusFileFlag = utils.getDefocusFileFlag(defocusFilePath)
 
-                newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
-                newCTFTomoSeries.copyInfo(ts)
-                newCTFTomoSeries.setTiltSeries(ts)
-                newCTFTomoSeries.setIMODDefocusFileFlag(defocusFileFlag)
-                newCTFTomoSeries.setNumberOfEstimationsInRange(None)
-                output.append(newCTFTomoSeries)
+        with self._lock:
+            if tsId in self._failedItems:
+                self.createOutputFailedSet(ts)
+            else:
+                defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+                if os.path.exists(defocusFilePath):
+                    output = self.getOutputSetOfCTFTomoSeries(self.getInputSet(pointer=True),
+                                                              outputSetName)
+                    newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
+                    newCTFTomoSeries.copyInfo(ts)
+                    newCTFTomoSeries.setTiltSeries(ts)
 
-                self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+                    # flags below will be updated in parseTSDefocusFile
+                    newCTFTomoSeries.setIMODDefocusFileFlag(1)
+                    newCTFTomoSeries.setNumberOfEstimationsInRange(0)
+                    output.append(newCTFTomoSeries)
 
-                if not (newCTFTomoSeries.getIsDefocusUDeviationInRange() and
-                        newCTFTomoSeries.getIsDefocusVDeviationInRange()):
-                    newCTFTomoSeries.setEnabled(False)
+                    self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
 
-                output.update(newCTFTomoSeries)
-                output.write()
-                self._store(output)
+                    output.update(newCTFTomoSeries)
+                    output.write()
+                    self._store(output)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.CTFTomoSeries:
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Number of CTF estimated: {self.CTFTomoSeries.getSize()}")
+                           f"Number of CTF estimated: {ctfSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.CTFTomoSeries:
-            methods.append(f"{self.CTFTomoSeries.getSize()} tilt-series CTF "
+
+        ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
+        if ctfSeries is not None:
+            methods.append(f"{ctfSeries.getSize()} tilt-series CTF "
                            "have been estimated using the IMOD *ctfplotter* "
                            "command.")
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-
     def allowsDelete(self, obj):
         return True
 
@@ -451,7 +462,5 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def getInputSet(self, pointer=False):
         """ Reimplemented from the base class for CTF case. """
-        if isinstance(self.inputSet.get(), SetOfCTFTomoSeries):
-            return self.inputSet.get().getSetOfTiltSeries(pointer=pointer)
-
-        return self.inputSet.get() if not pointer else self.inputSet
+        inputSet = getattr(self, IN_TS_SET)
+        return inputSet.get() if not pointer else inputSet

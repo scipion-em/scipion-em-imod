@@ -28,15 +28,55 @@ import os
 import numpy as np
 
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import BINNING_FACTOR
+from pwem import ALIGN_NONE
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from pwem.objects import Transform
+from pyworkflow.utils import Message
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
-                          TiltImage, TiltSeries, TiltSeriesCoordinate)
+                          TiltSeries, TiltSeriesCoordinate)
 
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_FIDUCIAL_NO_GAPS_NAME)
+                            OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                            OUTPUT_TS_INTERPOLATED_NAME,
+                            OUTPUT_TS_COORDINATES_NAME)
+
+# Rotation solution types
+NO_ROTATION = 0
+ONE_ROTATION = 1
+GROUP_ROTATIONS = 2
+ALL_ROTATIONS = 3
+ROT_SOLUTION_CHOICES = ['No rotation',
+                        'One rotation',
+                        'Group rotations',
+                        'Solve for all rotations']
+
+# Magnification solution types
+FIXED_MAG = 0
+GROUP_MAGS = 1
+ALL_MAGS = 2
+MAG_SOLUTION_CHOICES = ['Fixed magnification at 1.0',
+                        'Group magnifications',
+                        'Solve for all magnifications']
+
+# Tilt angle solution types
+FIXED_TILT = 0
+GROUP_TILTS = 1
+ALL_EXCEPT_MIN = 2
+TILT_SOLUTION_CHOICES = ['Fixed tilt angles',
+                         'Group tilt angles',
+                         'Solve for all except minimum tilt']
+
+# Distortion solution types
+DIST_DISABLED = 0
+DIST_FULL_SOLUTION = 1
+DIST_SKEW_ONLY = 2
+DISTORTION_SOLUTION_CHOICES = ['Disabled',
+                               'Full solution',
+                               'Skew only']
 
 
 class ProtImodFiducialAlignment(ProtImodBase):
@@ -117,9 +157,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels
     }
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
         form.addParam('inputSetOfLandmarkModels',
                       params.PointerParam,
@@ -127,33 +171,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       important=True,
                       label='Fiducial model')
 
-        # TODO: Allow for a different set of tilt-series input source than the one from the landmark model. This is not
-        # TODO: possible due to a change of data type when applying the transformation with scipion applyTransform
-        # TODO: method due to in a change in the output datatype (always float) which triggers the following error in
-        # TODO: the imod tiltalign program:
-        # TODO: ERROR: TILTALIGN - TWO POINTS (#    2 AND    3) ON VIEW    2 IN CONTOUR    1 OF OBJECT   1
-
-        # form.addParam('setOfTiltSeriesSource',
-        #               params.EnumParam,
-        #               choices=['Yes', 'No'],
-        #               default=0,
-        #               label='Use same set of tilt-series form model',
-        #               display=params.EnumParam.DISPLAY_HLIST,
-        #               help="By default the set of tilt-series to be algined is the same from which the fiducial models"
-        #                    "have been obtained. If the user wants to sepecify the set of tilt series to be aligned "
-        #                    "then select No.")
-        #
-        # form.addParam('inputSetOfTiltSeries',
-        #               params.PointerParam,
-        #               pointerClass='SetOfTiltSeries',
-        #               condition='setOfTiltSeriesSource==1',
-        #               label='Input set of tilt-series.')
-
         form.addParam('twoSurfaces',
                       params.BooleanParam,
                       default=False,
                       label='Assume beads on two surfaces?',
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help="Track fiducials differentiating in which side of the sample are located.\n"
                            "IMPORTANT: It is highly recommended to match the option selected in the "
                            "generation of the fiducial models. In case they  do not match, it is not "
@@ -167,7 +188,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       default=False,
                       label='Generate interpolated tilt-series?',
                       important=True,
-                      display=params.EnumParam.DISPLAY_HLIST,
                       help='Generate and save the interpolated tilt-series applying the obtained transformation '
                            'matrices.\n'
                            'By default, the output of this protocol will be a tilseries that will have associated'
@@ -178,7 +198,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         groupInterpolation = form.addGroup('Interpolated tilt-series',
                                            condition='computeAlignment')
 
-        groupInterpolation.addParam('binning',
+        groupInterpolation.addParam(BINNING_FACTOR,
                                     params.IntParam,
                                     default=1,
                                     label='Binning for the interpolated',
@@ -194,11 +214,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
         form.addParam('rotationSolutionType',
                       params.EnumParam,
-                      choices=['No rotation', 'One rotation',
-                               'Group rotations', 'Solve for all rotations'],
-                      default=3,
-                      label='Rotation solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=ROT_SOLUTION_CHOICES,
+                      default=GROUP_ROTATIONS,
+                      label='Rotation solution type',
                       help='Type of rotation solution: See rotOption in tiltalign IMOD command \n'
                            '* No rotation: The in-plane rotation will not be estimated\n'
                            '* One rotation: To solve for a single rotation variable \n'
@@ -209,18 +228,17 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupRotationSize',
                       params.IntParam,
                       default=5,
-                      condition='rotationSolutionType==2',
+                      condition='rotationSolutionType == %i' % GROUP_ROTATIONS,
                       label='Group size',
                       help='Default group size when automapping rotation variables')
 
         form.addParam('magnificationSolutionType',
                       params.EnumParam,
-                      choices=['Fixed magnification at 1.0',
-                               'Group magnifications',
-                               'Solve for all magnifications'],
-                      default=1,
-                      label='Magnification solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=MAG_SOLUTION_CHOICES,
+                      default=FIXED_MAG,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Magnification solution type',
                       help='Type of magnification solution: See MagOption in tiltaling IMOD command\n'
                            '* Fixed magnification: Do not solve magnification. This fixes all magnifications at 1.0.\n'
                            '* Group magnifications: Group views to solve for fewer magnifications variables. '
@@ -230,17 +248,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupMagnificationSize',
                       params.IntParam,
                       default=4,
-                      condition='magnificationSolutionType==1',
+                      condition='magnificationSolutionType == %i' % GROUP_MAGS,
                       label='Group size',
                       help='Group size when automapping magnification variables')
 
         form.addParam('tiltAngleSolutionType',
                       params.EnumParam,
-                      choices=['Fixed tilt angles', 'Group tilt angles',
-                               'Solve for all except minimum tilt'],
-                      default=1,
-                      label='Tilt angle solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=TILT_SOLUTION_CHOICES,
+                      default=GROUP_TILTS,
+                      label='Tilt angle solution type',
                       help='Type of tilt angle solution: See TiltOption in tiltalign IMOD command\n'
                            ' * Fixed tilt angles: To fix all tilt angles at their initial (input) values \n'
                            ' * Group tilt angles: To automap groups of tilt angles (linearly changing values) \n'
@@ -250,16 +267,16 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('groupTiltAngleSize',
                       params.IntParam,
                       default=5,
-                      condition='tiltAngleSolutionType==1',
+                      condition='tiltAngleSolutionType == %i' % GROUP_TILTS,
                       label='Group size',
                       help='Average default group size when automapping tilt variables')
 
         form.addParam('distortionSolutionType',
                       params.EnumParam,
-                      choices=['Disabled', 'Full solution', 'Skew only'],
-                      default=0,
-                      label='Distortion solution type',
                       display=params.EnumParam.DISPLAY_HLIST,
+                      choices=DISTORTION_SOLUTION_CHOICES,
+                      default=DIST_DISABLED,
+                      label='Distortion solution type',
                       help='Type of skew solution:'
                            '* 0 to fix all skew angles at 0.0 \n'
                            '* 1 to vary all skew angles independently\n '
@@ -270,49 +287,49 @@ class ProtImodFiducialAlignment(ProtImodBase):
         form.addParam('xStretchGroupSize',
                       params.IntParam,
                       default=7,
-                      condition='distortionSolutionType==1',
+                      condition='distortionSolutionType == %i' % DIST_FULL_SOLUTION,
                       label='X stretch group size',
                       help='Basic grouping size for X stretch')
 
         form.addParam('skewGroupSize',
                       params.IntParam,
                       default=11,
-                      condition='tiltAngleSolutionType==1 or tiltAngleSolutionType==2',
+                      condition='distortionSolutionType in [%i, %i]' % (DIST_FULL_SOLUTION, DIST_SKEW_ONLY),
                       label='Skew group size',
                       help='Size of the skew group')
 
-        form.addSection('Erase gold beads')
-
-        form.addParam('eraseGoldBeads',
-                      params.BooleanParam,
-                      default=False,
-                      label='Erase gold beads',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='Remove the gold beads detected during fiducial '
-                           'alignment with *ccderaser* program. This option '
-                           'will generate an interpolated tilt series with '
-                           'the gold beads erased and interpolated with '
-                           'the calculated transformation matrices form '
-                           'the alignment.')
-
-        groupEraseGoldBeads = form.addGroup('Gold bead eraser',
-                                            condition='eraseGoldBeads')
-
-        groupEraseGoldBeads.addParam('betterRadius',  # actually diameter
-                                     params.IntParam,
-                                     default=18,
-                                     label='Bead diameter (px)',
-                                     help="For circle objects, this entry "
-                                          "specifies a radius to use for points "
-                                          "without an individual point size "
-                                          "instead of the object's default sphere "
-                                          "radius. This entry is floating point "
-                                          "and can be used to overcome the "
-                                          "limitations of having an integer "
-                                          "default sphere radius. If there are "
-                                          "multiple circle objects, enter one "
-                                          "value to apply to all objects or a "
-                                          "value for each object.")
+    # NOTE:
+    # The gold bead eraser only remove the fiducial markers in the interpolated TS and only the ones used for the
+    #  TS alignment, so for now this functionality will be removed. Jorge (07/08/2024)
+    #
+    # form.addSection('Erase gold beads')
+    #
+    # form.addParam('eraseGoldBeads',
+    #               params.BooleanParam,
+    #               default=False,
+    #               label='Erase gold beads',
+    #               help='Remove the gold beads detected during fiducial '
+    #                    'alignment with *ccderaser* program. This option '
+    #                    'will generate an interpolated tilt series with '
+    #                    'the gold beads erased and interpolated with '
+    #                    'the calculated transformation matrices form '
+    #                    'the alignment.')
+    #
+    # form.addParam('betterRadius',  # actually diameter
+    #               params.IntParam,
+    #               default=18,
+    #               label='Bead diameter (px)',
+    #               help="For circle objects, this entry "
+    #                    "specifies a radius to use for points "
+    #                    "without an individual point size "
+    #                    "instead of the object's default sphere "
+    #                    "radius. This entry is floating point "
+    #                    "and can be used to overcome the "
+    #                    "limitations of having an integer "
+    #                    "default sphere radius. If there are "
+    #                    "multiple circle objects, enter one "
+    #                    "value to apply to all objects or a "
+    #                    "value for each object.")
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -326,25 +343,28 @@ class ProtImodFiducialAlignment(ProtImodBase):
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
             self._insertFunctionStep(self.computeOutputStackStep, tsId)
 
-            if self.computeAlignment or self.eraseGoldBeads:
+            if self.computeAlignment:  # or self.eraseGoldBeads:
                 self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
                                          tsId, binning)
-            if self.eraseGoldBeads:
-                self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
-
+            # if self.eraseGoldBeads:
+            #     self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
             self._insertFunctionStep(self.computeOutputModelsStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.inputTS = self.getInputSet().getSetOfTiltSeries()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.inputTS}
+        inFiduSet = self.getInputFiduSet()
+        self.inTsSetPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
+        # There can be failed fiducial models, so the TsIds used as reference must be the ones present in the input set
+        # of landmark models
+        fidTsIds = inFiduSet.getUniqueValues(TiltSeries.TS_ID_FIELD)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inTsSetPointer.get()
+                       if ts.getTsId() in fidTsIds}
 
-        lms = self.getInputSet().aggregate(["COUNT"], "_tsId",
-                                           ["_tsId", "_size", "_modelName"])
-        self.lmDict = {lm["_tsId"]: (lm["_size"], lm["_modelName"]) for lm in lms}
+        lms = inFiduSet.aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
+                                  [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
+        self.lmDict = {lm[TiltSeries.TS_ID_FIELD]: (lm["_size"], lm["_modelName"]) for lm in lms}
 
     def computeFiducialAlignmentStep(self, tsId):
         try:
@@ -406,12 +426,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
                             cwd=self._getExtraPath())
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
             if os.path.exists(noGapsFid):
                 paramsNoGapModel2Point = {
@@ -421,58 +441,38 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
     def computeOutputStackStep(self, tsId):
-        if tsId not in self._failedTs:
-            ts = self.tsDict[tsId]
+        ts = self.tsDict[tsId]
+        if tsId not in self._failedItems:
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
-                newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
-                output = self.getOutputSetOfTS(self.inputTS)
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                output.append(newTs)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setLocation(tiltImage.getLocation())
-                    newTi.setTiltAngle(float(tltList[index]))
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-
-                    transform = Transform()
-
-                    if tiltImage.hasTransform():
-                        previousTransform = tiltImage.getTransform().getMatrix()
-                        newTransform = newTransformationMatricesList[:, :, index]
-                        previousTransformArray = np.array(previousTransform)
-                        newTransformArray = np.array(newTransform)
-                        outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-                        transform.setMatrix(outputTransformMatrix)
-                        newTi.setTransform(transform)
-                    else:
-                        newTransform = newTransformationMatricesList[:, :, index]
-                        newTransformArray = np.array(newTransform)
-                        transform.setMatrix(newTransformArray)
-                        newTi.setTransform(transform)
-
-                    newTs.append(newTi)
-
-                newTs.write(properties=False)
-                output.update(newTs)
-                output.write()
-                self._store(output)
+                alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
+                output = self.getOutputSetOfTS(self.inTsSetPointer)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsNonInterp,
+                                 updateTiCallback=self.updateTiNonInterp,
+                                 copyDisabledViews=True,
+                                 copyId=True,
+                                 copyTM=False,
+                                 alignmentMatrix=alignmentMatrix,
+                                 tltList=tltList)
+            else:
+                self.createOutputFailedSet(ts)
 
     def computeOutputInterpolatedStackStep(self, tsId, binning):
         """ Generate interpolated stack. """
-        if tsId not in self._failedTs:
+        if tsId not in self._failedItems:
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
                 ts = self.tsDict[tsId]
-                firstItem = ts.getFirstItem()
-                output = self.getOutputInterpolatedTS(self.inputTS, binning)
+                output = self.getOutputSetOfTS(self.inTsSetPointer, binning,
+                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                               suffix="Interpolated")
 
-                params = self.getBasicNewstackParams(
+                firstItem = ts.getFirstItem()
+                tsExcludedIndices = ts.getExcludedViewsIndex()
+                paramsDict = self.getBasicNewstackParams(
                     ts,
                     self.getExtraOutFile(tsId),
                     inputTsFileName=self.getTmpOutFile(tsId),
@@ -480,70 +480,52 @@ class ProtImodFiducialAlignment(ProtImodBase):
                     firstItem=firstItem,
                     binning=binning,
                     doSwap=True,
-                    doTaper=True)
-
-                self.runProgram('newstack', params)
-
-                newTs = TiltSeries(tsId=tsId)
-                newTs.copyInfo(ts)
-                newTs.setInterpolated(True)
-                output.append(newTs)
+                    doTaper=True,
+                    tsExcludedIndices=tsExcludedIndices,
+                )
+                self.runProgram('newstack', paramsDict)
 
                 tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
                 tltList = utils.formatAngleList(tltFilePath)
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsInterp,
+                                 updateTiCallback=self.updateTiInterp,
+                                 copyId=True,
+                                 copyTM=False,
+                                 excludedViews=len(tsExcludedIndices) > 0,
+                                 tltList=tltList)
 
-                if binning > 1:
-                    newTs.setSamplingRate(ts.getSamplingRate() * binning)
-
-                for index, tiltImage in enumerate(ts):
-                    newTi = TiltImage()
-                    newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-                    newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setLocation(index + 1, self.getExtraOutFile(tsId))
-                    newTi.setTiltAngle(float(tltList[index]))
-                    if binning > 1:
-                        newTi.setSamplingRate(tiltImage.getSamplingRate() * binning)
-                    newTs.append(newTi)
-
-                dims = self._getOutputDim(self.getExtraOutFile(tsId))
-                newTs.setDim(dims)
-                newTs.write(properties=False)
-
-                output.update(newTs)
-                output.write()
-                self._store(output)
-
-    def eraseGoldBeadsStep(self, tsId):
-        """ Erase gold beads on aligned stack. """
-        if tsId not in self._failedTs:
-            try:
-                paramsCcderaser = {
-                    "-InputFile": self.getTmpOutFile(tsId),
-                    "-OutputFile": self.getExtraOutFile(tsId),
-                    "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                    "-BetterRadius": self.betterRadius.get() / 2,
-                    "-PolynomialOrder": 0,
-                    "-CircleObjects": "/",
-                    "-MergePatches": 1,
-                    "-ExcludeAdjacent": "",
-                    "-SkipTurnedOffPoints": 1,
-                    "-ExpandCircleIterations": 3
-                }
-                self.runProgram('ccderaser', paramsCcderaser)
-            except Exception as e:
-                self._failedTs.append(tsId)
-                self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
+    # def eraseGoldBeadsStep(self, tsId):
+    #     """ Erase gold beads on aligned stack. """
+    #     if tsId not in self._failedItems:
+    #         try:
+    #             paramsCcderaser = {
+    #                 "-InputFile": self.getTmpOutFile(tsId),
+    #                 "-OutputFile": self.getExtraOutFile(tsId),
+    #                 "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+    #                 "-BetterRadius": self.betterRadius.get() / 2,
+    #                 "-PolynomialOrder": 0,
+    #                 "-CircleObjects": "/",
+    #                 "-MergePatches": 1,
+    #                 "-ExcludeAdjacent": "",
+    #                 "-SkipTurnedOffPoints": 1,
+    #                 "-ExpandCircleIterations": 3
+    #             }
+    #             self.runProgram('ccderaser', paramsCcderaser)
+    #         except Exception as e:
+    #             self._failedItems.append(tsId)
+    #             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
             if os.path.exists(fiducialNoGapFilePath):
-                output = self.getOutputFiducialModelNoGaps(self.inputTS)
+                output = self.getOutputFiducialModel(self.inTsSetPointer)
                 fiducialNoGapList = utils.formatFiducialList(fiducialNoGapFilePath)
                 fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
@@ -587,12 +569,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
                 output.append(landmarkModelNoGaps)
                 output.update(landmarkModelNoGaps)
-                output.write()
+                self._store(output)
 
         # Create the output set of 3D coordinates
         coordFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT)
         if os.path.exists(coordFilePath):
-            output = self.getOutputSetOfTiltSeriesCoordinates(self.inputTS)
+            output = self.getOutputSetOfTiltSeriesCoordinates(self.inTsSetPointer)
             coordList, xDim, yDim = utils.format3DCoordinatesList(coordFilePath)
 
             for element in coordList:
@@ -603,28 +585,31 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                        sampling_rate=ts.getSamplingRate())
                 output.append(newCoord3D)
 
-            output.write()
             self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
 
-        if self.FiducialModelNoGaps:
+        interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
+        fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
+
+        if fidModelNoGaps is not None:
             summary.append("Fiducial models generated with no gaps: "
-                           f"{self.FiducialModelNoGaps.getSize()}")
+                           f"{fidModelNoGaps.getSize()}")
 
         if self.TiltSeries:
             summary.append("Transformation matrices updated from the "
                            f"input tilt-series: {self.TiltSeries.getSize()}")
 
-        if self.InterpolatedTiltSeries:
+        if interpTS is not None:
             summary.append("Interpolated tilt-series calculated: "
-                           f"{self.InterpolatedTiltSeries.getSize()}")
+                           f"{interpTS.getSize()}")
 
-        if self.TiltSeriesCoordinates:
+        if tsCoords is not None:
             summary.append("Fiducial 3D coordinates calculated: "
-                           f"{self.TiltSeriesCoordinates.getSize()}")
+                           f"{tsCoords.getSize()}")
 
         if not summary:
             summary.append("Outputs are not ready yet.")
@@ -633,16 +618,21 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def _methods(self):
         methods = []
 
-        if self.TiltSeriesCoordinates:
+        fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
+        if fidModelNoGaps is not None:
             methods.append("Solved fiducials alignment for "
-                           f"{self.FiducialModelNoGaps.getSize()} "
+                           f"{fidModelNoGaps.getSize()} "
                            "tilt-series using IMOD *tiltalign* command.")
 
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
+    def getInputFiduSet(self, pointer=False):
         return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
+    
+    def getInputSet(self, pointer=False):
+        inFiduSet = self.getInputFiduSet()
+        return inFiduSet.getSetOfTiltSeries(pointer=pointer)
 
     def getRotationType(self):
         return {
@@ -682,3 +672,34 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def getSurfaceToAnalyze(self):
         return 2 if self.twoSurfaces else 1
+
+    @staticmethod
+    def updateTsNonInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.setAlignment2D()
+
+    @staticmethod
+    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
+        transform = Transform()
+        newTransform = alignmentMatrix[:, :, index]
+        newTransformArray = np.array(newTransform)
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            previousTransformArray = np.array(previousTransform)
+            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+        else:
+            transform.setMatrix(newTransformArray)
+
+        tiOut.setTransform(transform)
+        tiOut.setTiltAngle(float(tltList[index]))
+
+    @staticmethod
+    def updateTsInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.getAcquisition().setTiltAxisAngle(0.)
+        tsOut.setAlignment(ALIGN_NONE)
+        tsOut.setInterpolated(True)
+
+    def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
+        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+        tiOut.setTiltAngle(float(tltList[index]))
