@@ -252,11 +252,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """
         def _linkTs():
             logger.info(f"TS [{tsId}] linked")
-            path.createLink(firstTi.getFileName(), outputTsFileName)
+            path.createAbsLink(firstTi.getFileName(), outputTsFileName)
 
             if oddEven:
-                path.createLink(fnOdd, outputOddTsFileName)
-                path.createLink(fnEven, outputEvenTsFileName)
+                path.createAbsLink(fnOdd, outputOddTsFileName)
+                path.createAbsLink(fnEven, outputEvenTsFileName)
 
         def _applyNewStackBasic():
             logger.info(f"TS [{tsId}] re-stacked with IMOD")
@@ -292,7 +292,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         # Interpolation
         if imodInterpolation is None:
             logger.info(f"TS [{tsId}] linked")
-            path.createLink(inTsFileName, outputTsFileName)
+            path.createAbsLink(inTsFileName, outputTsFileName)
 
         elif imodInterpolation:
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
