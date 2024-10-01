@@ -26,9 +26,12 @@
 # *****************************************************************************
 import os
 
+from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
+from pwem import ALIGN_NONE
 from pyworkflow.object import String
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 from tomo.utils import getCommonTsAndCtfElements
 
@@ -83,9 +86,9 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
+        form.addSection(Message.LABEL_INPUT)
 
-        form.addParam('inputSetOfTiltSeries',
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       label="Input tilt-series",
                       pointerClass='SetOfTiltSeries',
@@ -93,7 +96,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                            'CTF corrected. Usually this will be the '
                            'tilt-series with alignment information.')
 
-        form.addParam('inputSetOfCtfTomoSeries',
+        form.addParam(IN_CTF_TOMO_SET,
                       params.PointerParam,
                       label="Input CTF estimation",
                       pointerClass='SetOfCTFTomoSeries',
@@ -159,34 +162,26 @@ class ProtImodCtfCorrection(ProtImodBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
 
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Correct odd/even',
-                      help='If True, the full tilt series and the associated odd/even '
-                           'tilt series will be processed. The CTF correction applied '
-                           'to the odd/even tilt series will be exactly the same.')
+        self.addOddEvenParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        pIdList = []
         for tsId in self.presentTsIds:
-            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId],
-                                                         self.ctfDict[tsId])
-            self._insertFunctionStep(self.convertInputsStep,
-                                     tsId, presentAcqOrders)
-            self._insertFunctionStep(self.ctfCorrection, tsId)
-            self._insertFunctionStep(self.createOutputStep,
-                                     tsId, presentAcqOrders)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
+            pidConvert = self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders, prerequisites=[])
+            pidProcess = self._insertFunctionStep(self.ctfCorrection, tsId, prerequisites=pidConvert)
+            pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders,
+                                                       prerequisites=pidProcess)
+            pIdList.append(pidCreateOutput)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
-        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[])
-                        for ctf in self.inputSetOfCtfTomoSeries.get()}
+        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
         tsIds = list(self.tsDict.keys())
         ctfTsIds = list(self.ctfDict.keys())
@@ -248,29 +243,34 @@ class ProtImodCtfCorrection(ProtImodBase):
                 self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
 
         except Exception as e:
-            self._failedTs.append(tsId)
+            self._failedItems.append(tsId)
             self.error(f"ctfphaseflip execution failed for tsId {tsId} -> {e}")
 
     def createOutputStep(self, tsId, presentAcqOrders):
         ts = self.tsDict[tsId]
-        if tsId in self._failedTs:
+        if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
             outputFn = self.getExtraOutFile(tsId)
             if os.path.exists(outputFn):
-                inTsSet = self.getInputSet()
+                inTsSet = self.getInputSet(pointer=True)
                 outputSetOfTs = self.getOutputSetOfTS(inTsSet)
                 newTs = TiltSeries(tsId=tsId)
                 ts = self.tsDict[tsId]
                 newTs.copyInfo(ts)
+                newTs.setAlignment(ALIGN_NONE)
+                newTs.setAnglesCount(len(presentAcqOrders))
                 newTs.setCtfCorrected(True)
                 newTs.setInterpolated(True)
                 newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
                 outputSetOfTs.append(newTs)
 
-                for index, inTi in enumerate(ts):
+                angleMin = 999
+                angleMax = -999
+                tiList = []
+                for index, inTi in enumerate(ts.iterItems()):
                     if inTi.getAcquisitionOrder() in presentAcqOrders:
-                        newTi = TiltImage()
+                        newTi = TiltImage(tsId=tsId)
                         newTi.copyInfo(inTi, copyId=True, copyTM=False)
                         acq = inTi.getAcquisition()
                         acq.setTiltAxisAngle(0.)  # Is interpolated
@@ -283,11 +283,37 @@ class ProtImodCtfCorrection(ProtImodBase):
                                               ih.locationToXmipp(locationEven)])
                         else:
                             newTi.setOddEven([])
-                        newTs.append(newTi)
+                        # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                        # these values may change if the removed tilt-images are the first or the last, for example.
+                        tiAngle = newTi.getTiltAngle()
+                        angleMin = min(tiAngle, angleMin)
+                        angleMax = max(tiAngle, angleMax)
 
-                newTs.write(properties=False)
+                        tiList.append(newTi)
+                    
+                if len(presentAcqOrders) != max(len(ts), len(self.ctfDict[tsId])):
+                    # Update the acquisition minAngle and maxAngle values of the tilt-series
+                    acq = newTs.getAcquisition()
+                    acq.setAngleMin(angleMin)
+                    acq.setAngleMax(angleMax)
+                    acq.setAccumDose(0)
+                    acq.setDoseInitial(0)
+                    newTs.setAcquisition(acq)
+                    # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                    # specific accum and initial dose values
+                    for tiOut in tiList:
+                        tiAcq = tiOut.getAcquisition()
+                        tiAcq.setAngleMin(angleMin)
+                        tiAcq.setAngleMax(angleMax)
+                        tiAcq.setAccumDose(0)
+                        tiAcq.setDoseInitial(0)
+                        newTs.append(tiOut)
+                    newTs.setAnglesCount(len(newTs))
+                else:
+                    for tiOut in tiList:
+                        newTs.append(tiOut)
+
                 outputSetOfTs.update(newTs)
-                outputSetOfTs.write()
                 self._store(outputSetOfTs)
 
     # --------------------------- UTILS functions -----------------------------

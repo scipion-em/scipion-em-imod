@@ -29,6 +29,7 @@
 import os
 from shutil import which
 
+from pyworkflow.protocol.constants import STEPS_SERIAL
 from pyworkflow.gui import FileTreeProvider
 from pyworkflow.gui.project.utils import OS
 import pwem
@@ -155,7 +156,10 @@ class Plugin(pwem.Plugin):
     def runImod(cls, protocol, program, args, cwd=None):
         """ Run IMOD command from a given protocol. """
 
-        ncpus = protocol.numberOfThreads.get()
+        if protocol.stepsExecutionMode == STEPS_SERIAL:
+            ncpus = protocol.numberOfThreads.get()
+        else:
+            ncpus = 1
 
         # Get the command
         cmd = cls.getImodCmd(program, ncpus)

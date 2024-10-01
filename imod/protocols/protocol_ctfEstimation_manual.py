@@ -24,6 +24,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from pyworkflow.protocol.constants import STEPS_SERIAL
 
 from tomo.objects import SetOfCTFTomoSeries
 
@@ -54,6 +55,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
+        self.stepsExecutionMode = STEPS_SERIAL
         self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):
@@ -72,7 +74,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        tsId = obj.getObjId()
+        tsId = obj.getTsId()
         self.convertInputStep(tsId)
         expDefoci = self.getExpectedDefocus()
         self.ctfEstimation(tsId, expDefoci)
@@ -80,9 +82,10 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
-        setOfTiltseries = self.getInputSet()
-        for ts in setOfTiltseries.iterItems(iterate=False):
-            self.createOutputStep(ts.getTsId(), outputSetName)
+        tsIdList = self.inputTiltSeries.getTSIds()
+        for tsId in tsIdList:
+            self.createOutputStep(tsId, outputSetName)
+
         self.closeOutputSetsStep()
 
     def _summary(self):
