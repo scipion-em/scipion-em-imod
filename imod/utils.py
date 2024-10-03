@@ -29,9 +29,9 @@ This module contains utils functions for IMOD protocols
 import logging
 import os
 import csv
-import math
 from typing import Union
 import numpy as np
+
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
@@ -966,26 +966,7 @@ def formatGoldBead3DCoordinatesList(coordFilePath):
     return coorList
 
 
-def calculateRotationAngleFromTM(ts):
-    """ This method calculates que average tilt image rotation
-    angle from its associated transformation matrix."""
-    avgRotationAngle = 0
-
-    if not ts.getFirstItem().hasTransform():
-        return avgRotationAngle
-
-    for ti in ts:
-        tm = ti.getTransform().getMatrix()
-        cosRotationAngle = tm[0][0]
-        sinRotationAngle = tm[1][0]
-        avgRotationAngle += math.degrees(math.atan(sinRotationAngle / cosRotationAngle))
-
-    avgRotationAngle = avgRotationAngle / ts.getSize()
-
-    return avgRotationAngle
-
-
-def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
+def generateDoseFile(ts, doseFileOutputPath):
     """ This method generates a file containing the dose information
     of a tilt series in the specified location from the accumulated
     dose and dose per tilt. The format is two columns per each tilt image:
@@ -994,28 +975,11 @@ def generateDoseFileFromDoseTS(ts, doseFileOutputPath):
 
     doseInfoList = []
 
-    for ti in ts:
+    for ti in ts.iterItems(iterate=False):
         acq = ti.getAcquisition()
         doseInfoList.append((acq.getAccumDose() - acq.getDosePerFrame(), acq.getDosePerFrame()))
 
     np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")
-
-
-def generateDoseFileFromAccDoseTS(ts, doseFileOutputPath):
-    """ This method generates a file containing the dose information
-    of a tilt series in the specified location from the accumulated
-    dose per tilt information. The format file consist in a single
-    column with one dose value per line
-    that must coincide with each image from the tilt-series"""
-
-    doseInfoList = []
-
-    for ti in ts:
-        doseInfoList.append(ti.getAcquisition().getAccumDose())
-
-    with open(doseFileOutputPath, 'w') as f:
-        for dose in doseInfoList:
-            f.writelines("%f\n" % dose)
 
 
 def readExcludeViewsFile(excludeViewsFilePath):
@@ -1033,8 +997,8 @@ def readExcludeViewsFile(excludeViewsFilePath):
         for line in lines:
             vector = line.split()
             tsId = vector[0]
-            views = vector[1]
-            logger.info("For %s found excluded views: %s" % (tsId, views))
+            views = pwutils.getListFromRangeString(vector[1])
+            logger.info(f"For {tsId} found excluded views: {views}")
             excludedViews[tsId] = views
 
     return excludedViews

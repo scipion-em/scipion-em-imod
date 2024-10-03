@@ -23,41 +23,45 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import logging
 
-import os
 import numpy as np
 
-from pyworkflow import BETA
-from pyworkflow.object import Set
-from pyworkflow.utils import path
+import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol.constants import STEPS_SERIAL
 import pwem.objects as data
-from pwem.emlib.image import ImageHandler
-from tomo.objects import TiltSeries, TiltImage
+from tomo.objects import SetOfTiltSeries
+from tomo.protocols.protocol_base import ProtTomoImportFiles
+from tomo.convert.mdoc import normalizeTSId
 
-from .. import utils
-from .protocol_base import ProtImodBase, OUTPUT_TILTSERIES_NAME
+from imod import utils
+from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
+from imod.protocols import ProtImodBase
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodImportTransformationMatrix(ProtImodBase):
+class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     """
     Import the transformation matrices assigned to an input set of tilt-series
     """
-
     _label = 'Import transformation matrix'
-    _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+
+    def __init__(self, **kwargs):
+        ProtImodBase().__init__(**kwargs)
+        self.stepsExecutionMode = STEPS_SERIAL
+        ProtTomoImportFiles.__init__(self, **kwargs)
+        self.matchingTsIds = None
+        self.iterFilesDict = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        self._defineImportParams(form)
-
-        form.addParam('exclusionWords', params.StringParam,
-                      label='Exclusion words:',
-                      help="List of words separated by a space that the "
-                           "path should not have",
-                      expertLevel=params.LEVEL_ADVANCED)
-
-        form.addParam('inputSetOfTiltSeries',
+        ProtTomoImportFiles._defineImportParams(self, form)
+        ProtTomoImportFiles.addExclusionWordsParam(form)
+        form.addParam(IN_TS_SET,
                       params.PointerParam,
                       pointerClass='SetOfTiltSeries',
                       important=True,
@@ -84,153 +88,176 @@ class ProtImodImportTransformationMatrix(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        matchBinningFactor = self.binningTM.get() / self.binningTS.get()
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.generateTransformFileStep, tsId)
+            self._insertFunctionStep(self.generateTransformFileStep, tsId, matchBinningFactor)
             self._insertFunctionStep(self.assignTransformationMatricesStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.matchBinningFactor = self.binningTM.get() / self.binningTS.get()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inputSetOfTiltSeries.get()}
+        self.initializeParsing()
+        if self.regEx:
+            logger.info("Using regex pattern: '%s'" % self.regExPattern)
+            logger.info("Generated glob pattern: '%s'" % self.globPattern)
+            self.iterFilesDict = self.getMatchingFilesFromRegEx()
+        else:
+            dictBaseNames = {}
+            for iFile in self.iterFiles():
+                # We will Look for basename - tsId or base -name normalized basename - tsId matches. See tomo.convert.mdoc
+                # normalizeTSId
+                iFname = iFile[0]
+                fBaseName = pwutils.removeBaseExt(iFname)
+                dictBaseNames[fBaseName] = iFname
+                dictBaseNames[normalizeTSId(fBaseName)] = iFname
+            self.iterFilesDict = dictBaseNames
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet() if ts.getTsId()
+                       in self.iterFilesDict.keys()}  # Use only the ones that are not excluded with the excluded words
 
-    def generateTransformFileStep(self, tsId):
+    def generateTransformFileStep(self, tsId, matchBinningFactor):
         self.genTsPaths(tsId)
         ts = self.tsDict[tsId]
-        tsFileName = ts.getFirstItem().parseFileName(extension='')
-        extraPrefix = self._getExtraPath(tsId)
+        tiNum = ts.getSize()
+        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+        self.debug(f"Matching tsIds: {self.matchingTsIds}")
 
-        outputTransformFile = os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(extension=".xf"))
+        tmFilePath = self.iterFilesDict.get(tsId, None)
+        if tmFilePath:
+            if matchBinningFactor != 1:
+                inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
+                # Update shifts from the transformation matrix considering
+                # the matching binning between the input tilt
+                # series and the transformation matrix. We create an empty
+                # tilt-series containing only tilt-images
+                # with transform information.
+                transformMatrixList = []
 
-        for tmFilePath, _ in self.iterFiles():
-            tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
+                for index in range(tiNum):
+                    inputTransformMatrix = inputTransformMatrixList[:, :, index]
 
-            if tsFileName == tmFileName:
+                    outputTransformMatrix = inputTransformMatrix
+                    outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
+                    outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
+                    outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
+                    outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
+                    outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
+                    outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
+                    outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
+                    outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
+                    outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
 
-                if self.matchBinningFactor != 1:
+                    transformMatrixList.append(outputTransformMatrix)
 
-                    inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
+                utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
 
-                    extraPrefix = self._getExtraPath(tsId)
-                    path.makePath(extraPrefix)
-
-                    # Update shifts from the transformation matrix considering
-                    # the matching binning between the input tilt
-                    # series and the transformation matrix. We create an empty
-                    # tilt-series containing only tilt-images
-                    # with transform information.
-                    transformMatrixList = []
-
-                    ids = ts.getIdSet()
-                    for index in ids:
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index-1]
-
-                        outputTransformMatrix = inputTransformMatrix
-                        outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
-                        outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * self.matchBinningFactor
-                        outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
-                        outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * self.matchBinningFactor
-                        outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
-                        outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
-                        outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
-
-                        transformMatrixList.append(outputTransformMatrix)
-
-                    utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
-
-                else:
-                    path.createLink(tmFilePath, outputTransformFile)
+            else:
+                pwutils.createLink(tmFilePath, outputTransformFile)
 
     def assignTransformationMatricesStep(self, tsId):
         ts = self.tsDict[tsId]
-        extraPrefix = self._getExtraPath(tsId)
-        outputTransformFile = os.path.join(extraPrefix,
-                                           ts.getFirstItem().parseFileName(extension=".xf"))
-
-        output = self.getOutputSetOfTiltSeries(self.inputSetOfTiltSeries.get())
-
-        newTs = TiltSeries(tsId=tsId)
-        newTs.copyInfo(ts)
-
-        output.append(newTs)
-
+        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+        output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
         alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
 
-        for index, tiltImage in enumerate(ts):
-            newTi = TiltImage()
-            newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
-            newTi.setAcquisition(tiltImage.getAcquisition())
-            newTi.setLocation(tiltImage.getLocation())
-
-            transform = data.Transform()
-
-            if tiltImage.hasTransform():
-                previousTransform = tiltImage.getTransform().getMatrix()
-                newTransform = alignmentMatrix[:, :, index]
-                previousTransformArray = np.array(previousTransform)
-                newTransformArray = np.array(newTransform)
-                outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
-                transform.setMatrix(outputTransformMatrix)
-                newTi.setTransform(transform)
-
-            else:
-                transform.setMatrix(alignmentMatrix[:, :, index])
-                newTi.setTransform(transform)
-
-            newTs.append(newTi)
-
-        ih = ImageHandler()
-        x, y, z, _ = ih.getDimensions(newTs.getFirstItem().getFileName())
-        newTs.setDim((x, y, z))
-
-        newTs.write(properties=False)
-
-        output.update(newTs)
-        output.write()
-
-        self._store()
-
-    def closeOutputSetsStep(self):
-
-        output = getattr(self, OUTPUT_TILTSERIES_NAME)
-        output.setStreamState(Set.STREAM_CLOSED)
-        output.write()
-
-        self._store()
+        self.copyTsItems(output, ts, tsId,
+                         updateTsCallback=self.updateTs,
+                         updateTiCallback=self.updateTi,
+                         copyId=True,
+                         copyTM=False,
+                         alignmentMatrix=alignmentMatrix,
+                         isSemiStreamified=False)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
-        validateMsgs = []
+        errorMsg = []
+        self.initializeParsing()
+        if self.regEx:
+            matchingFileDict = self.getMatchingFilesFromRegEx()
+            if not matchingFileDict:
+                errorMsg.append('No files matching the pattern %s were found.' % self.globPattern)
+        else:
+            matchingFiles = self.getMatchFiles()
+            if matchingFiles:
+                tsIdList = self.getInputSet().getTSIds()
+                tmFileList = [normalizeTSId(fn) for fn, _ in self.iterFiles()]
+                self.matchingTsIds = list(set(tsIdList) & set(tmFileList))
+                if not self.matchingTsIds:
+                    errorMsg.append("No matching files found.\n\n"
+                                    f"\tThe tsIds detected are: {tsIdList}\n"
+                                    "\tThe transform files base names detected are: "
+                                    f"{tmFileList}")
+            else:
+                errorMsg.append("Unable to find the files provided:\n\n"
+                                f"\t-filePath = {self.filesPath.get()}\n"
+                                f"\t-pattern = {self.filesPattern.get()}")
 
-        match = False
-
-        for ts in self.inputSetOfTiltSeries.get():
-            tsFileName = ts.getFirstItem().parseFileName(extension='')
-
-            for tmFilePath, _ in self.iterFiles():
-                tmFileName = os.path.basename(os.path.splitext(tmFilePath)[0])
-
-                if tsFileName == tmFileName:
-                    match = True
-                    break
-
-            if not match:
-                validateMsgs.append("No xf file found for tilt-series %s: image file is %s and have not found its "
-                                    "exact match." % (ts.getTsId(), tsFileName, ))
-
-            match = False
-
-        return validateMsgs
+        return errorMsg
 
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append("Input tilt-series: %d\nTransformation matrices "
-                           "assigned: %d"
-                           % (self.inputSetOfTiltSeries.get().getSize(),
-                              self.TiltSeries.getSize()))
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           "Transformation matrices assigned: "
+                           f"{self.TiltSeries.getSize()}")
         return summary
+
+    # --------------------------- UTILS functions -----------------------------
+    def iterFiles(self):
+        """ Iterate through the files matched with the pattern.
+        Returns the fileName and fileId.
+        """
+        filePaths = self.getMatchFiles()
+        filePaths = self._excludeByWords(filePaths)
+
+        for fileName in filePaths:
+            if self._idRegex:
+                # Try to match the file id from filename
+                # this is set by the user by using #### format in the pattern
+                match = self._idRegex.match(fileName)
+                if match is None:
+                    raise ValueError(f"File {fileName} doesn't match the "
+                                     f"pattern '{self.getPattern()}'")
+                fileId = int(match.group(1))
+            else:
+                fileId = None
+
+            yield fileName, fileId
+
+    def _excludeByWords(self, files):
+        exclusionWords = self.exclusionWords.get()
+
+        if exclusionWords is None:
+            return files
+
+        exclusionWordList = exclusionWords.split()
+        allowedFiles = []
+
+        for file in files:
+            if any(bannedWord in file for bannedWord in exclusionWordList):
+                print(f"{file} excluded. Contains any of {exclusionWords}")
+                continue
+            allowedFiles.append(file)
+
+        return allowedFiles
+
+    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
+        transform = data.Transform()
+        alignmentMatrix = kwargs.get("alignmentMatrix")
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            newTransform = alignmentMatrix[:, :, index]
+            previousTransformArray = np.array(previousTransform)
+            newTransformArray = np.array(newTransform)
+            outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+        else:
+            transform.setMatrix(alignmentMatrix[:, :, index])
+
+        tiOut.setTransform(transform)
+
+    @staticmethod
+    def updateTs(tsId, ts, tsOut, **kwargs):
+        tsOut.setAlignment2D()
+

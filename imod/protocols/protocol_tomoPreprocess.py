@@ -23,16 +23,17 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from pyworkflow import BETA
-from pyworkflow.object import Set
+
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
+from imod.protocols.protocol_base import IN_TOMO_SET
+from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
-from .. import Plugin
-from .protocol_base import ProtImodBase, OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
 
 
-class ProtImodTomoNormalization(ProtImodBase):
+class ProtImodTomoNormalization(ProtImodBasePreprocess):
     """
     Normalize input tomogram and change its storing formatting.
 
@@ -59,328 +60,183 @@ class ProtImodTomoNormalization(ProtImodBase):
     """
 
     _label = 'Tomo preprocess'
-    _devStatus = BETA
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection('Input')
-        form.addParam('inputSetOfTomograms',
+        form.addSection(Message.LABEL_INPUT)
+        form.addParam(IN_TOMO_SET,
                       params.PointerParam,
                       pointerClass='SetOfTomograms',
                       important=True,
-                      label='Input set of tomograms',
-                      help='Introduce the set tomograms to be normalized')
-
-        form.addParam('binning',
-                      params.IntParam,
-                      default=1,
-                      label='Binning',
-                      important=True,
-                      help='Binning is an scaling factor for the output tomograms. '
-                           'Must be an integer greater than 1. IMOD uses ordinary'
-                           'binning to reduce tomograms in size by the given factor. '
-                           'The value of a binned pixel is the average of pixel '
-                           'values in each block of pixels being binned. Binning '
-                           'is applied before all')
-
-        form.addParam('floatDensities',
-                      params.EnumParam,
-                      choices=['No adjust',
-                               'range between min and max',
-                               'scaled to common mean and standard deviation',
-                               'shifted to a common mean without scaling',
-                               'shifted to mean and rescaled to a min and max'],
-                      default=0,
-                      label='Adjust densities mode',
-                      display=params.EnumParam.DISPLAY_COMBO,
-                      help='Adjust densities of sections individually:\n'
-                           '-Default: no adjustment performed\n'
-                           
-                           '-Range between min and max: This option will scale the gray values'
-                           'to be in a range given by a minimum and a maximum values.'
-                           'This is the mode 1 in newstack flag -floatDensities.\n'
-                           
-                           '-Scaled to common mean and standard deviation: This is the most '
-                           'common normalization procedure. The new tomogramss will have'
-                           'a mean and a standard deviation introduced by the user. Generaly,'
-                           'a zero mean and a standard deviation one is a good choice.'
-                           'This is the mode 2 in newstack flag -floatDensities.\n'
-                           
-                           '-Shifted to a common mean without scaling: This option only'
-                           'add an offset to the gray values of the tomograms. The offset will'
-                           'be calculated such as the new tomograms will present a mean gray value'
-                           'introduced by the user. This is the mode 3 in newstack flag '
-                           'floatDensities.\n'
-                           
-                           '-shifted to mean and rescaled to a min and max: In this case, an '
-                           'offset is added to the tomograms in order to achieve a mean gray value'
-                           ' then they are rescale the resulting minimum and maximum densities '
-                           'to the Min and Max values specified. This is the mode 4 in newstack'
-                           ' flag -floatDensities.\n')
-
-        groupMeanSd = form.addGroup('Mean and SD',
-                                    condition='floatDensities==2',
-                                    help='Scale all images to the given mean '
-                                         'and standard deviation. This option '
-                                         'implies -float 2 and is incompatible '
-                                         'with all other scaling options. If no '
-                                         'values are set, mean=0 and SD=1 by default')
-
-        groupMeanSd.addParam('meanSdToggle',
-                             params.EnumParam,
-                             choices=['Yes', 'No'],
-                             default=1,
-                             label='Set mean and SD?',
-                             display=params.EnumParam.DISPLAY_HLIST,
-                             help='Set mean and SD values')
-
-        groupMeanSd.addParam('scaleMean',
-                             params.FloatParam,
-                             default=0,
-                             label='Mean',
-                             help='Mean value for the rescaling')
-
-        groupMeanSd.addParam('scaleSd',
-                             params.FloatParam,
-                             default=1,
-                             label='SD',
-                             help='Standard deviation value for the rescaling')
-
-        groupScale = form.addGroup('Scaling values',
-                                   condition='floatDensities==4')
-
-        groupScale.addParam('scaleMax',
-                            params.FloatParam,
-                            default=255,
-                            label='Max.',
-                            help='Maximum value for the rescaling')
-
-        groupScale.addParam('scaleMin',
-                            params.FloatParam,
-                            default=0,
-                            label='Min.',
-                            help='Minimum value for the rescaling')
-
-        form.addParam('modeToOutput',
-                      params.EnumParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      choices=['default', '4-bit', '8-bit', 'signed 16-bit',
-                               'unsigned 16-bit', '32-bit float'],
-                      default=0,
-                      label='Storage data type',
-                      display=params.EnumParam.DISPLAY_COMBO,
-                      help='The storage mode of the output file. The '
-                           'default is the mode of the first input file, '
-                           'except for a 4-bit input file, where the default '
-                           'is to output as bytes')
-
-        form.addParam('scaleRangeToggle',
-                      params.EnumParam,
-                      choices=['Yes', 'No'],
-                      condition="floatDensities==1 or floatDensities==3",
-                      default=0,
-                      label='Set scaling range values?',
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      help='This option will rescale the densities of all '
-                           'sections by the same factors so that the original '
-                           'minimum and maximum density will be mapped '
-                           'to the Min and Max values that are entered')
-
-        form.addParam('scaleRangeMax',
-                      params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=255,
-                      label='Max.',
-                      help='Maximum value for the rescaling')
-
-        form.addParam('scaleRangeMin',
-                      params.FloatParam,
-                      condition="(floatDensities==1 or floatDensities==3) and scaleRangeToggle==0",
-                      default=0,
-                      label='Min.',
-                      help='Minimum value for the rescaling')
-
-        form.addParam('antialias',
-                      params.EnumParam,
-                      choices=['None', 'Blackman', 'Triangle', 'Mitchell',
-                               'Lanczos 2 lobes', 'Lanczos 3 lobes'],
-                      default=5,
-                      label='Antialias method:',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      display=params.EnumParam.DISPLAY_COMBO,
-                      help='Type of antialiasing filter to use when reducing images.\n'
-                           'The available types of filters are:\n\n'
-                           'None - Antialias will not be applied\n'
-                           'Blackman - fast but not as good at antialiasing as slower filters\n'
-                           'Triangle - fast but smooths more than Blackman\n'
-                           'Mitchell - good at antialiasing, smooths a bit\n'
-                           'Lanczos 2 lobes - good at antialiasing, less smoothing than Mitchell\n'
-                           'Lanczos 3 lobes - slower, even less smoothing but more risk of ringing\n'
-                           'The default is Lanczos 3 as of IMOD 4.7. Although '
-                           'many people consider Lanczos 2 the best compromise '
-                           'among the various factors, that sentiment may be '
-                           'based on images of natural scenes where there are '
-                           'sharp edges.')
-
-        form.addParam('processOddEven',
-                      params.BooleanParam,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      default=True,
-                      label='Process odd/even?',
-                      help='If True, the full tilt series and the associated odd/even tilt series will be processed. '
-                           'The transformations applied to the odd/even tilt series will be exactly the same.')
+                      label='Input set of tomograms')
+        super()._defineParams(form, isTomogram=True)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
+        binning = self.binning.get()
+        norm = self.floatDensities.get()
+        runNewStack = norm != 0 or (self.getModeToOutput() is not None)
+        closeSetStepDeps = []
+
         for tsId in self.tomoDict.keys():
-            self._insertFunctionStep(self.generateOutputStackStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            compId = self._insertFunctionStep(self.preprocessStep, tsId, runNewStack, binning,
+                                              prerequisites=[])
+            outId = self._insertFunctionStep(self.generateOutputStep, tsId, runNewStack, binning,
+                                             prerequisites=[compId])
+            closeSetStepDeps.append(outId)
+
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
+        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
-    def generateOutputStackStep(self, tsId):
-        self.genTsPaths(tsId)
-        tomo = self.tomoDict[tsId]
-        location = tomo.getFileName()
-        outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
+    def preprocessStep(self, tsId, runNewstack, binning):
+        try:
+            self.genTsPaths(tsId)
+            tomo = self.tomoDict[tsId]
+            tomoFn = tomo.getFileName()
+            outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
-        runNewstack = False
+            # Run newstack
+            norm = self.floatDensities.get()
+            # Important not to bin at this step
+            paramsNewstack = self.getBasicNewstackParams(tomo, outputFile,
+                                                         firstItem=tomo,
+                                                         binning=1,
+                                                         doNorm=norm != 0)
 
-        paramsNewstack = {
-            'input': location,
-            'output': outputFile,
-            'imagebinned': 1.0,
-        }
+            paramsNewstack["-antialias"] = self.antialias.get() + 1
+            # Float densities
+            if norm > 0:
+                paramsNewstack["-FloatDensities"] = norm
+                if norm == 2:
+                    paramsNewstack["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
+                elif norm == 4:
+                    paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
 
-        argsNewstack = "-input %(input)s " \
-                       "-output %(output)s " \
-                       "-imagebinned %(imagebinned)s "
+            if self.getModeToOutput() is not None:
+                paramsNewstack["-ModeToOutput"] = self.getModeToOutput()
 
-        if self.floatDensities.get() != 0:
-            runNewstack = True
-            argsNewstack += " -FloatDensities " + str(self.floatDensities.get())
+            oddEvenOutput = [[], []]
 
-            if self.floatDensities.get() == 2:
-                if self.meanSdToggle.get() == 0:
-                    argsNewstack += " -MeanAndStandardDeviation " + str(self.scaleMean.get()) + "," + \
-                                    str(self.scaleSd.get())
-
-            elif self.floatDensities.get() == 4:
-                argsNewstack += " -ScaleMinAndMax " + str(self.scaleMax.get()) + "," + str(self.scaleMin.get())
-
-            else:
-                if self.scaleRangeToggle.get() == 0:
-                    argsNewstack += " -ScaleMinAndMax " + str(self.scaleRangeMax.get()) + "," + \
-                                    str(self.scaleRangeMin.get())
-
-        if self.getModeToOutput() is not None:
-            runNewstack = True
-            argsNewstack += " -ModeToOutput " + str(self.getModeToOutput())
-
-        oddEvenOutput = [[], []]
-
-        if runNewstack:
-            Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-
-            if self.applyToOddEven(tomo):
-                oddFn, evenFn = tomo.getHalfMaps().split(',')
-                paramsNewstack['input'] = oddFn
-                oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                paramsNewstack['output'] = oddEvenOutput[0]
-                Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-                paramsNewstack['input'] = evenFn
-                oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                paramsNewstack['output'] = oddEvenOutput[1]
-                Plugin.runImod(self, 'newstack', argsNewstack % paramsNewstack)
-
-        binning = self.binning.get()
-
-        if binning != 1:
             if runNewstack:
-                tmpPath = self.getTmpOutFile(tsId)
-                pwpath.moveFile(outputFile, tmpPath)
-                inputTomoPath = tmpPath
+                self.runProgram("newstack", paramsNewstack)
 
-                if self.applyToOddEven(tomo):
-                    pwpath.moveFile(oddEvenOutput[0], tmpPath)
-                    pwpath.moveFile(oddEvenOutput[1], tmpPath)
+                if self.oddEvenFlag:
+                    oddFn, evenFn = tomo.getHalfMaps().split(',')
+                    paramsNewstack['-input'] = oddFn
+                    oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                    paramsNewstack['-output'] = oddEvenOutput[0]
+                    self.runProgram("newstack", paramsNewstack)
+
+                    paramsNewstack['-input'] = evenFn
+                    oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                    paramsNewstack['-output'] = oddEvenOutput[1]
+                    self.runProgram("newstack", paramsNewstack)
+
+            # Run binvol
+            if binning != 1:
+                if runNewstack:
+                    # Move previous outputs to tmp
+                    tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
+                    pwpath.moveFile(outputFile, tmpPath)
                     inputTomoPath = tmpPath
-                    inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD),
-                                           self.getTmpOutFile(tsId, suffix=EVEN))
+
+                    if self.oddEvenFlag:
+                        inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                               self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
+                        pwpath.moveFile(oddEvenOutput[0], inputOdd)
+                        pwpath.moveFile(oddEvenOutput[1], inputEven)
+
+                else:
+                    inputTomoPath = tomoFn
+                    if self.oddEvenFlag:
+                        inputOdd, inputEven = tomo.getHalfMaps().split(',')
+
+                paramsBinvol = {
+                    '-input': inputTomoPath,
+                    '-output': outputFile,
+                    '-binning': binning,
+                    '-antialias': self.antialias.get() + 1
+                }
+
+                self.runProgram('binvol', paramsBinvol)
+
+                if self.oddEvenFlag:
+                    paramsBinvol['-input'] = inputOdd
+                    paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                    self.runProgram('binvol', paramsBinvol)
+
+                    paramsBinvol['-input'] = inputEven
+                    paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                    self.runProgram('binvol', paramsBinvol)
+
+        except Exception as e:
+            self._failedTomos.append(tsId)
+            self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
+
+    def generateOutputStep(self, tsId, runNewstack, binning):
+        tomo = self.tomoDict[tsId]
+        with self._lock:
+            if tsId in self._failedItems:
+                self.createOutputFailedSet(tomo)
             else:
-                inputTomoPath = location
-                if self.applyToOddEven(tomo):
-                    inputOdd, inputEven = tomo.getHalfMaps().split(',')
+                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
+                newTomogram = Tomogram()
+                newTomogram.copyInfo(tomo)
 
-            paramsBinvol = {
-                'input': inputTomoPath,
-                'output': outputFile,
-                'binning': binning,
-                'antialias': self.antialias.get() + 1
-            }
+                if not runNewstack and binning == 1:
+                    newTomogram.setLocation(tomo.getFileName())
+                else:
+                    newTomogram.setLocation(self.getExtraOutFile(tsId, ext=MRC_EXT))
 
-            argsBinvol = "-input %(input)s " \
-                         "-output %(output)s " \
-                         "-binning %(binning)d "\
-                         "-antialias %(antialias)d "
+                if binning > 1:
+                    newTomogram.setSamplingRate(tomo.getSamplingRate() * binning)
+                    # Fix the mrc tomogram
+                    newTomogram.fixMRCVolume(setSamplingRate=True)
+                    # Set default tomogram origin
+                    newTomogram.setOrigin(newOrigin=None)
 
-            Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
+                if self.oddEvenFlag:
+                    halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                    self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                    newTomogram.setHalfMaps(halfMapsList)
 
-            if self.applyToOddEven(tomo):
-                paramsBinvol['input'] = inputOdd
-                paramsBinvol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
-                paramsBinvol['input'] = inputEven
-                paramsBinvol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                Plugin.runImod(self, 'binvol', argsBinvol % paramsBinvol)
+                output.append(newTomogram)
+                output.updateDim()
+                output.update(newTomogram)
+                output.write()
+                self._store(output)
 
-        output = self.getOutputSetOfTomograms(self.inputSetOfTomograms.get(),
-                                              binning)
-
-        newTomogram = Tomogram()
-        newTomogram.copyInfo(tomo)
-        newTomogram.setTsId(tomo.getTsId())
-
-        if not runNewstack and binning == 1:
-            newTomogram.setLocation(location)
+    # --------------------------- INFO functions ------------------------------
+    def _summary(self):
+        summary = []
+        if self.Tomograms:
+            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+                           f"Interpolations applied: {self.Tomograms.getSize()}")
         else:
-            newTomogram.setLocation(outputFile)
+            summary.append("Outputs are not ready yet.")
+        return summary
 
-        if binning > 1:
-            sr = tomo.getSamplingRate() * binning
-
-            newTomogram.setSamplingRate(sr)
-            # Fix the mrc tomogram
-            newTomogram.fixMRCVolume(setSamplingRate=True)
-
-            # Set default tomogram origin
-            newTomogram.setOrigin(newOrigin=None)
-
-        else:
-            newTomogram.copyAttributes(tomo, '_origin')
-
-        if self.applyToOddEven(tomo):
-            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-            newTomogram.setHalfMaps(halfMapsList)
-
-        output.append(newTomogram)
-        output.updateDim()
-        output.update(newTomogram)
-
-        output.write()
-        self._store()
-
-    def closeOutputSetsStep(self):
-        self.Tomograms.setStreamState(Set.STREAM_CLOSED)
-        self.Tomograms.write()
-        self._store()
+    def _methods(self):
+        methods = []
+        if self.Tomograms:
+            methods.append(f"{self.Tomograms.getSize()} tomograms have been "
+                           "preprocessed using the IMOD *binvol* command.")
+        return methods
 
     # --------------------------- UTILS functions -----------------------------
+    def getInputSet(self, pointer=False):
+        return (self.inputSetOfTomograms.get() if
+                not pointer else self.inputSetOfTomograms)
+
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -391,26 +247,3 @@ class ProtImodTomoNormalization(ProtImodBase):
             5: 2
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
-
-    # --------------------------- INFO functions ------------------------------
-    def _summary(self):
-        summary = []
-        if self.Tomograms:
-            summary.append("Input tilt-series: %d\nInterpolations applied: %d"
-                           % (self.inputSetOfTomograms.get().getSize(),
-                              self.Tomograms.getSize()))
-        else:
-            summary.append("Outputs are not ready yet.")
-        return summary
-
-    def _methods(self):
-        methods = []
-        if self.Tomograms:
-            methods.append("%d tomograms have been normalized using the """
-                           "IMOD *binvol* command.\n"
-                           % (self.Tomograms.getSize()))
-        return methods
-
-    def applyToOddEven(self, tomo):
-        """ Reimplemented from base class for the tomogram case. """
-        return self.processOddEven and tomo.hasHalfMaps()

@@ -37,12 +37,11 @@ from pwem.viewers import DataViewer
 import tomo.objects as tomoObj
 
 import imod.protocols
-from ..protocols.protocol_base import (OUTPUT_TILTSERIES_NAME,
-                                       OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                                       OUTPUT_TS_COORDINATES_NAME)
-from .views_tkinter_tree import ImodGenericView
-from .. import Plugin
-from ..utils import generateIMODFidFile
+from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                            OUTPUT_TS_COORDINATES_NAME)
+from imod.viewers.views_tkinter_tree import ImodGenericView
+from imod import Plugin
+from imod.utils import generateIMODFidFile
 
 
 class ImodViewer(pwviewer.Viewer):
@@ -83,29 +82,28 @@ class ImodObjectView(pwviewer.CommandView):
         :param protocol: protocol owner of obj
         :param kwargs: extra kwargs
         """
-
-        # Get default binning level has been defined for 3dmod:
+        # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
-
         cmd = f"{Plugin.getImodCmd('3dmod')} "
+        prj = protocol.getProject()
 
         if isinstance(obj, tomoObj.TiltSeries):
-            angleFilePath = os.path.join(protocol.getProject().getTmpPath(),
-                                         obj.getFirstItem().parseFileName(extension=".tlt"))
+            inputFn = obj.getFirstItem().getFileName()
+            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
             obj.generateTltFile(angleFilePath)
 
             cmd += f"-b {binningstr},1 " 
-            cmd += f"-a {angleFilePath} {obj.getFirstItem().getFileName().split(':')[0]}"
+            cmd += f"-a {angleFilePath} {inputFn.split(':')[0]}"
 
         elif isinstance(obj, tomoObj.LandmarkModel):
             ts = obj.getTiltSeries()
+            tsFn = ts.getFirstItem().getFileName()
             if ts.hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
-                extension = pwutils.getExt(ts.getFirstItem().getFileName())
+                extension = pwutils.getExt(tsFn)
 
-                outputTSPath = os.path.join(protocol.getProject().getTmpPath(),
-                                            "ts_interpolated_%s_%s_%s%s" % (
-                                                protocol.getProject().getShortName(),
+                outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
+                                                prj.getShortName(),
                                                 protocol.getObjId(),
                                                 obj.getObjId(),
                                                 extension))
@@ -114,15 +112,14 @@ class ImodObjectView(pwviewer.CommandView):
                     ts.applyTransform(outputTSPath)
 
             else:
-                outputTSPath = ts.getFirstItem().getFileName()
+                outputTSPath = tsFn
 
             fidFileName = obj.getModelName()
 
             if fidFileName is None:
                 fidFileName = generateIMODFidFile(protocol, obj)
 
-            angleFilePath = os.path.join(protocol.getProject().getTmpPath(),
-                                         ts.getFirstItem().parseFileName(extension=".tlt"))
+            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(tsFn, "tlt"))
             ts.generateTltFile(angleFilePath)
 
             cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"

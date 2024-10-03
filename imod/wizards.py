@@ -28,17 +28,21 @@
 
 from pyworkflow.wizard import Wizard
 
-from .protocols import ProtImodXcorrPrealignment
+from imod.protocols import ProtImodXcorrPrealignment
 
 
 class ProtImodXcorrPrealignmentWizard(Wizard):
     _targets = [(ProtImodXcorrPrealignment, ['tiltAxisAngle'])]
 
-    def _getTiltAxisAngle(self, protocol):
+    @staticmethod
+    def _getTiltAxisAngle(protocol):
+        tiltAxisAngle = None
         if protocol.inputSetOfTiltSeries.hasValue():
             tiltAxisAngle = protocol.inputSetOfTiltSeries.get().getAcquisition().getTiltAxisAngle()
 
         return tiltAxisAngle
 
-    def show(self, form):
-        form.setVar('tiltAxisAngle', self._getTiltAxisAngle(form.protocol))
+    def show(self, form, *args):
+        angle = self._getTiltAxisAngle(form.protocol)
+        if angle is not None:
+            form.setVar('tiltAxisAngle', angle)

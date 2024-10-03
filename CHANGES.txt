@@ -1,3 +1,28 @@
+3.6.0:
+ Users:
+  - fix default params (close check default values #281 )
+  - change several form params from Enum to Boolean and from Float to Int, change default values from wrong str to int/float
+  - Protocol Import transformation matrix admits {TS} pattern
+ Developers:
+  - move constants to a dedicated file
+  - remove BETA status
+  - unify runProgram , use params dict
+  - unify close outputs step
+  - add possible outputs to all protocols
+  - reduce number of get() queries
+  - change several form params from Enum to Boolean and from Float to Int, change default values from wrong str to int/float
+  - do convert to float and normalize stacks in preXcorr
+  - fix newstack options: tapering, antialias etc.
+  - unify failed output set creation
+  - remove try/except decorator
+  - refactor tests code
+  - remove redundant store/write, getDim and other calls
+  - use indirect pointers
+  - use copyItems analog for creating outputs and updating their attrs
+  - implemented parallel steps for many protocols
+  - add a new batch of tests based TCL.
+  - some fixes from errors detected with the new tests.
+  - protocol excluded views: remove the in file option.
 3.5.1:
   - CTF correction: get rid of the decorator. Manage the failed TS in the createOutputStep.
   - Fix a bug in the base class for the generation of alignment files when there input TS are not aligned and there

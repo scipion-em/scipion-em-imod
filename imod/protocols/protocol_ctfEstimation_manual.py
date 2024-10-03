@@ -24,12 +24,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from pyworkflow.protocol.constants import STEPS_SERIAL
 
-from pyworkflow import BETA
 from tomo.objects import SetOfCTFTomoSeries
 
-from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
-from .protocol_base import OUTPUT_CTF_SERIE
+from imod.protocols import ProtImodAutomaticCtfEstimation
+from imod.constants import OUTPUT_CTF_SERIE
 
 
 class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
@@ -50,11 +50,12 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     """
 
     _label = 'CTF estimation (manual)'
-    _devStatus = BETA
     _interactiveMode = True
+    _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
+        self.stepsExecutionMode = STEPS_SERIAL
         self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):
@@ -65,7 +66,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def runCTFEtimationStep(self):
         from imod.viewers import ImodGenericView
-        self.inputSetOfTiltSeries = self._getSetOfTiltSeries()
+        self.inputSetOfTiltSeries = self.getInputSet()
         view = ImodGenericView(None, self, self.inputSetOfTiltSeries,
                                createSetButton=True,
                                isInteractive=True)
@@ -73,18 +74,18 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        objId = obj.getObjId()
-        # DO not use this to avoid interpolation. CTF will be done on the input TS (hopefully non interpolated).
-        self.convertInputStep(objId)
+        tsId = obj.getTsId()
+        self.convertInputStep(tsId)
         expDefoci = self.getExpectedDefocus()
-        self.ctfEstimation(objId, expDefoci)
+        self.ctfEstimation(tsId, expDefoci)
 
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
-        setOfTiltseries = self._getSetOfTiltSeries()
-        for item in setOfTiltseries.iterItems(iterate=False):
-            self.createOutputStep(item.getObjId(), outputSetName)
+        tsIdList = self.inputTiltSeries.getTSIds()
+        for tsId in tsIdList:
+            self.createOutputStep(tsId, outputSetName)
+
         self.closeOutputSetsStep()
 
     def _summary(self):

@@ -32,9 +32,10 @@ from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 import tomo.objects
-from imod import Plugin
 
-from ..protocols import ProtImodEtomo
+from imod import Plugin
+from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT
+from imod.protocols import ProtImodEtomo
 
 
 class protClass:
@@ -164,10 +165,10 @@ class ImodGenericTreeProvider(TreeProvider):
         status = 'pending'
         for item in self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
+                tsId = item.getTsId()
                 """Prealigned tilt-series"""
-                prealiFilePath = self.protocol.getFilePath(item,
-                                                           suffix="_preali",
-                                                           extension=".mrc")
+                prealiFilePath = self.protocol.getExtraOutFile(tsId, suffix="preali",
+                                                               ext=MRC_EXT)
                 if os.path.exists(prealiFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -175,17 +176,17 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Aligned tilt-series"""
-                aligFilePath = self.protocol.getFilePath(item,
-                                                         suffix="_ali",
-                                                         extension=".mrc")
+                aligFilePath = self.protocol.getExtraOutFile(tsId, suffix="ali",
+                                                             ext=MRC_EXT)
                 if os.path.exists(aligFilePath):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
 
-                coordFilePath = self.protocol.getFilePath(item, suffix='fid',
-                                                          extension=".xyz")
+                coordFilePath = self.protocol.getExtraOutFile(tsId, suffix='fid',
+                                                              ext=XYZ_EXT)
+                coordFilePath = coordFilePath.replace("_fid", "fid")  # due to etomo bug
                 if os.path.exists(coordFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -193,19 +194,16 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Landmark models with no gaps"""
-                if (os.path.exists(self.protocol.getFilePath(item, suffix="_nogaps",
-                                                             extension=".fid")) and
-                        os.path.exists(
-                            self.protocol.getFilePath(item, extension=".resid"))):
+                if (os.path.exists(self.protocol.getExtraOutFile(tsId, suffix="nogaps", ext=FID_EXT)) and
+                        os.path.exists(self.protocol.getExtraOutFile(tsId, ext=RESID_EXT))):
                     values.append('Yes')
                     status = 'done'
                 else:
                     values.append('No')
 
                 """Full reconstructed tomogram"""
-                reconstructTomoFilePath = self.protocol.getFilePath(item,
-                                                                    suffix="_full_rec",
-                                                                    extension=".mrc")
+                reconstructTomoFilePath = self.protocol.getExtraOutFile(tsId, suffix="full_rec",
+                                                                        ext=MRC_EXT)
                 if os.path.exists(reconstructTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -213,9 +211,8 @@ class ImodGenericTreeProvider(TreeProvider):
                     values.append('No')
 
                 """Post-processed reconstructed tomogram"""
-                posprocessedRecTomoFilePath = self.protocol.getFilePath(item,
-                                                                        suffix="_rec",
-                                                                        extension=".mrc")
+                posprocessedRecTomoFilePath = self.protocol.getExtraOutFile(tsId, suffix="rec",
+                                                                            ext=MRC_EXT)
                 if os.path.exists(posprocessedRecTomoFilePath):
                     values.append('Yes')
                     status = 'done'
@@ -228,9 +225,7 @@ class ImodGenericTreeProvider(TreeProvider):
         status = 'pending'
         for item in self.protocol.inputSetOfTiltSeries:
             if item.getTsId() == obj.getTsId():
-                extraPrefix = self.protocol._getExtraPath(item.getTsId())
-                defocusFilePath = os.path.join(extraPrefix,
-                                               item.getFirstItem().parseFileName(extension=".defocus"))
+                defocusFilePath = self.protocol.getExtraOutFile(item.getTsId(), ext=DEFOCUS_EXT)
                 if os.path.exists(defocusFilePath):
                     values.append('DONE')
                     status = 'done'
@@ -280,7 +275,7 @@ class ImodListDialog(ListDialog):
         if self.createSetButton:
             self.createSet = self._addButton(dialogFrame,
                                              'CTFTomo',
-                                             pwutils.Icon.PLUS_CIRCLE,
+                                             pwutils.Icon.PROCESSING,
                                              self._createOutput,
                                              sticky='ne',
                                              state=tk.NORMAL)
