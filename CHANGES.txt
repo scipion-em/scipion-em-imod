@@ -1,3 +1,6 @@
+3.6.1:
+ Users:
+  - bugfix for o/e tomo reconstruction, see #271
 3.6.0:
  Users:
   - fix default params (close check default values #281 )
