@@ -66,10 +66,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+    stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
         self.widthWarnMsg = String()
 
     # -------------------------- DEFINE param functions -----------------------

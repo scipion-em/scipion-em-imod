@@ -156,10 +156,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels
     }
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
+    stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -629,7 +626,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
     # --------------------------- UTILS functions -----------------------------
     def getInputFiduSet(self, pointer=False):
         return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
-    
+
     def getInputSet(self, pointer=False):
         inFiduSet = self.getInputFiduSet()
         return inFiduSet.getSetOfTiltSeries(pointer=pointer)

@@ -49,10 +49,10 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     """
     _label = 'Import transformation matrix'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **kwargs):
         ProtImodBase().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
         ProtTomoImportFiles.__init__(self, **kwargs)
         self.matchingTsIds = None
         self.iterFilesDict = None
