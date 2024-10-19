@@ -48,9 +48,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     _label = 'Gold bead picker 3D'
     _possibleOutputs = {OUTPUT_COORDINATES_3D_NAME: SetOfCoordinates3D}
 
-    def __init__(self, **args):
-        super().__init__(**args)
-
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)

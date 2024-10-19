@@ -72,10 +72,7 @@ class ProtImodEtomo(ProtImodBase):
         "FullTomograms": tomoObj.SetOfTomograms,
         "PostProcessTomograms": tomoObj.SetOfTomograms
     }
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
+    stepsExecutionMode = STEPS_SERIAL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
