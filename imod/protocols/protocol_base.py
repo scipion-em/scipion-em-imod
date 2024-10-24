@@ -371,7 +371,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if generateAngleFile:
             logger.info(f"Generate angle file for the TS [{tsId}]")
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
+            ts.generateTltFile(angleFilePath)
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
