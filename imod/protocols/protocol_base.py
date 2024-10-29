@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import typing
 from typing import Union
 
 from pyworkflow.object import Set, CsvList, Boolean
@@ -227,9 +228,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
 
-    def convertInputStep(self, tsId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False,
-                         oddEven=False, presentAcqOrders=None):
+    def convertInputStep(self, tsId: str,
+                         generateAngleFile: bool=True,
+                         imodInterpolation: bool=True,
+                         doSwap: bool=False,
+                         oddEven: bool=False,
+                         presentAcqOrders: typing.Set[int]=()):
         """
         :param tsId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -363,7 +367,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         # Use Xmipp interpolation via Scipion
         else:
             logger.info(f"TS [{tsId}] interpolated with emlib")
-            ts.applyTransform(outputTsFileName)
+            ts.applyTransform(outputTsFileName, presentAcqOrders=presentAcqOrders)
 
         logger.info(f"TS [{tsId}] available for processing at {outputTsFileName}")
 
@@ -371,7 +375,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if generateAngleFile:
             logger.info(f"Generate angle file for the TS [{tsId}]")
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.generateTltFile(angleFilePath)
+            ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
