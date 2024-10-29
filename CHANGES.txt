@@ -3,6 +3,7 @@
   - bugfix for o/e tomo reconstruction, see #271
  Developers:
   - Calls to TiltSeries method for exclusions of views updated.
+  - Calls to TiltSeries clone method updated as it is a literal clone now.
 3.6.0:
  Users:
   - fix default params (close check default values #281 )
