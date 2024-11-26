@@ -41,6 +41,7 @@ import tomo.objects as tomoObj
 from imod import Plugin, utils
 from imod.protocols import ProtImodBase
 from imod.constants import *
+from tomo.objects import TiltSeries
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -225,7 +226,7 @@ class ProtImodEtomo(ProtImodBase):
                 else:
                     outputPreAliTs.enableAppend()
 
-                newTs = ts.clone()
+                newTs = TiltSeries()
                 newTs.copyInfo(ts)
                 newTs.setInterpolated(True)
                 outputPreAliTs.append(newTs)
@@ -269,7 +270,7 @@ class ProtImodEtomo(ProtImodBase):
                 else:
                     outputAliTs.enableAppend()
 
-                newTs = ts.clone()
+                newTs = TiltSeries()
                 newTs.copyInfo(ts)
                 newTs.setInterpolated(True)
                 outputAliTs.append(newTs)
@@ -322,7 +323,7 @@ class ProtImodEtomo(ProtImodBase):
                 else:
                     outputTs.enableAppend()
 
-                newTs = ts.clone()
+                newTs = TiltSeries()
                 newTs.copyInfo(ts)
                 outputTs.append(newTs)
 
