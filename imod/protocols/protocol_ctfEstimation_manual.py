@@ -52,10 +52,10 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     _label = 'CTF estimation (manual)'
     _interactiveMode = True
     _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
+    stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **args):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
-        self.stepsExecutionMode = STEPS_SERIAL
         self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):

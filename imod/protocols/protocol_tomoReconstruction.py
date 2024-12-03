@@ -66,10 +66,10 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+    stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_SERIAL
         self.widthWarnMsg = String()
 
     # -------------------------- DEFINE param functions -----------------------
@@ -322,7 +322,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             if self.oddEvenFlag:
                 # Odd
                 paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
-                oddEvenTmp[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                 paramsTilt['-OutputFile'] = oddEvenTmp[0]
                 self.runProgram('tilt', paramsTilt)
 
@@ -332,7 +332,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
                 # Even
                 paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                oddEvenTmp[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                oddEvenTmp[1] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                 paramsTilt['-OutputFile'] = oddEvenTmp[1]
                 self.runProgram('tilt', paramsTilt)
 

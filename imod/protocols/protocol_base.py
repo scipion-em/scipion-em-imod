@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import typing
 from typing import Union
 
 from pyworkflow.object import Set, CsvList, Boolean
@@ -53,6 +54,7 @@ BINNING_FACTOR = 'binning'
 class ProtImodBase(EMProtocol, ProtTomoBase):
     """ Base class with methods used in the rest of the imod protocols. """
     _label = None
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -65,7 +67,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.TiltSeries = None
         self.Tomograms = None
 
-        self.stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
@@ -227,9 +228,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
 
-    def convertInputStep(self, tsId, generateAngleFile=True,
-                         imodInterpolation=True, doSwap=False,
-                         oddEven=False, presentAcqOrders=None):
+    def convertInputStep(self, tsId: str,
+                         generateAngleFile: bool=True,
+                         imodInterpolation: bool=True,
+                         doSwap: bool=False,
+                         oddEven: bool=False,
+                         presentAcqOrders: typing.Set[int]=()):
         """
         :param tsId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -286,11 +290,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """
         def _linkTs():
             logger.info(f"TS [{tsId}] linked")
-            path.createLink(firstTi.getFileName(), outputTsFileName)
+            path.createAbsLink(firstTi.getFileName(), outputTsFileName)
 
             if oddEven:
-                path.createLink(fnOdd, outputOddTsFileName)
-                path.createLink(fnEven, outputEvenTsFileName)
+                path.createAbsLink(fnOdd, outputOddTsFileName)
+                path.createAbsLink(fnEven, outputEvenTsFileName)
 
         def _applyNewStackBasic():
             logger.info(f"TS [{tsId}] re-stacked with IMOD")
@@ -363,7 +367,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         # Use Xmipp interpolation via Scipion
         else:
             logger.info(f"TS [{tsId}] interpolated with emlib")
-            ts.applyTransform(outputTsFileName)
+            ts.applyTransform(outputTsFileName, presentAcqOrders=presentAcqOrders)
 
         logger.info(f"TS [{tsId}] available for processing at {outputTsFileName}")
 
