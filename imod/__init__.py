@@ -35,9 +35,13 @@ from pyworkflow.gui.project.utils import OS
 import pwem
 
 from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
-                            VERSIONS, IMOD_VIEWER_BINNING)
+                            VERSIONS, IMOD_VIEWER_BINNING, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
+                            BRT, BRT_DEFAULT_VERSION, BRT_ENV_NAME)
 
 __version__ = '3.6.1'
+
+from pyworkflow.utils import Environ
+
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -56,6 +60,12 @@ class Plugin(pwem.Plugin):
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
         cls._defineVar(IMOD_VIEWER_BINNING, 1)
+        cls._defineVar(BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD)
+        cls._defineVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
+
+    @classmethod
+    def getBRTEnvActivation(cls):
+        return cls.getVar(BRT_ENV_ACTIVATION)
 
     @classmethod
     def getViewerBinning(cls):
@@ -92,6 +102,18 @@ class Plugin(pwem.Plugin):
         return env
 
     @classmethod
+    def getBRTEnviron(cls):
+        """ Set up the environment variables needed to launch BRT. """
+        environ = Environ(os.environ)
+        if 'PYTHONPATH' in environ:
+            # this is required for python virtual env to work
+            del environ['PYTHONPATH']
+        IMOD_PATH = cls.getHome("bin")
+        environ.update({'PATH': IMOD_PATH + ":" + environ['PATH']})
+        cudaLib = cls.getVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
+        environ.addLibrary(cudaLib)
+
+    @classmethod
     def validateInstallation(cls):
         """ Check if imod is in the path """
 
@@ -115,6 +137,8 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         for version in VERSIONS:
             cls.installImod(env, version, version == DEFAULT_VERSION)
+        # Install yet-another-imod-wrapper
+        cls.installBatchRunTomo(env)
 
     @classmethod
     def installImod(cls, env, version, default):
@@ -151,6 +175,51 @@ class Plugin(pwem.Plugin):
                            neededProgs=cls.getDependencies(),
                            commands=[(installationCmd, IMOD_INSTALLED)],
                            default=default)
+
+    @classmethod
+    def installBatchRunTomo(cls, env):
+        BRT_INSTALLED = '%s_%s_installed' % (BRT, BRT_DEFAULT_VERSION)
+        installationCmd = cls.getCondaActivationCmd()
+        # Create the environment
+        installationCmd += ' conda create -y -n %s python=3.8 && ' % BRT_ENV_NAME
+
+        # Activate new the environment
+        installationCmd += 'conda activate %s && ' % BRT_ENV_NAME
+
+        # Install BRT
+        installationCmd += f'pip install {BRT}=={BRT_DEFAULT_VERSION} && '
+
+        # Flag installation finished
+        installationCmd += 'touch %s' % BRT_INSTALLED
+
+        BRT_commands = [(installationCmd, BRT_INSTALLED)]
+        envPath = os.environ.get('PATH', "")  # keep path since conda likely in there
+        installEnvVars = {'PATH': envPath} if envPath else None
+
+        env.addPackage(BRT,
+                       version=BRT_DEFAULT_VERSION,
+                       tar='void.tgz',
+                       commands=BRT_commands,
+                       neededProgs=cls.getDependenciesBRT(),
+                       vars=installEnvVars,
+                       default=True)
+
+    @classmethod
+    def getDependenciesBRT(cls):
+        # try to get CONDA activation command
+        condaActivationCmd = cls.getCondaActivationCmd()
+        neededProgs = []
+        if not condaActivationCmd:
+            neededProgs.append('conda')
+        return neededProgs
+    
+    @classmethod
+    def runBRT(cls, protocol, args, cwd=None, numberOfMpi=1):
+        """ Run yet-another-imod-wrapper (batchruntomo) command from a given protocol. """
+        cmd = cls.getCondaActivationCmd() + " "
+        cmd += cls.getBRTEnvActivation()
+        cmd += f" && CUDA_VISIBLE_DEVICES=%(GPU)s {BRT} "
+        protocol.runJob(cmd, args, env=cls.getBRTEnviron(), cwd=cwd, numberOfMpi=numberOfMpi)
 
     @classmethod
     def runImod(cls, protocol, program, args, cwd=None):
