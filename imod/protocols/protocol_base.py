@@ -246,7 +246,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
         and the interpolated TS with IMOD's newstack program.
         """
-        ts = self.tsDict[tsId]
+        # ts = self.tsDict[tsId]
+        ts = self.getCurrentTs(tsId)
         self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
@@ -568,6 +569,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
+    def getCurrentTs(self, tsId: str) -> TiltSeries:
+        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
         current tilt-series in tmp and extra"""

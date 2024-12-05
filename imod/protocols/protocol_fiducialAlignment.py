@@ -627,10 +627,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def getInputFiduSet(self, pointer=False):
         return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
 
-    def getInputSet(self, pointer=False):
-        inFiduSet = self.getInputFiduSet()
-        return inFiduSet.getSetOfTiltSeries(pointer=pointer)
-
     def getRotationType(self):
         return {
             0: 0,

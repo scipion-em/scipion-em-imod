@@ -101,17 +101,18 @@ class Plugin(pwem.Plugin):
             del env['IMOD_PATH']
         return env
 
-    @classmethod
-    def getBRTEnviron(cls):
-        """ Set up the environment variables needed to launch BRT. """
-        environ = Environ(os.environ)
-        if 'PYTHONPATH' in environ:
-            # this is required for python virtual env to work
-            del environ['PYTHONPATH']
-        IMOD_PATH = cls.getHome("bin")
-        environ.update({'PATH': IMOD_PATH + ":" + environ['PATH']})
-        cudaLib = cls.getVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
-        environ.addLibrary(cudaLib)
+    # @classmethod
+    # def getBRTEnviron(cls):
+    #     """ Set up the environment variables needed to launch BRT. """
+    #     environ = Environ(os.environ)
+    #     if 'PYTHONPATH' in environ:
+    #         # this is required for python virtual env to work
+    #         del environ['PYTHONPATH']
+    #     IMOD_PATH = cls.getHome("bin")
+    #     environ.update({'PATH': IMOD_PATH + ":" + environ['PATH']})
+    #     print(f'==============================> {environ["PATH"]}')
+    #     cudaLib = cls.getVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
+    #     environ.addLibrary(cudaLib)
 
     @classmethod
     def validateInstallation(cls):
@@ -218,8 +219,10 @@ class Plugin(pwem.Plugin):
         """ Run yet-another-imod-wrapper (batchruntomo) command from a given protocol. """
         cmd = cls.getCondaActivationCmd() + " "
         cmd += cls.getBRTEnvActivation()
-        cmd += f" && CUDA_VISIBLE_DEVICES=%(GPU)s {BRT} "
-        protocol.runJob(cmd, args, env=cls.getBRTEnviron(), cwd=cwd, numberOfMpi=numberOfMpi)
+        cmd += f"&& export PATH={cls.getHome('bin')}:$PATH "
+        cmd += f"&& export IMOD_DIR={cls.getHome()} "
+        cmd += f"&& {BRT} "
+        protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd, numberOfMpi=numberOfMpi)
 
     @classmethod
     def runImod(cls, protocol, program, args, cwd=None):

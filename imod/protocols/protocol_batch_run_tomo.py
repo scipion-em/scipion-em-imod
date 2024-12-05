@@ -24,29 +24,18 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-import glob
 import logging
-from enum import Enum
-from os.path import join, basename
-from typing import Union, List
-import mrcfile
-import numpy as np
-from typing_extensions import Tuple
-from vtkmodules.numpy_interface.algorithms import condition
+import typing
 
 from imod import Plugin
-from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT
-from imod.protocols import ProtImodBase
+from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, XF_EXT
+from imod.protocols import ProtImodFiducialAlignment
 from imod.protocols.protocol_base import IN_TS_SET
-from pwem.emlib import DT_FLOAT
-from pwem.emlib.image import ImageHandler
-from pwem.protocols import EMProtocol
+from imod.utils import formatTransformationMatrix, formatAngleList
 from pyworkflow.constants import BETA
-from pyworkflow.object import Set, Pointer
-from pyworkflow.protocol import PointerParam, FloatParam, GT, LE, GPU_LIST, StringParam, BooleanParam, LEVEL_ADVANCED, \
-    STEPS_PARALLEL, EnumParam, IntParam
-from pyworkflow.utils import Message, makePath, cyanStr
-from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
+from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT
+from pyworkflow.utils import Message, cyanStr
+from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
 
@@ -55,19 +44,20 @@ FIDUCIAL_ALIGNMENT = 0
 PATCH_TRACKING = 1
 
 
-class ProtImodBRT(ProtImodBase):
+class ProtImodBRT(ProtImodFiducialAlignment):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (https://teamtomo.org/teamtomo-site-archive/).
     """
 
-    _label = "Tilt-series batchruntomo (Team Tomo's wrapper)"
+    _label = "Tilt-series alignment (Team Tomo's wrapper)"
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     _devStatus = BETA
     stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self._failedItems = []
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -84,21 +74,23 @@ class ProtImodBRT(ProtImodBase):
         form.addParam('fidSize', IntParam,
                       condition=f'alignMode == {FIDUCIAL_ALIGNMENT}',
                       default=10,
+                      validators=[GT(0)],
                       label='Fiducial diameter (nm)')
         patchTrackingCond = f'alignMode == {PATCH_TRACKING}'
         form.addParam('patchSize', IntParam,
                       condition=patchTrackingCond,
                       default=500,
+                      validators=[GT(0)],
                       label='Patch sidelength (A)')
         form.addParam('patchOverlapPercent', IntParam,
                       condition=patchTrackingCond,
                       default=33,
+                      validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._initialize()
         closeSetStepDeps = []
         for ts in self.getInputSet().iterItems():
             tsId = ts.getTsId()
@@ -118,16 +110,42 @@ class ProtImodBRT(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runBRT(self, tsId: str):
-        ts = self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
-        self.genTsPaths(tsId)
-        args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_ALIGNMENT \
-            else self._getPatchTrackingCmd(ts)
-        Plugin.runBRT(self, args)
+        logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
+        try:
+            ts = self.getCurrentTs(tsId)
+            self.genTsPaths(tsId)
+            args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_ALIGNMENT \
+                else self._getPatchTrackingCmd(ts)
+            Plugin.runBRT(self, args)
+        except Exception as e:
+            self._failedItems.append(tsId)
+            logger.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId: str):
-        pass
+        ts = self.getCurrentTs(tsId)
+        if tsId not in self._failedItems:
+            xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
+            tltFile = self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
+            aliMatrix = formatTransformationMatrix(xfFile)
+            tiltAngles = formatAngleList(tltFile)
+            output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+            self.copyTsItems(output, ts, tsId,
+                             updateTsCallback=self.updateTsNonInterp,
+                             updateTiCallback=self.updateTiNonInterp,
+                             copyDisabledViews=True,
+                             copyId=True,
+                             copyTM=False,
+                             alignmentMatrix=aliMatrix,
+                             tltList=tiltAngles)
+        else:
+            self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
+    def _summary(self):
+        pass
+
+    def _methods(self):
+        pass
 
     # --------------------------- UTILS functions -----------------------------
     def _getCommonCmd(self, ts: TiltSeries):
@@ -135,10 +153,10 @@ class ProtImodBRT(ProtImodBase):
         cmd = [
             f'--tilt-series {self.getTmpOutFile(tsId)}',
             f'--tilt-angles {self.getExtraOutFile(tsId, ext=TLT_EXT)}',
-            f'--output-directory {self}',
+            f'--output-directory {self._getExtraPath(tsId)}',
             f'--pixel-size {ts.getSamplingRate():.3f}',
             f'--fiducial-size {self.fidSize.get()}',
-            f'--nominal-rotation-angle {ts.getAcquisition().getTiltAxisAngle():.2f}'
+            f'--nominal-rotation-angle {ts.getAcquisition().getTiltAxisAngle():.2f}',
             f'--basename {tsId}'
         ]
         return ' '.join(cmd)
