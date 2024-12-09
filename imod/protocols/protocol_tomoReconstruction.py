@@ -244,16 +244,25 @@ class ProtImodTomoReconstruction(ProtImodBase):
     def _insertAllSteps(self):
         widthWarnTsIds = []
         self._initialize()
-        for tsId, ts in self.tsDict.items():
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             xDim = ts.getXDim()
             tomoWidth = self.tomoWidth.get()
             if tomoWidth > xDim:
                 tomoWidth = 0
                 widthWarnTsIds.append(tsId)
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeReconstructionStep, tsId, tomoWidth)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            self._insertFunctionStep(self.convertInputStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeReconstructionStep,
+                                     tsId,
+                                     tomoWidth,
+                                     needsGPU=True)
+            self._insertFunctionStep(self.createOutputStep,
+                                     tsId,
+                                     needsGPU=False)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 needsGPU=False)
 
         if widthWarnTsIds:
             self.widthWarnMsg.set(f'\n\n*WARNING!:*'
@@ -263,7 +272,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
+        presentAcqOrders = self.getPresentAcqOrders(self.getCurrentItem(tsId),
                                                     onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,
                                  doSwap=True,
@@ -293,7 +302,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
             # # Excluded views
-            # ts = self.tsDict[tsId]
+            # ts = self.getCurrentItem(tsId)
             # excludedViews = ts.getExcludedViewsIndex(caster=str)
             # if len(excludedViews):
             #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
@@ -345,7 +354,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:

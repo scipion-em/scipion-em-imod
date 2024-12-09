@@ -101,23 +101,28 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._initialize()
         closeSetStepDeps = []
-        for tsId in self.tomoDict.keys():
-            compId = self._insertFunctionStep(self.projectTomogram, tsId, prerequisites=[])
-            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId, prerequisites=[compId])
+        for tomo in self.getInputSet():
+            tsId = tomo.getTsId()
+            compId = self._insertFunctionStep(self.projectTomogram,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.generateOutputStackStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
-
     def projectTomogram(self, tsId):
         try:
             self.genTsPaths(tsId)
-            tomo = self.tomoDict[tsId]
+            tomo = self.getCurrentItem(tsId)
 
             paramsXYZproj = {
                 '-input': tomo.getFileName(),
@@ -135,7 +140,7 @@ class ProtImodTomoProjection(ProtImodBase):
             self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
-        tomo = self.tomoDict[tsId]
+        tomo = self.getCurrentItem(tsId)
         with self._lock:
             if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
@@ -215,7 +220,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
-        return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms
+        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getRotationAxis(self):
         parseParamsRotationAxis = {

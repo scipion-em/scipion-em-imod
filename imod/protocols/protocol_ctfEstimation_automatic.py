@@ -292,22 +292,30 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         expDefoci = self.getExpectedDefocus()
 
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
-            convId = self._insertFunctionStep(self.convertInputStep, tsId,
-                                              prerequisites=[])
-            compId = self._insertFunctionStep(self.ctfEstimation, tsId,
-                                              expDefoci, prerequisites=[convId])
-            outId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                             prerequisites=[compId])
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
+            convId = self._insertFunctionStep(self.convertInputStep,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            compId = self._insertFunctionStep(self.ctfEstimation,
+                                              tsId,
+                                              expDefoci,
+                                              prerequisites=[convId],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
@@ -318,7 +326,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
         try:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
 
             paramsCtfPlotter = {
                 "-InputStack": self.getTmpOutFile(tsId),
@@ -397,7 +405,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
 
         with self._lock:
             if tsId in self._failedItems:

@@ -64,24 +64,24 @@ class ProtImodExcludeViews(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
-                                                  prerequisites=[])
+                                                  prerequisites=[],
+                                                  needsGPU=False)
             outStepId = self._insertFunctionStep(self.createOutputStep,
                                                  tsId,
-                                                 prerequisites=[exclStepId])
+                                                 prerequisites=[exclStepId],
+                                                 needsGPU=False)
             closeSetStepDeps.append(outStepId)
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
-
     def excludeViewsStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         tsFileName = ts.getFirstItem().getFileName()
         self.genTsPaths(tsId)
 
@@ -101,7 +101,7 @@ class ProtImodExcludeViews(ProtImodBase):
             path.createLink(tsFileName, outputFileName)
 
     def createOutputStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         excludedViews = self.getExcludedViews(ts)
 
         with self._lock:

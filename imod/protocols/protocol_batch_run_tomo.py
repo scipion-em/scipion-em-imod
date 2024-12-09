@@ -112,7 +112,7 @@ class ProtImodBRT(ProtImodFiducialAlignment):
     def runBRT(self, tsId: str):
         logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
         try:
-            ts = self.getCurrentTs(tsId)
+            ts = self.getCurrentItem(tsId)
             self.genTsPaths(tsId)
             args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_ALIGNMENT \
                 else self._getPatchTrackingCmd(ts)
@@ -122,7 +122,7 @@ class ProtImodBRT(ProtImodFiducialAlignment):
             logger.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId: str):
-        ts = self.getCurrentTs(tsId)
+        ts = self.getCurrentItem(tsId)
         if tsId not in self._failedItems:
             xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             tltFile = self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)

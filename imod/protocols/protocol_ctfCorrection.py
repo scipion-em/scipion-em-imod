@@ -170,15 +170,28 @@ class ProtImodCtfCorrection(ProtImodBase):
         pIdList = []
         for tsId in self.presentTsIds:
             presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
-            pidConvert = self._insertFunctionStep(self.convertInputsStep, tsId, presentAcqOrders, prerequisites=[])
-            pidProcess = self._insertFunctionStep(self.ctfCorrection, tsId, prerequisites=pidConvert)
-            pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, presentAcqOrders,
-                                                       prerequisites=pidProcess)
+            pidConvert = self._insertFunctionStep(self.convertInputsStep,
+                                                  tsId,
+                                                  presentAcqOrders,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+            pidProcess = self._insertFunctionStep(self.ctfCorrection,
+                                                  tsId,
+                                                  prerequisites=pidConvert,
+                                                  needsGPU=True)
+            pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                       tsId,
+                                                       presentAcqOrders,
+                                                       prerequisites=pidProcess,
+                                                       needsGPU=False)
             pIdList.append(pidCreateOutput)
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=pIdList,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
+        super()._initialize()
         tsSet = self.getInputSet()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
@@ -194,7 +207,6 @@ class ProtImodCtfCorrection(ProtImodBase):
             self._store(self.matchingMsg)
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     def convertInputsStep(self, tsId, presentAcqOrders):
         # Generate the alignment-related files: xf, tlt, and a possible mrc

@@ -304,15 +304,28 @@ class ProtImodFiducialAlignment(ProtImodBase):
         self._initialize()
         for fidModel in self.getInputSet():
             tsId = fidModel.getTsId()
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeFiducialAlignmentStep, tsId)
-            self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
-            self._insertFunctionStep(self.computeAliTsStep, tsId)
+            self._insertFunctionStep(self.convertInputStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeAliTsStep,
+                                     tsId,
+                                     needsGPU=False)
             if self.computeAlignment:  # or self.eraseGoldBeads:
-                self._insertFunctionStep(self.computeInterpTsStep, tsId)
-            self._insertFunctionStep(self.computeOutputModelsStep, tsId)
+                self._insertFunctionStep(self.computeInterpTsStep,
+                                         tsId,
+                                         needsGPU=False)
+            self._insertFunctionStep(self.computeOutputModelsStep,
+                                     tsId,
+                                     needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetsStep)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -320,7 +333,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def computeFiducialAlignmentStep(self, tsId):
         try:
-            ts = self.getCurrentTs(tsId)
+            ts = self.getCurrentItem(tsId)
             paramsTiltAlign = {
                 "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
                 "-ImageFile": self.getTmpOutFile(tsId),
@@ -392,7 +405,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
     def computeAliTsStep(self, tsId):
-        ts = self.getCurrentTs(tsId)
+        ts = self.getCurrentItem(tsId)
         if tsId not in self._failedItems:
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
@@ -417,7 +430,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
         if tsId not in self._failedItems:
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-                ts = self.getCurrentTs(tsId)
+                ts = self.getCurrentItem(tsId)
                 output = self.getOutputSetOfTS(self.inTsSetPointer, binning,
                                                attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                suffix="Interpolated")
@@ -449,7 +462,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
 
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
-        ts = self.getCurrentTs(tsId)
+        ts = self.getCurrentItem(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
@@ -634,5 +647,5 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
         return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
-    def getCurrentTs(self, tsId: str) -> TiltSeries:
+    def getCurrentItem(self, tsId: str) -> TiltSeries:
         return self.getCurrentFidModel(tsId).getTiltSeries()

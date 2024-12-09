@@ -37,7 +37,7 @@ from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage, CTFTomoSeries)
+                          TiltImage, CTFTomoSeries, Tomogram)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -211,8 +211,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     @staticmethod
@@ -247,7 +245,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         and the interpolated TS with IMOD's newstack program.
         """
         # ts = self.tsDict[tsId]
-        ts = self.getCurrentTs(tsId)
+        ts = self.getCurrentItem(tsId)
         self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
@@ -569,7 +567,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
-    def getCurrentTs(self, tsId: str) -> TiltSeries:
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+
+    def getCurrentItem(self, tsId: str) -> TiltSeries:
         return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def genTsPaths(self, tsId):
@@ -588,9 +589,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
         return self._getExtraPath(tsId,
                                   self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
-
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
     def applyToOddEven(self, setOfTs):
         return (hasattr(self, "processOddEven") and

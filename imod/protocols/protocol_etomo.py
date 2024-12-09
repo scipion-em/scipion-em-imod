@@ -111,7 +111,9 @@ class ProtImodEtomo(ProtImodBase):
 
     def _insertAllSteps(self):
         self.inputTiltSeries = None
-        self._insertFunctionStep(self.runEtomoStep, interactive=True)
+        self._insertFunctionStep(self.runEtomoStep,
+                                 interactive=True,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):

@@ -142,19 +142,32 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        binning = self.binning.get()
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
-            convId = self._insertFunctionStep(self.convertInputStep, tsId, prerequisites=[])
-            compId = self._insertFunctionStep(self.computeXcorrStep, tsId, prerequisites=[convId])
-            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId, prerequisites=[compId])
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
+            convId = self._insertFunctionStep(self.convertInputStep,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            compId = self._insertFunctionStep(self.computeXcorrStep,
+                                              tsId,
+                                              prerequisites=[convId],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.computeAliTsStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
             if self.computeAlignment:
-                intpId = self._insertFunctionStep(self.computeInterpolatedStackStep, tsId, binning,
-                                                  prerequisites=[outId])
+                intpId = self._insertFunctionStep(self.computeInterpTsStep,
+                                                  tsId,
+                                                  prerequisites=[outId],
+                                                  needsGPU=False)
                 closeSetStepDeps.append(intpId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep, 
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
@@ -164,7 +177,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
             tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
             paramsXcorr = {
@@ -209,9 +222,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self._failedItems.append(tsId)
             self.error(f'tiltxcorr or xftoxg execution failed for tsId {tsId} -> {e}')
 
-    def generateOutputStackStep(self, tsId):
+    def computeAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
@@ -232,9 +245,10 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             else:
                 self.createOutputFailedSet(ts)
 
-    def computeInterpolatedStackStep(self, tsId, binning):
+    def computeInterpTsStep(self, tsId):
+        binning = self.binning.get()
         if tsId not in self._failedItems:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
             xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if os.path.exists(xfFile):
                 output = self.getOutputSetOfTS(self.getInputSet(pointer=True),

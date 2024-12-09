@@ -107,22 +107,27 @@ class ProtImodDoseFilter(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             compId = self._insertFunctionStep(self.doseFilterStep,
                                               tsId,
-                                              prerequisites=[])
-            outId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                             prerequisites=[compId])
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
         try:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
@@ -162,7 +167,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         with self._lock:
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)

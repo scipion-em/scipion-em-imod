@@ -83,24 +83,31 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
         closeSetStepDeps = []
 
-        for tsId in self.tomoDict.keys():
-            compId = self._insertFunctionStep(self.preprocessStep, tsId, runNewStack, binning,
-                                              prerequisites=[])
-            outId = self._insertFunctionStep(self.generateOutputStep, tsId, runNewStack, binning,
-                                             prerequisites=[compId])
+        for tomo in self.getInputSet():
+            tsId = tomo.getTsId()
+            compId = self._insertFunctionStep(self.preprocessStep,
+                                              tsId,
+                                              runNewStack,
+                                              binning,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.generateOutputStep,
+                                             tsId,
+                                             runNewStack,
+                                             binning,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def preprocessStep(self, tsId, runNewstack, binning):
         try:
             self.genTsPaths(tsId)
-            tomo = self.tomoDict[tsId]
+            tomo = self.getCurrentItem(tsId)
             tomoFn = tomo.getFileName()
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
@@ -183,7 +190,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
 
     def generateOutputStep(self, tsId, runNewstack, binning):
-        tomo = self.tomoDict[tsId]
+        tomo = self.getCurrentItem(tsId)
         with self._lock:
             if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
@@ -234,8 +241,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
-        return (self.inputSetOfTomograms.get() if
-                not pointer else self.inputSetOfTomograms)
+        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getModeToOutput(self):
         parseParamsOutputMode = {

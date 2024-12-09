@@ -60,7 +60,9 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
 
     def _insertAllSteps(self):
         self.inputTiltSeries = None
-        self._insertFunctionStep(self.runCTFEtimationStep, interactive=True)
+        self._insertFunctionStep(self.runCTFEtimationStep,
+                                 interactive=True,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions ----------------------------
 

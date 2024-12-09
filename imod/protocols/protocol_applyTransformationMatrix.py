@@ -105,20 +105,25 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             compId = self._insertFunctionStep(self.computeAlignmentStep,
                                               tsId,
-                                              prerequisites=[])
-            outId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                             prerequisites=[compId])
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions ------------------------------
     def computeAlignmentStep(self, tsId):
         try:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
             utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
@@ -152,7 +157,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         with self._lock:
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
