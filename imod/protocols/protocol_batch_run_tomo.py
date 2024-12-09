@@ -33,6 +33,7 @@ from imod.protocols import ProtImodFiducialAlignment
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.utils import formatTransformationMatrix, formatAngleList
 from pyworkflow.constants import BETA
+from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
@@ -148,6 +149,13 @@ class ProtImodBRT(ProtImodFiducialAlignment):
         pass
 
     # --------------------------- UTILS functions -----------------------------
+    def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
+        tsPointer = getattr(self, IN_TS_SET)
+        return tsPointer if pointer else tsPointer.get()
+
+    def getCurrentItem(self, tsId: str) -> TiltSeries:
+        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
     def _getCommonCmd(self, ts: TiltSeries):
         tsId = ts.getTsId()
         cmd = [
