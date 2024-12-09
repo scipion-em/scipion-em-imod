@@ -1348,8 +1348,11 @@ class TestImodTomoProjection(TestImodBase):
                              anglesCount=anglesCountDict,
                              expectedOrigin=tsOriginAngst)
 
-    def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict], currentAcq: TomoAcquisition,
+    def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict],
+                             currentAcq: TomoAcquisition,
                              tsId: Union[str, None] = None,
+                             tiltAnglesTolDeg: float = 0.01,
+                             rotAngleTolDeg: float = 0.5,
                              isTomogramAcq: bool = False) -> None:
         # As the TS' are generated from imported tomograms, some acquisition params won't be present as in the "normal"
         # TS acquisition. Thus, we make this override to custom the required checks for this specific batch of tests
@@ -1358,9 +1361,9 @@ class TestImodTomoProjection(TestImodBase):
         self.assertAlmostEqual(testAcq.getVoltage(), currentAcq.getVoltage(), delta=1)
         self.assertAlmostEqual(testAcq.getSphericalAberration(), currentAcq.getSphericalAberration(), delta=0.01)
         self.assertAlmostEqual(testAcq.getAmplitudeContrast(), currentAcq.getAmplitudeContrast(), delta=0.01)
-        self.assertAlmostEqual(testAcq.getTiltAxisAngle(), currentAcq.getTiltAxisAngle(), delta=0.5)
-        self.assertAlmostEqual(testAcq.getAngleMin(), currentAcq.getAngleMin(), delta=0.01)
-        self.assertAlmostEqual(testAcq.getAngleMax(), currentAcq.getAngleMax(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getTiltAxisAngle(), currentAcq.getTiltAxisAngle(), delta=rotAngleTolDeg)
+        self.assertAlmostEqual(testAcq.getAngleMin(), currentAcq.getAngleMin(), delta=tiltAnglesTolDeg)
+        self.assertAlmostEqual(testAcq.getAngleMax(), currentAcq.getAngleMax(), delta=tiltAnglesTolDeg)
         self.assertAlmostEqual(testAcq.getStep(), currentAcq.getStep(), delta=0.1)
 
     @staticmethod

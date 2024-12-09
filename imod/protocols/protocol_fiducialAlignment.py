@@ -158,6 +158,10 @@ class ProtImodFiducialAlignment(ProtImodBase):
     }
     stepsExecutionMode = STEPS_SERIAL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.inTsSetPointer = None
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -295,80 +299,30 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Skew group size',
                       help='Size of the skew group')
 
-    # NOTE:
-    # The gold bead eraser only remove the fiducial markers in the interpolated TS and only the ones used for the
-    #  TS alignment, so for now this functionality will be removed. Jorge (07/08/2024)
-    #
-    # form.addSection('Erase gold beads')
-    #
-    # form.addParam('eraseGoldBeads',
-    #               params.BooleanParam,
-    #               default=False,
-    #               label='Erase gold beads',
-    #               help='Remove the gold beads detected during fiducial '
-    #                    'alignment with *ccderaser* program. This option '
-    #                    'will generate an interpolated tilt series with '
-    #                    'the gold beads erased and interpolated with '
-    #                    'the calculated transformation matrices form '
-    #                    'the alignment.')
-    #
-    # form.addParam('betterRadius',  # actually diameter
-    #               params.IntParam,
-    #               default=18,
-    #               label='Bead diameter (px)',
-    #               help="For circle objects, this entry "
-    #                    "specifies a radius to use for points "
-    #                    "without an individual point size "
-    #                    "instead of the object's default sphere "
-    #                    "radius. This entry is floating point "
-    #                    "and can be used to overcome the "
-    #                    "limitations of having an integer "
-    #                    "default sphere radius. If there are "
-    #                    "multiple circle objects, enter one "
-    #                    "value to apply to all objects or a "
-    #                    "value for each object.")
-
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        binning = self.binning.get()
-
-        for tsId in self.tsDict.keys():
-            self.fiducialDiameterPixel = self.lmDict[tsId][0]
+        for fidModel in self.getInputSet():
+            tsId = fidModel.getTsId()
             self._insertFunctionStep(self.convertInputStep, tsId)
             self._insertFunctionStep(self.computeFiducialAlignmentStep, tsId)
             self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
-            self._insertFunctionStep(self.computeOutputStackStep, tsId)
-
+            self._insertFunctionStep(self.computeAliTsStep, tsId)
             if self.computeAlignment:  # or self.eraseGoldBeads:
-                self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
-                                         tsId, binning)
-            # if self.eraseGoldBeads:
-            #     self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
+                self._insertFunctionStep(self.computeInterpTsStep, tsId)
             self._insertFunctionStep(self.computeOutputModelsStep, tsId)
 
         self._insertFunctionStep(self.closeOutputSetsStep)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        inFiduSet = self.getInputFiduSet()
-        self.inTsSetPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
-        # There can be failed fiducial models, so the TsIds used as reference must be the ones present in the input set
-        # of landmark models
-        fidTsIds = inFiduSet.getUniqueValues(TiltSeries.TS_ID_FIELD)
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inTsSetPointer.get()
-                       if ts.getTsId() in fidTsIds}
-
-        lms = inFiduSet.aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
-                                  [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
-        self.lmDict = {lm[TiltSeries.TS_ID_FIELD]: (lm["_size"], lm["_modelName"]) for lm in lms}
+        self.inTsSetPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
 
     def computeFiducialAlignmentStep(self, tsId):
         try:
-            ts = self.tsDict[tsId]
-
+            ts = self.getCurrentTs(tsId)
             paramsTiltAlign = {
-                "-ModelFile": self.lmDict[tsId][1],
+                "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
                 "-ImageFile": self.getTmpOutFile(tsId),
                 "-ImagesAreBinned": 1,
                 "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
@@ -437,8 +391,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 }
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
-    def computeOutputStackStep(self, tsId):
-        ts = self.tsDict[tsId]
+    def computeAliTsStep(self, tsId):
+        ts = self.getCurrentTs(tsId)
         if tsId not in self._failedItems:
             tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
@@ -457,12 +411,13 @@ class ProtImodFiducialAlignment(ProtImodBase):
             else:
                 self.createOutputFailedSet(ts)
 
-    def computeOutputInterpolatedStackStep(self, tsId, binning):
+    def computeInterpTsStep(self, tsId):
         """ Generate interpolated stack. """
+        binning = self.binning.get()
         if tsId not in self._failedItems:
             tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-                ts = self.tsDict[tsId]
+                ts = self.getCurrentTs(tsId)
                 output = self.getOutputSetOfTS(self.inTsSetPointer, binning,
                                                attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                suffix="Interpolated")
@@ -492,30 +447,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                  excludedViews=len(tsExcludedIndices) > 0,
                                  tltList=tltList)
 
-    # def eraseGoldBeadsStep(self, tsId):
-    #     """ Erase gold beads on aligned stack. """
-    #     if tsId not in self._failedItems:
-    #         try:
-    #             paramsCcderaser = {
-    #                 "-InputFile": self.getTmpOutFile(tsId),
-    #                 "-OutputFile": self.getExtraOutFile(tsId),
-    #                 "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-    #                 "-BetterRadius": self.betterRadius.get() / 2,
-    #                 "-PolynomialOrder": 0,
-    #                 "-CircleObjects": "/",
-    #                 "-MergePatches": 1,
-    #                 "-ExcludeAdjacent": "",
-    #                 "-SkipTurnedOffPoints": 1,
-    #                 "-ExpandCircleIterations": 3
-    #             }
-    #             self.runProgram('ccderaser', paramsCcderaser)
-    #         except Exception as e:
-    #             self._failedItems.append(tsId)
-    #             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
-
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentTs(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
@@ -533,7 +467,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 landmarkModelNoGaps = LandmarkModel(tsId=tsId,
                                                     fileName=landmarkModelNoGapsFilePath,
                                                     modelName=fiducialModelNoGapPath,
-                                                    size=self.fiducialDiameterPixel,
+                                                    size=self.getCurrentFidModel(tsId).getSize(),
                                                     hasResidualInfo=True)
 
                 prevTiltIm = 0
@@ -624,9 +558,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputFiduSet(self, pointer=False):
-        return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
-
     def getRotationType(self):
         return {
             0: 0,
@@ -696,3 +627,12 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
         super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
         tiOut.setTiltAngle(float(tltList[index]))
+
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
+
+    def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
+        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
+    def getCurrentTs(self, tsId: str) -> TiltSeries:
+        return self.getCurrentFidModel(tsId).getTiltSeries()
