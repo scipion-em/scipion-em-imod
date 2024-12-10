@@ -61,7 +61,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
 
     # -------------------------- DEFINE param functions -----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
         form.addParam(IN_TS_SET,
                       params.PointerParam,
@@ -97,7 +97,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         super().convertInputStep(tsId,
-                                 imodInterpolation=None,
+                                 imodInterpolation=False,
                                  generateAngleFile=False,
                                  oddEven=self.oddEvenFlag)
 
@@ -208,4 +208,3 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         # Transformation matrix
         if ti.hasTransform():
             self.updateTM(tiOut, binning=self.binning.get())
-

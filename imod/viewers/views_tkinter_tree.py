@@ -223,7 +223,7 @@ class ImodGenericTreeProvider(TreeProvider):
 
     def getImodCTFEstimationColumnValues(self, obj, values):
         status = 'pending'
-        for item in self.protocol.inputSetOfTiltSeries:
+        for item in self.protocol.inputSetOfTiltSeries.get():
             if item.getTsId() == obj.getTsId():
                 defocusFilePath = self.protocol.getExtraOutFile(item.getTsId(), ext=DEFOCUS_EXT)
                 if os.path.exists(defocusFilePath):

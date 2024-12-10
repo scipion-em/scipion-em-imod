@@ -187,7 +187,7 @@ class ProtImodXraysEraser(ProtImodBase):
 
     def convertInputStep(self, tsId, **kwargs):
         super().convertInputStep(tsId,
-                                 imodInterpolation=None,
+                                 imodInterpolation=False,
                                  generateAngleFile=False,
                                  oddEven=self.oddEvenFlag)
 

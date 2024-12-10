@@ -459,8 +459,3 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             return result
         else:
             return None
-
-    def getInputSet(self, pointer=False):
-        """ Reimplemented from the base class for CTF case. """
-        inputSet = getattr(self, IN_TS_SET)
-        return inputSet.get() if not pointer else inputSet
