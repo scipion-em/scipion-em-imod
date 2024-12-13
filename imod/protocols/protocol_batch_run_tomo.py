@@ -163,7 +163,6 @@ class ProtImodBRT(ProtImodFiducialAlignment):
             f'--tilt-angles {self.getExtraOutFile(tsId, ext=TLT_EXT)}',
             f'--output-directory {self._getExtraPath(tsId)}',
             f'--pixel-size {ts.getSamplingRate():.3f}',
-            f'--fiducial-size {self.fidSize.get()}',
             f'--nominal-rotation-angle {ts.getAcquisition().getTiltAxisAngle():.2f}',
             f'--basename {tsId}'
         ]
