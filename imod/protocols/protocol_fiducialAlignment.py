@@ -420,7 +420,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                  copyId=True,
                                  copyTM=False,
                                  alignmentMatrix=alignmentMatrix,
-                                 tltList=tltList)
+                                 tltList=tltList,
+                                 isSemiStreamified=False)
             else:
                 self.createOutputFailedSet(ts)
 
@@ -458,7 +459,8 @@ class ProtImodFiducialAlignment(ProtImodBase):
                                  copyId=True,
                                  copyTM=False,
                                  excludedViews=len(tsExcludedIndices) > 0,
-                                 tltList=tltList)
+                                 tltList=tltList,
+                                 isSemiStreamified=False)
 
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """

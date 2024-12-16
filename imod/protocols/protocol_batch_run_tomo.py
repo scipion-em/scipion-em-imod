@@ -28,11 +28,14 @@ import logging
 import time
 import typing
 
+import numpy as np
+
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, XF_EXT
 from imod.protocols import ProtImodFiducialAlignment
-from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base import IN_TS_SET, ProtImodBase
 from imod.utils import formatTransformationMatrix, formatAngleList
+from pwem.objects import Transform
 from pyworkflow.constants import BETA
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
@@ -46,7 +49,7 @@ FIDUCIAL_ALIGNMENT = 0
 PATCH_TRACKING = 1
 
 
-class ProtImodBRT(ProtImodFiducialAlignment, ProtStreamingBase):
+class ProtImodBRT(ProtImodBase, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (https://teamtomo.org/teamtomo-site-archive/).
@@ -106,7 +109,7 @@ class ProtImodBRT(ProtImodFiducialAlignment, ProtStreamingBase):
         while True:
             listTSInput = self.getInputSet().getTSIds()
             if not self.getInputSet().isStreamOpen() and self.procesedTsList == listTSInput:
-                logger.info(cyanStr('Input set closed, all items processed\n'))
+                logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self._closeOutputSet,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
@@ -180,7 +183,8 @@ class ProtImodBRT(ProtImodFiducialAlignment, ProtStreamingBase):
                                  copyId=True,
                                  copyTM=False,
                                  alignmentMatrix=aliMatrix,
-                                 tltList=tiltAngles)
+                                 tltList=tiltAngles,
+                                 isStreamified=True)
             else:
                 self.createOutputFailedSet(ts)
             for outputName in self._possibleOutputs.keys():
@@ -240,3 +244,24 @@ class ProtImodBRT(ProtImodFiducialAlignment, ProtStreamingBase):
             f'--patch-overlap-percentage {self.patchOverlapPercent.get()}'
         ]
         return ' '.join(cmd)
+
+    @staticmethod
+    def updateTsNonInterp(tsId, ts, tsOut, **kwargs):
+        tsOut.setAlignment2D()
+
+    @staticmethod
+    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
+        transform = Transform()
+        newTransform = alignmentMatrix[:, :, index]
+        newTransformArray = np.array(newTransform)
+
+        if ti.hasTransform():
+            previousTransform = ti.getTransform().getMatrix()
+            previousTransformArray = np.array(previousTransform)
+            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
+            transform.setMatrix(outputTransformMatrix)
+        else:
+            transform.setMatrix(newTransformArray)
+
+        tiOut.setTransform(transform)
+        tiOut.setTiltAngle(float(tltList[index]))

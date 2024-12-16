@@ -777,6 +777,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     copyTM=True,
                     excludedViews=None,
                     isSemiStreamified=True,
+                    isStreamified=False,
                     **kwargs):
         """ Re-implemented function from tomo.objects. Works on a single TS object.
         Params:
@@ -789,7 +790,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             copyId: copy ObjId.
             copyTM: copy transformation matrix
             excludedViews: list of excluded views, starting from 1
-            isSemiStreamified: boolean used to indicate if the protocol is semiStreamified or not. If True, the outputs
+            isStreamified: boolean used to indicate if the protocol is streamified.
+            isSemiStreamified: boolean used to indicate if the protocol is semiStreamified. If True, the outputs
             will be generated updated and stored in the execution of the createOutputStep for each batch of steps
             generated and executed.
         """
@@ -842,9 +844,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             for tiOut in tiList:
                 tsOut.append(tiOut)
 
-        outputTsSet.update(tsOut)
-        if isSemiStreamified:
+        if isStreamified:
+            tsOut.write(properties=False)
+            outputTsSet.update(tsOut)
+            outputTsSet.write()
             self._store(outputTsSet)
+        elif isSemiStreamified:
+            outputTsSet.update(tsOut)
+            self._store(outputTsSet)
+        else:
+            outputTsSet.update(tsOut)
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
         outputLocation = self.getExtraOutFile(tsId)
