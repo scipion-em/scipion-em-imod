@@ -29,7 +29,7 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import String
-from pyworkflow.protocol.constants import STEPS_SERIAL
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 
@@ -66,7 +66,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
-    stepsExecutionMode = STEPS_SERIAL
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -239,11 +239,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "(starting from 1).")
 
         self.addOddEvenParams(form)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         widthWarnTsIds = []
         self._initialize()
+        pIdList = []
         for ts in self.getInputSet():
             tsId = ts.getTsId()
             xDim = ts.getXDim()
@@ -251,17 +253,22 @@ class ProtImodTomoReconstruction(ProtImodBase):
             if tomoWidth > xDim:
                 tomoWidth = 0
                 widthWarnTsIds.append(tsId)
-            self._insertFunctionStep(self.convertInputStep,
-                                     tsId,
-                                     needsGPU=False)
-            self._insertFunctionStep(self.computeReconstructionStep,
-                                     tsId,
-                                     tomoWidth,
-                                     needsGPU=True)
-            self._insertFunctionStep(self.createOutputStep,
-                                     tsId,
-                                     needsGPU=False)
+            cId = self._insertFunctionStep(self.convertInputStep,
+                                           tsId,
+                                           prerequisites=[],
+                                           needsGPU=False)
+            recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                             tsId,
+                                             tomoWidth,
+                                             prerequisites=cId,
+                                             needsGPU=True)
+            cOutId = self._insertFunctionStep(self.createOutputStep,
+                                              tsId,
+                                              prerequisites=recId,
+                                              needsGPU=False)
+            pIdList.append(cOutId)
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=pIdList,
                                  needsGPU=False)
 
         if widthWarnTsIds:

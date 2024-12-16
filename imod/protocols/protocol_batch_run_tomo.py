@@ -25,6 +25,7 @@
 # *
 # **************************************************************************
 import logging
+import time
 import typing
 
 from imod import Plugin
@@ -34,8 +35,8 @@ from imod.protocols.protocol_base import IN_TS_SET
 from imod.utils import formatTransformationMatrix, formatAngleList
 from pyworkflow.constants import BETA
 from pyworkflow.object import Pointer
-from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ FIDUCIAL_ALIGNMENT = 0
 PATCH_TRACKING = 1
 
 
-class ProtImodBRT(ProtImodFiducialAlignment):
+class ProtImodBRT(ProtImodFiducialAlignment, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (https://teamtomo.org/teamtomo-site-archive/).
@@ -59,6 +60,7 @@ class ProtImodBRT(ProtImodFiducialAlignment):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._failedItems = []
+        self.procesedTsList = []
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -89,26 +91,65 @@ class ProtImodBRT(ProtImodFiducialAlignment):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
-        form.addParallelSection(threads=1, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
         closeSetStepDeps = []
-        for ts in self.getInputSet().iterItems():
-            tsId = ts.getTsId()
-            cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
-                                                prerequisites=[],
-                                                needsGPU=False)
-            predFidId = self._insertFunctionStep(self.runBRT, tsId,
-                                                 prerequisites=cInputId,
-                                                 needsGPU=True)
-            cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                              prerequisites=predFidId,
-                                              needsGPU=False)
-            closeSetStepDeps.append(cOutId)
-        self._insertFunctionStep(self._closeOutputSet,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+        self.readingOutput()
+
+        while True:
+            listTSInput = self.getInputSet().getTSIds()
+            if not self.getInputSet().isStreamOpen() and self.procesedTsList == listTSInput:
+                logger.info(cyanStr('Input set closed, all items processed\n'))
+                self._insertFunctionStep(self._closeOutputSet,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+            closeSetStepDeps = []
+            for ts in self.getInputSet().iterItems():
+                if ts.getTsId() not in self.procesedTsList:
+                    tsId = ts.getTsId()
+                    logger.info(cyanStr(f"Creating the steps for tsId = {tsId}"))
+                    self.procesedTsList.append(tsId)
+                    try:
+                        cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
+                                                            prerequisites=[],
+                                                            needsGPU=False)
+                        predFidId = self._insertFunctionStep(self.runBRT, tsId,
+                                                             prerequisites=cInputId,
+                                                             needsGPU=True)
+                        cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
+                                                          prerequisites=predFidId,
+                                                          needsGPU=False)
+                        closeSetStepDeps.append(cOutId)
+                    except Exception as e:
+                        self.error(f'Error reading TS info: {e}')
+                        self.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+            time.sleep(10)
+
+    # def _insertAllSteps(self):
+    #     closeSetStepDeps = []
+    #     for ts in self.getInputSet().iterItems():
+    #         tsId = ts.getTsId()
+    #         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
+    #                                             prerequisites=[],
+    #                                             needsGPU=False)
+    #         predFidId = self._insertFunctionStep(self.runBRT, tsId,
+    #                                              prerequisites=cInputId,
+    #                                              needsGPU=True)
+    #         cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
+    #                                           prerequisites=predFidId,
+    #                                           needsGPU=False)
+    #         closeSetStepDeps.append(cOutId)
+    #     self._insertFunctionStep(self._closeOutputSet,
+    #                              prerequisites=closeSetStepDeps,
+    #                              needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def runBRT(self, tsId: str):
@@ -121,7 +162,7 @@ class ProtImodBRT(ProtImodFiducialAlignment):
             Plugin.runBRT(self, args)
         except Exception as e:
             self._failedItems.append(tsId)
-            logger.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
+            logger.error(redStr(f'tiltalign execution failed for tsId {tsId} -> {e}'))
 
     def createOutputStep(self, tsId: str):
         with self._lock:
@@ -142,6 +183,10 @@ class ProtImodBRT(ProtImodFiducialAlignment):
                                  tltList=tiltAngles)
             else:
                 self.createOutputFailedSet(ts)
+            for outputName in self._possibleOutputs.keys():
+                output = getattr(self, outputName, None)
+                if output:
+                    output.close()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -157,6 +202,15 @@ class ProtImodBRT(ProtImodFiducialAlignment):
 
     def getCurrentItem(self, tsId: str) -> TiltSeries:
         return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
+    def readingOutput(self) -> None:
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if outTsSet:
+            for ts in outTsSet:
+                self.procesedTsList.append(ts.getTsId())
+            self.info(cyanStr(f'Tilt-series processed {self.procesedTsList}'))
+        else:
+            self.info(cyanStr('No tilt-series have been processed yet'))
 
     def _getCommonCmd(self, ts: TiltSeries):
         tsId = ts.getTsId()

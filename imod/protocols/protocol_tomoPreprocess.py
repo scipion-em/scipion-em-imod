@@ -28,6 +28,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from imod.protocols.protocol_base import IN_TOMO_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
@@ -61,6 +62,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     _label = 'Tomo preprocess'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

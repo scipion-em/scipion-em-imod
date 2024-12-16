@@ -29,6 +29,7 @@ from imod.protocols.protocol_base import IN_TOMO_SET
 from pwem.objects import Transform
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
@@ -53,6 +54,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     _label = 'Tomo projection'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     AXIS_X = 0
     AXIS_Y = 1
@@ -97,7 +99,7 @@ class ProtImodTomoProjection(ProtImodBase):
                            'corresponds to the typical rotation axis '
                            'acquisition.')
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

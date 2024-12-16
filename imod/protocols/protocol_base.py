@@ -328,7 +328,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
 
         # Interpolation
-        if imodInterpolation is None:
+        if not imodInterpolation:
             _linkTs()
 
         elif imodInterpolation:

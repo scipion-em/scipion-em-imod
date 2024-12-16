@@ -27,6 +27,7 @@
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 from imod.protocols import ProtImodBase
@@ -48,6 +49,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
     _label = 'Exclude views'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -59,6 +61,7 @@ class ProtImodExcludeViews(ProtImodBase):
                       label='Input set of tilt-series')
 
         self.addOddEvenParams(form)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -101,25 +104,26 @@ class ProtImodExcludeViews(ProtImodBase):
             path.createLink(tsFileName, outputFileName)
 
     def createOutputStep(self, tsId):
-        ts = self.getCurrentItem(tsId)
-        excludedViews = self.getExcludedViews(ts)
-
         with self._lock:
-            output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-            if excludedViews:
-                self.copyTsItems(output, ts, tsId,
-                                 updateTiCallback=self.updateTi,
-                                 copyId=False, copyTM=True,
-                                 excludedViews=excludedViews)
-            else:
-                newTs = ts.clone(ignoreAttrs=[])
-                output.append(newTs)
-                for ti in ts:
-                    newTi = ti.clone()
-                    newTs.append(newTi)
+            ts = self.getCurrentItem(tsId)
+            excludedViews = self.getExcludedViews(ts)
 
-                output.update(newTs)
-                self._store(output)
+            with self._lock:
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                if excludedViews:
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTiCallback=self.updateTi,
+                                     copyId=False, copyTM=True,
+                                     excludedViews=excludedViews)
+                else:
+                    newTs = ts.clone(ignoreAttrs=[])
+                    output.append(newTs)
+                    for ti in ts:
+                        newTi = ti.clone()
+                        newTs.append(newTi)
+
+                    output.update(newTs)
+                    self._store(output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -27,6 +27,7 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
@@ -59,6 +60,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
 
     _label = 'Tilt-series preprocess'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -69,7 +71,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                       important=True,
                       label='Input set of tilt-series')
         super()._defineParams(form)
-        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

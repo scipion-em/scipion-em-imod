@@ -26,6 +26,7 @@
 import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TOMO_SET
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
@@ -47,6 +48,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     _label = 'Gold bead picker 3D'
     _possibleOutputs = {OUTPUT_COORDINATES_3D_NAME: SetOfCoordinates3D}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -106,7 +108,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'The default is 0.9. A value less than 1 is '
                            'helpful for picking both beads in a pair.')
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

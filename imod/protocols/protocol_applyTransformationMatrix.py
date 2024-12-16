@@ -29,6 +29,7 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
@@ -54,6 +55,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -99,7 +101,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         self.addOddEvenParams(form)
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -157,8 +159,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.getCurrentItem(tsId)
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

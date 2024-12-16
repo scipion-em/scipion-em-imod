@@ -28,6 +28,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
@@ -45,6 +46,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     _label = 'CTF estimation (auto)'
     _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
     _interactiveMode = False
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -284,7 +286,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
-            form.addParallelSection(threads=4, mpi=0)
+            form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -405,9 +407,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
-        ts = self.getCurrentItem(tsId)
-
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

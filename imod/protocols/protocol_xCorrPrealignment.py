@@ -31,6 +31,7 @@ import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
 from pwem.objects import Transform
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
@@ -60,6 +61,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     _label = 'Coarse prealignment'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -138,6 +140,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         self.filteringParametersForm(form,
                                      condition=True,
                                      levelType=params.LEVEL_ADVANCED)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -157,13 +160,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                              tsId,
                                              prerequisites=[compId],
                                              needsGPU=False)
-            closeSetStepDeps.append(outId)
-            if self.computeAlignment:
-                intpId = self._insertFunctionStep(self.computeInterpTsStep,
-                                                  tsId,
-                                                  prerequisites=[outId],
-                                                  needsGPU=False)
-                closeSetStepDeps.append(intpId)
+            intpId = self._insertFunctionStep(self.computeInterpTsStep,
+                                              tsId,
+                                              prerequisites=[outId],
+                                              needsGPU=False)
+            closeSetStepDeps.append(intpId)
 
         self._insertFunctionStep(self.closeOutputSetsStep, 
                                  prerequisites=closeSetStepDeps,
@@ -224,55 +225,57 @@ class ProtImodXcorrPrealignment(ProtImodBase):
 
     def computeAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
-        ts = self.getCurrentItem(tsId)
-        if tsId in self._failedItems:
-            self.createOutputFailedSet(ts)
-        else:
-            outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-            if os.path.exists(outputFn):
-                tAx = self.tiltAxisAngle.get()
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                               tiltAxisAngle=tAx)
-                alignmentMatrix = utils.formatTransformationMatrix(outputFn)
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsNonInterp,
-                                 updateTiCallback=self.updateTiNonInterp,
-                                 copyDisabledViews=True,
-                                 copyId=True,
-                                 copyTM=False,
-                                 alignmentMatrix=alignmentMatrix,
-                                 tiltAxisAngle=tAx)
-            else:
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
+            else:
+                outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+                if os.path.exists(outputFn):
+                    tAx = self.tiltAxisAngle.get()
+                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                   tiltAxisAngle=tAx)
+                    alignmentMatrix = utils.formatTransformationMatrix(outputFn)
+                    self.copyTsItems(output, ts, tsId,
+                                     updateTsCallback=self.updateTsNonInterp,
+                                     updateTiCallback=self.updateTiNonInterp,
+                                     copyDisabledViews=True,
+                                     copyId=True,
+                                     copyTM=False,
+                                     alignmentMatrix=alignmentMatrix,
+                                     tiltAxisAngle=tAx)
+                else:
+                    self.createOutputFailedSet(ts)
 
     def computeInterpTsStep(self, tsId):
-        binning = self.binning.get()
-        if tsId not in self._failedItems:
-            ts = self.getCurrentItem(tsId)
-            xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-            if os.path.exists(xfFile):
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                               binning,
-                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                               suffix="Interpolated")
-                firstItem = ts.getFirstItem()
-                tsExcludedIndices = ts.getExcludedViewsIndex()
-                paramsDict = self.getBasicNewstackParams(ts,
-                                                         self.getExtraOutFile(tsId),
-                                                         inputTsFileName=self.getTmpOutFile(tsId),
-                                                         xfFile=xfFile,
-                                                         firstItem=firstItem,
-                                                         binning=binning,
-                                                         tsExcludedIndices=tsExcludedIndices,
-                                                         doNorm=True)
-                self.runProgram('newstack', paramsDict)
-
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsInterp,
-                                 updateTiCallback=self.updateTi,
-                                 copyId=True,
-                                 copyTM=False,
-                                 excludedViews=len(tsExcludedIndices) > 0)
+        if self.computeAlignment:
+            binning = self.binning.get()
+            if tsId not in self._failedItems:
+                ts = self.getCurrentItem(tsId)
+                xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+                if os.path.exists(xfFile):
+                    firstItem = ts.getFirstItem()
+                    tsExcludedIndices = ts.getExcludedViewsIndex()
+                    paramsDict = self.getBasicNewstackParams(ts,
+                                                             self.getExtraOutFile(tsId),
+                                                             inputTsFileName=self.getTmpOutFile(tsId),
+                                                             xfFile=xfFile,
+                                                             firstItem=firstItem,
+                                                             binning=binning,
+                                                             tsExcludedIndices=tsExcludedIndices,
+                                                             doNorm=True)
+                    self.runProgram('newstack', paramsDict)
+                    with self._lock:
+                        output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                       binning,
+                                                       attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                                       suffix="Interpolated")
+                        self.copyTsItems(output, ts, tsId,
+                                         updateTsCallback=self.updateTsInterp,
+                                         updateTiCallback=self.updateTi,
+                                         copyId=True,
+                                         copyTM=False,
+                                         excludedViews=len(tsExcludedIndices) > 0)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

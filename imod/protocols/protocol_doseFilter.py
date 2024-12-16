@@ -28,6 +28,7 @@ import os.path
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 
@@ -56,6 +57,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
     _label = 'Dose filter'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -101,7 +103,7 @@ class ProtImodDoseFilter(ProtImodBase):
                            'in electrons/square Ångstrom.')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -167,8 +169,8 @@ class ProtImodDoseFilter(ProtImodBase):
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
-        ts = self.getCurrentItem(tsId)
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

@@ -166,7 +166,7 @@ class ProtImodXraysEraser(ProtImodBase):
                            'useful.')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
