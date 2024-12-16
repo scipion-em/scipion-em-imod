@@ -89,6 +89,7 @@ class ProtImodBRT(ProtImodFiducialAlignment):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
+        form.addParallelSection(threads=1, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -123,23 +124,24 @@ class ProtImodBRT(ProtImodFiducialAlignment):
             logger.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId: str):
-        ts = self.getCurrentItem(tsId)
-        if tsId not in self._failedItems:
-            xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-            tltFile = self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
-            aliMatrix = formatTransformationMatrix(xfFile)
-            tiltAngles = formatAngleList(tltFile)
-            output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-            self.copyTsItems(output, ts, tsId,
-                             updateTsCallback=self.updateTsNonInterp,
-                             updateTiCallback=self.updateTiNonInterp,
-                             copyDisabledViews=True,
-                             copyId=True,
-                             copyTM=False,
-                             alignmentMatrix=aliMatrix,
-                             tltList=tiltAngles)
-        else:
-            self.createOutputFailedSet(ts)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            if tsId not in self._failedItems:
+                xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
+                tltFile = self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
+                aliMatrix = formatTransformationMatrix(xfFile)
+                tiltAngles = formatAngleList(tltFile)
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsNonInterp,
+                                 updateTiCallback=self.updateTiNonInterp,
+                                 copyDisabledViews=True,
+                                 copyId=True,
+                                 copyTM=False,
+                                 alignmentMatrix=aliMatrix,
+                                 tltList=tiltAngles)
+            else:
+                self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
