@@ -38,7 +38,7 @@ from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
                             VERSIONS, IMOD_VIEWER_BINNING, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
                             BRT, BRT_DEFAULT_VERSION, BRT_ENV_NAME)
 
-__version__ = '3.6.1'
+__version__ = '3.7.0'
 
 from pyworkflow.utils import Environ
 

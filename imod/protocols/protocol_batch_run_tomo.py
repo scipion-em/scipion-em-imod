@@ -27,15 +27,11 @@
 import logging
 import time
 import typing
-
-import numpy as np
-
 from imod import Plugin
-from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, XF_EXT
-from imod.protocols import ProtImodFiducialAlignment
-from imod.protocols.protocol_base import IN_TS_SET, ProtImodBase
-from imod.utils import formatTransformationMatrix, formatAngleList
-from pwem.objects import Transform
+from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
+    OUTPUT_TS_INTERPOLATED_NAME
+from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
@@ -44,19 +40,16 @@ from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
 
-# Alignment modes
-FIDUCIAL_ALIGNMENT = 0
-PATCH_TRACKING = 1
 
-
-class ProtImodBRT(ProtImodBase, ProtStreamingBase):
+class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (https://teamtomo.org/teamtomo-site-archive/).
     """
 
     _label = "Tilt-series alignment (Team Tomo's wrapper)"
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
+                        OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     _devStatus = BETA
     stepsExecutionMode = STEPS_PARALLEL
 
@@ -64,6 +57,8 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
         super().__init__(**kwargs)
         self._failedItems = []
         self.procesedTsList = []
+        self.isStreamified = True
+        self.isSemiStreamified = False
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -75,10 +70,10 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
         form.addParam('alignMode', EnumParam,
                       important=True,
                       choices=['Fiducial alignment', 'Patch tracking'],
-                      default=FIDUCIAL_ALIGNMENT,
+                      default=FIDUCIAL_MODEL,
                       label='Alignment mode')
         form.addParam('fidSize', IntParam,
-                      condition=f'alignMode == {FIDUCIAL_ALIGNMENT}',
+                      condition=f'alignMode == {FIDUCIAL_MODEL}',
                       default=10,
                       validators=[GT(0)],
                       label='Fiducial diameter (nm)')
@@ -94,6 +89,7 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
+        self._insertInterpTsParams(form)
         form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -104,6 +100,7 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         closeSetStepDeps = []
+        self.inTsSetPointer = self.getInputSet(pointer=True)
         self.readingOutput()
 
         while True:
@@ -127,8 +124,12 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
                         predFidId = self._insertFunctionStep(self.runBRT, tsId,
                                                              prerequisites=cInputId,
                                                              needsGPU=True)
+                        interpId = self._insertFunctionStep(self.computeInterpTsStep,
+                                                            tsId,
+                                                            prerequisites=predFidId,
+                                                            needsGPU=False)
                         cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                          prerequisites=predFidId,
+                                                          prerequisites=interpId,
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
                     except Exception as e:
@@ -136,31 +137,13 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
                         self.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
 
-    # def _insertAllSteps(self):
-    #     closeSetStepDeps = []
-    #     for ts in self.getInputSet().iterItems():
-    #         tsId = ts.getTsId()
-    #         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
-    #                                             prerequisites=[],
-    #                                             needsGPU=False)
-    #         predFidId = self._insertFunctionStep(self.runBRT, tsId,
-    #                                              prerequisites=cInputId,
-    #                                              needsGPU=True)
-    #         cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-    #                                           prerequisites=predFidId,
-    #                                           needsGPU=False)
-    #         closeSetStepDeps.append(cOutId)
-    #     self._insertFunctionStep(self._closeOutputSet,
-    #                              prerequisites=closeSetStepDeps,
-    #                              needsGPU=False)
-
     # --------------------------- STEPS functions -----------------------------
     def runBRT(self, tsId: str):
         logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
         try:
             ts = self.getCurrentItem(tsId)
             self.genTsPaths(tsId)
-            args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_ALIGNMENT \
+            args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
                 else self._getPatchTrackingCmd(ts)
             Plugin.runBRT(self, args)
         except Exception as e:
@@ -169,24 +152,8 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
 
     def createOutputStep(self, tsId: str):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId not in self._failedItems:
-                xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-                tltFile = self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
-                aliMatrix = formatTransformationMatrix(xfFile)
-                tiltAngles = formatAngleList(tltFile)
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsNonInterp,
-                                 updateTiCallback=self.updateTiNonInterp,
-                                 copyDisabledViews=True,
-                                 copyId=True,
-                                 copyTM=False,
-                                 alignmentMatrix=aliMatrix,
-                                 tltList=tiltAngles,
-                                 isStreamified=True)
-            else:
-                self.createOutputFailedSet(ts)
+            self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
+            self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
             for outputName in self._possibleOutputs.keys():
                 output = getattr(self, outputName, None)
                 if output:
@@ -245,23 +212,6 @@ class ProtImodBRT(ProtImodBase, ProtStreamingBase):
         ]
         return ' '.join(cmd)
 
-    @staticmethod
-    def updateTsNonInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.setAlignment2D()
+    def getTltFilePath(self, tsId):
+        return self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
 
-    @staticmethod
-    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
-        transform = Transform()
-        newTransform = alignmentMatrix[:, :, index]
-        newTransformArray = np.array(newTransform)
-
-        if ti.hasTransform():
-            previousTransform = ti.getTransform().getMatrix()
-            previousTransformArray = np.array(previousTransform)
-            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-            transform.setMatrix(outputTransformMatrix)
-        else:
-            transform.setMatrix(newTransformArray)
-
-        tiOut.setTransform(transform)
-        tiOut.setTiltAngle(float(tltList[index]))
