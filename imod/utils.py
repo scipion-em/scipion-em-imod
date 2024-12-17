@@ -146,7 +146,7 @@ def formatFiducialResidList(fiducialFilePath):
     file path and returns a list containing the coordinates
     and residual values of each fiducial for each tilt-image
     belonging to the tilt-series. Since IMOD establishes a
-    float value for each coordinate the are parsed to int. """
+    float value for each coordinate they are parsed to int. """
 
     fiducialResidList = []
 

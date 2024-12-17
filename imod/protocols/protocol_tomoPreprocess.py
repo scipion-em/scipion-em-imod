@@ -46,7 +46,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     _1 Binning_: Binvol will bin down a volume in all three dimensions,
     with the binning done isotropically. Binning means summing (actually
-    averaging) all of the values in a block of voxels (e.g., 2x2x2
+    averaging) all the values in a block of voxels (e.g., 2x2x2
     or 1x1x3) in the input volume to create one voxel in the output volume.
     The output file will have appropriately larger pixel spacings
     in its header.\n
@@ -66,7 +66,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         super().__init__(**kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
         form.addParam(IN_TOMO_SET,
                       params.PointerParam,
@@ -74,6 +74,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                       important=True,
                       label='Input set of tomograms')
         super()._defineParams(form, isTomogram=True)
+        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
