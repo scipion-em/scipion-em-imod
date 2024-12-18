@@ -329,7 +329,9 @@ class ProtImodCtfCorrection(ProtImodBase):
                         for tiOut in tiList:
                             newTs.append(tiOut)
 
+                    newTs.write(properties=False)
                     outputSetOfTs.update(newTs)
+                    outputSetOfTs.write()
                     self._store(outputSetOfTs)
 
     # --------------------------- UTILS functions -----------------------------
