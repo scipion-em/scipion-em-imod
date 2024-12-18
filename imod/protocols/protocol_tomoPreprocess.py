@@ -97,7 +97,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                                              tsId,
                                              runNewStack,
                                              binning,
-                                             prerequisites=[compId],
+                                             prerequisites=compId,
                                              needsGPU=False)
             closeSetStepDeps.append(outId)
 
@@ -109,7 +109,8 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     def preprocessStep(self, tsId, runNewstack, binning):
         try:
             self.genTsPaths(tsId)
-            tomo = self.getCurrentItem(tsId)
+            with self._lock:
+                tomo = self.getCurrentItem(tsId)
             tomoFn = tomo.getFileName()
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
@@ -192,8 +193,8 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
 
     def generateOutputStep(self, tsId, runNewstack, binning):
-        tomo = self.getCurrentItem(tsId)
         with self._lock:
+            tomo = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
             else:

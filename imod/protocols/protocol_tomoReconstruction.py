@@ -279,12 +279,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        presentAcqOrders = self.getPresentAcqOrders(self.getCurrentItem(tsId),
-                                                    onlyEnabled=True)  # Re-stack excluding views before reconstructing
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+        presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,
                                  doSwap=True,
                                  oddEven=self.oddEvenFlag,
-                                 presentAcqOrders=presentAcqOrders)
+                                 presentAcqOrders=presentAcqOrders,
+                                 lockGetItem=True)
 
     def computeReconstructionStep(self, tsId, tomoWidth):
         try:
@@ -361,40 +363,41 @@ class ProtImodTomoReconstruction(ProtImodBase):
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.getCurrentItem(tsId)
-        if tsId in self._failedItems:
-            self.createOutputFailedSet(ts)
-        else:
-            tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
-            if os.path.exists(tomoLocation):
-                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
-
-                newTomogram = Tomogram(tsId=tsId)
-                newTomogram.copyInfo(ts)
-                newTomogram.setLocation(tomoLocation)
-
-                if self.oddEvenFlag:
-                    halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                    self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                    newTomogram.setHalfMaps(halfMapsList)
-
-                # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=None)
-                shiftX = self.tomoShiftX.get()
-                shiftZ = self.tomoShiftZ.get()
-                if shiftX or shiftZ:
-                    sRate = newTomogram.getSamplingRate()
-                    x, y, z = newTomogram.getShiftsFromOrigin()
-                    shiftXang = shiftX * sRate
-                    shiftZang = shiftZ * sRate
-                    newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
-
-                output.append(newTomogram)
-                output.update(newTomogram)
-                output.write()
-                self._store(output)
-            else:
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
+            else:
+                tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
+                if os.path.exists(tomoLocation):
+                    output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
+
+                    newTomogram = Tomogram(tsId=tsId)
+                    newTomogram.copyInfo(ts)
+                    newTomogram.setLocation(tomoLocation)
+
+                    if self.oddEvenFlag:
+                        halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                        self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                        newTomogram.setHalfMaps(halfMapsList)
+
+                    # Set default tomogram origin
+                    newTomogram.setOrigin(newOrigin=None)
+                    shiftX = self.tomoShiftX.get()
+                    shiftZ = self.tomoShiftZ.get()
+                    if shiftX or shiftZ:
+                        sRate = newTomogram.getSamplingRate()
+                        x, y, z = newTomogram.getShiftsFromOrigin()
+                        shiftXang = shiftX * sRate
+                        shiftZang = shiftZ * sRate
+                        newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
+
+                    output.append(newTomogram)
+                    output.update(newTomogram)
+                    output.write()
+                    self._store(output)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

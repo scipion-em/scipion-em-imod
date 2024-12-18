@@ -87,12 +87,12 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
             compId = self._insertFunctionStep(self.generateOutputStackStep,
                                               tsId,
                                               binning,
-                                              prerequisites=[convId],
+                                              prerequisites=convId,
                                               needsGPU=False)
             outId = self._insertFunctionStep(self.createOutputStep,
                                              tsId,
                                              binning,
-                                             prerequisites=[compId],
+                                             prerequisites=compId,
                                              needsGPU=False)
             closeSetStepDeps.append(outId)
 
@@ -105,11 +105,13 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         super().convertInputStep(tsId,
                                  imodInterpolation=False,
                                  generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag)
+                                 oddEven=self.oddEvenFlag,
+                                 lockGetItem=True)
 
     def generateOutputStackStep(self, tsId, binning):
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             xfFile = None
             norm = self.floatDensities.get()
@@ -149,8 +151,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
             self.error(f'newstack execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, binning):
-        ts = self.getCurrentItem(tsId)
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

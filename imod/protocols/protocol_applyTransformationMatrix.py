@@ -125,7 +125,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # --------------------------- STEPS functions ------------------------------
     def computeAlignmentStep(self, tsId):
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
             utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))

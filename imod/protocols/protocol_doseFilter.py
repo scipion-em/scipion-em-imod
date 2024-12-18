@@ -129,7 +129,8 @@ class ProtImodDoseFilter(ProtImodBase):
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 

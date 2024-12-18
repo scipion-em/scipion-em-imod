@@ -84,7 +84,8 @@ class ProtImodExcludeViews(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def excludeViewsStep(self, tsId):
-        ts = self.getCurrentItem(tsId)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
         tsFileName = ts.getFirstItem().getFileName()
         self.genTsPaths(tsId)
 

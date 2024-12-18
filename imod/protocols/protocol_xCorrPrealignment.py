@@ -154,17 +154,21 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                               needsGPU=False)
             compId = self._insertFunctionStep(self.computeXcorrStep,
                                               tsId,
-                                              prerequisites=[convId],
+                                              prerequisites=convId,
                                               needsGPU=False)
-            outId = self._insertFunctionStep(self.computeAliTsStep,
+            outId = self._insertFunctionStep(self.createAliTsStep,
                                              tsId,
-                                             prerequisites=[compId],
+                                             prerequisites=compId,
                                              needsGPU=False)
             intpId = self._insertFunctionStep(self.computeInterpTsStep,
                                               tsId,
-                                              prerequisites=[outId],
+                                              prerequisites=outId,
                                               needsGPU=False)
-            closeSetStepDeps.append(intpId)
+            cIntPid = self._insertFunctionStep(self.createInterpTsStep,
+                                               tsId,
+                                               prerequisites=intpId,
+                                               needsGPU=False)
+            closeSetStepDeps.append(cIntPid)
 
         self._insertFunctionStep(self.closeOutputSetsStep, 
                                  prerequisites=closeSetStepDeps,
@@ -173,12 +177,15 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         oddEvenFlag = self.applyToOddEven(self.getInputSet())
-        super().convertInputStep(tsId, oddEven=oddEvenFlag)
+        super().convertInputStep(tsId,
+                                 oddEven=oddEvenFlag,
+                                 lockGetItem=True)
 
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
             paramsXcorr = {
@@ -223,7 +230,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self._failedItems.append(tsId)
             self.error(f'tiltxcorr or xftoxg execution failed for tsId {tsId} -> {e}')
 
-    def computeAliTsStep(self, tsId):
+    def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
         with self._lock:
             ts = self.getCurrentItem(tsId)
@@ -248,10 +255,11 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     self.createOutputFailedSet(ts)
 
     def computeInterpTsStep(self, tsId):
-        if self.computeAlignment:
+        if self.computeAlignment and tsId not in self._failedItems:
             binning = self.binning.get()
             if tsId not in self._failedItems:
-                ts = self.getCurrentItem(tsId)
+                with self._lock:
+                    ts = self.getCurrentItem(tsId)
                 xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
                 if os.path.exists(xfFile):
                     firstItem = ts.getFirstItem()
@@ -265,17 +273,23 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                                              tsExcludedIndices=tsExcludedIndices,
                                                              doNorm=True)
                     self.runProgram('newstack', paramsDict)
-                    with self._lock:
-                        output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                                       binning,
-                                                       attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                                       suffix="Interpolated")
-                        self.copyTsItems(output, ts, tsId,
-                                         updateTsCallback=self.updateTsInterp,
-                                         updateTiCallback=self.updateTi,
-                                         copyId=True,
-                                         copyTM=False,
-                                         excludedViews=len(tsExcludedIndices) > 0)
+
+    def createInterpTsStep(self, tsId):
+        if self.computeAlignment and tsId not in self._failedItems:
+            with self._lock:
+                binning = self.binning.get()
+                ts = self.getCurrentItem(tsId)
+                tsExcludedIndices = ts.getExcludedViewsIndex()
+                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                               binning,
+                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                               suffix="Interpolated")
+                self.copyTsItems(output, ts, tsId,
+                                 updateTsCallback=self.updateTsInterp,
+                                 updateTiCallback=self.updateTi,
+                                 copyId=True,
+                                 copyTM=False,
+                                 excludedViews=len(tsExcludedIndices) > 0)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

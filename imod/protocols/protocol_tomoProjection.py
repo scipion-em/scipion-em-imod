@@ -112,7 +112,7 @@ class ProtImodTomoProjection(ProtImodBase):
                                               needsGPU=False)
             outId = self._insertFunctionStep(self.generateOutputStackStep,
                                              tsId,
-                                             prerequisites=[compId],
+                                             prerequisites=compId,
                                              needsGPU=False)
             closeSetStepDeps.append(outId)
 
@@ -124,7 +124,8 @@ class ProtImodTomoProjection(ProtImodBase):
     def projectTomogram(self, tsId):
         try:
             self.genTsPaths(tsId)
-            tomo = self.getCurrentItem(tsId)
+            with self._lock:
+                tomo = self.getCurrentItem(tsId)
 
             paramsXYZproj = {
                 '-input': tomo.getFileName(),
@@ -142,8 +143,8 @@ class ProtImodTomoProjection(ProtImodBase):
             self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
-        tomo = self.getCurrentItem(tsId)
         with self._lock:
+            tomo = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(tomo)
             else:

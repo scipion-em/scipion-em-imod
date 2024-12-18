@@ -115,11 +115,16 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         allOutputId = []
         self._initialize()
         for tsId in self.tomoDict.keys():
-            pickId = self._insertFunctionStep(self.pickGoldBeadsStep, tsId, prerequisites=[])
-            outputID = self._insertFunctionStep(self.createOutputStep, tsId, prerequisites=[pickId])
+            pickId = self._insertFunctionStep(self.pickGoldBeadsStep,
+                                              tsId,
+                                              prerequisites=[])
+            outputID = self._insertFunctionStep(self.createOutputStep,
+                                                tsId,
+                                                prerequisites=pickId)
             allOutputId.append(outputID)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=allOutputId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=allOutputId)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):

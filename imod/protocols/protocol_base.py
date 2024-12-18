@@ -231,7 +231,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                          imodInterpolation: bool=True,
                          doSwap: bool=False,
                          oddEven: bool=False,
-                         presentAcqOrders: typing.Set[int]=()):
+                         presentAcqOrders: typing.Set[int]=(),
+                         lockGetItem: bool=False):
         """
         :param tsId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -243,9 +244,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param presentAcqOrders: set containing the present acq orders in both
         the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
         and the interpolated TS with IMOD's newstack program.
+        :param lockGetItem: boolean used to indicate if the getItem call must lock the DDBB access,
+        as it should be if the protocol is parallelized.
         """
-        # ts = self.tsDict[tsId]
-        ts = self.getCurrentItem(tsId)
+        if lockGetItem:
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
+        else:
+            ts = self.getCurrentItem(tsId)
         self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,

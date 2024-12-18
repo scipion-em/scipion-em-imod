@@ -197,7 +197,8 @@ class ProtImodXraysEraser(ProtImodBase):
         super().convertInputStep(tsId,
                                  imodInterpolation=False,
                                  generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag)
+                                 oddEven=self.oddEvenFlag,
+                                 lockGetItem=True)
 
     def eraseXraysStep(self, tsId):
         try:
@@ -237,8 +238,8 @@ class ProtImodXraysEraser(ProtImodBase):
             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.getCurrentItem(tsId)
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

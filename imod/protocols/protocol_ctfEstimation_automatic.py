@@ -323,12 +323,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def convertInputStep(self, tsId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsId, imodInterpolation=False)
+        super().convertInputStep(tsId,
+                                 imodInterpolation=False,
+                                 lockGetItem=True)
 
     def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
 
             paramsCtfPlotter = {
                 "-InputStack": self.getTmpOutFile(tsId),

@@ -138,10 +138,14 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             time.sleep(10)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsId: str):
+        super().convertInputStep(tsId, lockGetItem=True)
+
     def runBRT(self, tsId: str):
         logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
         try:
-            ts = self.getCurrentItem(tsId)
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             self.genTsPaths(tsId)
             args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
                 else self._getPatchTrackingCmd(ts)
@@ -172,7 +176,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         return tsPointer if pointer else tsPointer.get()
 
     def getCurrentItem(self, tsId: str) -> TiltSeries:
-        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+        with self._lock:
+            return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def readingOutput(self) -> None:
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
