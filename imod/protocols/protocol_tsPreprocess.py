@@ -63,7 +63,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
     stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
         form.addParam(IN_TS_SET,
                       params.PointerParam,
@@ -216,4 +216,3 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         # Transformation matrix
         if ti.hasTransform():
             self.updateTM(tiOut, binning=self.binning.get())
-

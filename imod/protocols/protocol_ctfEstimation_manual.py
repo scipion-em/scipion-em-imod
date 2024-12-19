@@ -59,17 +59,15 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
     def _insertAllSteps(self):
-        self.inputTiltSeries = None
-        self._insertFunctionStep(self.runCTFEtimationStep,
-                                 interactive=True,
-                                 needsGPU=False)
+        self._initialize()
+        self._insertFunctionStep(self.runCTFEtimationStep, interactive=True)
 
     # --------------------------- STEPS functions ----------------------------
 
     def runCTFEtimationStep(self):
         from imod.viewers import ImodGenericView
-        self.inputSetOfTiltSeries = self.getInputSet()
-        view = ImodGenericView(None, self, self.inputSetOfTiltSeries,
+        tsSet = self.getInputSet()
+        view = ImodGenericView(None, self, tsSet,
                                createSetButton=True,
                                isInteractive=True)
         view.show()
@@ -84,8 +82,7 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
     def createOutput(self):
         suffix = self._getOutputSuffix(SetOfCTFTomoSeries)
         outputSetName = self.OUTPUT_PREFIX + str(suffix)
-        tsIdList = self.inputTiltSeries.getTSIds()
-        for tsId in tsIdList:
+        for tsId in self.tsDict.keys():
             self.createOutputStep(tsId, outputSetName)
 
         self.closeOutputSetsStep()
