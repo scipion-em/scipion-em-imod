@@ -189,31 +189,48 @@ class ProtImodFiducialModel(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.convertInputStep, tsId)
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
+            self._insertFunctionStep(self.convertInputStep,
+                                     tsId,
+                                     needsGPU=False)
 
             if self.typeOfModel.get() == FIDUCIAL_MODEL:
-                self._insertFunctionStep(self.generateTrackComStep, tsId)
-                self._insertFunctionStep(self.generateFiducialSeedStep, tsId)
-                self._insertFunctionStep(self.generateFiducialModelStep, tsId)
+                self._insertFunctionStep(self.generateTrackComStep,
+                                         tsId,
+                                         needsGPU=False)
+                self._insertFunctionStep(self.generateFiducialSeedStep,
+                                         tsId,
+                                         needsGPU=False)
+                self._insertFunctionStep(self.generateFiducialModelStep,
+                                         tsId,
+                                         needsGPU=False)
             else:
-                self._insertFunctionStep(self.xcorrStep, tsId)
-                self._insertFunctionStep(self.chopcontsStep, tsId)
+                self._insertFunctionStep(self.xcorrStep,
+                                         tsId,
+                                         needsGPU=False)
+                self._insertFunctionStep(self.chopcontsStep,
+                                         tsId,
+                                         needsGPU=False)
 
-            self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
-            self._insertFunctionStep(self.computeOutputModelsStep, tsId)
+            self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeOutputModelsStep,
+                                     tsId,
+                                     needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetsStep)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
     def generateTrackComStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
         paramsDict = {
             'imageFile': self.getTmpOutFile(tsId),
@@ -262,7 +279,7 @@ class ProtImodFiducialModel(ProtImodBase):
             self.error(f'autofidseed execution failed for tsId {tsId} -> {e}')
 
     def generateFiducialModelStep(self, tsId):
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         if tsId not in self._failedItems:
             try:
                 fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
@@ -333,7 +350,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     def xcorrStep(self, tsId):
         try:
-            ts = self.tsDict[tsId]
+            ts = self.getCurrentItem(tsId)
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             ts.writeXfFile(xfFile)
@@ -397,7 +414,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     def computeOutputModelsStep(self, tsId):
         """ Create the output set of landmark models with gaps. """
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:

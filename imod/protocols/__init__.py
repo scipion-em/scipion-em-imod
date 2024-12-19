@@ -26,7 +26,6 @@
 # *
 # *****************************************************************************
 from .protocol_base import ProtImodBase
-
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
 from .protocol_ctfCorrection import ProtImodCtfCorrection
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
@@ -44,3 +43,4 @@ from .protocol_tomoReconstruction import ProtImodTomoReconstruction
 from .protocol_tsPreprocess import ProtImodTsNormalization
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
+from .protocol_batch_run_tomo import ProtImodBRT

@@ -28,6 +28,7 @@ import os
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 
@@ -45,6 +46,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     _label = 'CTF estimation (auto)'
     _possibleOutputs = {OUTPUT_CTF_SERIE: SetOfCTFTomoSeries}
     _interactiveMode = False
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -284,7 +286,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
-            form.addParallelSection(threads=4, mpi=0)
+            form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -292,33 +294,44 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         expDefoci = self.getExpectedDefocus()
 
         closeSetStepDeps = []
-        for tsId in self.tsDict.keys():
-            convId = self._insertFunctionStep(self.convertInputStep, tsId,
-                                              prerequisites=[])
-            compId = self._insertFunctionStep(self.ctfEstimation, tsId,
-                                              expDefoci, prerequisites=[convId])
-            outId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                             prerequisites=[compId])
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
+            convId = self._insertFunctionStep(self.convertInputStep,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            compId = self._insertFunctionStep(self.ctfEstimation,
+                                              tsId,
+                                              expDefoci,
+                                              prerequisites=[convId],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
     def convertInputStep(self, tsId, **kwargs):
         """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsId, imodInterpolation=False)
+        super().convertInputStep(tsId,
+                                 imodInterpolation=False,
+                                 lockGetItem=True)
 
     def ctfEstimation(self, tsId, expDefoci):
         """Run ctfplotter IMOD program"""
         try:
-            ts = self.tsDict[tsId]
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
 
             paramsCtfPlotter = {
                 "-InputStack": self.getTmpOutFile(tsId),
@@ -397,9 +410,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
             self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
-        ts = self.tsDict[tsId]
-
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:
