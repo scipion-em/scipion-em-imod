@@ -85,7 +85,10 @@ class ImodObjectView(pwviewer.CommandView):
         # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
         cmd = f"{Plugin.getImodCmd('3dmod')} "
-        prj = protocol.getProject()
+
+        # When called as a FileHandler there is no protocol associated
+        if protocol:
+            prj = protocol.getProject()
 
         if isinstance(obj, tomoObj.TiltSeries):
             inputFn = obj.getFirstItem().getFileName()
