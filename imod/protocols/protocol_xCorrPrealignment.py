@@ -154,19 +154,19 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                               needsGPU=False)
             compId = self._insertFunctionStep(self.computeXcorrStep,
                                               tsId,
-                                              prerequisites=convId,
+                                              prerequisites=[convId],
                                               needsGPU=False)
             outId = self._insertFunctionStep(self.createAliTsStep,
                                              tsId,
-                                             prerequisites=compId,
+                                             prerequisites=[compId],
                                              needsGPU=False)
             intpId = self._insertFunctionStep(self.computeInterpTsStep,
                                               tsId,
-                                              prerequisites=outId,
+                                              prerequisites=[outId],
                                               needsGPU=False)
             cIntPid = self._insertFunctionStep(self.createInterpTsStep,
                                                tsId,
-                                               prerequisites=intpId,
+                                               prerequisites=[intpId],
                                                needsGPU=False)
             closeSetStepDeps.append(cIntPid)
 
