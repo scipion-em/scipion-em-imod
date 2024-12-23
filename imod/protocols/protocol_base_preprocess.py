@@ -170,3 +170,4 @@ class ProtImodBasePreprocess(ProtImodBase):
                            f'sharp edges.')
 
         self.addOddEvenParams(form, isTomogram=isTomogram)
+        form.addParallelSection(threads=3, mpi=0)

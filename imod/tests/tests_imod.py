@@ -27,7 +27,6 @@ import math
 from os.path import exists
 from typing import Union
 import numpy as np
-
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
@@ -293,9 +292,9 @@ class TestImodBase(TestBaseCentralizedLayer):
                                      floatDensities=densAdjustMode,
                                      **kwargs)
         # if excludedViews:
-            # # # Exclude some views at metadata level
-            # # cls._excludeSetViews(inTsSet)
-            # excludeViewsMsg = 'eV'
+        # # # Exclude some views at metadata level
+        # # cls._excludeSetViews(inTsSet)
+        # excludeViewsMsg = 'eV'
         protTsNorm.setObjLabel(f'Bin_{binning} Mode_{densAdjustMode} {excludeViewsMsg}')
         cls.launchProtocol(protTsNorm)
         tsPreprocessed = getattr(protTsNorm, OUTPUT_TILTSERIES_NAME, None)
@@ -415,6 +414,28 @@ class TestImodBase(TestBaseCentralizedLayer):
         tsInterp = getattr(protFiduAli, OUTPUT_TS_INTERPOLATED_NAME, None)
         fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
         return tsAli, tsInterp, fiducialModels
+
+    @classmethod
+    def _runBRT(cls, inTsSet, alignMode=None, genInterp=False, interpBinFactor=-1, eV=False, objLabel=None):
+        aliModeStr = 'patch tracking' if alignMode == PATCH_TRACKING else 'fiducial'
+        msg = (f"\n==> Running the TS {aliModeStr} alignment (Batch run tomo):"
+               f"\n\t- Generate the interpolated TS = {genInterp}")
+        if genInterp:
+            msg += f"\n\t- Interpolated TS binning factor = {interpBinFactor}"
+        if eV:
+            msg += '\n\t- Some views were excluded'
+        print(magentaStr(msg))
+        protBRT = cls.newProtocol(ProtImodBRT,
+                                  inputSetOfTiltSeries=inTsSet,
+                                  alignMode=alignMode,
+                                  computeAlignment=genInterp,
+                                  binning=interpBinFactor)
+        if objLabel:
+            protBRT.setObjLabel(objLabel)
+        cls.launchProtocol(protBRT)
+        tsAli = getattr(protBRT, OUTPUT_TILTSERIES_NAME, None)
+        tsInterp = getattr(protBRT, OUTPUT_TS_INTERPOLATED_NAME, None)
+        return tsAli, tsInterp
 
     @classmethod
     def _runTomoRec(cls, inTsSet, tomoThickness=-1, tomoWidth=0, tomoShiftX=0, tomoShiftZ=0, superSampleFactor=2,
@@ -561,6 +582,37 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.launchProtocol(protGbp)
         outFiduCoords = getattr(protGbp, OUTPUT_COORDINATES_3D_NAME, None)
         return outFiduCoords
+
+    def _checkTiltSeries(self, inTsSet, binningFactor=1, excludedViewsDict=None):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
+                             hasAlignment=True,
+                             alignment=ALIGN_2D,
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
+
+    def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict=None, testAnglesCountDict=None, binningFactor=1):
+        if not testAcqObjDict:
+            testAcqObjDict = self.testInterpAcqObjDict
+        if not testAnglesCountDict:
+            testAnglesCountDict = self.anglesCountDict
+        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor,
+                                                       swapXY=True,
+                                                       nImgsDict=testAnglesCountDict)
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate * binningFactor,
+                             isInterpolated=True,
+                             expectedDimensions=expectedDimensions,
+                             testAcqObj=testAcqObjDict,
+                             anglesCount=testAnglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst)
 
 
 class TestImodXRayEraser(TestImodBase):
@@ -1027,7 +1079,19 @@ class TestImodGenFiducialModel(TestImodBase):
         # Exclude some views at metadata level
         self._excludeSetViews(preAliTsSet)
         # Run the protocol
-        fiducialModels = self._genFiducialModel(preAliTsSet, objLabel='testFiducialModel08, eV')
+        fiducialModels = self._genFiducialModel(preAliTsSet,
+                                                objLabel='testFiducialModel08, eV')
+        # Check the fiducial models
+        self._checkFiducialModels(fiducialModels)
+
+    def testFiducialModel09(self):
+        preAliTsSet, _ = self._runXcorrAli(self.tsPreprocessed, genInterp=False)
+        # Exclude some views at metadata level
+        self._excludeSetViews(preAliTsSet)
+        # Run the protocol
+        fiducialModels = self._genFiducialModel(preAliTsSet,
+                                                objLabel='testFiducialModel09, eV',
+                                                modelType=PATCH_TRACKING)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1040,37 +1104,6 @@ class TestImodTsAlignment(TestImodBase):
         cls.importedTs = cls._runImportTs()
         cls.preAliTsSet, _ = cls._runXcorrAli(cls.importedTs, genInterp=False)
         cls.fiducialModels = cls._genFiducialModel(cls.preAliTsSet)
-
-    def _checkTiltSeries(self, inTsSet, binningFactor=1, excludedViewsDict=None):
-        self.checkTiltSeries(inTsSet,
-                             expectedSetSize=self.expectedTsSetSize,
-                             expectedSRate=self.unbinnedSRate * binningFactor,
-                             expectedDimensions=self._getExpectedDimsDict(binningFactor=binningFactor),
-                             hasAlignment=True,
-                             alignment=ALIGN_2D,
-                             testAcqObj=self.testAcqObjDict,
-                             anglesCount=self.anglesCountDict,
-                             isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst,
-                             excludedViewsDict=excludedViewsDict)
-
-    def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict=None, testAnglesCountDict=None, binningFactor=1):
-        if not testAcqObjDict:
-            testAcqObjDict = self.testInterpAcqObjDict
-        if not testAnglesCountDict:
-            testAnglesCountDict = self.anglesCountDict
-        expectedDimensions = self._getExpectedDimsDict(binningFactor=binningFactor,
-                                                       swapXY=True,
-                                                       nImgsDict=testAnglesCountDict)
-        self.checkTiltSeries(inTsSet,
-                             expectedSetSize=self.expectedTsSetSize,
-                             expectedSRate=self.unbinnedSRate * binningFactor,
-                             isInterpolated=True,
-                             expectedDimensions=expectedDimensions,
-                             testAcqObj=testAcqObjDict,
-                             anglesCount=testAnglesCountDict,
-                             isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
 
     def testFiducialAli01(self):
         tsAli, tsInterp, fiducialModels = self._runFiducialAli(self.fiducialModels, objLabel='testFiducialAli01')
@@ -1141,6 +1174,89 @@ class TestImodTsAlignment(TestImodBase):
                                     binningFactor=self.binningFactor)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
+
+
+class TestImodTsAlignmentBRT(TestImodBase):
+    binningFactor = 4
+
+    def testBRT_FiduAli_01(self):
+        tsAli, tsInterp = self._runBRT(self.importedTs,
+                                       alignMode=FIDUCIAL_MODEL,
+                                       genInterp=False,
+                                       objLabel='testBRT_FiduAli_01')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self.assertIsNone(tsInterp)
+
+    def testBRT_FiduAli_02(self):
+        tsAli, tsInterp = self._runBRT(self.importedTs,
+                                       alignMode=FIDUCIAL_MODEL,
+                                       genInterp=True,
+                                       interpBinFactor=self.binningFactor,
+                                       objLabel='testBRT_FiduAli_02')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
+
+    def testBRT_FiduAli_02_eV(self):
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level and commpute the fiducial models using them
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        tsAli, tsInterp = self._runBRT(importedTs,
+                                       alignMode=FIDUCIAL_MODEL,
+                                       genInterp=True,
+                                       interpBinFactor=self.binningFactor,
+                                       eV=True,
+                                       objLabel='testBRT_FiduAli_02, eV')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp,
+                                    self._gentestAcqObjDictReStacked(isInterp=True),
+                                    self.anglesCountDictExcluded,
+                                    binningFactor=self.binningFactor)
+
+    def testBRT_PTAli_01(self):
+        tsAli, tsInterp = self._runBRT(self.importedTs,
+                                       alignMode=PATCH_TRACKING,
+                                       genInterp=False,
+                                       objLabel='testBRT_PTAli_01')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self.assertIsNone(tsInterp)
+
+    def testBRT_PTAli_02(self):
+        tsAli, tsInterp = self._runBRT(self.importedTs,
+                                       alignMode=PATCH_TRACKING,
+                                       genInterp=True,
+                                       interpBinFactor=self.binningFactor,
+                                       objLabel='testBRT_PTAli_02')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli)
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
+
+    def testBRT_PTAli_02_eV(self):
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level and commpute the fiducial models using them
+        self._excludeSetViews(importedTs)
+        tsAli, tsInterp = self._runBRT(importedTs,
+                                       alignMode=PATCH_TRACKING,
+                                       genInterp=True,
+                                       interpBinFactor=self.binningFactor,
+                                       eV=True,
+                                       objLabel='testBRT_PTAli_02, eV')
+        # Check the generated TS
+        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        # Check the interpolated TS
+        self._checkInterpTiltSeries(tsInterp,
+                                    self._gentestAcqObjDictReStacked(isInterp=True),
+                                    self.anglesCountDictExcluded,
+                                    binningFactor=self.binningFactor)
 
 
 class TestImodTomoReconstruction(TestImodBase):
@@ -1348,8 +1464,11 @@ class TestImodTomoProjection(TestImodBase):
                              anglesCount=anglesCountDict,
                              expectedOrigin=tsOriginAngst)
 
-    def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict], currentAcq: TomoAcquisition,
+    def checkTomoAcquisition(self, testAcq: Union[TomoAcquisition, dict],
+                             currentAcq: TomoAcquisition,
                              tsId: Union[str, None] = None,
+                             tiltAnglesTolDeg: float = 0.01,
+                             rotAngleTolDeg: float = 0.5,
                              isTomogramAcq: bool = False) -> None:
         # As the TS' are generated from imported tomograms, some acquisition params won't be present as in the "normal"
         # TS acquisition. Thus, we make this override to custom the required checks for this specific batch of tests
@@ -1358,9 +1477,9 @@ class TestImodTomoProjection(TestImodBase):
         self.assertAlmostEqual(testAcq.getVoltage(), currentAcq.getVoltage(), delta=1)
         self.assertAlmostEqual(testAcq.getSphericalAberration(), currentAcq.getSphericalAberration(), delta=0.01)
         self.assertAlmostEqual(testAcq.getAmplitudeContrast(), currentAcq.getAmplitudeContrast(), delta=0.01)
-        self.assertAlmostEqual(testAcq.getTiltAxisAngle(), currentAcq.getTiltAxisAngle(), delta=0.5)
-        self.assertAlmostEqual(testAcq.getAngleMin(), currentAcq.getAngleMin(), delta=0.01)
-        self.assertAlmostEqual(testAcq.getAngleMax(), currentAcq.getAngleMax(), delta=0.01)
+        self.assertAlmostEqual(testAcq.getTiltAxisAngle(), currentAcq.getTiltAxisAngle(), delta=rotAngleTolDeg)
+        self.assertAlmostEqual(testAcq.getAngleMin(), currentAcq.getAngleMin(), delta=tiltAnglesTolDeg)
+        self.assertAlmostEqual(testAcq.getAngleMax(), currentAcq.getAngleMax(), delta=tiltAnglesTolDeg)
         self.assertAlmostEqual(testAcq.getStep(), currentAcq.getStep(), delta=0.1)
 
     @staticmethod
