@@ -60,6 +60,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         self.isStreamified = True
         self.isSemiStreamified = False
 
+    @classmethod
+    def worksInStreaming(cls):
+        return True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
