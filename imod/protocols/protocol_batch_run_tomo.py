@@ -47,7 +47,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     (https://teamtomo.org/teamtomo-site-archive/).
     """
 
-    _label = "Tilt-series alignment (Team Tomo's wrapper)"
+    _label = "teamtomo/yet-another-imod-wrapper"
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
                         OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     _devStatus = BETA

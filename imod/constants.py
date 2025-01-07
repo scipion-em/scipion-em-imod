@@ -37,7 +37,7 @@ DEFAULT_VERSION = VERSION_4_11_25
 
 # Batchruntomo (Team Tomo's wrapper)
 BRT = 'yet-another-imod-wrapper'
-BRT_DEFAULT_VERSION = '0.1.1'
+BRT_DEFAULT_VERSION = '0.1.2'
 BRT_ENV_NAME = '%s-%s' % (BRT, BRT_DEFAULT_VERSION)
 BRT_ENV_ACTIVATION = 'BRT_ENV_ACTIVATION'
 BRT_DEFAULT_ACTIVATION_CMD = 'conda activate %s' % BRT_ENV_NAME
