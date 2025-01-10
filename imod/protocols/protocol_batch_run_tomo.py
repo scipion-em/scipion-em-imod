@@ -159,20 +159,16 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             logger.error(redStr(f'tiltalign execution failed for tsId {tsId} -> {e}'))
 
     def createOutputStep(self, tsId: str):
-        with self._lock:
-            self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
-            self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
-            for outputName in self._possibleOutputs.keys():
-                output = getattr(self, outputName, None)
-                if output:
-                    output.close()
+        if tsId not in self._failedItems:
+            with self._lock:
+                self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
+                self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
+                for outputName in self._possibleOutputs.keys():
+                    output = getattr(self, outputName, None)
+                    if output:
+                        output.close()
 
     # --------------------------- INFO functions ------------------------------
-    def _summary(self):
-        pass
-
-    def _methods(self):
-        pass
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:

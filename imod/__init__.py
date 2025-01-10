@@ -101,19 +101,6 @@ class Plugin(pwem.Plugin):
             del env['IMOD_PATH']
         return env
 
-    # @classmethod
-    # def getBRTEnviron(cls):
-    #     """ Set up the environment variables needed to launch BRT. """
-    #     environ = Environ(os.environ)
-    #     if 'PYTHONPATH' in environ:
-    #         # this is required for python virtual env to work
-    #         del environ['PYTHONPATH']
-    #     IMOD_PATH = cls.getHome("bin")
-    #     environ.update({'PATH': IMOD_PATH + ":" + environ['PATH']})
-    #     print(f'==============================> {environ["PATH"]}')
-    #     cudaLib = cls.getVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
-    #     environ.addLibrary(cudaLib)
-
     @classmethod
     def validateInstallation(cls):
         """ Check if imod is in the path """
