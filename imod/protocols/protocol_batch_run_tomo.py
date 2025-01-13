@@ -27,13 +27,16 @@
 import logging
 import time
 import typing
+
+from imageio.config.plugins import summary
+
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
     OUTPUT_TS_INTERPOLATED_NAME
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
-from pyworkflow.object import Pointer
+from pyworkflow.object import Pointer, String
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
@@ -59,6 +62,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         self.procesedTsList = []
         self.isStreamified = True
         self.isSemiStreamified = False
+        self.noneProcessedMsg = String()
 
     @classmethod
     def worksInStreaming(cls):
@@ -111,7 +115,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             listTSInput = self.getInputSet().getTSIds()
             if not self.getInputSet().isStreamOpen() and self.procesedTsList == listTSInput:
                 logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self._closeOutputSet,
+                self._insertFunctionStep(self.closeOutputSetsStep,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -137,8 +141,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
                     except Exception as e:
-                        self.error(f'Error reading TS info: {e}')
-                        self.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                        logger.error(f'Error reading TS info: {e}')
+                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
 
     # --------------------------- STEPS functions -----------------------------
@@ -168,7 +172,22 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                     if output:
                         output.close()
 
+    def closeOutputSetsStep(self):
+        if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
+            self.noneProcessedMsg.set('Unable to process any of the introduced tilt-series. One possible cause may be '
+                                      'the lack of the batchruntomo required conda environment '
+                                      '(yet-another-imod-wrapper). If that is the case, please consider to '
+                                      'reínstall the plugin scipion-em-imod.')
+            self._store(self.noneProcessedMsg)
+        self._closeOutputSet()
+
     # --------------------------- INFO functions ------------------------------
+    def _summary(self):
+        summary = []
+        nonProcessedMsg = self.noneProcessedMsg.get()
+        if nonProcessedMsg:
+           summary.append(f'*{nonProcessedMsg}*')
+        return summary
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
@@ -219,4 +238,3 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def getTltFilePath(self, tsId):
         return self.getExtraOutFile(tsId, suffix="fid", ext=TLT_EXT)
-
