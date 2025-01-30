@@ -27,9 +27,6 @@
 import logging
 import time
 import typing
-
-from imageio.config.plugins import summary
-
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
     OUTPUT_TS_INTERPOLATED_NAME
@@ -90,10 +87,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                       condition=patchTrackingCond,
                       default=500,
                       validators=[GT(0)],
-                      label='Patch sidelength (A)')
+                      label='Patch side-length (A)')
         form.addParam('patchOverlapPercent', IntParam,
                       condition=patchTrackingCond,
-                      default=33,
+                      default=80,
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
