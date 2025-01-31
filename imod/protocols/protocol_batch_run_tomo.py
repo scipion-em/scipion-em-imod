@@ -56,7 +56,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._failedItems = []
-        self.procesedTsList = []
+        self.tsReadList = []
         self.isStreamified = True
         self.isSemiStreamified = False
         self.noneProcessedMsg = String()
@@ -105,23 +105,22 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         closeSetStepDeps = []
-        self.inTsSetPointer = self.getInputSet(pointer=True)
+        inTsSet = self.getInputSet()
+        self.inTsSetPointer = self.getInputSet(pointer=True)  # Required in some super class methods
         self.readingOutput()
 
         while True:
-            listTSInput = self.getInputSet().getTSIds()
-            if not self.getInputSet().isStreamOpen() and self.procesedTsList == listTSInput:
+            listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
             closeSetStepDeps = []
-            for ts in self.getInputSet().iterItems():
-                if ts.getTsId() not in self.procesedTsList:
+            for ts in inTsSet.iterItems():
+                if ts.getTsId() not in self.tsReadList:
                     tsId = ts.getTsId()
-                    logger.info(cyanStr(f"Creating the steps for tsId = {tsId}"))
-                    self.procesedTsList.append(tsId)
                     try:
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
@@ -137,10 +136,14 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                                                           prerequisites=interpId,
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsReadList.append(tsId)
                     except Exception as e:
                         logger.error(f'Error reading TS info: {e}')
                         logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
+            if inTsSet.isStreamOpen():
+                inTsSet.loadAllProperties() # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str):
@@ -199,8 +202,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         if outTsSet:
             for ts in outTsSet:
-                self.procesedTsList.append(ts.getTsId())
-            self.info(cyanStr(f'Tilt-series processed {self.procesedTsList}'))
+                self.tsReadList.append(ts.getTsId())
+            self.info(cyanStr(f'Tilt-series processed {self.tsReadList}'))
         else:
             self.info(cyanStr('No tilt-series have been processed yet'))
 
