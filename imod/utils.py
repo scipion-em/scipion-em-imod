@@ -616,7 +616,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
-                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None):
+                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None, invertTiltAngles=False):
     """ This method takes a ctfTomoSeries object a generate a
     defocus information file in IMOD formatting containing
     the same information in the specified location. """
@@ -625,6 +625,11 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
         tiltSeries = ctfTomoSeries.getTiltSeries()
     else:
         tiltSeries = inputTiltSeries
+
+    if invertTiltAngles:
+        invert_factor = -1
+    else:
+        invert_factor = 1
 
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
@@ -656,8 +661,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = (pattern % (
                         index,
                         index + nEstimationsInRange,
-                        round(tiltSeries[index].getTiltAngle(), 2),
-                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle() * invert_factor, 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle() * invert_factor, 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         int(float(defocusUDict[index + nEstimationsInRange][0]) / 10)
                     ))
@@ -695,8 +700,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         index,
                         index + nEstimationsInRange,
-                        round(tiltSeries[index].getTiltAngle(), 2),
-                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle() * invert_factor, 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle() * invert_factor, 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
@@ -731,8 +736,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.2f\n" % (
                         index,
                         index + nEstimationsInRange,
-                        round(tiltSeries[index].getTiltAngle(), 2),
-                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle() * invert_factor, 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle() * invert_factor, 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         float(phaseShiftDict[index + nEstimationsInRange][0]),
@@ -768,8 +773,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\n" % (
                         index,
                         index + nEstimationsInRange,
-                        round(tiltSeries[index].getTiltAngle(), 2),
-                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle() * invert_factor, 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle() * invert_factor, 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
@@ -808,8 +813,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\t%.2f\t%.4f\n" % (
                         index,
                         index + nEstimationsInRange,
-                        round(tiltSeries[index].getTiltAngle(), 2),
-                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle(), 2),
+                        round(tiltSeries[index].getTiltAngle() * invert_factor, 2),
+                        round(tiltSeries[index + nEstimationsInRange].getTiltAngle() * invert_factor, 2),
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         float(defocusUDict[index + nEstimationsInRange][0]) / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
@@ -844,8 +849,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
                     newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
                         ind,
                         ind,
-                        tiltAngle,
-                        tiltAngle,
+                        tiltAngle * invert_factor,
+                        tiltAngle * invert_factor,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
                         ctfTomo.getDefocusU() / 10,
                         # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
