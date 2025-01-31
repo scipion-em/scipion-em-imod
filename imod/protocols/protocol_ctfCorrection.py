@@ -152,7 +152,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                       label='Invert defocus gradient?',
                       default=False,
                       important=True,
-                      help="Invert the tilt angles for defocus calculation. Should only be used if you know that the defocus gradient is inverted with the current tilt axis angle.")
+                      help="Invert the tilt angles for defocus calculation. Should only be used if you know that the defocus gradient is inverted with the current tilt axis angle. The default convention in IMOD corresponds to -1 defocus sign in RELION.See IMOD ctfplotter documentation for details.")
 
         form.addHidden(params.USE_GPU,
                        params.BooleanParam,
