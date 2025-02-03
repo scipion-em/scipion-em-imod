@@ -36,7 +36,7 @@ import pwem
 
 from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
                             VERSIONS, IMOD_VIEWER_BINNING, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
-                            BRT, BRT_DEFAULT_VERSION, BRT_ENV_NAME)
+                            BRT, BRT_PROGRAM_DEFAULT_VERSION, BRT_ENV_NAME, BRT_PROGRAM)
 
 __version__ = '3.7.0'
 
@@ -166,7 +166,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def installBatchRunTomo(cls, env):
-        BRT_INSTALLED = '%s_%s_installed' % (BRT, BRT_DEFAULT_VERSION)
+        BRT_INSTALLED = '%s_%s_installed' % (BRT, BRT_PROGRAM_DEFAULT_VERSION)
         installationCmd = cls.getCondaActivationCmd()
         # Create the environment
         installationCmd += ' conda create -y -n %s -c conda-forge python=3.8 && ' % BRT_ENV_NAME
@@ -175,7 +175,7 @@ class Plugin(pwem.Plugin):
         installationCmd += 'conda activate %s && ' % BRT_ENV_NAME
 
         # Install BRT
-        installationCmd += f'pip install {BRT}=={BRT_DEFAULT_VERSION} && '
+        installationCmd += f'pip install {BRT_PROGRAM}=={BRT_PROGRAM_DEFAULT_VERSION} && '
 
         # Flag installation finished
         installationCmd += 'touch %s' % BRT_INSTALLED
@@ -185,7 +185,7 @@ class Plugin(pwem.Plugin):
         installEnvVars = {'PATH': envPath} if envPath else None
 
         env.addPackage(BRT,
-                       version=BRT_DEFAULT_VERSION,
+                       version=BRT_PROGRAM_DEFAULT_VERSION,
                        tar='void.tgz',
                        commands=BRT_commands,
                        neededProgs=cls.getDependenciesBRT(),
@@ -208,7 +208,7 @@ class Plugin(pwem.Plugin):
         cmd += cls.getBRTEnvActivation()
         cmd += f"&& export PATH={cls.getHome('bin')}:$PATH "
         cmd += f"&& export IMOD_DIR={cls.getHome()} "
-        cmd += f"&& {BRT} "
+        cmd += f"&& {BRT_PROGRAM} "
         protocol.runJob(cmd, args, env=cls.getEnviron(), cwd=cwd, numberOfMpi=numberOfMpi)
 
     @classmethod

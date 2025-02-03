@@ -44,10 +44,10 @@ logger = logging.getLogger(__name__)
 class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
-    (https://teamtomo.org/teamtomo-site-archive/).
+    (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
     """
 
-    _label = "teamtomo/yet-another-imod-wrapper"
+    _label = "teamtomo/batchruntomo"
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
                         OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     _devStatus = BETA
