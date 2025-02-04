@@ -182,7 +182,19 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
-    def _summary(self):
+    def _validate(self) -> typing.List[str]:
+        # Check if the environment required by the BRT is installed (for git pulls in devel mode mainly)
+        errorMsg = []
+        try:
+            Plugin.runBRT(self, '')
+        except:
+            errorMsg.append('Unable to run the program batchruntomo. Please check if the configuration variable '
+                            'BRT_ENV_ACTIVATION is pointing to an existing conda environment. Otherwise, '
+                            'reinstall the latest version of the plugin scipion-em-imod.')
+        return errorMsg
+
+
+    def _summary(self) -> typing.List[str]:
         summary = []
         nonProcessedMsg = self.noneProcessedMsg.get()
         if nonProcessedMsg:
