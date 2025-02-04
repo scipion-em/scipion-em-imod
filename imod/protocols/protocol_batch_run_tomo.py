@@ -25,11 +25,12 @@
 # *
 # **************************************************************************
 import logging
+import subprocess
 import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME
+    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
@@ -185,9 +186,11 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     def _validate(self) -> typing.List[str]:
         # Check if the environment required by the BRT is installed (for git pulls in devel mode mainly)
         errorMsg = []
-        try:
-            Plugin.runBRT(self, '')
-        except:
+        result = subprocess.run(['conda', 'env', 'list'],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True)
+        if BRT_ENV_NAME not in result.stdout:
             errorMsg.append('Unable to run the program batchruntomo. Please check if the configuration variable '
                             'BRT_ENV_ACTIVATION is pointing to an existing conda environment. Otherwise, '
                             'reinstall the latest version of the plugin scipion-em-imod.')
