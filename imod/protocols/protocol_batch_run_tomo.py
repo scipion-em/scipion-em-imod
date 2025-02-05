@@ -128,7 +128,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                                                             needsGPU=False)
                         predFidId = self._insertFunctionStep(self.runBRT, tsId,
                                                              prerequisites=cInputId,
-                                                             needsGPU=True)
+                                                             needsGPU=False)
                         interpId = self._insertFunctionStep(self.computeInterpTsStep,
                                                             tsId,
                                                             prerequisites=predFidId,
