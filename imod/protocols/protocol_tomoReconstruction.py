@@ -23,23 +23,27 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
+import logging
 import os
+import time
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import String
+from pyworkflow.protocol import ProtStreamingBase
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, cyanStr, redStr, magentaStr
 from tomo.objects import Tomogram, SetOfTomograms
 
 from imod import Plugin
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
-                            OUTPUT_TOMOGRAMS_NAME)
+                            OUTPUT_TOMOGRAMS_NAME, NO_TOMO_PROCESSED_MSG)
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodTomoReconstruction(ProtImodBase):
+class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     """
     Tomogram reconstruction procedure based on the IMOD procedure.
 
@@ -70,7 +74,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.widthWarnMsg = String()
+        self.tsReadList = []
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -242,8 +250,58 @@ class ProtImodTomoReconstruction(ProtImodBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
+        self._initialize()
+        inTsSet = self.getInputSet()
+        tomoWidth = self.tomoWidth.get()
+        self.readingOutput()
         widthWarnTsIds = []
+        closeSetStepDeps = []
+
+        while True:
+            listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+            closeSetStepDeps = []
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsReadList:
+                    try:
+                        xDim = ts.getXDim()
+                        if tomoWidth > xDim:
+                            tomoWidth = 0
+                            widthWarnTsIds.append(tsId)
+                        cId = self._insertFunctionStep(self.convertInputStep,
+                                                       tsId,
+                                                       prerequisites=[],
+                                                       needsGPU=False)
+                        recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                                         tsId,
+                                                         tomoWidth,
+                                                         prerequisites=cId,
+                                                         needsGPU=True)
+                        cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                          tsId,
+                                                          prerequisites=recId,
+                                                          needsGPU=False)
+                        closeSetStepDeps.append(cOutId)
+                    except Exception as e:
+                        logger.error(f'Error reading TS info: {e}')
+                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                inTsSet.loadAllProperties()  # refresh status for the streaming
+
+    def _insertAllSteps(self):
         self._initialize()
         pIdList = []
         for ts in self.getInputSet():
@@ -252,7 +310,11 @@ class ProtImodTomoReconstruction(ProtImodBase):
             tomoWidth = self.tomoWidth.get()
             if tomoWidth > xDim:
                 tomoWidth = 0
-                widthWarnTsIds.append(tsId)
+            else:
+                logger.warning(magentaStr(f'tsId: {tsId}: The introduced width is '
+                                          f'greater than the X dimension of the tilt-series. '
+                                          f'Assuming value 0'))
+
             cId = self._insertFunctionStep(self.convertInputStep,
                                            tsId,
                                            prerequisites=[],
@@ -271,12 +333,6 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                  prerequisites=pIdList,
                                  needsGPU=False)
 
-        if widthWarnTsIds:
-            self.widthWarnMsg.set(f'\n\n*WARNING!:*'
-                                  f'\nThe introduced width is greater than the X dimension of the tomograms: '
-                                  f'*{widthWarnTsIds}*.'
-                                  f'\nValue 0 was assumed for all of them.')
-
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         with self._lock:
@@ -289,6 +345,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
                                  lockGetItem=True)
 
     def computeReconstructionStep(self, tsId, tomoWidth):
+        logger.info(cyanStr(f'===> tsId = {tsId}: reconstructing the tomogram...'))
         try:
             # run tilt
             paramsTilt = {
@@ -359,13 +416,13 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
         except Exception as e:
-            self._failedItems.append(tsId)
-            self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tilt or trimvol execution failed for tsId {tsId} -> {e}'))
 
     def createOutputStep(self, tsId):
         with self._lock:
             ts = self.getCurrentItem(tsId)
-            if tsId in self._failedItems:
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
@@ -399,15 +456,27 @@ class ProtImodTomoReconstruction(ProtImodBase):
                 else:
                     self.createOutputFailedSet(ts)
 
+    def closeOutputSetsStep(self):
+        if not getattr(self, OUTPUT_TOMOGRAMS_NAME, None):
+            raise Exception(NO_TOMO_PROCESSED_MSG)
+        self._closeOutputSet()
+
+    # --------------------------- UTILS functions -----------------------------
+    def readingOutput(self) -> None:
+        outTsSet = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if outTsSet:
+            for ts in outTsSet:
+                self.tsReadList.append(ts.getTsId())
+            self.info(cyanStr(f'Tomograms reconstructed {self.tsReadList}'))
+        else:
+            self.info(cyanStr('No tomograms have been reconstructed yet'))
+
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
         if self.Tomograms:
             summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
                            f"Tomograms reconstructed: {self.Tomograms.getSize()}")
-            widthWarnings = self.widthWarnMsg.get()
-            if widthWarnings:
-                summary.append(widthWarnings)
         else:
             summary.append("Outputs are not ready yet.")
         return summary

@@ -60,13 +60,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         super().__init__(**kwargs)
         self.tsDict = None
         self.tomoDict = None
-        self._failedItems = []
+        self.failedItems = []
         self.oddEvenFlag = False
 
         # Possible outputs (synchronize these names with the constants)
         self.TiltSeries = None
         self.Tomograms = None
-
 
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod

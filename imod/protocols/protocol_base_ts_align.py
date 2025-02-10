@@ -81,7 +81,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def createOutTs(self, tsId, isSemiStreamified, isStreamified):
         ts = self.getCurrentItem(tsId)
-        if tsId not in self._failedItems:
+        if tsId not in self.failedItems:
             xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
             if exists(xfFile) and stat(xfFile).st_size != 0:
                 tltFile = self.getTltFilePath(tsId)
@@ -102,7 +102,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
                 self.createOutputFailedSet(ts)
 
     def createOutInterpTs(self, tsId, isSemiStreamified, isStreamified):
-        if self.computeAlignment and tsId not in self._failedItems:
+        if self.computeAlignment and tsId not in self.failedItems:
             tltFilePath = self.getTltFilePath(tsId)
             if exists(tltFilePath) and stat(tltFilePath).st_size != 0:
                 binning = self.binning.get()
@@ -124,10 +124,10 @@ class ProtImodBaseTsAlign(ProtImodBase):
 
     def computeInterpTsStep(self, tsId):
         """ Generate interpolated stack. """
-        if self.computeAlignment and tsId not in self._failedItems:
+        if self.computeAlignment and tsId not in self.failedItems:
             logger.info(cyanStr(f"tsId = {tsId}: calculating the interpolated tilt-series"))
             binning = self.binning.get()
-            if tsId not in self._failedItems:
+            if tsId not in self.failedItems:
                 tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
                 if exists(tmpFileName) and stat(tmpFileName).st_size != 0:
                     ts = self.getCurrentItem(tsId)

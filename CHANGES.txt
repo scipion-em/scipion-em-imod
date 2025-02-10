@@ -1,8 +1,9 @@
 3.7.0:
   Users:
-   - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo.
+   - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo. Streamified.
    - As a consequence, the installer was updated and a conda environment is generated.
    - Parallelization of most of the protocols.
+   - Streamify the protocols tilt-series preprocess and tomograms reconstruction.
 3.6.1:
  Users:
   - bugfix for o/e tomo reconstruction, see #271

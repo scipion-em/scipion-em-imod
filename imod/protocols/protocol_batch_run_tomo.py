@@ -30,7 +30,7 @@ import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME
+    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
@@ -56,11 +56,9 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._failedItems = []
         self.tsReadList = []
         self.isStreamified = True
         self.isSemiStreamified = False
-        self.noneProcessedMsg = String()
 
     @classmethod
     def worksInStreaming(cls):
@@ -120,8 +118,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 break
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
-                if ts.getTsId() not in self.tsReadList:
-                    tsId = ts.getTsId()
+                tsId = ts.getTsId()
+                if tsId not in self.tsReadList:
                     try:
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
@@ -144,10 +142,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
-                inTsSet.loadAllProperties() # refresh status for the streaming
+                inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId: str):
+    def convertInputStep(self, tsId: str, **kwargs):
         super().convertInputStep(tsId, lockGetItem=True)
 
     def runBRT(self, tsId: str):
@@ -160,12 +158,15 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 else self._getPatchTrackingCmd(ts)
             Plugin.runBRT(self, args)
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             logger.error(redStr(f'tiltalign execution failed for tsId {tsId} -> {e}'))
 
     def createOutputStep(self, tsId: str):
-        if tsId not in self._failedItems:
-            with self._lock:
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            if tsId in self.failedItems:
+                self.createOutputFailedSet(ts)
+            else:
                 self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
                 self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
                 for outputName in self._possibleOutputs.keys():
@@ -175,43 +176,32 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def closeOutputSetsStep(self):
         if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
-            self.noneProcessedMsg.set('Unable to process any of the introduced tilt-series. One possible cause may be '
-                                      'the lack of the batchruntomo required conda environment '
-                                      '(yet-another-imod-wrapper). If that is the case, please consider to '
-                                      'reínstall the plugin scipion-em-imod.')
-            self._store(self.noneProcessedMsg)
+            raise Exception(f'{NO_TS_PROCESSED_MSG}. One possible cause may be '
+                            'the lack of the batchruntomo required conda environment '
+                            '(teamtomoBRT-VERSION). If that is the case, please consider to '
+                            'reínstall the plugin scipion-em-imod.')
         self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self) -> typing.List[str]:
-        # Check if the environment required by the BRT is installed (for git pulls in devel mode mainly)
+        # Check if the environment required by the BRT is installed (for git pulls in
+        # devel mode mainly)
         errorMsg = []
         result = subprocess.run(['conda', 'env', 'list'],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 text=True)
         if BRT_ENV_NAME not in result.stdout:
-            errorMsg.append('Unable to run the program batchruntomo. Please check if the configuration variable '
-                            'BRT_ENV_ACTIVATION is pointing to an existing conda environment. Otherwise, '
-                            'reinstall the latest version of the plugin scipion-em-imod.')
+            errorMsg.append('Unable to run the program batchruntomo. Please check if the '
+                            'configuration variable BRT_ENV_ACTIVATION is pointing to an '
+                            'existing conda environment. Otherwise, reinstall the latest '
+                            'version of the plugin scipion-em-imod.')
         return errorMsg
-
-
-    def _summary(self) -> typing.List[str]:
-        summary = []
-        nonProcessedMsg = self.noneProcessedMsg.get()
-        if nonProcessedMsg:
-           summary.append(f'*{nonProcessedMsg}*')
-        return summary
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
         tsPointer = getattr(self, IN_TS_SET)
         return tsPointer if pointer else tsPointer.get()
-
-    def getCurrentItem(self, tsId: str) -> TiltSeries:
-        with self._lock:
-            return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def readingOutput(self) -> None:
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)

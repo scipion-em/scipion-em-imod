@@ -275,12 +275,12 @@ class ProtImodFiducialModel(ProtImodBase):
                 path.moveTree("autofidseed.dir", autofidseedDirPath)
                 path.moveFile("autofidseed.info", self._getExtraPath(tsId))
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'autofidseed execution failed for tsId {tsId} -> {e}')
 
     def generateFiducialModelStep(self, tsId):
         ts = self.getCurrentItem(tsId)
-        if tsId not in self._failedItems:
+        if tsId not in self.failedItems:
             try:
                 fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
 
@@ -345,7 +345,7 @@ class ProtImodFiducialModel(ProtImodBase):
                     self.runProgram('beadtrack', paramsBeadtrack)
 
             except Exception as e:
-                self._failedItems.append(tsId)
+                self.failedItems.append(tsId)
                 self.error(f'beadtrack execution failed for tsId {tsId} -> {e}')
 
     def xcorrStep(self, tsId):
@@ -383,11 +383,11 @@ class ProtImodFiducialModel(ProtImodBase):
             self.runProgram('tiltxcorr', paramsTiltXCorr)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'tiltxcorr execution failed for tsId {tsId} -> {e}')
 
     def chopcontsStep(self, tsId):
-        if tsId not in self._failedItems:
+        if tsId not in self.failedItems:
             try:
                 paramschopconts = {
                     "-InputModel": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
@@ -398,11 +398,11 @@ class ProtImodFiducialModel(ProtImodBase):
                 }
                 self.runProgram('imodchopconts', paramschopconts)
             except Exception as e:
-                self._failedItems.append(tsId)
+                self.failedItems.append(tsId)
                 self.error(f'imodchopconts execution failed for tsId {tsId} -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
-        if tsId not in self._failedItems:
+        if tsId not in self.failedItems:
             gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(gapsFidFile):
@@ -415,7 +415,7 @@ class ProtImodFiducialModel(ProtImodBase):
     def computeOutputModelsStep(self, tsId):
         """ Create the output set of landmark models with gaps. """
         ts = self.getCurrentItem(tsId)
-        if tsId in self._failedItems:
+        if tsId in self.failedItems:
             self.createOutputFailedSet(ts)
         else:
             fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
