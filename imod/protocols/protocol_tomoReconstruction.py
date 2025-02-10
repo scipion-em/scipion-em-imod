@@ -294,6 +294,8 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                                           prerequisites=recId,
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsReadList.append(tsId)
                     except Exception as e:
                         logger.error(f'Error reading TS info: {e}')
                         logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
