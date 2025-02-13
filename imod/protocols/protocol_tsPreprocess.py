@@ -200,6 +200,10 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                      copyId=True,
                                      copyTM=True,
                                      binning=binning)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
                 else:
                     self.createOutputFailedSet(ts)
 

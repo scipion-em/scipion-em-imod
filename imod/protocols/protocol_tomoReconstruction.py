@@ -455,6 +455,10 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     output.update(newTomogram)
                     output.write()
                     self._store(output)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
                 else:
                     self.createOutputFailedSet(ts)
 
