@@ -102,7 +102,7 @@ class ProtImodEtomo(ProtImodBase):
                       help='Apply the transformation matrix if input'
                            'tilt series have it.')
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     # Overwrite the following function to prevent streaming from base class
@@ -111,7 +111,9 @@ class ProtImodEtomo(ProtImodBase):
 
     def _insertAllSteps(self):
         self.inputTiltSeries = None
-        self._insertFunctionStep(self.runEtomoStep, interactive=True)
+        self._insertFunctionStep(self.runEtomoStep,
+                                 interactive=True,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):

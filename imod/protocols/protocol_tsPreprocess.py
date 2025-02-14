@@ -27,6 +27,7 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import SetOfTiltSeries
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
@@ -59,6 +60,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
 
     _label = 'Tilt-series preprocess'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
@@ -69,7 +71,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                       important=True,
                       label='Input set of tilt-series')
         super()._defineParams(form)
-        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -77,33 +78,40 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         binning = self.binning.get()
         closeSetStepDeps = []
 
-        for tsId in self.tsDict.keys():
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             convId = self._insertFunctionStep(self.convertInputStep,
                                               tsId,
-                                              prerequisites=[])
+                                              prerequisites=[],
+                                              needsGPU=False)
             compId = self._insertFunctionStep(self.generateOutputStackStep,
                                               tsId,
                                               binning,
-                                              prerequisites=[convId])
+                                              prerequisites=convId,
+                                              needsGPU=False)
             outId = self._insertFunctionStep(self.createOutputStep,
                                              tsId,
                                              binning,
-                                             prerequisites=[compId])
+                                             prerequisites=compId,
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         super().convertInputStep(tsId,
                                  imodInterpolation=False,
                                  generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag)
+                                 oddEven=self.oddEvenFlag,
+                                 lockGetItem=True)
 
     def generateOutputStackStep(self, tsId, binning):
         try:
-            ts = self.tsDict[tsId]
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             xfFile = None
             norm = self.floatDensities.get()
@@ -143,8 +151,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
             self.error(f'newstack execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId, binning):
-        ts = self.tsDict[tsId]
         with self._lock:
+            ts = self.getCurrentItem(tsId)
             if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
             else:

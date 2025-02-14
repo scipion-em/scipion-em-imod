@@ -37,7 +37,7 @@ from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage, CTFTomoSeries)
+                          TiltImage, CTFTomoSeries, Tomogram)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -211,8 +211,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[])
-                       for ts in self.getInputSet()}
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
 
     @staticmethod
@@ -233,7 +231,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                          imodInterpolation: bool=True,
                          doSwap: bool=False,
                          oddEven: bool=False,
-                         presentAcqOrders: typing.Set[int]=()):
+                         presentAcqOrders: typing.Set[int]=(),
+                         lockGetItem: bool=False):
         """
         :param tsId: Tilt-series identifier
         :param generateAngleFile:  Boolean(True) to generate IMOD angle file
@@ -245,8 +244,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param presentAcqOrders: set containing the present acq orders in both
         the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
         and the interpolated TS with IMOD's newstack program.
+        :param lockGetItem: boolean used to indicate if the getItem call must lock the DDBB access,
+        as it should be if the protocol is parallelized.
         """
-        ts = self.tsDict[tsId]
+        if lockGetItem:
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
+        else:
+            ts = self.getCurrentItem(tsId)
         self.genTsPaths(tsId)
         self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
@@ -329,7 +334,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
 
         # Interpolation
-        if imodInterpolation is None:
+        if not imodInterpolation:
             _linkTs()
 
         elif imodInterpolation:
@@ -568,6 +573,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+
+    def getCurrentItem(self, tsId: str) -> TiltSeries:
+        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
         current tilt-series in tmp and extra"""
@@ -584,9 +595,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def getExtraOutFile(self, tsId, suffix=None, ext=MRCS_EXT):
         return self._getExtraPath(tsId,
                                   self.getOutTsFileName(tsId, suffix=suffix, ext=ext))
-
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
 
     def applyToOddEven(self, setOfTs):
         return (hasattr(self, "processOddEven") and
@@ -775,6 +783,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     copyTM=True,
                     excludedViews=None,
                     isSemiStreamified=True,
+                    isStreamified=False,
                     **kwargs):
         """ Re-implemented function from tomo.objects. Works on a single TS object.
         Params:
@@ -787,7 +796,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             copyId: copy ObjId.
             copyTM: copy transformation matrix
             excludedViews: list of excluded views, starting from 1
-            isSemiStreamified: boolean used to indicate if the protocol is semiStreamified or not. If True, the outputs
+            isStreamified: boolean used to indicate if the protocol is streamified.
+            isSemiStreamified: boolean used to indicate if the protocol is semiStreamified. If True, the outputs
             will be generated updated and stored in the execution of the createOutputStep for each batch of steps
             generated and executed.
         """
@@ -840,9 +850,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             for tiOut in tiList:
                 tsOut.append(tiOut)
 
-        outputTsSet.update(tsOut)
-        if isSemiStreamified:
+        if isStreamified:
+            tsOut.write(properties=False)
+            outputTsSet.update(tsOut)
+            outputTsSet.write()
             self._store(outputTsSet)
+        elif isSemiStreamified:
+            outputTsSet.update(tsOut)
+            self._store(outputTsSet)
+        else:
+            outputTsSet.update(tsOut)
 
     def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
         outputLocation = self.getExtraOutFile(tsId)

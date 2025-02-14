@@ -29,7 +29,7 @@ import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import String
-from pyworkflow.protocol.constants import STEPS_SERIAL
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 
@@ -66,7 +66,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     _label = 'Tomo reconstruction'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
-    stepsExecutionMode = STEPS_SERIAL
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -239,21 +239,37 @@ class ProtImodTomoReconstruction(ProtImodBase):
                             "(starting from 1).")
 
         self.addOddEvenParams(form)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         widthWarnTsIds = []
         self._initialize()
-        for tsId, ts in self.tsDict.items():
+        pIdList = []
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
             xDim = ts.getXDim()
             tomoWidth = self.tomoWidth.get()
             if tomoWidth > xDim:
                 tomoWidth = 0
                 widthWarnTsIds.append(tsId)
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeReconstructionStep, tsId, tomoWidth)
-            self._insertFunctionStep(self.createOutputStep, tsId)
-        self._insertFunctionStep(self.closeOutputSetsStep)
+            cId = self._insertFunctionStep(self.convertInputStep,
+                                           tsId,
+                                           prerequisites=[],
+                                           needsGPU=False)
+            recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                             tsId,
+                                             tomoWidth,
+                                             prerequisites=cId,
+                                             needsGPU=True)
+            cOutId = self._insertFunctionStep(self.createOutputStep,
+                                              tsId,
+                                              prerequisites=recId,
+                                              needsGPU=False)
+            pIdList.append(cOutId)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=pIdList,
+                                 needsGPU=False)
 
         if widthWarnTsIds:
             self.widthWarnMsg.set(f'\n\n*WARNING!:*'
@@ -263,12 +279,14 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        presentAcqOrders = self.getPresentAcqOrders(self.tsDict[tsId],
-                                                    onlyEnabled=True)  # Re-stack excluding views before reconstructing
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+        presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,
                                  doSwap=True,
                                  oddEven=self.oddEvenFlag,
-                                 presentAcqOrders=presentAcqOrders)
+                                 presentAcqOrders=presentAcqOrders,
+                                 lockGetItem=True)
 
     def computeReconstructionStep(self, tsId, tomoWidth):
         try:
@@ -293,7 +311,7 @@ class ProtImodTomoReconstruction(ProtImodBase):
 
             # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
             # # Excluded views
-            # ts = self.tsDict[tsId]
+            # ts = self.getCurrentItem(tsId)
             # excludedViews = ts.getExcludedViewsIndex(caster=str)
             # if len(excludedViews):
             #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
@@ -345,40 +363,41 @@ class ProtImodTomoReconstruction(ProtImodBase):
             self.error(f'tilt or trimvol execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.tsDict[tsId]
-        if tsId in self._failedItems:
-            self.createOutputFailedSet(ts)
-        else:
-            tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
-            if os.path.exists(tomoLocation):
-                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
-
-                newTomogram = Tomogram(tsId=tsId)
-                newTomogram.copyInfo(ts)
-                newTomogram.setLocation(tomoLocation)
-
-                if self.oddEvenFlag:
-                    halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                    self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                    newTomogram.setHalfMaps(halfMapsList)
-
-                # Set default tomogram origin
-                newTomogram.setOrigin(newOrigin=None)
-                shiftX = self.tomoShiftX.get()
-                shiftZ = self.tomoShiftZ.get()
-                if shiftX or shiftZ:
-                    sRate = newTomogram.getSamplingRate()
-                    x, y, z = newTomogram.getShiftsFromOrigin()
-                    shiftXang = shiftX * sRate
-                    shiftZang = shiftZ * sRate
-                    newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
-
-                output.append(newTomogram)
-                output.update(newTomogram)
-                output.write()
-                self._store(output)
-            else:
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            if tsId in self._failedItems:
                 self.createOutputFailedSet(ts)
+            else:
+                tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
+                if os.path.exists(tomoLocation):
+                    output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
+
+                    newTomogram = Tomogram(tsId=tsId)
+                    newTomogram.copyInfo(ts)
+                    newTomogram.setLocation(tomoLocation)
+
+                    if self.oddEvenFlag:
+                        halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                        self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                        newTomogram.setHalfMaps(halfMapsList)
+
+                    # Set default tomogram origin
+                    newTomogram.setOrigin(newOrigin=None)
+                    shiftX = self.tomoShiftX.get()
+                    shiftZ = self.tomoShiftZ.get()
+                    if shiftX or shiftZ:
+                        sRate = newTomogram.getSamplingRate()
+                        x, y, z = newTomogram.getShiftsFromOrigin()
+                        shiftXang = shiftX * sRate
+                        shiftZang = shiftZ * sRate
+                        newTomogram.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
+
+                    output.append(newTomogram)
+                    output.update(newTomogram)
+                    output.write()
+                    self._store(output)
+                else:
+                    self.createOutputFailedSet(ts)
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):

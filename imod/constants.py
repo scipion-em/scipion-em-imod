@@ -26,18 +26,25 @@
 # *
 # *****************************************************************************
 
-
+# IMOD
 IMOD_HOME = 'IMOD_HOME'
 IMOD_VIEWER_BINNING = 'IMOD_VIEWER_BINNING'
 ETOMO_CMD = 'etomo'
-
 VERSION_4_11_24 = '4.11.24'
 VERSION_4_11_25 = '4.11.25'
 VERSIONS = [VERSION_4_11_24, VERSION_4_11_25]
 DEFAULT_VERSION = VERSION_4_11_25
 
-# protocol constants below
+# Batchruntomo (Team Tomo's wrapper)
+BRT = 'teamtomoBRT'
+BRT_PROGRAM = 'yet-another-imod-wrapper'
+BRT_PROGRAM_DEFAULT_VERSION = '0.1.2'
+BRT_ENV_NAME = '%s-%s' % (BRT, BRT_PROGRAM_DEFAULT_VERSION)
+BRT_ENV_ACTIVATION = 'BRT_ENV_ACTIVATION'
+BRT_DEFAULT_ACTIVATION_CMD = 'conda activate %s' % BRT_ENV_NAME
+BRT_CUDA_LIB = 'BRT_CUDA_LIB'
 
+# protocol constants below
 SCIPION_IMPORT = 0
 FIXED_DOSE = 1
 

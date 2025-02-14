@@ -23,21 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
 import os
-import numpy as np
-
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import BINNING_FACTOR
-from pwem import ALIGN_NONE
+from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.protocol.constants import STEPS_SERIAL
-from pwem.objects import Transform
 from pyworkflow.utils import Message
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltSeries, TiltSeriesCoordinate)
-
 from imod import utils
-from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
@@ -79,7 +72,7 @@ DISTORTION_SOLUTION_CHOICES = ['Disabled',
                                'Skew only']
 
 
-class ProtImodFiducialAlignment(ProtImodBase):
+class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -158,6 +151,11 @@ class ProtImodFiducialAlignment(ProtImodBase):
     }
     stepsExecutionMode = STEPS_SERIAL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.isStreamified = False
+        self.isSemiStreamified = True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -180,32 +178,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                            "not consider this option it is algo recommended to set this "
                            "option to 'No'.")
 
-        form.addParam('computeAlignment',
-                      params.BooleanParam,
-                      default=False,
-                      label='Generate interpolated tilt-series?',
-                      important=True,
-                      help='Generate and save the interpolated tilt-series applying the obtained transformation '
-                           'matrices.\n'
-                           'By default, the output of this protocol will be a tilseries that will have associated'
-                           'the alignment information as a transformation matrix. When this option is set as Yes, '
-                           'then a second output, called interpolated tilt series, is generated. The interpolated tilt '
-                           'series should be used for visualization purpose but not for image processing')
-
-        groupInterpolation = form.addGroup('Interpolated tilt-series',
-                                           condition='computeAlignment')
-
-        groupInterpolation.addParam(BINNING_FACTOR,
-                                    params.IntParam,
-                                    default=1,
-                                    label='Binning for the interpolated',
-                                    help='Binning to be applied to the interpolated  tilt-series in IMOD '
-                                         'convention. \n'
-                                         'Binning is an scaling factor given by an integer greater than 1. '
-                                         'IMOD uses ordinary binning to reduce images in size by the given factor. '
-                                         'The value of a binned pixel is the average of pixel values in each block '
-                                         'of pixels being binned. Binning is applied before all other image '
-                                         'transformations.')
+        self._insertInterpTsParams(form)
 
         form.addSection('Global variables')
 
@@ -295,80 +268,48 @@ class ProtImodFiducialAlignment(ProtImodBase):
                       label='Skew group size',
                       help='Size of the skew group')
 
-    # NOTE:
-    # The gold bead eraser only remove the fiducial markers in the interpolated TS and only the ones used for the
-    #  TS alignment, so for now this functionality will be removed. Jorge (07/08/2024)
-    #
-    # form.addSection('Erase gold beads')
-    #
-    # form.addParam('eraseGoldBeads',
-    #               params.BooleanParam,
-    #               default=False,
-    #               label='Erase gold beads',
-    #               help='Remove the gold beads detected during fiducial '
-    #                    'alignment with *ccderaser* program. This option '
-    #                    'will generate an interpolated tilt series with '
-    #                    'the gold beads erased and interpolated with '
-    #                    'the calculated transformation matrices form '
-    #                    'the alignment.')
-    #
-    # form.addParam('betterRadius',  # actually diameter
-    #               params.IntParam,
-    #               default=18,
-    #               label='Bead diameter (px)',
-    #               help="For circle objects, this entry "
-    #                    "specifies a radius to use for points "
-    #                    "without an individual point size "
-    #                    "instead of the object's default sphere "
-    #                    "radius. This entry is floating point "
-    #                    "and can be used to overcome the "
-    #                    "limitations of having an integer "
-    #                    "default sphere radius. If there are "
-    #                    "multiple circle objects, enter one "
-    #                    "value to apply to all objects or a "
-    #                    "value for each object.")
-
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        binning = self.binning.get()
-
-        for tsId in self.tsDict.keys():
-            self.fiducialDiameterPixel = self.lmDict[tsId][0]
-            self._insertFunctionStep(self.convertInputStep, tsId)
-            self._insertFunctionStep(self.computeFiducialAlignmentStep, tsId)
-            self._insertFunctionStep(self.translateFiducialPointModelStep, tsId)
-            self._insertFunctionStep(self.computeOutputStackStep, tsId)
-
-            if self.computeAlignment:  # or self.eraseGoldBeads:
-                self._insertFunctionStep(self.computeOutputInterpolatedStackStep,
-                                         tsId, binning)
-            # if self.eraseGoldBeads:
-            #     self._insertFunctionStep(self.eraseGoldBeadsStep, tsId)
-            self._insertFunctionStep(self.computeOutputModelsStep, tsId)
-
-        self._insertFunctionStep(self.closeOutputSetsStep)
+        for fidModel in self.getInputSet():
+            tsId = fidModel.getTsId()
+            self._insertFunctionStep(self.convertInputStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.createOutTs,
+                                     tsId,
+                                     self.isSemiStreamified,
+                                     self.isStreamified,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeInterpTsStep,
+                                     tsId,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.createOutInterpTs,
+                                     tsId,
+                                     self.isSemiStreamified,
+                                     self.isStreamified,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.computeOutputModelsStep,
+                                     tsId,
+                                     needsGPU=False)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        inFiduSet = self.getInputFiduSet()
-        self.inTsSetPointer = inFiduSet.getSetOfTiltSeries(pointer=True)
-        # There can be failed fiducial models, so the TsIds used as reference must be the ones present in the input set
-        # of landmark models
-        fidTsIds = inFiduSet.getUniqueValues(TiltSeries.TS_ID_FIELD)
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inTsSetPointer.get()
-                       if ts.getTsId() in fidTsIds}
-
-        lms = inFiduSet.aggregate(["COUNT"], TiltSeries.TS_ID_FIELD,
-                                  [TiltSeries.TS_ID_FIELD, "_size", "_modelName"])
-        self.lmDict = {lm[TiltSeries.TS_ID_FIELD]: (lm["_size"], lm["_modelName"]) for lm in lms}
+        self.inTsSetPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
 
     def computeFiducialAlignmentStep(self, tsId):
         try:
-            ts = self.tsDict[tsId]
-
+            ts = self.getCurrentItem(tsId)
             paramsTiltAlign = {
-                "-ModelFile": self.lmDict[tsId][1],
+                "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
                 "-ImageFile": self.getTmpOutFile(tsId),
                 "-ImagesAreBinned": 1,
                 "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
@@ -437,85 +378,9 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 }
                 self.runProgram('model2point', paramsNoGapModel2Point)
 
-    def computeOutputStackStep(self, tsId):
-        ts = self.tsDict[tsId]
-        if tsId not in self._failedItems:
-            tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-            if os.path.exists(tmFilePath) and os.stat(tmFilePath).st_size != 0:
-                tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
-                tltList = utils.formatAngleList(tltFilePath)
-                alignmentMatrix = utils.formatTransformationMatrix(tmFilePath)
-                output = self.getOutputSetOfTS(self.inTsSetPointer)
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsNonInterp,
-                                 updateTiCallback=self.updateTiNonInterp,
-                                 copyDisabledViews=True,
-                                 copyId=True,
-                                 copyTM=False,
-                                 alignmentMatrix=alignmentMatrix,
-                                 tltList=tltList)
-            else:
-                self.createOutputFailedSet(ts)
-
-    def computeOutputInterpolatedStackStep(self, tsId, binning):
-        """ Generate interpolated stack. """
-        if tsId not in self._failedItems:
-            tmpFileName = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-            if os.path.exists(tmpFileName) and os.stat(tmpFileName).st_size != 0:
-                ts = self.tsDict[tsId]
-                output = self.getOutputSetOfTS(self.inTsSetPointer, binning,
-                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                               suffix="Interpolated")
-
-                firstItem = ts.getFirstItem()
-                tsExcludedIndices = ts.getExcludedViewsIndex()
-                paramsDict = self.getBasicNewstackParams(
-                    ts,
-                    self.getExtraOutFile(tsId),
-                    inputTsFileName=self.getTmpOutFile(tsId),
-                    xfFile=tmpFileName,
-                    firstItem=firstItem,
-                    binning=binning,
-                    doSwap=True,
-                    doTaper=True,
-                    tsExcludedIndices=tsExcludedIndices,
-                )
-                self.runProgram('newstack', paramsDict)
-
-                tltFilePath = self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
-                tltList = utils.formatAngleList(tltFilePath)
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsInterp,
-                                 updateTiCallback=self.updateTiInterp,
-                                 copyId=True,
-                                 copyTM=False,
-                                 excludedViews=len(tsExcludedIndices) > 0,
-                                 tltList=tltList)
-
-    # def eraseGoldBeadsStep(self, tsId):
-    #     """ Erase gold beads on aligned stack. """
-    #     if tsId not in self._failedItems:
-    #         try:
-    #             paramsCcderaser = {
-    #                 "-InputFile": self.getTmpOutFile(tsId),
-    #                 "-OutputFile": self.getExtraOutFile(tsId),
-    #                 "-ModelFile": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-    #                 "-BetterRadius": self.betterRadius.get() / 2,
-    #                 "-PolynomialOrder": 0,
-    #                 "-CircleObjects": "/",
-    #                 "-MergePatches": 1,
-    #                 "-ExcludeAdjacent": "",
-    #                 "-SkipTurnedOffPoints": 1,
-    #                 "-ExpandCircleIterations": 3
-    #             }
-    #             self.runProgram('ccderaser', paramsCcderaser)
-    #         except Exception as e:
-    #             self._failedItems.append(tsId)
-    #             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
-
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
-        ts = self.tsDict[tsId]
+        ts = self.getCurrentItem(tsId)
         if tsId in self._failedItems:
             self.createOutputFailedSet(ts)
         else:
@@ -533,7 +398,7 @@ class ProtImodFiducialAlignment(ProtImodBase):
                 landmarkModelNoGaps = LandmarkModel(tsId=tsId,
                                                     fileName=landmarkModelNoGapsFilePath,
                                                     modelName=fiducialModelNoGapPath,
-                                                    size=self.fiducialDiameterPixel,
+                                                    size=self.getCurrentFidModel(tsId).getSize(),
                                                     hasResidualInfo=True)
 
                 prevTiltIm = 0
@@ -624,13 +489,6 @@ class ProtImodFiducialAlignment(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputFiduSet(self, pointer=False):
-        return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
-
-    def getInputSet(self, pointer=False):
-        inFiduSet = self.getInputFiduSet()
-        return inFiduSet.getSetOfTiltSeries(pointer=pointer)
-
     def getRotationType(self):
         return {
             0: 0,
@@ -670,33 +528,14 @@ class ProtImodFiducialAlignment(ProtImodBase):
     def getSurfaceToAnalyze(self):
         return 2 if self.twoSurfaces else 1
 
-    @staticmethod
-    def updateTsNonInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.setAlignment2D()
+    def getInputSet(self, pointer=False):
+        return self.inputSetOfLandmarkModels.get() if not pointer else self.inputSetOfLandmarkModels
 
-    @staticmethod
-    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
-        transform = Transform()
-        newTransform = alignmentMatrix[:, :, index]
-        newTransformArray = np.array(newTransform)
+    def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
+        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
-        if ti.hasTransform():
-            previousTransform = ti.getTransform().getMatrix()
-            previousTransformArray = np.array(previousTransform)
-            outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
-            transform.setMatrix(outputTransformMatrix)
-        else:
-            transform.setMatrix(newTransformArray)
+    def getCurrentItem(self, tsId: str) -> TiltSeries:
+        return self.getCurrentFidModel(tsId).getTiltSeries()
 
-        tiOut.setTransform(transform)
-        tiOut.setTiltAngle(float(tltList[index]))
-
-    @staticmethod
-    def updateTsInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.getAcquisition().setTiltAxisAngle(0.)
-        tsOut.setAlignment(ALIGN_NONE)
-        tsOut.setInterpolated(True)
-
-    def updateTiInterp(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, tltList=None, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        tiOut.setTiltAngle(float(tltList[index]))
+    def getTltFilePath(self, tsId):
+        return self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
