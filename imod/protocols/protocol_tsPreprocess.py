@@ -199,7 +199,9 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                      copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=True,
-                                     binning=binning)
+                                     binning=binning,
+                                     isSemiStreamified=False,
+                                     isStreamified=True)
                     for outputName in self._possibleOutputs.keys():
                         output = getattr(self, outputName, None)
                         if output:
