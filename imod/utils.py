@@ -179,7 +179,7 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
     for vector in infoTable:
         outputLines.append("\t%s\t%s\t%s\t%d\n" % (vector[3], vector[0],
-                                                   int(float(vector[1])), int(float(vector[2])) - 1))
+                                                   int(vector[1]), int(vector[2]) - 1))
 
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
