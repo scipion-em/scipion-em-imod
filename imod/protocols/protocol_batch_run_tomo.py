@@ -33,7 +33,6 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDU
     OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
-from pwem.protocols import EMProtocol
 from pyworkflow.constants import BETA
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
@@ -43,7 +42,7 @@ from tomo.objects import SetOfTiltSeries, TiltSeries
 logger = logging.getLogger(__name__)
 
 
-class ProtImodBRT(EMProtocol, ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
@@ -56,7 +55,7 @@ class ProtImodBRT(EMProtocol, ProtImodBaseTsAlign, ProtStreamingBase):
     stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
+        ProtImodBaseTsAlign.__init__(self, **kwargs)
         self.inTsSetPointer = None
         self.tsReadList = []
         self.isStreamified = True
