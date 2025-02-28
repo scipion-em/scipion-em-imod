@@ -33,8 +33,9 @@ from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDU
     OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from pwem.protocols import EMProtocol
 from pyworkflow.constants import BETA
-from pyworkflow.object import Pointer, String
+from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
@@ -42,7 +43,7 @@ from tomo.objects import SetOfTiltSeries, TiltSeries
 logger = logging.getLogger(__name__)
 
 
-class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodBRT(EMProtocol, ProtImodBaseTsAlign, ProtStreamingBase):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
@@ -55,7 +56,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        EMProtocol.__init__(self, **kwargs)
         self.inTsSetPointer = None
         self.tsReadList = []
         self.isStreamified = True
@@ -122,7 +123,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList:
                     try:
-                        ts.getFirstItem().getFileName()
+                        # ts.getFirstItem().getFileName()
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
@@ -141,8 +142,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         self.tsReadList.append(tsId)
                     except Exception as e:
                         logger.error(f'tsIs = {tsId}\n\t'
-                                     f'Error reading TS info: {e}\n\t'
-                                     f'ts.getFirstItem(): {ts.getFirstItem()}')
+                                     f'Error reading TS info: {e}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 inTsSet.loadAllProperties()  # refresh status for the streaming
