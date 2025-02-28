@@ -122,6 +122,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList:
                     try:
+                        ts.getFirstItem().getFileName()
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
@@ -139,8 +140,9 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsReadList.append(tsId)
                     except Exception as e:
-                        logger.error(f'Error reading TS info: {e}')
-                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                        logger.error(f'tsIs = {tsId}\n\t'
+                                     f'Error reading TS info: {e}\n\t'
+                                     f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 inTsSet.loadAllProperties()  # refresh status for the streaming
