@@ -122,7 +122,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList:
                     try:
-                        ts.getFirstItem().getFileName()
+                        with self._lock:
+                            ts.getFirstItem().getFileName()
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
