@@ -90,3 +90,8 @@ PREXF_EXT = 'prexf'
 PREXG_EXT = 'prexg'
 SFID_EXT = 'sfid'
 RESID_EXT = 'resid'
+
+# Error messages
+NONE_PROCESSED_MSG = 'Unable to process any of the introduced'
+NO_TS_PROCESSED_MSG = f'{NONE_PROCESSED_MSG} tilt-series.'
+NO_TOMO_PROCESSED_MSG = f'{NONE_PROCESSED_MSG} tomograms.'

@@ -364,12 +364,12 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
                             cwd=self._getExtraPath())
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'tiltalign execution failed for tsId {tsId} -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
         # Check that previous steps have been completed satisfactorily
-        if tsId not in self._failedItems:
+        if tsId not in self.failedItems:
             noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
             if os.path.exists(noGapsFid):
                 paramsNoGapModel2Point = {
@@ -381,7 +381,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
     def computeOutputModelsStep(self, tsId):
         """ Create output sets of landmarks and 3D coordinates. """
         ts = self.getCurrentItem(tsId)
-        if tsId in self._failedItems:
+        if tsId in self.failedItems:
             self.createOutputFailedSet(ts)
         else:
             # Create the output set of landmark models with no gaps

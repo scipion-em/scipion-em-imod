@@ -227,14 +227,14 @@ class ProtImodXcorrPrealignment(ProtImodBase):
             self.runProgram('xftoxg', paramsXftoxg)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'tiltxcorr or xftoxg execution failed for tsId {tsId} -> {e}')
 
     def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
         with self._lock:
             ts = self.getCurrentItem(tsId)
-            if tsId in self._failedItems:
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
@@ -255,9 +255,9 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     self.createOutputFailedSet(ts)
 
     def computeInterpTsStep(self, tsId):
-        if self.computeAlignment and tsId not in self._failedItems:
+        if self.computeAlignment and tsId not in self.failedItems:
             binning = self.binning.get()
-            if tsId not in self._failedItems:
+            if tsId not in self.failedItems:
                 with self._lock:
                     ts = self.getCurrentItem(tsId)
                 xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
@@ -275,7 +275,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                     self.runProgram('newstack', paramsDict)
 
     def createInterpTsStep(self, tsId):
-        if self.computeAlignment and tsId not in self._failedItems:
+        if self.computeAlignment and tsId not in self.failedItems:
             with self._lock:
                 binning = self.binning.get()
                 ts = self.getCurrentItem(tsId)

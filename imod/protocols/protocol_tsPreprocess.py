@@ -23,17 +23,21 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import logging
 import os
+import time
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
-from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodTsNormalization(ProtImodBasePreprocess):
+class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
     """
     Normalize input tilt-series and change its storing formatting.
     More info:
@@ -62,6 +66,14 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tsReadList = []
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
@@ -73,32 +85,54 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         super()._defineParams(form)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
         self._initialize()
         binning = self.binning.get()
+        inTsSet = self.getInputSet()
+        self.readingOutput()
         closeSetStepDeps = []
 
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            compId = self._insertFunctionStep(self.generateOutputStackStep,
-                                              tsId,
-                                              binning,
-                                              prerequisites=convId,
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createOutputStep,
-                                             tsId,
-                                             binning,
-                                             prerequisites=compId,
-                                             needsGPU=False)
-            closeSetStepDeps.append(outId)
-
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+        while True:
+            listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+            closeSetStepDeps = []
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsReadList:
+                    try:
+                        convId = self._insertFunctionStep(self.convertInputStep,
+                                                          tsId,
+                                                          prerequisites=[],
+                                                          needsGPU=False)
+                        compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                          tsId,
+                                                          binning,
+                                                          prerequisites=convId,
+                                                          needsGPU=False)
+                        outId = self._insertFunctionStep(self.createOutputStep,
+                                                         tsId,
+                                                         binning,
+                                                         prerequisites=compId,
+                                                         needsGPU=False)
+                        closeSetStepDeps.append(outId)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsReadList.append(tsId)
+                    except Exception as e:
+                        logger.error(f'Error reading TS info: {e}')
+                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
@@ -109,6 +143,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                                  lockGetItem=True)
 
     def generateOutputStackStep(self, tsId, binning):
+        logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)
@@ -147,13 +182,13 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                 self.runProgram("newstack", paramsDict)
 
         except Exception as e:
-            self._failedItems.append(tsId)
-            self.error(f'newstack execution failed for tsId {tsId} -> {e}')
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'newstack execution failed for tsId {tsId} -> {e}'))
 
     def createOutputStep(self, tsId, binning):
         with self._lock:
             ts = self.getCurrentItem(tsId)
-            if tsId in self._failedItems:
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId)
@@ -164,9 +199,20 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
                                      copyDisabledViews=True,
                                      copyId=True,
                                      copyTM=True,
-                                     binning=binning)
+                                     binning=binning,
+                                     isSemiStreamified=False,
+                                     isStreamified=True)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
                 else:
                     self.createOutputFailedSet(ts)
+
+    def closeOutputSetsStep(self):
+        if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
+            raise Exception(NO_TS_PROCESSED_MSG)
+        self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -188,6 +234,15 @@ class ProtImodTsNormalization(ProtImodBasePreprocess):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
+    def readingOutput(self) -> None:
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if outTsSet:
+            for ts in outTsSet:
+                self.tsReadList.append(ts.getTsId())
+            self.info(cyanStr(f'Tilt-series processed {self.tsReadList}'))
+        else:
+            self.info(cyanStr('No tilt-series have been processed yet'))
+
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
