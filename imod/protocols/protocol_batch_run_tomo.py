@@ -55,7 +55,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
-        ProtImodBaseTsAlign.__init__(self, **kwargs)
+        super().__init__(**kwargs)
         self.inTsSetPointer = None
         self.tsReadList = []
         self.isStreamified = True
@@ -122,7 +122,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList:
                     try:
-                        # ts.getFirstItem().getFileName()
+                        ts.getFirstItem().getFileName()
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
@@ -141,7 +141,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         self.tsReadList.append(tsId)
                     except Exception as e:
                         logger.error(f'tsIs = {tsId}\n\t'
-                                     f'Error reading TS info: {e}')
+                                     f'Error reading TS info: {e}\n\t'
+                                     f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 inTsSet.loadAllProperties()  # refresh status for the streaming
