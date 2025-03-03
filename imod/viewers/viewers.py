@@ -85,52 +85,59 @@ class ImodObjectView(pwviewer.CommandView):
         # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
         cmd = f"{Plugin.getImodCmd('3dmod')} "
-        prj = protocol.getProject()
+        prj = protocol.getProject() if protocol else None
 
-        if isinstance(obj, tomoObj.TiltSeries):
-            inputFn = obj.getFirstItem().getFileName()
-            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
-            obj.generateTltFile(angleFilePath)
-
-            cmd += f"-b {binningstr},1 " 
-            cmd += f"-a {angleFilePath} {inputFn.split(':')[0]}"
-
-        elif isinstance(obj, tomoObj.LandmarkModel):
-            ts = obj.getTiltSeries()
-            tsFn = ts.getFirstItem().getFileName()
-            if ts.hasAlignment() and obj.applyTSTransformation():
-                # Input and output extensions must match if we want to apply the transform with Xmipp
-                extension = pwutils.getExt(tsFn)
-
-                outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
-                                                prj.getShortName(),
-                                                protocol.getObjId(),
-                                                obj.getObjId(),
-                                                extension))
-
-                if not os.path.exists(outputTSPath):
-                    ts.applyTransform(outputTSPath)
-
+        if prj is None:
+            # Skip additional processing and only use the file name
+            if isinstance(obj, str):
+                cmd += f"{obj}"
             else:
-                outputTSPath = tsFn
+                cmd += f"{obj.getFileName()}"
+        else:
+            if isinstance(obj, tomoObj.TiltSeries):
+                inputFn = obj.getFirstItem().getFileName()
+                angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
+                obj.generateTltFile(angleFilePath)
 
-            fidFileName = obj.getModelName()
+                cmd += f"-b {binningstr},1 " 
+                cmd += f"-a {angleFilePath} {inputFn.split(':')[0]}"
 
-            if fidFileName is None:
-                fidFileName = generateIMODFidFile(protocol, obj)
+            elif isinstance(obj, tomoObj.LandmarkModel):
+                ts = obj.getTiltSeries()
+                tsFn = ts.getFirstItem().getFileName()
+                if ts.hasAlignment() and obj.applyTSTransformation():
+                    # Input and output extensions must match if we want to apply the transform with Xmipp
+                    extension = pwutils.getExt(tsFn)
 
-            angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(tsFn, "tlt"))
-            ts.generateTltFile(angleFilePath)
+                    outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
+                                                    prj.getShortName(),
+                                                    protocol.getObjId(),
+                                                    obj.getObjId(),
+                                                    extension))
 
-            cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"
+                    if not os.path.exists(outputTSPath):
+                        ts.applyTransform(outputTSPath)
 
-        # A path called from the object browser
-        elif isinstance(obj, str):
-            cmd += f"{obj}"
+                else:
+                    outputTSPath = tsFn
 
-        else:  # Tomogram
-            cmd += f"-b {binningstr},{binningstr} " 
-            cmd += f"{obj.getFileName()}"
+                fidFileName = obj.getModelName()
+
+                if fidFileName is None:
+                    fidFileName = generateIMODFidFile(protocol, obj)
+
+                angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(tsFn, "tlt"))
+                ts.generateTltFile(angleFilePath)
+
+                cmd += f"-a {angleFilePath} -m {outputTSPath} {fidFileName}"
+
+            # A path called from the object browser
+            elif isinstance(obj, str):
+                cmd += f"{obj}"
+
+            else:  # Tomogram
+                cmd += f"-b {binningstr},{binningstr} " 
+                cmd += f"{obj.getFileName()}"
 
         logger.info(f"Executing command: {cmd}")
         pwviewer.CommandView.__init__(self,  cmd)
