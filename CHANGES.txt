@@ -4,6 +4,7 @@
    - As a consequence, the installer was updated and a conda environment is generated.
    - Parallelization of most of the protocols.
    - Streamify the protocols tilt-series preprocess and tomograms reconstruction.
+   - Deprecating some density scaling options in tomo and ts preprocess.
    - Fix viewer call from the file browser.
 3.6.1:
  Users:

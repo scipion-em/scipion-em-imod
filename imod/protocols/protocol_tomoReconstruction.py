@@ -303,38 +303,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             if inTsSet.isStreamOpen():
                 inTsSet.loadAllProperties()  # refresh status for the streaming
 
-    def _insertAllSteps(self):
-        self._initialize()
-        pIdList = []
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            xDim = ts.getXDim()
-            tomoWidth = self.tomoWidth.get()
-            if tomoWidth > xDim:
-                tomoWidth = 0
-            else:
-                logger.warning(magentaStr(f'tsId: {tsId}: The introduced width is '
-                                          f'greater than the X dimension of the tilt-series. '
-                                          f'Assuming value 0'))
-
-            cId = self._insertFunctionStep(self.convertInputStep,
-                                           tsId,
-                                           prerequisites=[],
-                                           needsGPU=False)
-            recId = self._insertFunctionStep(self.computeReconstructionStep,
-                                             tsId,
-                                             tomoWidth,
-                                             prerequisites=cId,
-                                             needsGPU=True)
-            cOutId = self._insertFunctionStep(self.createOutputStep,
-                                              tsId,
-                                              prerequisites=recId,
-                                              needsGPU=False)
-            pIdList.append(cOutId)
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=pIdList,
-                                 needsGPU=False)
-
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         with self._lock:

@@ -23,6 +23,8 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+from typing import List
+
 from imod.protocols import ProtImodBase
 from imod.protocols.protocol_base import BINNING_FACTOR
 from pyworkflow.protocol import params
@@ -32,13 +34,13 @@ FLOAT_DENSITIES_CHOICES = ['No adjust',
                            'adjust each section to fill the data range',
                            'scaled to common mean and standard deviation',
                            'shifted to a common mean without scaling',
-                           'shifted to mean and rescaled to a min and max']
+                           'Rescaled to a min and max']
 # Float densities values
 NO_ADJUST = 0
 EACH_SECTION_FILL_RANGE = 1
 SCALED_COMMON_STD_MEAN = 2
 SHIFTED_COMMON_MEAN = 3
-SHIFTED_MEAN_AND_RESCALED = 4
+SHIFTED_TO_MINMAX = 4
 
 
 class ProtImodBasePreprocess(ProtImodBase):
@@ -79,7 +81,7 @@ class ProtImodBasePreprocess(ProtImodBase):
                            f'This is the most '
                            f'common normalization procedure. The new tilt series will have'
                            f'a meand and a standard deviation introduced by the user. Generaly,'
-                           f'a zero meand and a standard deviation one is a good choice.'
+                           f'a zero mean and a standard deviation one is a good choice.'
                            f'This is the mode 2 in newstack flag -floatDensities.\n\n'
 
                            f'*3 - Shifted to a common mean without scaling*:\n\n'
@@ -100,7 +102,8 @@ class ProtImodBasePreprocess(ProtImodBase):
         # -meansd (-mea) OR -MeanAndStandardDeviation   Two floats
         #               Scale all images to the given mean and standard deviation.  This
         #               option implies -float 2 and is incompatible with all other scaling options.
-        floatDensMode2Cond = 'floatDensities == %i' % SCALED_COMMON_STD_MEAN
+        floatDensMode2Cond = ('floatDensities in [%i, %i]' %
+                              (SCALED_COMMON_STD_MEAN, SHIFTED_COMMON_MEAN))
         groupMeanSd = form.addGroup('Mean and SD',
                                     condition=floatDensMode2Cond,
                                     help=f'Scale all {objStr} to the given mean and standard deviation.')
@@ -113,13 +116,13 @@ class ProtImodBasePreprocess(ProtImodBase):
 
         groupMeanSd.addParam('scaleSd',
                              params.FloatParam,
-                             condition=floatDensMode2Cond,
+                             condition='floatDensities == %i ' % SCALED_COMMON_STD_MEAN,
                              default=1,
                              label='SD',
                              help='Standard deviation value for the rescaling')
 
         groupScale = form.addGroup('Scaling values',
-                                   condition='floatDensities in [%i, %i]' % (NO_ADJUST, SHIFTED_MEAN_AND_RESCALED))
+                                   condition='floatDensities in [%i]' % (SHIFTED_TO_MINMAX))
         msg = 'This option will rescale the densities of all sections by the same factors so that the original ' \
               'minimum and maximum density will be mapped to the Min and Max values that are entered.'
         groupScale.addParam('scaleMax',
@@ -171,3 +174,16 @@ class ProtImodBasePreprocess(ProtImodBase):
 
         self.addOddEvenParams(form, isTomogram=isTomogram)
         form.addParallelSection(threads=3, mpi=0)
+
+    # --------------------------- INFO functions ------------------------------
+    def _validate(self) -> List[str]:
+        errorMsg = []
+        floatDensitiesMode = self.floatDensities.get()
+        if floatDensitiesMode == EACH_SECTION_FILL_RANGE:
+            errorMsg.append('Float densities mode "Adjust each section to fill the data range" has been '
+                            'deprecated. Please choose another method.')
+
+        if floatDensitiesMode == SHIFTED_COMMON_MEAN:
+            errorMsg.append('Float densities mode "Shifted to a common mean without scaling" has been '
+                            'deprecated. Please choose another method.')
+        return errorMsg
