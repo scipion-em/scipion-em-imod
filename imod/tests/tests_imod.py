@@ -723,14 +723,15 @@ class TestImodTsPreprocess(TestImodBase):
                                                scaleMin=20)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess02(self):
-        binningFactor = 8
-        tsPreprocessed = self._runTsPreprocess(self.importedTs,
-                                               binning=binningFactor,
-                                               densAdjustMode=1)  # range between min and max
-        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+    # This density adjust method was deprecated
+    # def testTsPreprocess02(self):
+    #     binningFactor = 8
+    #     tsPreprocessed = self._runTsPreprocess(self.importedTs,
+    #                                            binning=binningFactor,
+    #                                            densAdjustMode=1)  # range between min and max
+    #     self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess03(self):
+    def testTsPreprocess02(self):
         binningFactor = 2
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
@@ -739,7 +740,7 @@ class TestImodTsPreprocess(TestImodBase):
                                                scaleSd=1)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess04(self):
+    def testTsPreprocess03(self):
         binningFactor = 4
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
@@ -747,15 +748,16 @@ class TestImodTsPreprocess(TestImodBase):
                                                meanSdToggle=False)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess05(self):
-        binningFactor = 3
-        tsPreprocessed = self._runTsPreprocess(self.importedTs,
-                                               binning=binningFactor,
-                                               densAdjustMode=3,  # shifted to a common mean without scaling
-                                               meanSdToggle=False)
-        self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
+    # This density adjust method was deprecated
+    # def testTsPreprocess05(self):
+        # binningFactor = 3
+        # tsPreprocessed = self._runTsPreprocess(self.importedTs,
+        #                                        binning=binningFactor,
+        #                                        densAdjustMode=3,  # shifted to a common mean without scaling
+        #                                        meanSdToggle=False)
+        # self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess06(self):
+    def testTsPreprocess04(self):
         binningFactor = 6
         tsPreprocessed = self._runTsPreprocess(self.importedTs,
                                                binning=binningFactor,
@@ -764,7 +766,7 @@ class TestImodTsPreprocess(TestImodBase):
                                                scaleMin=20)
         self._checkTiltSeries(tsPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess07(self):
+    def testTsPreprocess05(self):
         binningFactor = 4
         importedTs = self._runImportTs()
         # Exclude some views at metadata level
@@ -1404,14 +1406,15 @@ class TestImodTomogramPreprocess(TestImodBase):
                                                          scaleMin=20)
         self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess02(self):
-        binningFactor = 2
-        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-                                                         binning=binningFactor,
-                                                         densAdjustMode=1)  # range between min and max
-        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+    # This density adjust method was deprecated
+    # def testTsPreprocess02(self):
+    #     binningFactor = 2
+    #     tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+    #                                                      binning=binningFactor,
+    #                                                      densAdjustMode=1)  # range between min and max
+    #     self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess03(self):
+    def testTsPreprocess02(self):
         binningFactor = 2
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          binning=binningFactor,
@@ -1421,22 +1424,23 @@ class TestImodTomogramPreprocess(TestImodBase):
                                                          scaleSd=1)
         self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess04(self):
+    def testTsPreprocess03(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          densAdjustMode=2,
                                                          # scaled to common mean and standard deviation
                                                          meanSdToggle=False)
         self._checkTomos(tomosPreprocessed)
 
-    def testTsPreprocess05(self):
-        binningFactor = 3
-        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-                                                         binning=binningFactor,
-                                                         densAdjustMode=3,  # shifted to a common mean without scaling
-                                                         meanSdToggle=False)
-        self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
+    # This density adjust method was deprecated
+    # def testTsPreprocess05(self):
+    #     binningFactor = 3
+    #     tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
+    #                                                      binning=binningFactor,
+    #                                                      densAdjustMode=3,  # shifted to a common mean without scaling
+    #                                                      meanSdToggle=False)
+    #     self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess06(self):
+    def testTsPreprocess04(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          densAdjustMode=4,
                                                          # shifted to mean and rescaled to a min and max
