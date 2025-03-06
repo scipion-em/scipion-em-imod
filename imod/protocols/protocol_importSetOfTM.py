@@ -69,6 +69,12 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                            'will be assigned.',
                       label='Input set of tilt-series')
 
+        form.addParam("override",
+                      params.BooleanParam,
+                      default=True,
+                      help='If True, the imported transformations will override the previous alignmnets, otherwise, the alignmnets will be combined (alignment matrices multiplied)',
+                      label='Override aligmnents')
+
         groupMatchBinning = form.addGroup('Match binning')
 
         groupMatchBinning.addParam('binningTM',
@@ -251,7 +257,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         transform = data.Transform()
         alignmentMatrix = kwargs.get("alignmentMatrix")
 
-        if ti.hasTransform():
+        if ti.hasTransform() and not self.override.get():
             previousTransform = ti.getTransform().getMatrix()
             newTransform = alignmentMatrix[:, :, index]
             previousTransformArray = np.array(previousTransform)
