@@ -311,7 +311,7 @@ class ProtImodEtomo(ProtImodBase):
                 outputAliTs.update(newTs)
 
             """Original tilt-series with alignment information"""
-            inFilePath = self.getExtraOutFile(tsId, suffix="orig", ext=MRC_EXT)
+            inFilePath = self.getExtraOutFile(tsId, ext=MRC_EXT)
             # input TS were renamed by etomo when "using fixed stack"
             if os.path.exists(inFilePath):
 
