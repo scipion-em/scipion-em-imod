@@ -146,7 +146,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                                      f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
-                inTsSet.loadAllProperties()  # refresh status for the streaming
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str, **kwargs):
