@@ -108,28 +108,28 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList:
-                    try:
-                        convId = self._insertFunctionStep(self.convertInputStep,
-                                                          tsId,
-                                                          prerequisites=[],
-                                                          needsGPU=False)
-                        compId = self._insertFunctionStep(self.generateOutputStackStep,
-                                                          tsId,
-                                                          binning,
-                                                          prerequisites=convId,
-                                                          needsGPU=False)
-                        outId = self._insertFunctionStep(self.createOutputStep,
-                                                         tsId,
-                                                         binning,
-                                                         prerequisites=compId,
-                                                         needsGPU=False)
-                        closeSetStepDeps.append(outId)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsReadList.append(tsId)
-                    except Exception as e:
-                        logger.error(f'Error reading TS info: {e}')
-                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    # try:
+                    convId = self._insertFunctionStep(self.convertInputStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                      tsId,
+                                                      binning,
+                                                      prerequisites=convId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     binning,
+                                                     prerequisites=compId,
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsReadList.append(tsId)
+                    # except Exception as e:
+                    #     logger.error(f'Error reading TS info: {e}')
+                    #     logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 with self._lock:
@@ -148,7 +148,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)
-            firstItem = ts.getFirstItem()
+                firstItem = ts.getFirstItem()
             xfFile = None
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,

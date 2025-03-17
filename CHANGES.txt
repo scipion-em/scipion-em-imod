@@ -9,6 +9,7 @@
   Developers:
    - Replace the setup.py by the corresponding pyproject.toml.
    - Add preventing lock in the call to loadAllProperties of the stepsGeneratorStep of the streamified protocols.
+   - Improve robustness in streaming: check the tilt-series size before inserting the steps.
 3.6.1:
  Users:
   - bugfix for o/e tomo reconstruction, see #271

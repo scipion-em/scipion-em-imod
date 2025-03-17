@@ -274,31 +274,31 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList:
-                    try:
-                        xDim = ts.getXDim()
-                        if tomoWidth > xDim:
-                            tomoWidth = 0
-                            widthWarnTsIds.append(tsId)
-                        cId = self._insertFunctionStep(self.convertInputStep,
-                                                       tsId,
-                                                       prerequisites=[],
-                                                       needsGPU=False)
-                        recId = self._insertFunctionStep(self.computeReconstructionStep,
-                                                         tsId,
-                                                         tomoWidth,
-                                                         prerequisites=cId,
-                                                         needsGPU=True)
-                        cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                          tsId,
-                                                          prerequisites=recId,
-                                                          needsGPU=False)
-                        closeSetStepDeps.append(cOutId)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsReadList.append(tsId)
-                    except Exception as e:
-                        logger.error(f'Error reading TS info: {e}')
-                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    # try:
+                    xDim = ts.getXDim()
+                    if tomoWidth > xDim:
+                        tomoWidth = 0
+                        widthWarnTsIds.append(tsId)
+                    cId = self._insertFunctionStep(self.convertInputStep,
+                                                   tsId,
+                                                   prerequisites=[],
+                                                   needsGPU=False)
+                    recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                                     tsId,
+                                                     tomoWidth,
+                                                     prerequisites=cId,
+                                                     needsGPU=True)
+                    cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                      tsId,
+                                                      prerequisites=recId,
+                                                      needsGPU=False)
+                    closeSetStepDeps.append(cOutId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsReadList.append(tsId)
+                    # except Exception as e:
+                    #     logger.error(f'Error reading TS info: {e}')
+                    #     logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 with self._lock:
