@@ -30,7 +30,7 @@ import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG
+    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
@@ -171,6 +171,9 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
+                failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+                if failedTs:
+                    failedTs.close()
             else:
                 self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
                 self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
