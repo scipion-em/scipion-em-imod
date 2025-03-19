@@ -32,7 +32,7 @@ from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -108,31 +108,28 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList:
-                    try:
-                        convId = self._insertFunctionStep(self.convertInputStep,
-                                                          tsId,
-                                                          prerequisites=[],
-                                                          needsGPU=False)
-                        compId = self._insertFunctionStep(self.generateOutputStackStep,
-                                                          tsId,
-                                                          binning,
-                                                          prerequisites=convId,
-                                                          needsGPU=False)
-                        outId = self._insertFunctionStep(self.createOutputStep,
-                                                         tsId,
-                                                         binning,
-                                                         prerequisites=compId,
-                                                         needsGPU=False)
-                        closeSetStepDeps.append(outId)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsReadList.append(tsId)
-                    except Exception as e:
-                        logger.error(f'Error reading TS info: {e}')
-                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    convId = self._insertFunctionStep(self.convertInputStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                      tsId,
+                                                      binning,
+                                                      prerequisites=convId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     binning,
+                                                     prerequisites=compId,
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsReadList.append(tsId)
             time.sleep(10)
             if inTsSet.isStreamOpen():
-                inTsSet.loadAllProperties()  # refresh status for the streaming
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
@@ -147,7 +144,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)
-            firstItem = ts.getFirstItem()
+                firstItem = ts.getFirstItem()
             xfFile = None
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,
@@ -190,6 +187,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
+                self.__closeFailedTsSet()
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):
@@ -208,6 +206,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                             output.close()
                 else:
                     self.createOutputFailedSet(ts)
+                    self.__closeFailedTsSet()
 
     def closeOutputSetsStep(self):
         if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
@@ -271,3 +270,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         # Transformation matrix
         if ti.hasTransform():
             self.updateTM(tiOut, binning=self.binning.get())
+
+    def __closeFailedTsSet(self):
+        failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+        if failedTs:
+            failedTs.close()

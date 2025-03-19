@@ -30,7 +30,7 @@ import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG
+    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.constants import BETA
@@ -120,10 +120,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList:
-                    try:
-                        with self._lock:
-                            ts.getFirstItem().getFileName()
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
@@ -140,13 +137,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         closeSetStepDeps.append(cOutId)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsReadList.append(tsId)
-                    except Exception as e:
-                        logger.error(f'tsIs = {tsId}\n\t'
-                                     f'Error reading TS info: {e}\n\t'
-                                     f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
-                inTsSet.loadAllProperties()  # refresh status for the streaming
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str, **kwargs):
@@ -170,6 +164,9 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
+                failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+                if failedTs:
+                    failedTs.close()
             else:
                 self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
                 self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)

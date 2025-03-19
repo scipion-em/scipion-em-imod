@@ -38,7 +38,7 @@ from tomo.objects import Tomogram, SetOfTomograms
 from imod import Plugin
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
-                            OUTPUT_TOMOGRAMS_NAME, NO_TOMO_PROCESSED_MSG)
+                            OUTPUT_TOMOGRAMS_NAME, NO_TOMO_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME)
 
 logger = logging.getLogger(__name__)
 
@@ -274,34 +274,31 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList:
-                    try:
-                        xDim = ts.getXDim()
-                        if tomoWidth > xDim:
-                            tomoWidth = 0
-                            widthWarnTsIds.append(tsId)
-                        cId = self._insertFunctionStep(self.convertInputStep,
-                                                       tsId,
-                                                       prerequisites=[],
-                                                       needsGPU=False)
-                        recId = self._insertFunctionStep(self.computeReconstructionStep,
-                                                         tsId,
-                                                         tomoWidth,
-                                                         prerequisites=cId,
-                                                         needsGPU=True)
-                        cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                          tsId,
-                                                          prerequisites=recId,
-                                                          needsGPU=False)
-                        closeSetStepDeps.append(cOutId)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsReadList.append(tsId)
-                    except Exception as e:
-                        logger.error(f'Error reading TS info: {e}')
-                        logger.error(f'ts.getFirstItem(): {ts.getFirstItem()}')
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    xDim = ts.getXDim()
+                    if tomoWidth > xDim:
+                        tomoWidth = 0
+                        widthWarnTsIds.append(tsId)
+                    cId = self._insertFunctionStep(self.convertInputStep,
+                                                   tsId,
+                                                   prerequisites=[],
+                                                   needsGPU=False)
+                    recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                                     tsId,
+                                                     tomoWidth,
+                                                     prerequisites=cId,
+                                                     needsGPU=True)
+                    cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                      tsId,
+                                                      prerequisites=recId,
+                                                      needsGPU=False)
+                    closeSetStepDeps.append(cOutId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsReadList.append(tsId)
             time.sleep(10)
             if inTsSet.isStreamOpen():
-                inTsSet.loadAllProperties()  # refresh status for the streaming
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
@@ -394,6 +391,9 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
+                failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
+                if failedTs:
+                    failedTs.close()
             else:
                 tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
                 if os.path.exists(tomoLocation):
