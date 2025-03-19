@@ -121,9 +121,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    # try:
-                    #     with self._lock:
-                    #         ts.getFirstItem().getFileName()
                         cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
@@ -140,10 +137,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         closeSetStepDeps.append(cOutId)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsReadList.append(tsId)
-                    # except Exception as e:
-                    #     logger.error(f'tsIs = {tsId}\n\t'
-                    #                  f'Error reading TS info: {e}\n\t'
-                    #                  f'ts.getFirstItem(): {ts.getFirstItem()}')
             time.sleep(10)
             if inTsSet.isStreamOpen():
                 with self._lock:
