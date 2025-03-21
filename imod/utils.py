@@ -637,6 +637,8 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
             tilt.setTiltAngle(-1 * tilt.getTiltAngle())
             newTS.append(tilt)
             newTS.write()
+        
+        tiltSeries = newTS
 
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
