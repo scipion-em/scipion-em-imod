@@ -302,6 +302,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         def _applyNewStackBasic():
             logger.info(f"TS [{tsId}] re-stacked with IMOD")
+            tsExcludedIndices = None
+            if presentAcqOrders and len(ts) != len(presentAcqOrders):
+                tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
             self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
                                     xfFile=xfFile,
                                     doSwap=doSwap,
@@ -318,7 +321,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         # Initialization
         tsId = ts.getTsId()
-        tsExcludedIndices = None
         firstTi = ts.getFirstItem()
         inTsFileName = firstTi.getFileName()
         outputTsFileName = self.getTmpOutFile(tsId)
@@ -345,10 +347,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
                 # Generate the interpolated TS with IMOD's newstack program
                 logger.info(f"TS [{tsId}] will be interpolated with IMOD")
-                if presentAcqOrders and len(ts) != len(presentAcqOrders):
-                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
-                # else:
-                #     tsExcludedIndices = ts.getExcludedViewsIndex()
                 _applyNewStackBasic()
 
                 # If some views were excluded to generate the new stack,
@@ -811,13 +809,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         accumDose = 0
         initialDose = 999
         tiList = []
-        for index, ti in enumerate(ts.iterItems()):
-            if ti.isEnabled() or (not ti.isEnabled() and copyDisabledViews):
+        enabledCounter = 0
+        for ti in ts.iterItems():
+            enabledTi = ti.isEnabled()
+            if enabledTi or (not enabledTi and copyDisabledViews):
                 tiOut = TiltImage(tsId=tsId)
                 tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM, copyStatus=True)
                 if updateTiCallback:
                     originIndex = ti.getIndex()
-                    updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+                    updateTiCallback(originIndex, enabledCounter, tsId, ts, ti, tsOut, tiOut, **kwargs)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = ti.getTiltAngle()
@@ -825,6 +825,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 angleMax = max(tiAngle, angleMax)
                 accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
                 initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+                if enabledTi:
+                    enabledCounter += 1
 
                 tiList.append(tiOut)
 

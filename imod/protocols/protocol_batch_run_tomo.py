@@ -144,7 +144,12 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str, **kwargs):
-        super().convertInputStep(tsId, lockGetItem=True)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
+            super().convertInputStep(tsId,
+                                     oddEven=self.oddEvenFlag,
+                                     presentAcqOrders=presentAcqOrders)
 
     def runBRT(self, tsId: str):
         logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
