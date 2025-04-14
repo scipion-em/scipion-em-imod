@@ -521,6 +521,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         obj.write()
         inSet.update(obj)
         inSet.write()
+        inSet.close()
 
     @classmethod
     def _runExcludeViewsProt(cls, inTsSet, objLabel=None):

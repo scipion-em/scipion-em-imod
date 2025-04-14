@@ -143,16 +143,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId: str, **kwargs):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
-            super().convertInputStep(tsId,
-                                     oddEven=self.oddEvenFlag,
-                                     presentAcqOrders=presentAcqOrders)
-
     def runBRT(self, tsId: str):
-        logger.info(cyanStr(f'===> tsId = {tsId}: aligning...'))
+        logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)

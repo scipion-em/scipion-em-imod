@@ -23,11 +23,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import logging
 import os
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.protocol.constants import STEPS_SERIAL
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, cyanStr
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltSeries, TiltSeriesCoordinate)
 from imod import utils
@@ -36,6 +37,8 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                             OUTPUT_TS_INTERPOLATED_NAME,
                             OUTPUT_TS_COORDINATES_NAME)
+
+logger = logging.getLogger(__name__)
 
 # Rotation solution types
 NO_ROTATION = 0
@@ -273,6 +276,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         self._initialize()
         for fidModel in self.getInputSet():
             tsId = fidModel.getTsId()
+            # Non interpolated TS
             self._insertFunctionStep(self.convertInputStep,
                                      tsId,
                                      needsGPU=False)
@@ -287,6 +291,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
                                      self.isSemiStreamified,
                                      self.isStreamified,
                                      needsGPU=False)
+            # Interpolated TS
             self._insertFunctionStep(self.computeInterpTsStep,
                                      tsId,
                                      needsGPU=False)
@@ -307,11 +312,11 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
 
     def computeFiducialAlignmentStep(self, tsId):
         try:
+            logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
             ts = self.getCurrentItem(tsId)
             paramsTiltAlign = {
                 "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
-                "-ImageFile": self.getTmpOutFile(tsId),
-                "-ImagesAreBinned": 1,
+                "-ImageFile": self.getTmpOutFile(tsId), "-ImagesAreBinned": 1,
                 "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
                 "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
                 "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
@@ -321,43 +326,28 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
                 "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
                 "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
                 "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
-                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-AngleOffset": 0.0,
+                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT), "-AngleOffset": 0.0,
                 "-RotOption": self.getRotationType(),
                 "-RotDefaultGrouping": self.groupRotationSize.get(),
                 "-TiltOption": self.getTiltAngleType(),
-                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
-                "-MagReferenceView": 1,
+                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(), "-MagReferenceView": 1,
                 "-MagOption": self.getMagnificationType(),
                 "-MagDefaultGrouping": self.groupMagnificationSize.get(),
-                "-XStretchOption": self.getStretchType(),
-                "-SkewOption": self.getSkewType(),
+                "-XStretchOption": self.getStretchType(), "-SkewOption": self.getSkewType(),
                 "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
-                "-SkewDefaultGrouping": self.skewGroupSize.get(),
-                "-BeamTiltOption": 0,
-                "-XTiltOption": 0,
-                "-XTiltDefaultGrouping": 2000,
-                "-ResidualReportCriterion": 3.0,
-                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
-                "-MetroFactor": 0.25,
-                "-MaximumCycles": 1000,
-                "-KFactorScaling": 1.0,
-                "-NoSeparateTiltGroups": 1,
-                "-AxisZShift": 0.0,
-                "-ShiftZFromOriginal": 1,
-                "-TargetPatchSizeXandY": '700,700',
-                "-MinSizeOrOverlapXandY": '0.5,0.5',
-                "-MinFidsTotalAndEachSurface": '8,3',
-                "-FixXYZCoordinates": 0,
-                "-RobustFitting": ""
-            }
+                "-SkewDefaultGrouping": self.skewGroupSize.get(), "-BeamTiltOption": 0,
+                "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000, "-ResidualReportCriterion": 3.0,
+                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(), "-MetroFactor": 0.25,
+                "-MaximumCycles": 1000, "-KFactorScaling": 1.0, "-NoSeparateTiltGroups": 1,
+                "-AxisZShift": 0.0, "-ShiftZFromOriginal": 1, "-TargetPatchSizeXandY": '700,700',
+                "-MinSizeOrOverlapXandY": '0.5,0.5', "-MinFidsTotalAndEachSurface": '8,3',
+                "-FixXYZCoordinates": 0, "-RobustFitting": "",
+                "2>&1 | tee ": self._getExtraPath("align.log")}
 
-            # Excluded views
-            excludedViews = ts.getExcludedViewsIndex(caster=str)
-            if len(excludedViews):
-                paramsTiltAlign["-ExcludeList"] = ",".join(excludedViews)
-
-            paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
+            # # Excluded views
+            # excludedViews = ts.getExcludedViewsIndex(caster=str)
+            # if len(excludedViews):
+            #     paramsTiltAlign["-ExcludeList"] = ",".join(excludedViews)
 
             self.runProgram('tiltalign', paramsTiltAlign)
             self.runProgram('alignlog', {'-s': "> taSolution.log"},
@@ -412,7 +402,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
                         firstExec = False
                     prevTiltIm = int(float(fiducial[2]))
 
-                    if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][2]:
+                    if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == fiducialNoGapsResidList[indexFake][
+                        2]:
                         landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
                                                         yCoor=fiducial[1],
                                                         tiltIm=fiducial[2] + 1,
