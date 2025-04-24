@@ -79,6 +79,14 @@ class ProtImodBaseTsAlign(ProtImodBase):
                            'transformations.')
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsId: str, **kwargs):
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
+            super().convertInputStep(tsId,
+                                     oddEven=self.oddEvenFlag,
+                                     presentAcqOrders=presentAcqOrders)
+
     def createOutTs(self, tsId, isSemiStreamified, isStreamified):
         ts = self.getCurrentItem(tsId)
         if tsId not in self.failedItems:
@@ -132,7 +140,6 @@ class ProtImodBaseTsAlign(ProtImodBase):
                 if exists(tmpFileName) and stat(tmpFileName).st_size != 0:
                     ts = self.getCurrentItem(tsId)
                     firstItem = ts.getFirstItem()
-                    tsExcludedIndices = ts.getExcludedViewsIndex()
                     paramsDict = self.getBasicNewstackParams(
                         ts,
                         self.getExtraOutFile(tsId),
@@ -142,7 +149,6 @@ class ProtImodBaseTsAlign(ProtImodBase):
                         binning=binning,
                         doSwap=True,
                         doTaper=True,
-                        tsExcludedIndices=tsExcludedIndices,
                     )
                     self.runProgram('newstack', paramsDict)
 
@@ -158,8 +164,17 @@ class ProtImodBaseTsAlign(ProtImodBase):
     @staticmethod
     def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None, tltList=None, **kwargs):
         transform = Transform()
-        newTransform = alignmentMatrix[:, :, index]
-        newTransformArray = np.array(newTransform)
+        identityMatrix = np.eye(3)
+        if ti.isEnabled():
+            newTransform = alignmentMatrix[:, :, index]
+            newTransformArray = np.array(newTransform)
+            tiltAngle = float(tltList[index])  # It may have been refined
+        else:
+            tiltAngle = ti.getTiltAngle()
+            if ti.hasTransform():
+                newTransformArray = ti.getTransform().getMatrix()
+            else:
+                newTransformArray = identityMatrix
 
         if ti.hasTransform():
             previousTransform = ti.getTransform().getMatrix()
@@ -170,7 +185,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
             transform.setMatrix(newTransformArray)
 
         tiOut.setTransform(transform)
-        tiOut.setTiltAngle(float(tltList[index]))
+        tiOut.setTiltAngle(tiltAngle)
 
     @staticmethod
     def updateTsInterp(tsId, ts, tsOut, **kwargs):

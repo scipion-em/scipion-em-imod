@@ -27,17 +27,19 @@ import logging
 import typing
 from typing import Union
 
+import numpy as np
+
 from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow.utils import path
+from pyworkflow.utils import path, cyanStr
 from pwem.emlib.image import ImageHandler as ih
 from pwem.protocols import EMProtocol
 
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage, CTFTomoSeries, Tomogram)
+                          TiltImage, CTFTomoSeries)
 
 from imod import Plugin, utils
 from imod.constants import *
@@ -252,7 +254,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             ts = self.getCurrentItem(tsId)
         self.genTsPaths(tsId)
-        self.genAlignmentFiles(ts, generateAngleFile=generateAngleFile,
+        self.genAlignmentFiles(ts,
+                               generateAngleFile=generateAngleFile,
                                imodInterpolation=imodInterpolation,
                                doSwap=doSwap,
                                oddEven=oddEven,
@@ -264,7 +267,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
                            xfFile=None, doSwap=None, tsExcludedIndices=None):
 
-        params = self.getBasicNewstackParams(ts,
+        param = self.getBasicNewstackParams(ts,
                                              outputTsFileName,
                                              inputTsFileName=inputTsFileName,
                                              xfFile=xfFile,
@@ -272,7 +275,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                              doSwap=doSwap,
                                              tsExcludedIndices=tsExcludedIndices)
 
-        self.runProgram("newstack", params)
+        self.runProgram("newstack", param)
 
     def genAlignmentFiles(self, ts: TiltSeries,
                           generateAngleFile: bool = True,
@@ -293,7 +296,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         and the interpolated TS with IMOD's newstack program.
         """
         def _linkTs():
-            logger.info(f"TS [{tsId}] linked")
+            logger.info(cyanStr("\t--> Tilt-series file linked."))
             path.createAbsLink(firstTi.getFileName(), outputTsFileName)
 
             if oddEven:
@@ -301,7 +304,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 path.createAbsLink(fnEven, outputEvenTsFileName)
 
         def _applyNewStackBasic():
-            logger.info(f"TS [{tsId}] re-stacked with IMOD")
+            tsExcludedIndices = None
+            if presentAcqOrders and len(ts) != len(presentAcqOrders):
+                tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
+                logger.info(cyanStr(f'\t--> Excluded views detected ==> {tsExcludedIndices}.'))
+                logger.info(cyanStr("\t--> Re-stacking the tilt-series with IMOD..."))
             self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
                                     xfFile=xfFile,
                                     doSwap=doSwap,
@@ -318,7 +325,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         # Initialization
         tsId = ts.getTsId()
-        tsExcludedIndices = None
+        logger.info(cyanStr(f'TsId = {tsId}: generating the alignment files...'))
         firstTi = ts.getFirstItem()
         inTsFileName = firstTi.getFileName()
         outputTsFileName = self.getTmpOutFile(tsId)
@@ -344,21 +351,20 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 utils.genXfFile(ts, xfFile)
 
                 # Generate the interpolated TS with IMOD's newstack program
-                logger.info(f"TS [{tsId}] will be interpolated with IMOD")
-                if presentAcqOrders and len(ts) != len(presentAcqOrders):
-                    tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
-                # else:
-                #     tsExcludedIndices = ts.getExcludedViewsIndex()
+                logger.info(cyanStr("\t--> The tilt-series will be interpolated with IMOD."))
                 _applyNewStackBasic()
 
                 # If some views were excluded to generate the new stack,
                 # a new xfFile containing them should be generated
                 if presentAcqOrders and len(ts) != len(presentAcqOrders):
-                    utils.genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+                    logger.info(cyanStr(f"\t--> Generating the transformations xf file {xfFile}..."))
+                    utils.genXfFile(ts, xfFile,
+                                    presentAcqOrders=presentAcqOrders,
+                                    onlyEnabled=True)
 
             else:
                 # The given TS is interpolated
-                logger.info(f"TS [{tsId}] is interpolated or not aligned")
+                logger.info(cyanStr("\t--> The tilt-series is interpolated or not aligned."))
                 if presentAcqOrders:
                     if len(presentAcqOrders) == len(ts):
                         _linkTs()
@@ -370,16 +376,18 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         # Use Xmipp interpolation via Scipion
         else:
-            logger.info(f"TS [{tsId}] interpolated with emlib")
-            ts.applyTransform(outputTsFileName, presentAcqOrders=presentAcqOrders)
+            logger.info(cyanStr("\t--> The tilt-series will be interpolated with emlib."))
+            ts.applyTransform(outputTsFileName,
+                              presentAcqOrders=presentAcqOrders)
 
-        logger.info(f"TS [{tsId}] available for processing at {outputTsFileName}")
+        # logger.info(cyanStr(f"TS [{tsId}] available for processing at {outputTsFileName}"))
 
         # Generate the tlt file
         if generateAngleFile:
-            logger.info(f"Generate angle file for the TS [{tsId}]")
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.generateTltFile(angleFilePath, presentAcqOrders=presentAcqOrders)
+            logger.info(cyanStr(f"\t--> Generating the angles tlt file {angleFilePath}..."))
+            ts.generateTltFile(angleFilePath,
+                               presentAcqOrders=presentAcqOrders)
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
@@ -531,7 +539,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             if failedTs:
                 failedTs.enableAppend()
             else:
-                logger.info('Create the set of failed TS')
+                logger.info(cyanStr('Create the set of failed TS'))
                 failedTs = self._createSetOfTiltSeries(suffix='Failed')
                 failedTs.copyInfo(inputSet)
                 failedTs.setStreamState(Set.STREAM_OPEN)
@@ -545,7 +553,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             if failedTomos:
                 failedTomos.enableAppend()
             else:
-                logger.info('Create the set of failed tomograms')
+                logger.info(cyanStr('Create the set of failed tomograms'))
                 failedTomos = self._createSetOfTomograms(suffix='Failed')
                 failedTomos.copyInfo(inputSet)
                 failedTomos.setStreamState(Set.STREAM_OPEN)
@@ -556,7 +564,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def createOutputFailedSet(self, item):
         """ Just copy input item to the failed output set. """
-        logger.info(f'Failed TS ---> {item.getTsId()}')
+        logger.info(cyanStr(f'Failed TS ---> {item.getTsId()}'))
         inputSet = self.getInputSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
         newItem = item.clone()
@@ -811,13 +819,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         accumDose = 0
         initialDose = 999
         tiList = []
-        for index, ti in enumerate(ts.iterItems()):
-            if ti.isEnabled() or (not ti.isEnabled() and copyDisabledViews):
+        enabledCounter = 0
+        for ti in ts.iterItems():
+            enabledTi = ti.isEnabled()
+            if enabledTi or (not enabledTi and copyDisabledViews):
                 tiOut = TiltImage(tsId=tsId)
                 tiOut.copyInfo(ti, copyId=copyId, copyTM=copyTM, copyStatus=True)
                 if updateTiCallback:
                     originIndex = ti.getIndex()
-                    updateTiCallback(originIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
+                    updateTiCallback(originIndex, enabledCounter, tsId, ts, ti, tsOut, tiOut, **kwargs)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = ti.getTiltAngle()
@@ -825,6 +835,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 angleMax = max(tiAngle, angleMax)
                 accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
                 initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+                if enabledTi:
+                    enabledCounter += 1
 
                 tiList.append(tiOut)
 

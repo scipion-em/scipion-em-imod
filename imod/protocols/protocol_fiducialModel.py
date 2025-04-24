@@ -23,25 +23,28 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
+import logging
 import os
 
+import numpy as np
+
 import pyworkflow.protocol.params as params
+from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.protocol.constants import STEPS_SERIAL
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
-
 from imod import utils
-from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
                             FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import Set
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, cyanStr
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodFiducialModel(ProtImodBase):
+class ProtImodFiducialModel(ProtImodBaseTsAlign):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -230,6 +233,7 @@ class ProtImodFiducialModel(ProtImodBase):
         self.acq = tsSet.getAcquisition()
 
     def generateTrackComStep(self, tsId):
+        logger.info(cyanStr(f'tsId = {tsId}: generating the tracking command file...'))
         ts = self.getCurrentItem(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
         paramsDict = {
@@ -255,6 +259,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     def generateFiducialSeedStep(self, tsId):
         try:
+            logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
             trackFile = self.getExtraOutFile(tsId, suffix="track", ext="com")
             if os.path.exists(trackFile):
                 paramsAutofidseed = {
@@ -282,6 +287,7 @@ class ProtImodFiducialModel(ProtImodBase):
         ts = self.getCurrentItem(tsId)
         if tsId not in self.failedItems:
             try:
+                logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial model...'))
                 fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
 
                 paramsBeadtrack = {
@@ -325,10 +331,10 @@ class ProtImodFiducialModel(ProtImodBase):
                     paramsBeadtrack["-SobelFilterCentering"] = ""
                     paramsBeadtrack["-ScalableSigmaForSobel"] = self.scalableSigmaForSobelFilter.get()
 
-                # Excluded views
-                excludedViews = ts.getExcludedViewsIndex(caster=str)
-                if len(excludedViews):
-                    paramsBeadtrack["-SkipViews"] = ",".join(excludedViews)
+                # # Excluded views
+                # excludedViews = ts.getExcludedViewsIndex(caster=str)
+                # if len(excludedViews):
+                #     paramsBeadtrack["-SkipViews"] = ",".join(excludedViews)
 
                 if ts.hasAlignment():
                     paramsBeadtrack["-prexf"] = self.getExtraOutFile(tsId, ext=XF_EXT)
@@ -350,10 +356,11 @@ class ProtImodFiducialModel(ProtImodBase):
 
     def xcorrStep(self, tsId):
         try:
-            ts = self.getCurrentItem(tsId)
+            logger.info(cyanStr(f'tsId = {tsId}: executing the tiltxcorr...'))
+            # ts = self.getCurrentItem(tsId)
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            ts.writeXfFile(xfFile)
+            # ts.writeXfFile(xfFile)
 
             borders = self.pxTrim.getListFromValues(caster=str)
             sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
@@ -389,6 +396,7 @@ class ProtImodFiducialModel(ProtImodBase):
     def chopcontsStep(self, tsId):
         if tsId not in self.failedItems:
             try:
+                logger.info(cyanStr(f'tsId = {tsId}: executing imodchopconts...'))
                 paramschopconts = {
                     "-InputModel": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
                     "-OutputModel": self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
@@ -403,6 +411,7 @@ class ProtImodFiducialModel(ProtImodBase):
 
     def translateFiducialPointModelStep(self, tsId):
         if tsId not in self.failedItems:
+            logger.info(cyanStr(f'tsId = {tsId}: executing model2point...'))
             gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
             if os.path.exists(gapsFidFile):
@@ -558,8 +567,8 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
             template += "\nSobelFilterCentering"
             template += "\nScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
 
-        if len(excludedViews):
-            template += f"\nSkipViews {','.join(excludedViews)}"
+        # if len(excludedViews):
+        #     template += f"\nSkipViews {','.join(excludedViews)}"
 
         if hasAlignment:
             XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
