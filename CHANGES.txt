@@ -1,3 +1,18 @@
+3.7.0:
+  Users:
+   - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo. Streamified.
+   - As a consequence, the installer was updated and a conda environment is generated.
+   - Parallelization of most of the protocols.
+   - Streamify the protocols tilt-series preprocess and tomograms reconstruction.
+   - Deprecating some density scaling options in tomo and ts preprocess.
+   - Fix viewer call from the file browser.
+   - Protocol batchruntomo -> fix bug: all the tilt-images were considered when calculating the alignment even if they
+     had been excluded. Fix some expansion of these changes in both fiducial alignment and model as a consequence.
+  Developers:
+   - Replace the setup.py by the corresponding pyproject.toml.
+   - Add preventing lock in the call to loadAllProperties of the stepsGeneratorStep of the streamified protocols.
+   - Improve robustness in streaming: check the tilt-series size before inserting the steps.
+   - Update the Github actions file, which was in an obsolete format.
 3.6.1:
  Users:
   - bugfix for o/e tomo reconstruction, see #271

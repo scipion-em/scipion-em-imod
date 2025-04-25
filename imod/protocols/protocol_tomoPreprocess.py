@@ -28,6 +28,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as pwpath
 from imod.protocols.protocol_base import IN_TOMO_SET
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import Tomogram, SetOfTomograms
 from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
@@ -46,7 +47,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     _1 Binning_: Binvol will bin down a volume in all three dimensions,
     with the binning done isotropically. Binning means summing (actually
-    averaging) all of the values in a block of voxels (e.g., 2x2x2
+    averaging) all the values in a block of voxels (e.g., 2x2x2
     or 1x1x3) in the input volume to create one voxel in the output volume.
     The output file will have appropriately larger pixel spacings
     in its header.\n
@@ -61,12 +62,13 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     _label = 'Tomo preprocess'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
-    def _defineParams(self, form):
+    def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
         form.addParam(IN_TOMO_SET,
                       params.PointerParam,
@@ -74,6 +76,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                       important=True,
                       label='Input set of tomograms')
         super()._defineParams(form, isTomogram=True)
+        form.addParallelSection(threads=4, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -83,24 +86,32 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
         closeSetStepDeps = []
 
-        for tsId in self.tomoDict.keys():
-            compId = self._insertFunctionStep(self.preprocessStep, tsId, runNewStack, binning,
-                                              prerequisites=[])
-            outId = self._insertFunctionStep(self.generateOutputStep, tsId, runNewStack, binning,
-                                             prerequisites=[compId])
+        for tomo in self.getInputSet():
+            tsId = tomo.getTsId()
+            compId = self._insertFunctionStep(self.preprocessStep,
+                                              tsId,
+                                              runNewStack,
+                                              binning,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.generateOutputStep,
+                                             tsId,
+                                             runNewStack,
+                                             binning,
+                                             prerequisites=compId,
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
-
     def preprocessStep(self, tsId, runNewstack, binning):
         try:
             self.genTsPaths(tsId)
-            tomo = self.tomoDict[tsId]
+            with self._lock:
+                tomo = self.getCurrentItem(tsId)
             tomoFn = tomo.getFileName()
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
@@ -183,9 +194,9 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
 
     def generateOutputStep(self, tsId, runNewstack, binning):
-        tomo = self.tomoDict[tsId]
         with self._lock:
-            if tsId in self._failedItems:
+            tomo = self.getCurrentItem(tsId)
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(tomo)
             else:
                 output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
@@ -234,8 +245,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
-        return (self.inputSetOfTomograms.get() if
-                not pointer else self.inputSetOfTomograms)
+        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getModeToOutput(self):
         parseParamsOutputMode = {

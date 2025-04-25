@@ -69,6 +69,12 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                            'will be assigned.',
                       label='Input set of tilt-series')
 
+        form.addParam("override",
+                      params.BooleanParam,
+                      default=True,
+                      help='If True, the imported transformations will override the previous alignmnets, otherwise, the alignmnets will be combined (alignment matrices multiplied)',
+                      label='Override aligmnents')
+
         groupMatchBinning = form.addGroup('Match binning')
 
         groupMatchBinning.addParam('binningTM',
@@ -90,10 +96,16 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         self._initialize()
         matchBinningFactor = self.binningTM.get() / self.binningTS.get()
         for tsId in self.tsDict.keys():
-            self._insertFunctionStep(self.generateTransformFileStep, tsId, matchBinningFactor)
-            self._insertFunctionStep(self.assignTransformationMatricesStep, tsId)
+            self._insertFunctionStep(self.generateTransformFileStep,
+                                     tsId,
+                                     matchBinningFactor,
+                                     needsGPU=False)
+            self._insertFunctionStep(self.assignTransformationMatricesStep,
+                                     tsId,
+                                     needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetsStep)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -245,7 +257,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         transform = data.Transform()
         alignmentMatrix = kwargs.get("alignmentMatrix")
 
-        if ti.hasTransform():
+        if ti.hasTransform() and not self.override.get():
             previousTransform = ti.getTransform().getMatrix()
             newTransform = alignmentMatrix[:, :, index]
             previousTransformArray = np.array(previousTransform)

@@ -29,6 +29,7 @@ from imod.protocols.protocol_base import IN_TOMO_SET
 from pwem.objects import Transform
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
 
@@ -53,6 +54,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     _label = 'Tomo projection'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     AXIS_X = 0
     AXIS_Y = 1
@@ -97,27 +99,33 @@ class ProtImodTomoProjection(ProtImodBase):
                            'corresponds to the typical rotation axis '
                            'acquisition.')
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
-        self._initialize()
         closeSetStepDeps = []
-        for tsId in self.tomoDict.keys():
-            compId = self._insertFunctionStep(self.projectTomogram, tsId, prerequisites=[])
-            outId = self._insertFunctionStep(self.generateOutputStackStep, tsId, prerequisites=[compId])
+        for tomo in self.getInputSet():
+            tsId = tomo.getTsId()
+            compId = self._insertFunctionStep(self.projectTomogram,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.generateOutputStackStep,
+                                             tsId,
+                                             prerequisites=compId,
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.inputSetOfTomograms.get()}
-
     def projectTomogram(self, tsId):
         try:
             self.genTsPaths(tsId)
-            tomo = self.tomoDict[tsId]
+            with self._lock:
+                tomo = self.getCurrentItem(tsId)
 
             paramsXYZproj = {
                 '-input': tomo.getFileName(),
@@ -131,13 +139,13 @@ class ProtImodTomoProjection(ProtImodBase):
             self.runProgram('xyzproj', paramsXYZproj)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
 
     def generateOutputStackStep(self, tsId):
-        tomo = self.tomoDict[tsId]
         with self._lock:
-            if tsId in self._failedItems:
+            tomo = self.getCurrentItem(tsId)
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(tomo)
             else:
                 outputFn = self.getExtraOutFile(tsId)
@@ -215,7 +223,7 @@ class ProtImodTomoProjection(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
-        return self.inputSetOfTomograms.get() if not pointer else self.inputSetOfTomograms
+        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getRotationAxis(self):
         parseParamsRotationAxis = {

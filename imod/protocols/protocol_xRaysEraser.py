@@ -166,30 +166,39 @@ class ProtImodXraysEraser(ProtImodBase):
                            'useful.')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
 
-        for tsId in self.tsDict.keys():
-            convId = self._insertFunctionStep(self.convertInputStep, tsId,
-                                              prerequisites=[])
-            compId = self._insertFunctionStep(self.eraseXraysStep, tsId,
-                                              prerequisites=[convId])
-            outId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                             prerequisites=[compId])
+        for ts in self.getInputSet():
+            tsId = ts.getTsId()
+            convId = self._insertFunctionStep(self.convertInputStep,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
+            compId = self._insertFunctionStep(self.eraseXraysStep,
+                                              tsId,
+                                              prerequisites=[convId],
+                                              needsGPU=False)
+            outId = self._insertFunctionStep(self.createOutputStep,
+                                             tsId,
+                                             prerequisites=[compId],
+                                             needsGPU=False)
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps)
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     def convertInputStep(self, tsId, **kwargs):
         super().convertInputStep(tsId,
-                                 imodInterpolation=None,
+                                 imodInterpolation=False,
                                  generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag)
+                                 oddEven=self.oddEvenFlag,
+                                 lockGetItem=True)
 
     def eraseXraysStep(self, tsId):
         try:
@@ -225,13 +234,13 @@ class ProtImodXraysEraser(ProtImodBase):
                 self.runProgram('ccderaser', paramsCcderaser)
 
         except Exception as e:
-            self._failedItems.append(tsId)
+            self.failedItems.append(tsId)
             self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
 
     def createOutputStep(self, tsId):
-        ts = self.tsDict[tsId]
         with self._lock:
-            if tsId in self._failedItems:
+            ts = self.getCurrentItem(tsId)
+            if tsId in self.failedItems:
                 self.createOutputFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId)
