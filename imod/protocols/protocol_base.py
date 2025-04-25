@@ -32,7 +32,7 @@ import numpy as np
 from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow.utils import path, cyanStr
+from pyworkflow.utils import path, cyanStr, redStr
 from pwem.emlib.image import ImageHandler as ih
 from pwem.protocols import EMProtocol
 
@@ -820,7 +820,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         initialDose = 999
         tiList = []
         enabledCounter = 0
+        logger.info(redStr(f'tsId = {tsId} - copyTsItems pre-loop, ts.getSize = {ts.getSize()}'))
         for ti in ts.iterItems():
+            logger.info(redStr(f'tsId = {tsId} - copyTsItems in-loop:'))
             enabledTi = ti.isEnabled()
             if enabledTi or (not enabledTi and copyDisabledViews):
                 tiOut = TiltImage(tsId=tsId)
