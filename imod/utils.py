@@ -616,7 +616,7 @@ def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTa
 
 
 def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
-                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None):
+                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None, invertTiltAngles=False):
     """ This method takes a ctfTomoSeries object a generate a
     defocus information file in IMOD formatting containing
     the same information in the specified location. """
@@ -625,6 +625,20 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
         tiltSeries = ctfTomoSeries.getTiltSeries()
     else:
         tiltSeries = inputTiltSeries
+
+    # This allows inverting the direction of the defocus gradient if needed.
+    # It does not invert the tilt angles for the reconstruction,
+    # it's only for generating the defocus file!
+    if invertTiltAngles:
+        newTS = tiltSeries.createCopy(outputPath=os.path.dirname(defocusFilePath), 
+                                      prefix="ts_invertedTA", 
+                                      copyInfo=True)
+        for tilt in tiltSeries.iterItems():
+            tilt.setTiltAngle(-1 * tilt.getTiltAngle())
+            newTS.append(tilt)
+            newTS.write()
+        
+        tiltSeries = newTS
 
     logger.info("Trying to generate defocus file at %s" % defocusFilePath)
 
