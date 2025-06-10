@@ -35,10 +35,10 @@ from pyworkflow.gui.project.utils import OS
 import pwem
 
 from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
-                            VERSIONS, IMOD_VIEWER_BINNING, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
+                            VERSIONS, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
                             BRT, BRT_PROGRAM_DEFAULT_VERSION, BRT_ENV_NAME, BRT_PROGRAM)
 
-__version__ = '3.7.0'
+__version__ = '3.7.1'
 
 from pyworkflow.utils import Environ
 
@@ -59,7 +59,6 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
-        cls._defineVar(IMOD_VIEWER_BINNING, 1)
         cls._defineVar(BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD)
         cls._defineVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
 
@@ -67,9 +66,6 @@ class Plugin(pwem.Plugin):
     def getBRTEnvActivation(cls):
         return cls.getVar(BRT_ENV_ACTIVATION)
 
-    @classmethod
-    def getViewerBinning(cls):
-        return cls.getVar(IMOD_VIEWER_BINNING)
 
     @classmethod
     def _getEMFolder(cls, version, *paths):

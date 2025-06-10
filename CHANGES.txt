@@ -1,3 +1,7 @@
+3.7.1:
+  Users:
+   - IMOD_VIEWER_BINNING removed, by default it is targeting the closest binning to 10A resolution.
+   - Imod viewer shows the interpolated tilt series if tilt series has alignment info
 3.7.0:
   Users:
    - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo. Streamified.

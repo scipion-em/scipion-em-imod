@@ -290,7 +290,7 @@ class ImodListDialog(ListDialog):
                 self.tree.itemDoubleClick = self.openImodViewer
 
     def _addBinningBox(self):
-        self.binningVar = tk.StringVar(value=str(Plugin.getViewerBinning()))
+        self.binningVar = tk.StringVar(value=str(self.provider.objs.getBinning(10))) # Plugin.getViewerBinning()))
         frame = self.searchBoxframe
         label = tk.Label(frame, text="Display binning")
         label.grid(row=0, column=2, sticky='nw')
@@ -325,8 +325,8 @@ class ImodListDialog(ListDialog):
         from imod.viewers import ImodObjectView
         prot = self.provider.protocol
         item = self.provider.objs[item.getObjId()]  # to load mapper
-
-        ImodObjectView(item, protocol=prot, binning=self.binningVar.get()).show()
+        set = self.provider.objs
+        ImodObjectView(item, protocol=prot, binning=int(self.binningVar.get()), set=set).show()
 
     def runProtocolSteps(self, e=None):
         ts = e

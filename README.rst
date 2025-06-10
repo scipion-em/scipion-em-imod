@@ -97,7 +97,6 @@ For quick visualization purposes, it can be useful to bin images and tomograms o
         [PLUGINS]
         
         IMOD_HOME = %(EM_ROOT)s/imod-4.11.25/IMOD
-        IMOD_VIEWER_BINNING = 8
 
 Supported versions
 ------------------

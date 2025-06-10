@@ -59,13 +59,18 @@ class ImodViewer(pwviewer.Viewer):
     ]
     _name = 'Imod'
 
+
     def _visualize(self, obj, **kwargs):
         env = Plugin.getEnviron()
         cls = type(obj)
 
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
-            binning = kwargs.get("binning", 1)
-            view = ImodObjectView(obj, protocol=self.protocol, binning=binning)
+            binning = kwargs.get("binning", obj.getBinning(10))
+            set = kwargs.get("set", None)
+
+            if set is None:
+                raise Exception("Imod viewer needs to be aware of the set. Pass 'set' argument.")
+            view = ImodObjectView(obj, protocol=self.protocol, binning=binning, set=set)
         else:  # Set object
             view = ImodGenericView(self.getTkRoot(), self.protocol, obj)
 
@@ -76,10 +81,12 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None, binning=1, **kwargs):
+    def __init__(self, obj, protocol=None, binning=1, set=None, **kwargs):
         """
         :param obj: Object to deal with, a single item of a set
         :param protocol: protocol owner of obj
+        :param binning: binning at which you want to visualize the tilt series
+        :param set: set obj belongs to in case obj is not a string (path to a file)
         :param kwargs: extra kwargs
         """
         # Get default binning level has been defined for 3dmod
@@ -88,7 +95,11 @@ class ImodObjectView(pwviewer.CommandView):
 
         if isinstance(obj, tomoObj.TiltSeries):
             prj = protocol.getProject()
-            inputFn = obj.getFirstItem().getFileName()
+            inputFn = obj.getInterpolated(set.getObjId(), binning, folder=prj.getTmpPath())
+            if obj.hasAlignment():
+                # Binning has been applied
+                binningstr = "1"
+
             angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
             obj.generateTltFile(angleFilePath)
 
@@ -101,15 +112,8 @@ class ImodObjectView(pwviewer.CommandView):
             tsFn = ts.getFirstItem().getFileName()
             if ts.hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
-                extension = pwutils.getExt(tsFn)
-                outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
-                                                prj.getShortName(),
-                                                protocol.getObjId(),
-                                                obj.getObjId(),
-                                                extension))
-
-                if not os.path.exists(outputTSPath):
-                    ts.applyTransform(outputTSPath)
+                tsSet = set.getSetOfTiltSeries()
+                outputTSPath = ts.getInterpolated(tsSet.getObjId(), binning, folder=os.path.dirname(tsSet.getFileName()))
 
             else:
                 outputTSPath = tsFn
