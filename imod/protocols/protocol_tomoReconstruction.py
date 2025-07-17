@@ -304,10 +304,10 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     def convertInputStep(self, tsId, **kwargs):
         with self._lock:
             ts = self.getCurrentItem(tsId)
-        presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
+        presentAcqOrders = self.getTsCtfCommonAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,
                                  doSwap=True,
-                                 oddEven=self.oddEvenFlag,
+                                 oddEven=self.doOddEven,
                                  presentAcqOrders=presentAcqOrders,
                                  lockGetItem=True)
 
@@ -361,7 +361,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             Plugin.runImod(self, 'trimvol', argsTrimvol % paramsTrimVol)
 
             oddEvenTmp = [[], []]
-            if self.oddEvenFlag:
+            if self.doOddEven:
                 # Odd
                 paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
                 oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
@@ -403,7 +403,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     newTomogram.copyInfo(ts)
                     newTomogram.setLocation(tomoLocation)
 
-                    if self.oddEvenFlag:
+                    if self.doOddEven:
                         halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                         self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                         newTomogram.setHalfMaps(halfMapsList)

@@ -24,23 +24,17 @@
 # *
 # *****************************************************************************
 import logging
-import typing
-from typing import Union
-
-import numpy as np
-
+from typing import Union, Tuple
 from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import path, cyanStr
 from pwem.emlib.image import ImageHandler as ih
 from pwem.protocols import EMProtocol
-
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
                           TiltImage, CTFTomoSeries)
-
 from imod import Plugin, utils
 from imod.constants import *
 from tomo.utils import getCommonTsAndCtfElements
@@ -51,6 +45,8 @@ IN_TOMO_SET = 'inputSetOfTomograms'
 IN_CTF_TOMO_SET = 'inputSetOfCtfTomoSeries'
 PROCESS_ODD_EVEN = 'processOddEven'
 BINNING_FACTOR = 'binning'
+
+NEWSTACK_PROGRAM = 'newstack'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
@@ -63,7 +59,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.tsDict = None
         self.tomoDict = None
         self.failedItems = []
-        self.oddEvenFlag = False
+        self.doOddEven = False
 
         # Possible outputs (synchronize these names with the constants)
         self.TiltSeries = None
@@ -212,12 +208,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
+        self.doOddEven = self.applyToOddEven(self.getInputSet())
 
     @staticmethod
-    def getPresentAcqOrders(ts: Union[TiltSeries, None] = None,
-                            ctf: Union[CTFTomoSeries, None] = None,
-                            onlyEnabled: bool = True):
+    def getTsCtfCommonAcqOrders(ts: Union[TiltSeries, None] = None,
+                                ctf: Union[CTFTomoSeries, None] = None,
+                                onlyEnabled: bool = True):
         if not ts or not ctf:
             obj = ts if ts else ctf
             if onlyEnabled:
@@ -227,167 +223,186 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
 
-    def convertInputStep(self, tsId: str,
-                         generateAngleFile: bool=True,
-                         imodInterpolation: bool=True,
-                         doSwap: bool=False,
-                         oddEven: bool=False,
-                         presentAcqOrders: typing.Set[int]=(),
-                         lockGetItem: bool=False):
-        """
-        :param tsId: Tilt-series identifier
-        :param generateAngleFile:  Boolean(True) to generate IMOD angle file
-        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
-                                  imod in case there is a TM.
-                                  Pass None to cancel interpolation.
-        :param doSwap: if applying alignment, consider swapping X/Y
-        :param oddEven: process odd/even sets
-        :param presentAcqOrders: set containing the present acq orders in both
-        the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
-        and the interpolated TS with IMOD's newstack program.
-        :param lockGetItem: boolean used to indicate if the getItem call must lock the DDBB access,
-        as it should be if the protocol is parallelized.
-        """
-        if lockGetItem:
-            with self._lock:
-                ts = self.getCurrentItem(tsId)
-        else:
-            ts = self.getCurrentItem(tsId)
-        self.genTsPaths(tsId)
-        self.genAlignmentFiles(ts,
-                               generateAngleFile=generateAngleFile,
-                               imodInterpolation=imodInterpolation,
-                               doSwap=doSwap,
-                               oddEven=oddEven,
-                               presentAcqOrders=presentAcqOrders)
+    # def convertInputStep(self, tsId: str,
+    #                      generateAngleFile: bool = True,
+    #                      imodInterpolation: bool = True,
+    #                      doSwap: bool = False,
+    #                      oddEven: bool = False,
+    #                      lockGetItem: bool = False):
+    #     """
+    #     :param tsId: Tilt-series identifier
+    #     :param generateAngleFile:  Boolean(True) to generate IMOD angle file
+    #     :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+    #                               imod in case there is a TM.
+    #                               Pass None to cancel interpolation.
+    #     :param doSwap: if applying alignment, consider swapping X/Y
+    #     :param oddEven: process odd/even sets
+    #     :param presentAcqOrders: set containing the present acq orders in both
+    #     the given TS and CTFTomoSeries. Used to generate the xf file, the tlt file,
+    #     and the interpolated TS with IMOD's newstack program.
+    #     :param lockGetItem: boolean used to indicate if the getItem call must lock the DDBB access,
+    #     as it should be if the protocol is parallelized.
+    #     """
+    #     if lockGetItem:
+    #         with self._lock:
+    #             ts = self.getCurrentItem(tsId)
+    #     else:
+    #         ts = self.getCurrentItem(tsId)
+    #     self.genTsPaths(tsId)
+    #     self.genAlignmentFiles(ts,
+    #                            generateAngleFile=generateAngleFile,
+    #                            imodInterpolation=imodInterpolation,
+    #                            doSwap=doSwap,
+    #                            oddEven=oddEven,
+    #                            presentAcqOrders=ts.getTsPresentAcqOrders())
 
-    def closeOutputSetsStep(self):
-        self._closeOutputSet()
+    def runNewStackBasic(self,
+                         ts: TiltSeries,
+                         xfFile: str = None,
+                         doSwap: bool = False,
+                         binning: int = 1,
+                         ignoreExcludedViews: bool=False) -> None:
 
-    def applyNewStackBasic(self, ts, outputTsFileName, inputTsFileName,
-                           xfFile=None, doSwap=None, tsExcludedIndices=None):
-
+        logger.info(cyanStr(f'tsId = {ts.getTsId()} - running {NEWSTACK_PROGRAM}...'))
+        tsExcludedIndices = None if ignoreExcludedViews else (
+            ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders()))
+        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+        if ts.hasExcludedViews():
+            logger.info(cyanStr(f'\t--> Excluded views detected ==> {tsExcludedIndices}.'))
+            logger.info(cyanStr("\t--> Re-stacking the tilt-series with IMOD..."))
         param = self.getBasicNewstackParams(ts,
-                                             outputTsFileName,
-                                             inputTsFileName=inputTsFileName,
-                                             xfFile=xfFile,
-                                             firstItem=ts.getFirstItem(),
-                                             doSwap=doSwap,
-                                             tsExcludedIndices=tsExcludedIndices)
+                                            ts.getFirstItem().getFileName(),
+                                            outTsFn,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
+                                            tsExcludedIndices=tsExcludedIndices,
+                                            binning=binning)
+        self.runProgram(NEWSTACK_PROGRAM, param)
 
-        self.runProgram("newstack", param)
+        if self.doOddEven:
+            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the ODD tilt-series'))
+            param = self.getBasicNewstackParams(ts,
+                                                ts.getOddFileName(),
+                                                outTsOddFn,
+                                                xfFile=xfFile,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices,
+                                                binning=binning)
+            self.runProgram(NEWSTACK_PROGRAM, param)
 
-    def genAlignmentFiles(self, ts: TiltSeries,
-                          generateAngleFile: bool = True,
-                          imodInterpolation: bool = True,
-                          doSwap: bool = False,
-                          oddEven: bool = False,
-                          presentAcqOrders: Union[set, None] = None):
-        """
-        :param ts: Tilt-series
-        :param generateAngleFile:  Boolean(True) to generate IMOD angle file
-        :param imodInterpolation: Boolean (True) to interpolate the tilt series with
-                                  imod in case there is a TM.
-                                  Pass None to cancel interpolation.
-        :param doSwap: if applying alignment, consider swapping X/Y
-        :param oddEven: process odd/even sets
-        :param presentAcqOrders: set containing the present acq orders in both the
-        given TS and/or the CTFTomoSeries. Used to generate the xf file, the tlt file,
-        and the interpolated TS with IMOD's newstack program.
-        """
-        def _linkTs():
-            logger.info(cyanStr("\t--> Tilt-series file linked."))
-            path.createAbsLink(firstTi.getFileName(), outputTsFileName)
+            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the EVEN tilt-series'))
+            param = self.getBasicNewstackParams(ts,
+                                                ts.getEvenFileName(),
+                                                outTsEvenFn,
+                                                xfFile=xfFile,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices,
+                                                binning=binning)
+            self.runProgram(NEWSTACK_PROGRAM, param)
 
-            if oddEven:
-                path.createAbsLink(fnOdd, outputOddTsFileName)
-                path.createAbsLink(fnEven, outputEvenTsFileName)
-
-        def _applyNewStackBasic():
-            tsExcludedIndices = None
-            if presentAcqOrders and len(ts) != len(presentAcqOrders):
-                tsExcludedIndices = [ti.getIndex() for ti in ts if not ti.getAcquisitionOrder() in presentAcqOrders]
-                logger.info(cyanStr(f'\t--> Excluded views detected ==> {tsExcludedIndices}.'))
-                logger.info(cyanStr("\t--> Re-stacking the tilt-series with IMOD..."))
-            self.applyNewStackBasic(ts, outputTsFileName, inTsFileName,
-                                    xfFile=xfFile,
-                                    doSwap=doSwap,
-                                    tsExcludedIndices=tsExcludedIndices)
-            if oddEven:
-                self.applyNewStackBasic(ts, outputOddTsFileName, fnOdd,
-                                        xfFile=xfFile,
-                                        doSwap=doSwap,
-                                        tsExcludedIndices=tsExcludedIndices)
-                self.applyNewStackBasic(ts, outputEvenTsFileName, fnEven,
-                                        xfFile=xfFile,
-                                        doSwap=doSwap,
-                                        tsExcludedIndices=tsExcludedIndices)
-
-        # Initialization
+    def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
         tsId = ts.getTsId()
-        logger.info(cyanStr(f'TsId = {tsId}: generating the alignment files...'))
-        firstTi = ts.getFirstItem()
-        inTsFileName = firstTi.getFileName()
-        outputTsFileName = self.getTmpOutFile(tsId)
-        fnOdd = None
-        fnEven = None
-        outputOddTsFileName = None
-        outputEvenTsFileName = None
-        if oddEven:
-            fnOdd = ts.getOddFileName()
-            fnEven = ts.getEvenFileName()
-            outputOddTsFileName = self.getTmpOutFile(tsId, suffix=ODD)
-            outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
-
-        # Interpolation
-        if not imodInterpolation:
-            _linkTs()
-
-        elif imodInterpolation:
-            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            # Use IMOD newstack interpolation
-            if firstTi.hasTransform():
-                # Generate transformation matrices file (xf)
-                utils.genXfFile(ts, xfFile)
-
-                # Generate the interpolated TS with IMOD's newstack program
-                logger.info(cyanStr("\t--> The tilt-series will be interpolated with IMOD."))
-                _applyNewStackBasic()
-
-                # If some views were excluded to generate the new stack,
-                # a new xfFile containing them should be generated
-                if presentAcqOrders and len(ts) != len(presentAcqOrders):
-                    logger.info(cyanStr(f"\t--> Generating the transformations xf file {xfFile}..."))
-                    utils.genXfFile(ts, xfFile,
-                                    presentAcqOrders=presentAcqOrders,
-                                    onlyEnabled=True)
-
-            else:
-                # The given TS is interpolated
-                logger.info(cyanStr("\t--> The tilt-series is interpolated or not aligned."))
-                if presentAcqOrders:
-                    if len(presentAcqOrders) == len(ts):
-                        _linkTs()
-                    else:
-                        xfFile = None
-                        _applyNewStackBasic()
-                else:
-                    _linkTs()
-
-        # Use Xmipp interpolation via Scipion
+        tsFn = self.getTmpOutFile(tsId)
+        if self.doOddEven:
+            tsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+            tsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
+            return tsFn, tsFnOdd, tsFnEven
         else:
-            logger.info(cyanStr("\t--> The tilt-series will be interpolated with emlib."))
-            ts.applyTransform(outputTsFileName,
-                              presentAcqOrders=presentAcqOrders)
+            return tsFn, None, None
 
-        # logger.info(cyanStr(f"TS [{tsId}] available for processing at {outputTsFileName}"))
+    @staticmethod
+    def linkTs(inFileName: str, outFileName: str):
+        logger.info(cyanStr("\t--> Tilt-series file linked."))
+        path.createAbsLink(inFileName, outFileName)
 
-        # Generate the tlt file
-        if generateAngleFile:
-            angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            logger.info(cyanStr(f"\t--> Generating the angles tlt file {angleFilePath}..."))
-            ts.generateTltFile(angleFilePath,
-                               presentAcqOrders=presentAcqOrders)
+    # def genAlignmentFiles(self, ts: TiltSeries,
+    #                       generateAngleFile: bool = True,
+    #                       imodInterpolation: bool = True,
+    #                       doSwap: bool = False,
+    #                       oddEven: bool = False,
+    #                       presentAcqOrders: Union[set, None] = None):
+    #     """
+    #     :param ts: Tilt-series
+    #     :param generateAngleFile:  Boolean(True) to generate IMOD angle file
+    #     :param imodInterpolation: Boolean (True) to interpolate the tilt series with
+    #                               imod in case there is a TM.
+    #                               Pass None to cancel interpolation.
+    #     :param doSwap: if applying alignment, consider swapping X/Y
+    #     :param oddEven: process odd/even sets
+    #     :param presentAcqOrders: set containing the present acq orders in both the
+    #     given TS and/or the CTFTomoSeries. Used to generate the xf file, the tlt file,
+    #     and the interpolated TS with IMOD's newstack program.
+    #     """
+    #     # Initialization
+    #     tsId = ts.getTsId()
+    #     logger.info(cyanStr(f'TsId = {tsId}: generating the alignment files...'))
+    #
+    #     tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
+    #     firstTi = ts.getFirstItem()
+    #     inTsFileName = firstTi.getFileName()
+    #     outputTsFileName = self.getTmpOutFile(tsId)
+    #     fnOdd = None
+    #     fnEven = None
+    #     outputOddTsFileName = None
+    #     outputEvenTsFileName = None
+    #     if oddEven:
+    #         fnOdd = ts.getOddFileName()
+    #         fnEven = ts.getEvenFileName()
+    #         outputOddTsFileName = self.getTmpOutFile(tsId, suffix=ODD)
+    #         outputEvenTsFileName = self.getTmpOutFile(tsId, suffix=EVEN)
+    #
+    #     # Interpolation
+    #     if not imodInterpolation:
+    #         if tsExcludedIndices:
+    #             xfFile = None  # Only re-stack
+    #             logger.info(cyanStr("\t--> The tilt-series will be re-stacked with IMOD."))
+    #             _applyNewStackBasic()
+    #         else:
+    #             _linkTs()
+    #
+    #     elif imodInterpolation:
+    #         xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+    #         # Use IMOD newstack interpolation
+    #         if firstTi.hasTransform():
+    #             # Generate transformation matrices file (xf)
+    #             utils.genXfFile(ts, xfFile)
+    #
+    #             # Generate the interpolated TS with IMOD's newstack program
+    #             logger.info(cyanStr("\t--> The tilt-series will be interpolated with IMOD."))
+    #             _applyNewStackBasic()
+    #
+    #             # If some views were excluded to generate the new stack,
+    #             # a new xfFile containing them should be generated
+    #             if ts.hasExcludedViews():
+    #                 logger.info(cyanStr(f"\t--> Generating the transformations xf file {xfFile}..."))
+    #                 utils.genXfFile(ts, xfFile,
+    #                                 presentAcqOrders=presentAcqOrders,
+    #                                 onlyEnabled=True)
+    #
+    #         else:
+    #             # The given TS is interpolated
+    #             logger.info(cyanStr("\t--> The tilt-series is interpolated or not aligned."))
+    #             if presentAcqOrders:
+    #                 if len(presentAcqOrders) == len(ts):
+    #                     _linkTs()
+    #                 else:
+    #                     xfFile = None
+    #                     _applyNewStackBasic()
+    #             else:
+    #                 _linkTs()
+    #
+    #     # Use Xmipp interpolation via Scipion
+    #     else:
+    #         logger.info(cyanStr("\t--> The tilt-series will be interpolated with emlib."))
+    #         ts.applyTransform(outputTsFileName)
+    #
+    #     # logger.info(cyanStr(f"TS [{tsId}] available for processing at {outputTsFileName}"))
+    #
+    #     # Generate the tlt file
+    #     if generateAngleFile:
+    #         angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+    #         logger.info(cyanStr(f"\t--> Generating the angles tlt file {angleFilePath}..."))
+    #         ts.generateTltFile(angleFilePath, excludeViews=True)
 
     # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
@@ -619,34 +634,31 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, program, args, cwd)
 
     @staticmethod
-    def getBasicNewstackParams(ts, outputTsFileName, inputTsFileName=None,
-                               xfFile=None, firstItem=None, binning=1,
-                               doSwap=False, tsExcludedIndices=None,
-                               doTaper=False, doNorm=False):
+    def getBasicNewstackParams(ts: TiltSeries,
+                               inFileName: str,
+                               outFileName: str,
+                               xfFile: str = None,
+                               binning: int = 1,
+                               doSwap: bool = False,
+                               tsExcludedIndices: set = None,
+                               doTaper: bool = False,
+                               doNorm: bool = False):
         """ Returns basic newstack arguments
 
         :param ts: Title Series object
-        :param outputTsFileName: tilt series output file name after newstack
-        :param inputTsFileName: Input tilt series file name. Default to firstItem.getFilename()
+        :param inFileName: Input tilt-series file name.
+        :param outFileName:  Output tilt-series file name.
         :param xfFile: xf file name, if passed, alignment will be generated and used
-        :param firstItem: Optional, otherwise it will be taken from ts
         :param binning: Default to 1. to apply to output size
         :param doSwap: Default False.
         :param tsExcludedIndices: List of indices to be excluded in the tilt-series, starting from 1
         :param doTaper: optionally taper the tilt-series
         :param doNorm: optionally normalize the tilt-series
         """
-
-        if firstItem is None:
-            firstItem = ts.getFirstItem()
-
-        if inputTsFileName is None:
-            inputTsFileName = firstItem.getFileName()
-
         # Apply interpolation
         params = {
-            '-input': inputTsFileName,
-            '-output': outputTsFileName,
+            '-input': inFileName,
+            '-output': outFileName,
             '-bin': binning,
             '-antialias': -1,
             '-imagebinned': 1.0
@@ -876,7 +888,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         outputLocation = self.getExtraOutFile(tsId)
         tiOut.setLocation(index + 1, outputLocation)
 
-        if self.oddEvenFlag:
+        if self.doOddEven:
             locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
             locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
             tiOut.setOddEven([ih.locationToXmipp(locationOdd),

@@ -33,6 +33,8 @@ from tomo.objects import SetOfTiltSeries
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
 
+CCDERASER_PROGRAM = 'ccderaser'
+
 
 class ProtImodXraysEraser(ProtImodBase):
     """
@@ -175,13 +177,9 @@ class ProtImodXraysEraser(ProtImodBase):
 
         for ts in self.getInputSet():
             tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
             compId = self._insertFunctionStep(self.eraseXraysStep,
                                               tsId,
-                                              prerequisites=[convId],
+                                              prerequisites=[],
                                               needsGPU=False)
             outId = self._insertFunctionStep(self.createOutputStep,
                                              tsId,
@@ -193,17 +191,14 @@ class ProtImodXraysEraser(ProtImodBase):
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def convertInputStep(self, tsId, **kwargs):
-        super().convertInputStep(tsId,
-                                 imodInterpolation=False,
-                                 generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag,
-                                 lockGetItem=True)
-
+    # -------------------------- STEPS functions ------------------------------
     def eraseXraysStep(self, tsId):
         try:
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
+            self.genTsPaths(tsId)
             paramsCcderaser = {
-                "-InputFile": self.getTmpOutFile(tsId),
+                "-InputFile": ts.getFirstItem().getFileName(),
                 "-OutputFile": self.getExtraOutFile(tsId),
                 "-FindPeaks": 1,
                 "-PeakCriterion": self.peakCriterion.get(),
@@ -222,20 +217,20 @@ class ProtImodXraysEraser(ProtImodBase):
                 "-PolynomialOrder": 2,
             }
 
-            self.runProgram('ccderaser', paramsCcderaser)
+            self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
-            if self.oddEvenFlag:
-                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=ODD)
+            if self.doOddEven:
+                paramsCcderaser['-InputFile'] = ts.getOddFileName(),
                 paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram('ccderaser', paramsCcderaser)
+                self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
-                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                paramsCcderaser['-InputFile'] = ts.getEvenFileName(),
                 paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram('ccderaser', paramsCcderaser)
+                self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
+            self.error(f'tsId = {tsId} - {CCDERASER_PROGRAM} execution failed with the exception -> {e}')
 
     def createOutputStep(self, tsId):
         with self._lock:
@@ -255,6 +250,13 @@ class ProtImodXraysEraser(ProtImodBase):
                 else:
                     self.createOutputFailedSet(ts)
 
+    def closeOutputSetsStep(self):
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if not outTsSet:
+            raise Exception('No tilt-series were generated. Please '
+                            'check the Output Log > run.stdout and run.stderr')
+        self._closeOutputSet()
+
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
@@ -272,6 +274,6 @@ class ProtImodXraysEraser(ProtImodBase):
         if self.TiltSeries:
             methods.append(f"The x-rays artifacts have been erased for "
                            f"{self.TiltSeries.getSize()} tilt-series using "
-                           "the IMOD *ccderaser* command.")
+                           f"the IMOD *{CCDERASER_PROGRAM}* command.")
 
         return methods

@@ -155,7 +155,7 @@ class ProtImodDoseFilter(ProtImodBase):
 
             self.runProgram("mtffilter", params)
 
-            if self.oddEvenFlag:
+            if self.doOddEven:
                 params['-input'] = ts.getOddFileName()
                 params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("mtffilter", params)

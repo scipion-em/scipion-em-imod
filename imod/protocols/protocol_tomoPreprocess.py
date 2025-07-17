@@ -140,7 +140,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             if runNewstack:
                 self.runProgram("newstack", paramsNewstack)
 
-                if self.oddEvenFlag:
+                if self.doOddEven:
                     oddFn, evenFn = tomo.getHalfMaps().split(',')
                     paramsNewstack['-input'] = oddFn
                     oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
@@ -160,7 +160,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                     pwpath.moveFile(outputFile, tmpPath)
                     inputTomoPath = tmpPath
 
-                    if self.oddEvenFlag:
+                    if self.doOddEven:
                         inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                                self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
                         pwpath.moveFile(oddEvenOutput[0], inputOdd)
@@ -168,7 +168,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
                 else:
                     inputTomoPath = tomoFn
-                    if self.oddEvenFlag:
+                    if self.doOddEven:
                         inputOdd, inputEven = tomo.getHalfMaps().split(',')
 
                 paramsBinvol = {
@@ -180,7 +180,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
                 self.runProgram('binvol', paramsBinvol)
 
-                if self.oddEvenFlag:
+                if self.doOddEven:
                     paramsBinvol['-input'] = inputOdd
                     paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                     self.runProgram('binvol', paramsBinvol)
@@ -215,7 +215,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                     # Set default tomogram origin
                     newTomogram.setOrigin(newOrigin=None)
 
-                if self.oddEvenFlag:
+                if self.doOddEven:
                     halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                     self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
                     newTomogram.setHalfMaps(halfMapsList)

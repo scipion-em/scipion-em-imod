@@ -82,9 +82,9 @@ class ProtImodBaseTsAlign(ProtImodBase):
     def convertInputStep(self, tsId: str, **kwargs):
         with self._lock:
             ts = self.getCurrentItem(tsId)
-            presentAcqOrders = self.getPresentAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
+            presentAcqOrders = self.getTsCtfCommonAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
             super().convertInputStep(tsId,
-                                     oddEven=self.oddEvenFlag,
+                                     oddEven=self.doOddEven,
                                      presentAcqOrders=presentAcqOrders)
 
     def createOutTs(self, tsId, isSemiStreamified, isStreamified):

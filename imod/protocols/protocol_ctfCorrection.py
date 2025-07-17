@@ -215,7 +215,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         # Generate the alignment-related files: xf, tlt, and a possible mrc
         super().convertInputStep(tsId,  # Considering swapXY is required to make tilt axis vertical
                                  doSwap=True,
-                                 oddEven=self.oddEvenFlag,
+                                 oddEven=self.doOddEven,
                                  presentAcqOrders=presentAcqOrders)
         # Generate the defocus file
         self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
@@ -246,7 +246,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
             self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
 
-            if self.oddEvenFlag:
+            if self.doOddEven:
                 # ODD
                 paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=ODD)
                 paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=ODD)
@@ -292,7 +292,7 @@ class ProtImodCtfCorrection(ProtImodBase):
                             acq.setTiltAxisAngle(0.)  # Is interpolated
                             newTi.setAcquisition(acq)
                             newTi.setLocation(index + 1, outputFn)
-                            if self.oddEvenFlag:
+                            if self.doOddEven:
                                 locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
                                 locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
                                 newTi.setOddEven([ih.locationToXmipp(locationOdd),

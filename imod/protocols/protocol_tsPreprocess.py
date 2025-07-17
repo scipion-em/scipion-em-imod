@@ -136,7 +136,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         super().convertInputStep(tsId,
                                  imodInterpolation=False,
                                  generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag,
+                                 oddEven=self.doOddEven,
                                  lockGetItem=True)
 
     def generateOutputStackStep(self, tsId, binning):
@@ -169,7 +169,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
             self.runProgram("newstack", paramsDict)
 
-            if self.oddEvenFlag:
+            if self.doOddEven:
                 paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("newstack", paramsDict)

@@ -146,7 +146,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
             self.runProgram("newstack", paramsDict)
 
-            if self.oddEvenFlag:
+            if self.doOddEven:
                 paramsDict['-input'] = ts.getOddFileName()
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram("newstack", paramsDict)
