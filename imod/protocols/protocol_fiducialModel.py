@@ -25,11 +25,9 @@
 # *****************************************************************************
 import logging
 import os
-
-import numpy as np
-
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pyworkflow.protocol.constants import STEPS_SERIAL
 import pyworkflow.utils.path as path
 import tomo.objects as tomoObj
@@ -44,7 +42,7 @@ from pyworkflow.utils import Message, cyanStr
 logger = logging.getLogger(__name__)
 
 
-class ProtImodFiducialModel(ProtImodBaseTsAlign):
+class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.

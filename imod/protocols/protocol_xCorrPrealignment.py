@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,26 +23,33 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import logging
 import os
+import time
+from os.path import exists
 
 import numpy as np
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
+from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem import ALIGN_NONE
 from pwem.objects import Transform
-from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
+from pyworkflow.utils import Message, cyanStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 
 from imod import utils
-from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+                            OUTPUT_TS_INTERPOLATED_NAME, XF_EXT)
+
+logger = logging.getLogger(__name__)
+
+TILT_XCORR_PROGRAM = 'tiltxcorr'
+XFTOXG_PROGRM = 'xftoxg'
 
 
-class ProtImodXcorrPrealignment(ProtImodBase):
+class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
@@ -56,12 +63,21 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     lated with the other image, and the position of the peak of the corre-
     lation indicates the relative shift between the images.
 
+    xftoxg program is used after tiltxcorr:
+    More info:
+        https://bio3d.colorado.edu/imod/doc/man/xftoxg.html
 
+   Xftoxg takes a list of transformations (f) from each section to the
+   previous one, and computes a list of xforms (g) to apply to each sec-
+   tion to obtain a single consistent set of alignments.  Transforms can
+   be simple 6-component linear transforms or warping transformations.
     """
 
     _label = 'Coarse prealignment'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
-    stepsExecutionMode = STEPS_PARALLEL
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -85,34 +101,6 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                            'images that have already been aligned. When the most '
                            'negative tilt angle is reached, the procedure is repeated '
                            'from the zero-tilt view to more positive tilt angles.')
-
-        form.addParam('computeAlignment',
-                      params.BooleanParam,
-                      default=False,
-                      label='Generate interpolated tilt-series?',
-                      important=True,
-                      help='Generate and save the interpolated tilt-series applying '
-                           'the obtained transformation matrices.\n'
-                           'By default, the output of this protocol will be a tilt '
-                           'series that will have associated the alignment information '
-                           'as a transformation matrix. When this option is set as Yes, '
-                           'then a second output, called interpolated tilt series, '
-                           'is generated. The interpolated tilt series should be used '
-                           'for visualization purpose but not for image processing.')
-
-        form.addParam(BINNING_FACTOR,
-                      params.IntParam,
-                      condition='computeAlignment',
-                      default=1,
-                      label='Binning for the interpolated',
-                      help='Binning to be applied to the interpolated tilt-series '
-                           'in IMOD convention. \n'
-                           'Binning is an scaling factor given by an integer greater '
-                           'than 1. IMOD uses ordinary binning to reduce images in '
-                           'size by the given factor. The value of a binned pixel is '
-                           'the average of pixel values in each block of pixels '
-                           'being binned. Binning is applied before all other image '
-                           'transformations.')
 
         form.addParam('Trimming parameters', params.LabelParam,
                       label='Tilt axis angle detected from import. In case another '
@@ -140,50 +128,75 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         self.filteringParametersForm(form,
                                      condition=True,
                                      levelType=params.LEVEL_ADVANCED)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            compId = self._insertFunctionStep(self.computeXcorrStep,
-                                              tsId,
-                                              prerequisites=[convId],
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createAliTsStep,
-                                             tsId,
-                                             prerequisites=[compId],
-                                             needsGPU=False)
-            intpId = self._insertFunctionStep(self.computeInterpTsStep,
-                                              tsId,
-                                              prerequisites=[outId],
-                                              needsGPU=False)
-            cIntPid = self._insertFunctionStep(self.createInterpTsStep,
-                                               tsId,
-                                               prerequisites=[intpId],
-                                               needsGPU=False)
-            closeSetStepDeps.append(cIntPid)
+        inTsSet = self.getInputSet()
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
-        self._insertFunctionStep(self.closeOutputSetsStep, 
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self._closeOutputSet,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:
+                    convId = self._insertFunctionStep(self.convertInputStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.computeXcorrStep,
+                                                      tsId,
+                                                      prerequisites=[convId],
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createAliTsStep,
+                                                     tsId,
+                                                     prerequisites=[compId],
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
+
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.getInputSet())
-        super().convertInputStep(tsId,
-                                 oddEven=oddEvenFlag,
-                                 lockGetItem=True)
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            firstTi = ts.getFirstItem()
+
+        # Generate the tlt file
+        self.genTltFile(ts)
+
+        if firstTi.hasTransform():  # Apply a previous alignment if it exists
+            logger.info(cyanStr(f'tsId = {tsId} -> Previous alignment detected. Applying...'))
+            xfFile = self.genXFile(ts)
+            doSwap = True
+            self.runNewStackBasic(ts,
+                                  xfFile=xfFile,
+                                  doSwap=doSwap,
+                                  ignoreExcludedViews=True)  # The xcorr programs can exclude them itself
+        else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
 
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Correcting the translations with {TILT_XCORR_PROGRAM}...'))
             with self._lock:
                 ts = self.getCurrentItem(tsId)
             tiltAxisAngle = self.getTiltAxisOrientation(ts)
@@ -206,90 +219,89 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                           attr in ["xmin", "xmax", "ymin", "ymax"]])
             if doTrim:
                 xdim, ydim, _ = ts.getDim()
-                xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim-1
-                ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim-1
+                xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim - 1
+                ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim - 1
 
                 paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
                 paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
 
             # Excluded views
-            excludedViews = ts.getExcludedViewsIndex(caster=str)
-            if len(excludedViews):
-                paramsXcorr["-SkipViews"] = ",".join(excludedViews)
+            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            if excludedViews:
+                paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
-            self.runProgram('tiltxcorr', paramsXcorr)
+            self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)
 
             paramsXftoxg = {
                 "-input": self.getExtraOutFile(tsId, ext=PREXF_EXT),
                 "-goutput": self.getExtraOutFile(tsId, ext=PREXG_EXT),
                 "-NumberToFit": 0
             }
-            self.runProgram('xftoxg', paramsXftoxg)
+            self.runProgram(XFTOXG_PROGRM, paramsXftoxg)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'tiltxcorr or xftoxg execution failed for tsId {tsId} -> {e}')
+            logger.error(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
+                         f'failed with the exception -> {e}')
 
     def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-            else:
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
                 outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-                if os.path.exists(outputFn):
-                    tAx = self.tiltAxisAngle.get()
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                                   tiltAxisAngle=tAx)
-                    alignmentMatrix = utils.formatTransformationMatrix(outputFn)
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTsCallback=self.updateTsNonInterp,
-                                     updateTiCallback=self.updateTiNonInterp,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=False,
-                                     alignmentMatrix=alignmentMatrix,
-                                     tiltAxisAngle=tAx)
+                if exists(outputFn):
+                    with self._lock:
+                        ts = self.getCurrentItem(tsId)
+                        tAx = self.tiltAxisAngle.get()
+                        aliMatrixStack = utils.formatTransformationMatrix(outputFn)
+                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                         tiltAxisAngle=tAx)
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+                        outTs.setAlignment2D()
+                        outTsSet.append(outTs)
+                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            if ti.isEnabled():
+                                stackIndex = ti.getIndex() - 1
+                                self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
+                            else:
+                                self.updateDisabledTi(outTi)
+                            outTs.append(outTi)
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
                 else:
-                    self.addToOutFailedSet(ts)
+                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
-    def computeInterpTsStep(self, tsId):
-        if self.computeAlignment and tsId not in self.failedItems:
-            binning = self.binning.get()
-            if tsId not in self.failedItems:
-                with self._lock:
-                    ts = self.getCurrentItem(tsId)
-                xfFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-                if os.path.exists(xfFile):
-                    firstItem = ts.getFirstItem()
-                    tsExcludedIndices = ts.getExcludedViewsIndex()
-                    paramsDict = self.getBasicNewstackParams(ts,
-                                                             self.getExtraOutFile(tsId),
-                                                             inputTsFileName=self.getTmpOutFile(tsId),
-                                                             xfFile=xfFile,
-                                                             firstItem=firstItem,
-                                                             binning=binning,
-                                                             tsExcludedIndices=tsExcludedIndices,
-                                                             doNorm=True)
-                    self.runProgram('newstack', paramsDict)
-
-    def createInterpTsStep(self, tsId):
-        if self.computeAlignment and tsId not in self.failedItems:
-            with self._lock:
-                binning = self.binning.get()
-                ts = self.getCurrentItem(tsId)
-                tsExcludedIndices = ts.getExcludedViewsIndex()
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                               binning,
-                                               attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                               suffix="Interpolated")
-                self.copyTsItems(output, ts, tsId,
-                                 updateTsCallback=self.updateTsInterp,
-                                 updateTiCallback=self.updateTi,
-                                 copyId=True,
-                                 copyTM=False,
-                                 excludedViews=len(tsExcludedIndices) > 0)
+        # with self._lock:
+        #     ts = self.getCurrentItem(tsId)
+        #     if tsId in self.failedItems:
+        #         self.addToOutFailedSet(ts)
+        #     else:
+        #         outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+        #         if os.path.exists(outputFn):
+        #             tAx = self.tiltAxisAngle.get()
+        #             output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+        #                                            tiltAxisAngle=tAx)
+        #             alignmentMatrix = utils.formatTransformationMatrix(outputFn)
+        #             self.copyTsItems(output, ts, tsId,
+        #                              updateTsCallback=self.updateTsNonInterp,
+        #                              updateTiCallback=self.updateTiNonInterp,
+        #                              copyDisabledViews=True,
+        #                              copyId=True,
+        #                              copyTM=False,
+        #                              alignmentMatrix=alignmentMatrix,
+        #                              tiltAxisAngle=tAx)
+        #         else:
+        #             self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -310,46 +322,42 @@ class ProtImodXcorrPrealignment(ProtImodBase):
     def _methods(self):
         methods = []
         if self.TiltSeries:
-            methods.append("The transformation matrix has been calculated for "
+            methods.append(f"The transformation matrix has been calculated for "
                            f"{self.TiltSeries.getSize()} tilt-series using "
-                           "the IMOD *tiltxcorr* command.")
+                           f"the IMOD *{TILT_XCORR_PROGRAM}* command.")
         return methods
 
     # --------------------------- UTILS functions ------------------------------
-    def getTiltAxisOrientation(self, ts):
+    def getTiltAxisOrientation(self, ts: TiltSeries) -> float:
         if self.tiltAxisAngle.hasValue():
             return self.tiltAxisAngle.get()
         else:
             return ts.getAcquisition().getTiltAxisAngle()
 
-    def updateTsNonInterp(self, tsId, ts, tsOut, **kwargs):
-        tsOut.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-        tsOut.setAlignment2D()
-
     @staticmethod
-    def updateTiNonInterp(origIndex, index, tsId, ts, ti, tsOut, tiOut, alignmentMatrix=None,
-                          tiltAxisAngle=None, **kwargs):
+    def updateTiltImage(outTi: TiltImage,
+                        stackIndex: int,
+                        aliMatrixStack: np.array,
+                        tiltAxisAngle: float) -> None:
         transform = Transform()
-        newTransform = alignmentMatrix[:, :, index]
+        newTransform = aliMatrixStack[:, :, stackIndex]
         newTransformArray = np.array(newTransform)
 
-        if ti.hasTransform():
-            previousTransform = ti.getTransform().getMatrix()
+        if outTi.hasTransform():
+            previousTransform = outTi.getTransform().getMatrix()
             previousTransformArray = np.array(previousTransform)
             outputTransformMatrix = np.matmul(newTransformArray, previousTransformArray)
             transform.setMatrix(outputTransformMatrix)
         else:
             transform.setMatrix(newTransformArray)
 
-        tiOut.setTransform(transform)
+        outTi.setTransform(transform)
         if tiltAxisAngle:
-            tiOut.getAcquisition().setTiltAxisAngle(tiltAxisAngle)
+            outTi.getAcquisition().setTiltAxisAngle(tiltAxisAngle)
 
     @staticmethod
-    def updateTsInterp(tsId, ts, tsOut, **kwargs):
-        tsOut.getAcquisition().setTiltAxisAngle(0.)
-        tsOut.setAlignment(ALIGN_NONE)
-        tsOut.setInterpolated(True)
-
-
-
+    def updateDisabledTi(outTi: TiltImage) -> None:
+        transform = Transform()
+        trMatrix = np.eye(3)
+        transform.setMatrix(trMatrix)
+        outTi.setTransform(transform)
