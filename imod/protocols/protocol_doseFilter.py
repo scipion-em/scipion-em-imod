@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,19 +23,24 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os.path
+import logging
+import time
+from os.path import exists
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
+from pyworkflow.utils import Message, cyanStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
                             OUTPUT_TILTSERIES_NAME)
+
+logger = logging.getLogger(__name__)
+
+MTTFILTER_PROGRAM = "mtffilter"
 
 
 class ProtImodDoseFilter(ProtImodBase):
@@ -59,6 +64,13 @@ class ProtImodDoseFilter(ProtImodBase):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -80,7 +92,6 @@ class ProtImodDoseFilter(ProtImodBase):
                            'input file were taken; this value will be '
                            'added to all the dose values.')
 
-        # TODO: add more options for inputting the dose information
         form.addParam('inputDoseType',
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
@@ -103,38 +114,55 @@ class ProtImodDoseFilter(ProtImodBase):
                            'in electrons/square Ångstrom.')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            compId = self._insertFunctionStep(self.doseFilterStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createOutputStep,
-                                             tsId,
-                                             prerequisites=[compId],
-                                             needsGPU=False)
-            closeSetStepDeps.append(outId)
+        inTsSet = self.getInputSet()
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self._closeOutputSet,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+
+            for ts in self.getInputSet().iterItems():
+                tsId = ts.getTsId()
+                compId = self._insertFunctionStep(self.doseFilterStep,
+                                                  tsId,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 tsId,
+                                                 prerequisites=[compId],
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
+
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def doseFilterStep(self, tsId):
         """Apply the dose filter to every tilt series"""
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Dose filtering...'))
             with self._lock:
                 ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
-            params = {
+            progParams = {
                 '-input': firstItem.getFileName(),
                 '-output': self.getExtraOutFile(tsId),
                 '-PixelSize': ts.getSamplingRate(),
@@ -142,51 +170,68 @@ class ProtImodDoseFilter(ProtImodBase):
             }
 
             if self.initialDose.get() != 0.0:
-                params["-InitialDose"] = self.initialDose.get()
+                progParams["-InitialDose"] = self.initialDose.get()
 
             if self.inputDoseType.get() == SCIPION_IMPORT:
                 outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
                 utils.generateDoseFile(ts, outputDoseFilePath)
-                params["-TypeOfDoseFile"] = 2
-                params["-DoseWeightingFile"] = outputDoseFilePath
+                progParams["-TypeOfDoseFile"] = 2
+                progParams["-DoseWeightingFile"] = outputDoseFilePath
 
             elif self.inputDoseType.get() == FIXED_DOSE:
-                params["-FixedImageDose"] = self.fixedImageDose.get()
+                progParams["-FixedImageDose"] = self.fixedImageDose.get()
 
-            self.runProgram("mtffilter", params)
+            self.runProgram(MTTFILTER_PROGRAM, progParams)
 
             if self.doOddEven:
-                params['-input'] = ts.getOddFileName()
-                params['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("mtffilter", params)
+                progParams['-input'] = ts.getOddFileName()
+                progParams['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                self.runProgram(MTTFILTER_PROGRAM, progParams)
 
-                params['-input'] = ts.getEvenFileName()
-                params['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("mtffilter", params)
+                progParams['-input'] = ts.getEvenFileName()
+                progParams['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                self.runProgram(MTTFILTER_PROGRAM, progParams)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'Mtffilter execution failed for tsId {tsId} -> {e}')
+            logger.error(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed with the exception -> {e}')
 
     def createOutputStep(self, tsId):
         """Generate output filtered tilt series"""
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-            else:
-                outputLocation = self.getExtraOutFile(tsId)
-                if os.path.exists(outputLocation):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTsCallback=self.updateTs,
-                                     updateTiCallback=self.updateTi,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=True)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                outTsFile = self.getExtraOutFile(tsId)
+                if exists(outTsFile):
+                    with self._lock:
+                        ts = self.getCurrentItem(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
+                        outTsSet.append(outTs)
+                        for ti in ts.iterItems():
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(self.getExtraOutFile(tsId))
+                            self.updateTiAcquisition(outTi)
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
+                            outTs.append(outTi)
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
                 else:
-                    self.addToOutFailedSet(ts)
+                    logger.error(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -223,16 +268,19 @@ class ProtImodDoseFilter(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        # output is dose-weighted
-        acq = ti.getAcquisition()
+    @staticmethod
+    def updateTiAcquisition(tiOut: TiltImage) -> None:
+        """Sets the initial and accumulated doses to 0 for a given tilt-image"""
+        # Output is dose-weighted
+        acq = tiOut.getAcquisition()
         acq.setDoseInitial(0.)
         acq.setAccumDose(0.)
         tiOut.setAcquisition(acq)
 
     @staticmethod
-    def updateTs(tsId, ts, tsOut, **kwargs):
+    def updateTsAcquisition(tsOut: TiltSeries) -> None:
+        """Sets the initial and accumulated doses to 0 for a given tilt-series"""
+        # Output is dose-weighted
         acq = tsOut.getAcquisition()
         acq.setAccumDose(0.)
         acq.setDoseInitial(0.)
