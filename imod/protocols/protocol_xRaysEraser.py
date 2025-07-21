@@ -23,15 +23,18 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
-
+import logging
+import time
+from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
-
+from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.utils import Message, cyanStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
+
+logger = logging.getLogger(__name__)
 
 CCDERASER_PROGRAM = 'ccderaser'
 
@@ -113,6 +116,14 @@ class ProtImodXraysEraser(ProtImodBase):
 
     _label = 'X-rays eraser'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
 
@@ -168,32 +179,49 @@ class ProtImodXraysEraser(ProtImodBase):
                            'useful.')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
+        inTsSet = self.getInputSet()
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            compId = self._insertFunctionStep(self.eraseXraysStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createOutputStep,
-                                             tsId,
-                                             prerequisites=[compId],
-                                             needsGPU=False)
-            closeSetStepDeps.append(outId)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self._closeOutputSet,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
+                    compId = self._insertFunctionStep(self.eraseXraysStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     prerequisites=[compId],
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
+
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # -------------------------- STEPS functions ------------------------------
     def eraseXraysStep(self, tsId):
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
             with self._lock:
                 ts = self.getCurrentItem(tsId)
             self.genTsPaths(tsId)
@@ -230,25 +258,41 @@ class ProtImodXraysEraser(ProtImodBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'tsId = {tsId} - {CCDERASER_PROGRAM} execution failed with the exception -> {e}')
+            logger.error(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed with the exception -> {e}')
 
     def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
-            else:
-                outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTiCallback=self.updateTi,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=True)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                outTsFile = self.getExtraOutFile(tsId)
+                if exists(outTsFile):
+                    with self._lock:
+                        ts = self.getCurrentItem(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        outTsSet.append(outTs)
+                        for ti in ts.iterItems():
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(self.getExtraOutFile(tsId))
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
+                            outTs.append(outTi)
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
                 else:
-                    self.createOutputFailedSet(ts)
+                    logger.error(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     def closeOutputSetsStep(self):
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)

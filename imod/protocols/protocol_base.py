@@ -65,6 +65,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.TiltSeries = None
         self.Tomograms = None
 
+        # Streaming
+        self.tsIdReadList = []
+
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
     def addOddEvenParams(form, isTomogram=False):
@@ -577,22 +580,24 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             return failedTomos
 
-    def createOutputFailedSet(self, item):
+    def addToOutFailedSet(self, tsId: str) -> None:
         """ Just copy input item to the failed output set. """
-        logger.info(cyanStr(f'Failed TS ---> {item.getTsId()}'))
+        logger.info(cyanStr(f'Failed TS ---> {tsId}'))
         inputSet = self.getInputSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
-        newItem = item.clone()
-        newItem.copyInfo(item)
-        output.append(newItem)
+        with self._lock:
+            item = self.getCurrentItem(tsId)
+            newItem = item.clone()
+            newItem.copyInfo(item)
+            output.append(newItem)
 
-        if isinstance(item, TiltSeries):
-            newItem.copyItems(item)
-            newItem.write(properties=False)
+            if isinstance(item, TiltSeries):
+                newItem.copyItems(item)
+                newItem.write(properties=False)
 
-        output.update(newItem)
-        output.write()
-        self._store(output)
+            output.update(newItem)
+            output.write()
+            self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
     def getInputSet(self, pointer=False):
@@ -605,6 +610,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """Generate the subdirectories corresponding to the
         current tilt-series in tmp and extra"""
         path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
+
+    def readingOutput(self, outSet: Union[SetOfTiltSeries, SetOfTomograms]) -> None:
+        if outSet:
+            for item in outSet:
+                self.tsIdReadList.append(item.getTsId())
+            self.info(cyanStr(f'Item processed {self.tsIdReadList}'))
+        else:
+            self.info(cyanStr('No items have been processed yet'))
 
     @staticmethod
     def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
@@ -677,7 +690,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 # swap x and y dimensions to adapt output image sizes to
                 # the final sample disposition.
                 if 45 < abs(rotationAngle) < 135:
-                    dimX, dimY, _ = firstItem.getDim()
+                    dimX, dimY, _ = ts.getFirstItem().getDim()
                     params["-size"] = f"{round(dimY / binning)}," \
                                       f"{round(dimX / binning)}"
 

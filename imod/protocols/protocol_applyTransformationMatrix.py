@@ -163,7 +163,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
             else:
                 outputLocation = self.getExtraOutFile(tsId)
                 if os.path.exists(outputLocation):
@@ -179,7 +179,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                      copyTM=False,
                                      excludedViews=ts.getExcludedViewsIndex())
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

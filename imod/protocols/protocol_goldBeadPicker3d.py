@@ -165,7 +165,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
         tomo = self.tomoDict[tsId]
         with self._lock:
             if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
+                self.addToOutFailedSet(tomo)
             else:
                 coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
                 if os.path.exists(coordFilePath):
@@ -187,7 +187,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                     output.write()
                     self._store(output)
                 else:
-                    self.createOutputFailedSet(tomo)
+                    self.addToOutFailedSet(tomo)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

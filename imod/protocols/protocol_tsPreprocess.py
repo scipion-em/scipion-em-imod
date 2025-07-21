@@ -186,7 +186,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
                 self.__closeFailedTsSet()
             else:
                 outputFn = self.getExtraOutFile(tsId)
@@ -205,7 +205,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                         if output:
                             output.close()
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
                     self.__closeFailedTsSet()
 
     def closeOutputSetsStep(self):

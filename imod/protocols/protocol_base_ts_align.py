@@ -107,7 +107,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
                                  isStreamified=isStreamified,
                                  isSemiStreamified=isSemiStreamified)
             else:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
 
     def createOutInterpTs(self, tsId, isSemiStreamified, isStreamified):
         if self.computeAlignment and tsId not in self.failedItems:

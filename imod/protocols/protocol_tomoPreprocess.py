@@ -197,7 +197,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         with self._lock:
             tomo = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
+                self.addToOutFailedSet(tomo)
             else:
                 output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
                 newTomogram = Tomogram()

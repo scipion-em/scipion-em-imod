@@ -390,7 +390,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
                 failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
                 if failedTs:
                     failedTs.close()
@@ -428,7 +428,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                         if output:
                             output.close()
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
 
     def closeOutputSetsStep(self):
         if not getattr(self, OUTPUT_TOMOGRAMS_NAME, None):

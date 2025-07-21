@@ -425,7 +425,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign):
         """ Create the output set of landmark models with gaps. """
         ts = self.getCurrentItem(tsId)
         if tsId in self.failedItems:
-            self.createOutputFailedSet(ts)
+            self.addToOutFailedSet(ts)
         else:
             fiducialModelGapPath = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
 
@@ -467,7 +467,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign):
                 output.write(output)
                 self._store(output)
             else:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

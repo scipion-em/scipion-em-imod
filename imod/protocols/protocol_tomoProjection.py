@@ -146,7 +146,7 @@ class ProtImodTomoProjection(ProtImodBase):
         with self._lock:
             tomo = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
+                self.addToOutFailedSet(tomo)
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):
@@ -183,7 +183,7 @@ class ProtImodTomoProjection(ProtImodBase):
                     output.update(newTs)
                     self._store(output)
                 else:
-                    self.createOutputFailedSet(tomo)
+                    self.addToOutFailedSet(tomo)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

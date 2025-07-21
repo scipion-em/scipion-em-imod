@@ -235,7 +235,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
                 if os.path.exists(outputFn):
@@ -252,7 +252,7 @@ class ProtImodXcorrPrealignment(ProtImodBase):
                                      alignmentMatrix=alignmentMatrix,
                                      tiltAxisAngle=tAx)
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
 
     def computeInterpTsStep(self, tsId):
         if self.computeAlignment and tsId not in self.failedItems:

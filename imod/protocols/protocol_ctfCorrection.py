@@ -265,7 +265,7 @@ class ProtImodCtfCorrection(ProtImodBase):
         with self._lock:
             ts = self.tsDict[tsId]
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):

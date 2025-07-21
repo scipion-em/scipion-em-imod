@@ -107,7 +107,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         closeSetStepDeps = []
         inTsSet = self.getInputSet()
         self.inTsSetPointer = self.getInputSet(pointer=True)  # Required in some super class methods
-        self.readingOutput()
+        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
 
         while True:
             listTSInput = inTsSet.getTSIds()
@@ -160,7 +160,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
                 failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
                 if failedTs:
                     failedTs.close()
@@ -200,15 +200,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
         tsPointer = getattr(self, IN_TS_SET)
         return tsPointer if pointer else tsPointer.get()
-
-    def readingOutput(self) -> None:
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if outTsSet:
-            for ts in outTsSet:
-                self.tsReadList.append(ts.getTsId())
-            self.info(cyanStr(f'Tilt-series processed {self.tsReadList}'))
-        else:
-            self.info(cyanStr('No tilt-series have been processed yet'))
 
     def _getCommonCmd(self, ts: TiltSeries):
         tsId = ts.getTsId()

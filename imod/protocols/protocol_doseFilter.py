@@ -173,7 +173,7 @@ class ProtImodDoseFilter(ProtImodBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
             else:
                 outputLocation = self.getExtraOutFile(tsId)
                 if os.path.exists(outputLocation):
@@ -186,7 +186,7 @@ class ProtImodDoseFilter(ProtImodBase):
                                      copyId=True,
                                      copyTM=True)
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

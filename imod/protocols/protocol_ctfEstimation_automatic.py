@@ -413,7 +413,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+                self.addToOutFailedSet(ts)
             else:
                 defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
                 if os.path.exists(defocusFilePath):
@@ -434,7 +434,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                     output.write()
                     self._store(output)
                 else:
-                    self.createOutputFailedSet(ts)
+                    self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

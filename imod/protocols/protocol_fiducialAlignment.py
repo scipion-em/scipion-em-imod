@@ -372,7 +372,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         """ Create output sets of landmarks and 3D coordinates. """
         ts = self.getCurrentItem(tsId)
         if tsId in self.failedItems:
-            self.createOutputFailedSet(ts)
+            self.addToOutFailedSet(ts)
         else:
             # Create the output set of landmark models with no gaps
             fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
