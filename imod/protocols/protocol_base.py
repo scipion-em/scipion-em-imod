@@ -27,7 +27,7 @@ import logging
 from typing import Union, Tuple
 
 from imod.convert import genXfFile
-from pyworkflow.object import Set, CsvList, Boolean
+from pyworkflow.object import Set, CsvList, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import path, cyanStr
@@ -36,7 +36,7 @@ from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage, CTFTomoSeries)
+                          TiltImage, CTFTomoSeries, SetOfLandmarkModels)
 from imod import Plugin, utils
 from imod.constants import *
 from tomo.utils import getCommonTsAndCtfElements
@@ -329,9 +329,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSet
 
-    def getOutputFiducialModel(self, inputPtr,
-                               attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                               suffix="NoGaps"):
+    def getOutputFiducialModel(self,
+                               inputPtr: Pointer,
+                               attrName: str = OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                               suffix: str = "NoGaps") -> SetOfLandmarkModels:
         """ Method to generate output of set fiducial models.
                 :param inputPtr: input TS set pointer
                 :param attrName: output attr name

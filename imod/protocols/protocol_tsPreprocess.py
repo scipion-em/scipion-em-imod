@@ -26,13 +26,16 @@
 import logging
 import os
 import time
+from os.path import exists
+
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
+from imod.convert import genXfFile
+from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
-from tomo.objects import SetOfTiltSeries
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
+from tomo.objects import SetOfTiltSeries, TiltImage, TiltSeries
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME, XF_EXT
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +97,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         self._initialize()
         binning = self.binning.get()
         inTsSet = self.getInputSet()
-        self.readingOutput()
+        self.readingOutput(inTsSet)
         closeSetStepDeps = []
 
         while True:
@@ -132,26 +135,30 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId, **kwargs):
-        super().convertInputStep(tsId,
-                                 imodInterpolation=False,
-                                 generateAngleFile=False,
-                                 oddEven=self.doOddEven,
-                                 lockGetItem=True)
+    def convertInputStep(self, tsId: str):
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            firstTi = ts.getFirstItem()
+        # Generate the xf alignment file
+        if firstTi.hasTransform():
+            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+            genXfFile(ts,
+                      xfFile,
+                      ignoreExcludedViews=True)  # The newstack program can exclude them itself if necessary
 
-    def generateOutputStackStep(self, tsId, binning):
+    def generateOutputStackStep(self, tsId: str, binning: int):
         logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)
-                firstItem = ts.getFirstItem()
-            xfFile = None
+            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+            xfFile = xfFile if exists(xfFile) else None
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,
+                                                     ts.getFirstItem().getFileName(),
                                                      self.getExtraOutFile(tsId),
-                                                     inputTsFileName=self.getTmpOutFile(tsId),
                                                      xfFile=xfFile,
-                                                     firstItem=firstItem,
                                                      binning=binning,
                                                      doNorm=norm != 0)
 
@@ -167,50 +174,57 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             if self.getModeToOutput() is not None:
                 paramsDict["-ModeToOutput"] = self.getModeToOutput()
 
-            self.runProgram("newstack", paramsDict)
+            self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
             if self.doOddEven:
                 paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", paramsDict)
+                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
                 paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", paramsDict)
+                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'newstack execution failed for tsId {tsId} -> {e}'))
+            logger.error(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
+                         f'failed with the exception -> {e}')
 
-    def createOutputStep(self, tsId, binning):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-                self.__closeFailedTsSet()
-            else:
+    def createOutputStep(self, tsId: str, binning: int):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
                 outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True), binning)
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTiCallback=self.updateTi,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=True,
-                                     binning=binning,
-                                     isSemiStreamified=False,
-                                     isStreamified=True)
-                    for outputName in self._possibleOutputs.keys():
-                        output = getattr(self, outputName, None)
-                        if output:
-                            output.close()
+                if exists(outputFn):
+                    with self._lock:
+                        ts = self.getCurrentItem(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True), binning)
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        outTsSet.append(outTs)
+                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(outputFn)
+                            self.updateTransformMatrix(outTi, binning=binning)
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            outTs.append(outTi)
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
                 else:
-                    self.addToOutFailedSet(ts)
-                    self.__closeFailedTsSet()
+                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     def closeOutputSetsStep(self):
         if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
-            raise Exception(NO_TS_PROCESSED_MSG)
+            raise Exception('No tilt-series was generated. Please '
+                            'check the Output Log > run.stdout and run.stderr')
         self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
@@ -233,15 +247,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def readingOutput(self) -> None:
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if outTsSet:
-            for ts in outTsSet:
-                self.tsReadList.append(ts.getTsId())
-            self.info(cyanStr(f'Tilt-series processed {self.tsReadList}'))
-        else:
-            self.info(cyanStr('No tilt-series have been processed yet'))
-
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -254,24 +259,15 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         return parseParamsOutputMode[self.modeToOutput.get()]
 
     @staticmethod
-    def updateTM(newTi, binning=1):
-        if binning != 1:
-            transform = newTi.getTransform()
+    def updateTransformMatrix(ti: TiltImage, binning: int = 1) -> None:
+        if ti.hasTransform() and binning != 1:
+            transform = ti.getTransform()
             matrix = transform.getMatrix()
 
             matrix[0][2] /= binning
             matrix[1][2] /= binning
 
             transform.setMatrix(matrix)
-            newTi.setTransform(transform)
+            ti.setTransform(transform)
 
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        # Transformation matrix
-        if ti.hasTransform():
-            self.updateTM(tiOut, binning=self.binning.get())
 
-    def __closeFailedTsSet(self):
-        failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
-        if failedTs:
-            failedTs.close()

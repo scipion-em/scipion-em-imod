@@ -79,13 +79,13 @@ class ProtImodBaseTsAlign(ProtImodBase):
                            'transformations.')
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId: str, **kwargs):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            presentAcqOrders = self.getTsCtfCommonAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
-            super().convertInputStep(tsId,
-                                     oddEven=self.doOddEven,
-                                     presentAcqOrders=presentAcqOrders)
+    # def convertInputStep(self, tsId: str, **kwargs):
+    #     with self._lock:
+    #         ts = self.getCurrentItem(tsId)
+    #         presentAcqOrders = self.getTsCtfCommonAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
+    #         super().convertInputStep(tsId,
+    #                                  oddEven=self.doOddEven,
+    #                                  presentAcqOrders=presentAcqOrders)
 
     def createOutTs(self, tsId, isSemiStreamified, isStreamified):
         ts = self.getCurrentItem(tsId)

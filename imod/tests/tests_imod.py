@@ -506,7 +506,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                          excludedViewsDict: Union[dict, None] = None) -> None:
         if not excludedViewsDict:
             excludedViewsDict = cls.excludedViewsDict
-        objList = [obj.clone(ignoreAttrs=[]) for obj in inSet]
+        objList = [obj.clone() for obj in inSet]
         for obj in objList:
             cls._excIntermediateSetViews(inSet, obj, excludedViewsDict[obj.getTsId()])
 
@@ -986,7 +986,7 @@ class TestImodGenFiducialModel(TestImodBase):
     def _runPreviousProtocols(cls):
         cls.importedTs = cls._runImportTs()
         cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
-        cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed)
+        cls.preAliTsSet = cls._runXcorrAli(cls.tsPreprocessed)
 
     def testFiducialModel01(self):
         fiducialModels = self._genFiducialModel(self.preAliTsSet, objLabel='testFiducialModel01')
@@ -1040,7 +1040,7 @@ class TestImodGenFiducialModel(TestImodBase):
         self._checkFiducialModels(fiducialModels)
 
     def testFiducialModel08(self):
-        preAliTsSet, _ = self._runXcorrAli(self.tsPreprocessed, genInterp=False)
+        preAliTsSet = self._runXcorrAli(self.tsPreprocessed)
         # Exclude some views at metadata level
         self._excludeSetViews(preAliTsSet)
         # Run the protocol
@@ -1050,7 +1050,7 @@ class TestImodGenFiducialModel(TestImodBase):
         self._checkFiducialModels(fiducialModels)
 
     def testFiducialModel09(self):
-        preAliTsSet, _ = self._runXcorrAli(self.tsPreprocessed, genInterp=False)
+        preAliTsSet = self._runXcorrAli(self.tsPreprocessed)
         # Exclude some views at metadata level
         self._excludeSetViews(preAliTsSet)
         # Run the protocol

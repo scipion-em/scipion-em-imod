@@ -178,19 +178,19 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
         tltFile = self.getExtraOutFile(ts.getTsId(), ext=TLT_EXT)
         genTltFile(ts,
                    tltFile,
-                   ignoreExcludedViews=True)  # The xcorr programs can exclude them itself
+                   ignoreExcludedViews=True)  # The xcorr program can exclude them itself
 
         if firstTi.hasTransform():  # Apply a previous alignment if it exists
             logger.info(cyanStr(f'tsId = {tsId} -> Previous alignment detected. Applying...'))
             xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
             genXfFile(ts,
                       xfFile,
-                      ignoreExcludedViews=True)  # The xcorr programs can exclude them itself)
+                      ignoreExcludedViews=True)  # The xcorr program can exclude them itself
             doSwap = True  # A transformation will be applied
             self.runNewStackBasic(ts,
                                   xfFile=xfFile,
                                   doSwap=doSwap,
-                                  ignoreExcludedViews=True)  # The xcorr programs can exclude them itself
+                                  ignoreExcludedViews=True)  # The xcorr program can exclude them itself
 
         else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
             outTsFn, _, _ = self.getTmpFileNames(ts)
