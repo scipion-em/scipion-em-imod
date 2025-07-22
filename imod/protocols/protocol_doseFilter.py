@@ -128,7 +128,7 @@ class ProtImodDoseFilter(ProtImodBase):
             listInTsIds = inTsSet.getTSIds()
             if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self._closeOutputSet,
+                self._insertFunctionStep(self.closeOutputSetsStep,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -233,6 +233,12 @@ class ProtImodDoseFilter(ProtImodBase):
             except Exception as e:
                 logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
+    def closeOutputSetsStep(self):
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if not outTsSet:
+            raise Exception('No tilt-series were generated. Please '
+                            'check the Output Log > run.stdout and run.stderr')
+        self._closeOutputSet()
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []

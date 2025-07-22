@@ -25,6 +25,8 @@
 # *****************************************************************************
 import logging
 from typing import Union, Tuple
+
+from imod.convert import genXfFile
 from pyworkflow.object import Set, CsvList, Boolean
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
@@ -178,18 +180,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                 tsExcludedIndices=tsExcludedIndices,
                                                 binning=binning)
             self.runProgram(NEWSTACK_PROGRAM, param)
-
-    def genXFile(self, ts: TiltSeries) -> str:
-        xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-        logger.info(cyanStr(f"\t--> Generating the alignment xf file {xfFile}..."))
-        utils.genXfFile(ts, xfFile)
-        return xfFile
-
-    def genTltFile(self, ts: TiltSeries) -> str:
-        angleFilePath = self.getExtraOutFile(ts.getTsId(), ext=TLT_EXT)
-        logger.info(cyanStr(f"\t--> Generating the angles tlt file {angleFilePath}..."))
-        ts.generateTltFile(angleFilePath, excludeViews=True)
-        return angleFilePath
 
     def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
         tsId = ts.getTsId()

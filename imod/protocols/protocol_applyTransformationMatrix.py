@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.protocol.params as params
+from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
 from pwem import ALIGN_NONE
 from pyworkflow.protocol import STEPS_PARALLEL
@@ -129,7 +130,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
-            utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
+            genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
 
             paramsDict = self.getBasicNewstackParams(ts,
                                                      self.getExtraOutFile(tsId),

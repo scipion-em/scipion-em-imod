@@ -24,20 +24,16 @@
 # *
 # *****************************************************************************
 import logging
-import os
 import time
 from os.path import exists
-
 import numpy as np
-
 import pyworkflow.protocol.params as params
+from imod.convert import genXfFile, genTltFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
-from pwem import ALIGN_NONE
 from pwem.objects import Transform
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
-
 from imod import utils
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
@@ -142,7 +138,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
             listInTsIds = inTsSet.getTSIds()
             if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self._closeOutputSet,
+                self._insertFunctionStep(self.closeOutputSetStep,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -179,16 +175,23 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
             firstTi = ts.getFirstItem()
 
         # Generate the tlt file
-        self.genTltFile(ts)
+        tltFile = self.getExtraOutFile(ts.getTsId(), ext=TLT_EXT)
+        genTltFile(ts,
+                   tltFile,
+                   ignoreExcludedViews=True)  # The xcorr programs can exclude them itself
 
         if firstTi.hasTransform():  # Apply a previous alignment if it exists
             logger.info(cyanStr(f'tsId = {tsId} -> Previous alignment detected. Applying...'))
-            xfFile = self.genXFile(ts)
-            doSwap = True
+            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+            genXfFile(ts,
+                      xfFile,
+                      ignoreExcludedViews=True)  # The xcorr programs can exclude them itself)
+            doSwap = True  # A transformation will be applied
             self.runNewStackBasic(ts,
                                   xfFile=xfFile,
                                   doSwap=doSwap,
                                   ignoreExcludedViews=True)  # The xcorr programs can exclude them itself
+
         else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
             outTsFn, _, _ = self.getTmpFileNames(ts)
             self.linkTs(firstTi.getFileName(), outTsFn)
@@ -281,27 +284,12 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
             except Exception as e:
                 logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
-        # with self._lock:
-        #     ts = self.getCurrentItem(tsId)
-        #     if tsId in self.failedItems:
-        #         self.addToOutFailedSet(ts)
-        #     else:
-        #         outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-        #         if os.path.exists(outputFn):
-        #             tAx = self.tiltAxisAngle.get()
-        #             output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-        #                                            tiltAxisAngle=tAx)
-        #             alignmentMatrix = utils.formatTransformationMatrix(outputFn)
-        #             self.copyTsItems(output, ts, tsId,
-        #                              updateTsCallback=self.updateTsNonInterp,
-        #                              updateTiCallback=self.updateTiNonInterp,
-        #                              copyDisabledViews=True,
-        #                              copyId=True,
-        #                              copyTM=False,
-        #                              alignmentMatrix=alignmentMatrix,
-        #                              tiltAxisAngle=tAx)
-        #         else:
-        #             self.addToOutFailedSet(ts)
+    def closeOutputSetStep(self):
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if not outTsSet:
+            raise Exception('No tilt-series was generated. Please '
+                            'check the Output Log > run.stdout and run.stderr')
+        self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

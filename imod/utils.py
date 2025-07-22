@@ -39,42 +39,6 @@ from tomo.objects import TiltSeries
 
 logger = logging.getLogger(__name__)
 
-
-def genXfFile(ts: TiltSeries, outXfName: str,
-              presentAcqOrders: Union[set, None] = None,
-              onlyEnabled: bool = False) -> None:
-    """ This method takes a tilt series and the output transformation file path
-    and creates an IMOD-based transform file in the location indicated. The transformation matrix
-    of a tilt-image is only added if its acquisition order is contained in a set composed of the
-    acquisition orders present in both the given tilt-series and the CTFTomoSeries. If presentAcqOrders
-    is not None, it is considered before the attribute onlyEnabled, as presentAcqOrders may also have been
-    generated considering the enabled elements of the intersection.
-    """
-
-    def formatMatrix(tiltImage):
-        transform = tiltImage.getTransform().getMatrix().flatten()
-        transformIMOD = ['%.7f' % transform[0],
-                         '%.7f' % transform[1],
-                         '%.7f' % transform[3],
-                         '%.7f' % transform[4],
-                         "{:>6}".format('%.3g' % transform[2]),
-                         "{:>6}".format('%.3g' % transform[5])]
-        return transformIMOD
-
-    if presentAcqOrders:
-        tsMatrixList = [formatMatrix(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
-    else:
-        tsMatrixList = []
-        for ti in ts:
-            if onlyEnabled and not ti.isEnabled():
-                continue
-            tsMatrixList.append(formatMatrix(ti))
-
-    with open(outXfName, 'w') as f:
-        csvW = csv.writer(f, delimiter='\t')
-        csvW.writerows(tsMatrixList)
-
-
 def formatTransformFileFromTransformList(transformMatrixList, transformFilePath):
     """ This method takes a list of Transform matrices and the output
     transformation file path and creates an

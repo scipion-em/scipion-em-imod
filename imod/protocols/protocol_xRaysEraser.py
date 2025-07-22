@@ -193,7 +193,7 @@ class ProtImodXraysEraser(ProtImodBase):
             listInTsIds = inTsSet.getTSIds()
             if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self._closeOutputSet,
+                self._insertFunctionStep(self.closeOutputSetsStep,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
