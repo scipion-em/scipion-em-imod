@@ -29,7 +29,7 @@ from os.path import exists
 
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 MTTFILTER_PROGRAM = "mtffilter"
 
 
-class ProtImodDoseFilter(ProtImodBase):
+class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
     """
     Tilt-series dose filtering based on the IMOD procedure.
     More info:

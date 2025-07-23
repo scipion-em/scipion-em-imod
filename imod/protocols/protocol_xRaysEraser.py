@@ -28,7 +28,7 @@ import time
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 CCDERASER_PROGRAM = 'ccderaser'
 
 
-class ProtImodXraysEraser(ProtImodBase):
+class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
     """
     Erase Xrays from aligned tilt-series based on the IMOD procedure.
     More info:

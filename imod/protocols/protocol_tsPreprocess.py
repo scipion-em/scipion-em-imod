@@ -137,28 +137,23 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str):
         self.genTsPaths(tsId)
+        outTsFn = self.getTmpOutFile(tsId)
         with self._lock:
             ts = self.getCurrentItem(tsId)
             firstTi = ts.getFirstItem()
-        # Generate the xf alignment file
-        if firstTi.hasTransform():
-            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-            genXfFile(ts,
-                      xfFile,
-                      ignoreExcludedViews=True)  # The newstack program can exclude them itself if necessary
+            # Make the link using the tsId instead of the original name prevent IMOD from
+            # failing in case of strange characters or even numeric names
+        self.linkTs(firstTi.getFileName(), outTsFn)
 
     def generateOutputStackStep(self, tsId: str, binning: int):
         logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
         try:
             with self._lock:
                 ts = self.getCurrentItem(tsId)
-            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-            xfFile = xfFile if exists(xfFile) else None
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,
-                                                     ts.getFirstItem().getFileName(),
+                                                     self.getTmpOutFile(tsId),
                                                      self.getExtraOutFile(tsId),
-                                                     xfFile=xfFile,
                                                      binning=binning,
                                                      doNorm=norm != 0)
 
