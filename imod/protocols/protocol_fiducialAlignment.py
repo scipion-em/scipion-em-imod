@@ -311,12 +311,24 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         self.inTsSetPointer = self.getInputSet().getSetOfTiltSeries(pointer=True)
 
     def computeFiducialAlignmentStep(self, tsId):
+        fnTxt = self._getExtraPath(tsId, tsId+'_points.txt')
+        fnFid = self._getExtraPath(tsId, tsId + '_imod.fid')
+        fnTs = self.getCurrentItem(tsId).getFirstItem().getFileName()
+        utils.convertTxt2Fid(self.getCurrentFidModel(tsId).getFileName(), fnTxt)
+        if not os.path.exists(fnFid):
+            paramsPoint2Model = {
+                "-InputFile": fnTxt,
+                "-OutputFile": fnFid,
+                "-image": fnTs
+            }
+            self.runProgram('point2model', paramsPoint2Model)
+
         try:
             logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
             ts = self.getCurrentItem(tsId)
             paramsTiltAlign = {
-                "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
-                "-ImageFile": self.getTmpOutFile(tsId), "-ImagesAreBinned": 1,
+                "-ModelFile": fnFid,
+                "-ImageFile": fnTs, "-ImagesAreBinned": 1,
                 "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
                 "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
                 "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),

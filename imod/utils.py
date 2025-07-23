@@ -164,6 +164,45 @@ def formatFiducialResidList(fiducialFilePath):
 
     return fiducialResidList
 
+def convertTxt2Fid(input_txt_file, output_fid_file):
+    """
+    input_txt_file: x y view chain
+    - x, y are the coordinates of the fiducials
+    - vView is the number of the image (0-indexed)
+    - chain is ethe chain number or object (0-indexed)
+    """
+    fiducials_by_chain = {}
+    print(input_txt_file)
+    with open(input_txt_file, 'r') as f_in:
+        for line in f_in:
+            parts = line.strip().split()
+            try:
+                x = float(parts[0])
+                y = float(parts[1])
+                view = int(parts[2])
+                chain = int(parts[3])
+
+                if chain not in fiducials_by_chain:
+                    fiducials_by_chain[chain] = []
+                fiducials_by_chain[chain].append((view, x, y))
+            except ValueError:
+                print(f"Warning: Skipping line, it is not in the proper format: {line.strip()}")
+
+
+    with open(output_fid_file, 'w') as f_out:
+        # IMOD expects a number of chains at the beginning of the file
+        num_chains = len(fiducials_by_chain)
+        #f_out.write(f"{num_chains}\n")
+
+        for chain_id in sorted(fiducials_by_chain.keys()):
+            fiducials = fiducials_by_chain[chain_id]
+            #f_out.write(f"{len(fiducials)}\n")
+            for view, x, y in fiducials:
+                # IMOD coordinates ar integers * 100
+                # and the views are  0-indexed.
+                print('%s %f %f %i' %(chain_id, x, x, view))
+                f_out.write(f"{1}\t{chain_id}\t{(x)}\t{(y)}\t{float(view-1)}\n")
+
 
 def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
     """ This method takes a Scipion LandmarkModel object and
@@ -176,11 +215,12 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
     infoTable = landmarkModel.retrieveInfoTable()
     outputLines = []
-
+    print('.......................')
     for vector in infoTable:
+        print(vector)
         outputLines.append("\t%s\t%s\t%s\t%d\n" % (vector[3], vector[0],
                                                    int(float(vector[1])), int(float(vector[2])) - 1))
-
+    print('.......................')
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
 

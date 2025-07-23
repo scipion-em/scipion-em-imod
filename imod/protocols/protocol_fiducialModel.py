@@ -417,7 +417,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign):
             if os.path.exists(gapsFidFile):
                 paramsGapModel2Point = {
                     "-InputFile": gapsFidFile,
-                    "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
+                    "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT),
+                    "-ObjectAndContour": ''
                 }
                 self.runProgram('model2point', paramsGapModel2Point)
 
@@ -446,19 +447,13 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign):
                                                           hasResidualInfo=False)
                 landmarkModelGaps.setTiltSeries(ts)
 
-                prevTiltIm = 0
-                chainId = 0
-
                 for index, fiducial in enumerate(fiducialGapList):
-                    if int(fiducial[2]) <= prevTiltIm:
-                        chainId += 1
+                    prevTiltIm = int(fiducial[4])
 
-                    prevTiltIm = int(fiducial[2])
-
-                    landmarkModelGaps.addLandmark(xCoor=fiducial[0],
-                                                  yCoor=fiducial[1],
-                                                  tiltIm=fiducial[2] + 1,
-                                                  chainId=chainId,
+                    landmarkModelGaps.addLandmark(xCoor=fiducial[2],
+                                                  yCoor=fiducial[3],
+                                                  tiltIm=fiducial[4] + 1,
+                                                  chainId=fiducial[1],
                                                   xResid=0,
                                                   yResid=0)
 
