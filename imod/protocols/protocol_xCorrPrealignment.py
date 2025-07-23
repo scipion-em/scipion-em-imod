@@ -138,7 +138,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
             listInTsIds = inTsSet.getTSIds()
             if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetStep,
+                self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)

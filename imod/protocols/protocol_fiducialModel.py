@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import time
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.convert import genTltFile, genXfFile
@@ -193,46 +194,64 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        closeSetDeps = []
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            pId = self._insertFunctionStep(self.convertInputStep,
-                                           tsId,
-                                           prerequisites=[],
-                                           needsGPU=False)
+        closeSetStepDeps = []
+        inTsSet = self.getInputSet()
+        outTsSet = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
+        self.readingOutput(outTsSet)
 
-            if self.typeOfModel.get() == FIDUCIAL_MODEL:
-                pId = self._insertFunctionStep(self.generateFiducialSeedStep,
-                                               tsId,
-                                               prerequisites=pId,
-                                               needsGPU=False)
-                pId = self._insertFunctionStep(self.generateFiducialModelStep,
-                                               tsId,
-                                               prerequisites=pId,
-                                               needsGPU=False)
-            else:
-                pId = self._insertFunctionStep(self.xcorrStep,
-                                               tsId,
-                                               prerequisites=pId,
-                                               needsGPU=False)
-                pId = self._insertFunctionStep(self.chopcontsStep,
-                                               tsId,
-                                               prerequisites=pId,
-                                               needsGPU=False)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_FIDUCIAL_GAPS_NAME,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
 
-            pId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                           tsId,
-                                           prerequisites=pId,
-                                           needsGPU=False)
-            pId = self._insertFunctionStep(self.computeOutputModelsStep,
-                                           tsId,
-                                           prerequisites=pId,
-                                           needsGPU=False)
-            closeSetDeps.append(pId)
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:
+                    pId = self._insertFunctionStep(self.convertInputStep,
+                                                   tsId,
+                                                   prerequisites=[],
+                                                   needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetStep,
-                                 prerequisites=closeSetDeps,
-                                 needsGPU=False)
+                    if self.typeOfModel.get() == FIDUCIAL_MODEL:
+                        pId = self._insertFunctionStep(self.generateFiducialSeedStep,
+                                                       tsId,
+                                                       prerequisites=pId,
+                                                       needsGPU=False)
+                        pId = self._insertFunctionStep(self.generateFiducialModelStep,
+                                                       tsId,
+                                                       prerequisites=pId,
+                                                       needsGPU=False)
+                    else:
+                        pId = self._insertFunctionStep(self.xcorrStep,
+                                                       tsId,
+                                                       prerequisites=pId,
+                                                       needsGPU=False)
+                        pId = self._insertFunctionStep(self.chopcontsStep,
+                                                       tsId,
+                                                       prerequisites=pId,
+                                                       needsGPU=False)
+
+                    pId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                                   tsId,
+                                                   prerequisites=pId,
+                                                   needsGPU=False)
+                    pId = self._insertFunctionStep(self.computeOutputModelsStep,
+                                                   tsId,
+                                                   prerequisites=pId,
+                                                   needsGPU=False)
+                    closeSetStepDeps.append(pId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
+
+                time.sleep(10)
+                if inTsSet.isStreamOpen():
+                    with self._lock:
+                        inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -429,12 +448,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
             except Exception as e:
                 logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
-    def closeOutputSetStep(self):
-        outTsSet = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
-        if not outTsSet:
-            raise Exception('No fiducial model was generated. Please '
-                            'check the Output Log > run.stdout and run.stderr')
-        self._closeOutputSet()
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
