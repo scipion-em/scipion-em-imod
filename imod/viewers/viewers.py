@@ -67,11 +67,13 @@ class ImodViewer(pwviewer.Viewer):
 
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
             binning = kwargs.get("binning", 1)
+            displayInterpolated = kwargs.get("displayInterpolated", False)
             if hasattr(self, 'provider'):  # The data come from IMOD viewer
                 setOfObjs = self.provider.objs
             else:
                 setOfObjs = kwargs.get("setOfObjs", None)  # The data come from TomoViewer
-            view = ImodObjectView(obj, protocol=self.protocol, binning=binning, setOfObjs=setOfObjs)
+            view = ImodObjectView(obj, protocol=self.protocol, binning=binning, setOfObjs=setOfObjs,
+                                  displayInterpolated=displayInterpolated)
         else:  # Set object
             view = ImodGenericView(self.getTkRoot(), self.protocol, obj)
 
