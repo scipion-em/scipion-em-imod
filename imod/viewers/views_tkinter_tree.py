@@ -26,7 +26,10 @@
 
 import os.path
 import threading
+import tkinter
 
+from pwem.emlib.image.image_readers import ImageReadersRegistry
+from pwem.viewers.filehandlers import getTkImage
 from pyworkflow.gui import *
 from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog
@@ -36,6 +39,7 @@ import tomo.objects
 from imod import Plugin
 from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT
 from imod.protocols import ProtImodEtomo
+from tomo.objects import SetOfTiltSeries
 
 
 class protClass:
@@ -281,7 +285,12 @@ class ImodListDialog(ListDialog):
                                              state=tk.NORMAL)
         else:
             self._addBinningBox()
+            objs = self.provider.objs
+            if isinstance(objs, SetOfTiltSeries) and objs.hasAlignment():
+                self._addApplyAlignmentsOption()
+
         self._createTree(dialogFrame)
+        self._createPreviewPanel(dialogFrame)
         self.initial_focus = self.tree
         if self._itemDoubleClick:
             if self.provider.isInteractive:  # etomo, ctf estimation
@@ -289,16 +298,112 @@ class ImodListDialog(ListDialog):
             else:
                 self.tree.itemDoubleClick = self.openImodViewer
 
+    def _createPreviewPanel(self, parent):
+        self.previewFrame = tk.Frame(parent)
+        self.previewFrame.grid(row=1, column=1)
+        self.canvasWidth = 400
+        self.canvasHeight = 400
+        self.imageCanvas = tk.Canvas(self.previewFrame,
+                                     width=self.canvasWidth,
+                                     height=self.canvasHeight,
+                                     bg='gray')
+                                     # bg='#d9d9d9')
+        self.imageCanvas.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
+
+        # Event when selecting item
+        self.tree.bind('<<TreeviewSelect>>', self._onItemSelected)
+        # Selecting the first item
+        self.tree.selection_set(self.tree.get_children()[0])
+
+    def _onItemSelected(self, event):
+        selected = self.tree.selection()
+        if not selected:
+            return
+
+        itemId = int(selected[0]) - 1
+        objs = self.provider.objs
+        index = 0
+        try:
+            if isinstance(objs, tomo.objects.SetOfTomograms):
+                obj = self.provider.getObjects()[itemId]
+                imagePath = obj.getFileName()
+                index = obj.getDim()[2] // 2
+            elif isinstance(objs, tomo.objects.SetOfTiltSeries):
+                tsId = self.provider.getObjects()[itemId].getTsId()
+                ts = objs.getItem('_tsId', tsId)
+                index = ts.getSize() // 2
+                ti = ts.getItem('_index', index)
+                imagePath = ti.getFileName()
+
+            imgStk = ImageReadersRegistry.open(imagePath)
+            originalImg = imgStk.getImage(index=index, pilImage=True)
+            imgW, imgH = originalImg.size
+            scale = min(self.canvasWidth / imgW, self.canvasHeight / imgH)
+            newSize = (int(imgW * scale), int(imgH * scale))
+            pilImg = originalImg.resize(newSize)
+            x = (self.canvasWidth - newSize[0]) // 2
+            y = (self.canvasHeight - newSize[1]) // 2
+
+            if isinstance(objs, tomo.objects.SetOfTiltSeries):
+                THUMBNAIL_SIZE = self.canvasWidth
+                minDim = min(imgW, imgH)
+                ratio = THUMBNAIL_SIZE / minDim
+                if ratio > 1:
+                    image = imgStk.scaleSlice(np.array(pilImg), ratio)
+                elif ratio < 1:
+                    image = imgStk.thumbnailSlice(np.array(pilImg),
+                                                  int(imgW * ratio),
+                                                  int(imgH * ratio))
+                rot = None
+                shifts = None
+
+                if ti.hasTransform():
+                    transf = ti.getTransform()
+                    _, _, rot = transf.getEulerAngles()
+                    rot = np.rad2deg(-rot)
+                    list = transf.getMatrixAsList()
+                    shifts = list[2], list[5]
+
+                if rot is not None:
+                    shiftX = shifts[0] * ratio
+                    shiftY = shifts[1] * ratio
+                    image = imgStk.transformSlice(image, (shiftX, shiftY), rot)
+                    image = imgStk.thumbnailSlice(image,
+                                                  THUMBNAIL_SIZE,
+                                                  THUMBNAIL_SIZE)
+                    imgH, imgW = image.shape[:2]
+                    x = (self.canvasWidth - imgW) // 2
+                    y = (self.canvasHeight - imgH) // 2
+
+                image = imgStk.flipSlice(image)
+                pilImg = Image.fromarray(image)
+
+            self.tkImg = getTkImage(pilImg)
+            self.imageCanvas.delete("all")
+            self.imageCanvas.create_image(x, y, anchor='nw', image=self.tkImg)
+
+        except Exception as e:
+            print(f"Error loading the image: {e}")
+
     def _addBinningBox(self):
         self.binningVar = tk.StringVar(value=str(Plugin.getViewerBinning()))
         frame = self.searchBoxframe
-        label = tk.Label(frame, text="Display binning")
-        label.grid(row=0, column=2, sticky='nw')
+        label = tk.Label(frame, text="Display options:  Binning")
+        label.grid(row=0, column=2, sticky='nw', padx=10)
 
         entry = tk.Entry(frame, bg=Config.SCIPION_BG_COLOR,
                          width=3, textvariable=self.binningVar,
                          font=gui.getDefaultFont())
-        entry.grid(row=0, column=3, sticky='news')
+        entry.grid(row=0, column=3, sticky='nw')
+
+    def _addApplyAlignmentsOption(self):
+        label = tk.Label(self.searchBoxframe, text="Interpolated")
+        label.grid(row=0, column=4, sticky='nw', padx=5)
+        self.displayInterpolated = tk.BooleanVar()
+        self.displayInterpolated.set(True)
+        self.applyAlignmentsCheckButton = tk.Checkbutton(self.searchBoxframe, font=gui.getDefaultFont(),
+                                                         variable=self.displayInterpolated)
+        self.applyAlignmentsCheckButton.grid(row=0, column=5, sticky='nw', padx=1)
 
     def _addButton(self, frame, text, image, command, sticky='news',
                    state=tk.NORMAL):
@@ -324,9 +429,26 @@ class ImodListDialog(ListDialog):
     def openImodViewer(self, item=None):
         from imod.viewers import ImodObjectView
         prot = self.provider.protocol
-        item = self.provider.objs[item.getObjId()]  # to load mapper
+        obj = self.provider.objs[item.getObjId()]  # to load mapper
+        textInfo = 'Openning with Imod...'
+        if isinstance(obj, tomo.objects.TiltSeries) and obj.hasAlignment() and self.displayInterpolated.get():
+            textInfo = 'Interpolating the tiltserie...'
+        self.info(textInfo)
+        self.update_idletasks()
+        ImodObjectView(obj, protocol=prot, binning=self.binningVar.get(), setOfObjs=self.provider.objs,
+                       displayInterpolated=self.displayInterpolated.get()).show()
+        self.info('')
 
-        ImodObjectView(item, protocol=prot, binning=self.binningVar.get()).show()
+    def cancel(self, event=None):
+        """Clean tmp folder anc close the viewer"""
+        self.info('Cleaning temporal files and closing IMOD viewer...')
+        prot = self.provider.protocol
+        tmpFolder = prot._getTmpPath()
+        pwutils.cleanPath(tmpFolder)
+        ListDialog.cancel(self)
+
+    def on_close(self, event=None):
+        self.cancel(event)
 
     def runProtocolSteps(self, e=None):
         ts = e

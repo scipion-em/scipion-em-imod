@@ -28,6 +28,8 @@
 
 import os
 import logging
+from pyworkflow.utils import runCommand
+
 logger = logging.getLogger(__name__)
 
 import pyworkflow.viewer as pwviewer
@@ -65,7 +67,11 @@ class ImodViewer(pwviewer.Viewer):
 
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
             binning = kwargs.get("binning", 1)
-            view = ImodObjectView(obj, protocol=self.protocol, binning=binning)
+            if hasattr(self, 'provider'):  # The data come from IMOD viewer
+                setOfObjs = self.provider.objs
+            else:
+                setOfObjs = kwargs.get("setOfObjs", None)  # The data come from TomoViewer
+            view = ImodObjectView(obj, protocol=self.protocol, binning=binning, setOfObjs=setOfObjs)
         else:  # Set object
             view = ImodGenericView(self.getTkRoot(), self.protocol, obj)
 
@@ -76,7 +82,7 @@ class ImodViewer(pwviewer.Viewer):
 class ImodObjectView(pwviewer.CommandView):
     """ Wrapper to visualize different type of objects with the 3dmod """
 
-    def __init__(self, obj, protocol=None, binning=1, **kwargs):
+    def __init__(self, obj, protocol=None, binning=1, setOfObjs=None, **kwargs):
         """
         :param obj: Object to deal with, a single item of a set
         :param protocol: protocol owner of obj
@@ -84,11 +90,39 @@ class ImodObjectView(pwviewer.CommandView):
         """
         # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
+        prj = protocol.getProject()
         cmd = f"{Plugin.getImodCmd('3dmod')} "
+        displayInterpolated = kwargs.get("displayInterpolated", False)
 
         if isinstance(obj, tomoObj.TiltSeries):
-            prj = protocol.getProject()
+            tsId = obj.getTsId()
             inputFn = obj.getFirstItem().getFileName()
+
+            if obj.hasAlignment() and displayInterpolated:
+                tmpPath = protocol._getTmpPath()
+                pwutils.makePath(tmpPath)
+                ts = setOfObjs.getItem('_tsId', tsId)
+                xfFile = os.path.join(tmpPath, '%s.xf' % tsId)
+                ts.writeXfFile(xfFile)
+                outputFile = os.path.join(tmpPath, '%s_bin_%s.mrc' % (tsId, binningstr))
+                if not os.path.exists(outputFile):
+                    excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                    paramsNewstack = protocol.getBasicNewstackParams(ts, outputFile,
+                                                                     firstItem=obj.getFirstItem(),
+                                                                     xfFile=xfFile,
+                                                                     doSwap=True,
+                                                                     doTaper=True,
+                                                                     tsExcludedIndices=excludedViews,
+                                                                     binning=int(binning))
+                    newstackCmd = f"{Plugin.getImodCmd('newstack')} "
+                    newstackCmd += ' '.join(['%s %s' % (k, v) for k, v in paramsNewstack.items()])
+                    try:
+                        logger.info(f"Executing command: {cmd}")
+                        runCommand(newstackCmd)
+                    except Exception as e:
+                        print("Error executing newstack: %s" % e)
+                inputFn = outputFile
+
             angleFilePath = prj.getTmpPath(pwutils.replaceBaseExt(inputFn, "tlt"))
             obj.generateTltFile(angleFilePath)
 
@@ -96,9 +130,9 @@ class ImodObjectView(pwviewer.CommandView):
             cmd += f"-a {angleFilePath} {inputFn.split(':')[0]}"
 
         elif isinstance(obj, tomoObj.LandmarkModel):
-            prj = protocol.getProject()
             ts = obj.getTiltSeries()
             tsFn = ts.getFirstItem().getFileName()
+            cmd = f"{Plugin.getImodCmd('3dmod')} "
             if ts.hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 extension = pwutils.getExt(tsFn)
