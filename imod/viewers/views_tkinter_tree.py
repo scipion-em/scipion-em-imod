@@ -361,8 +361,8 @@ class ImodListDialog(ListDialog):
                     transf = ti.getTransform()
                     _, _, rot = transf.getEulerAngles()
                     rot = np.rad2deg(-rot)
-                    list = transf.getMatrixAsList()
-                    shifts = list[2], list[5]
+                    mlist = transf.getMatrixAsList()
+                    shifts = mlist[2], mlist[5]
 
                 if rot is not None:
                     shiftX = shifts[0] * ratio
