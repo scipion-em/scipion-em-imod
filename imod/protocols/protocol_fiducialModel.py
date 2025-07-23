@@ -34,7 +34,8 @@ from imod import utils
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
                             FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
-from imod.protocols.protocol_base import IN_TS_SET          
+from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
@@ -210,10 +211,10 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                                                prerequisites=pId,
                                                needsGPU=False)
             else:
-                # pId = self._insertFunctionStep(self.xcorrStep,
-                #                                tsId,
-                #                                prerequisites=pId,
-                #                                needsGPU=False)
+                pId = self._insertFunctionStep(self.xcorrStep,
+                                               tsId,
+                                               prerequisites=pId,
+                                               needsGPU=False)
                 pId = self._insertFunctionStep(self.chopcontsStep,
                                                tsId,
                                                prerequisites=pId,
@@ -305,41 +306,44 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                 logger.error(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
                              f'failed with the exception -> {e}')
 
-    # def xcorrStep(self, tsId):
-    #     try:
-    #         logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
-    #         angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-    #         xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-    #         borders = self.pxTrim.getListFromValues(caster=str)
-    #         sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
-    # 
-    #         paramsTiltXCorr = {
-    #             "-InputFile": self.getTmpOutFile(tsId),
-    #             "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
-    #             "-RotationAngle": self.acq.getTiltAxisAngle(),
-    #             "-TiltFile": angleFilePath,
-    #             "-FilterRadius2": self.filterRadius2.get(),
-    #             "-FilterSigma1": self.filterSigma1.get(),
-    #             "-FilterSigma2": self.filterSigma2.get(),
-    #             "-BordersInXandY": ",".join(borders),
-    #             "-IterateCorrelations": self.iterationsSubpixel.get(),
-    #             "-SizeOfPatchesXandY": ",".join(sizePatches),
-    #             "-PrealignmentTransformFile": xfFile,
-    #             "-ImagesAreBinned": 1,
-    #         }
-    # 
-    #         if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
-    #             patchesXY = self.overlapPatches.getListFromValues(caster=str)
-    #             paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
-    #         else:
-    #             numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
-    #             paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
-    # 
-    #         self.runProgram('tiltxcorr', paramsTiltXCorr)
-    # 
-    #     except Exception as e:
-    #         self.failedItems.append(tsId)
-    #         self.error(f'tiltxcorr execution failed for tsId {tsId} -> {e}')
+    def xcorrStep(self, tsId):
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
+            with self._lock:
+                ts = self.getCurrentItem(tsId)
+            angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            borders = self.pxTrim.getListFromValues(caster=str)
+            sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
+
+            paramsTiltXCorr = {
+                "-InputFile": ts.getFirstItem().getFileName(),
+                "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+                "-RotationAngle": self.acq.getTiltAxisAngle(),
+                "-TiltFile": angleFilePath,
+                "-FilterRadius2": self.filterRadius2.get(),
+                "-FilterSigma1": self.filterSigma1.get(),
+                "-FilterSigma2": self.filterSigma2.get(),
+                "-BordersInXandY": ",".join(borders),
+                "-IterateCorrelations": self.iterationsSubpixel.get(),
+                "-SizeOfPatchesXandY": ",".join(sizePatches),
+                "-PrealignmentTransformFile": xfFile,
+                "-ImagesAreBinned": 1,
+            }
+
+            if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
+                patchesXY = self.overlapPatches.getListFromValues(caster=str)
+                paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
+            else:
+                numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
+                paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
+
+            self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
+
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
+                         f'failed with the exception -> {e}')
 
     def chopcontsStep(self, tsId: str):
         if tsId not in self.failedItems:

@@ -32,6 +32,7 @@ import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol.constants import STEPS_SERIAL
 import pwem.objects as data
+from pyworkflow.utils import cyanStr
 from tomo.objects import SetOfTiltSeries
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
@@ -104,15 +105,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                                      tsId,
                                      needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
+        self._insertFunctionStep(self.closeOutputSetStep,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.initializeParsing()
         if self.regEx:
-            logger.info("Using regex pattern: '%s'" % self.regExPattern)
-            logger.info("Generated glob pattern: '%s'" % self.globPattern)
+            logger.info(cyanStr("Using regex pattern: '%s'" % self.regExPattern))
+            logger.info(cyanStr("Generated glob pattern: '%s'" % self.globPattern))
             self.iterFilesDict = self.getMatchingFilesFromRegEx()
         else:
             dictBaseNames = {}
@@ -126,14 +127,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
             self.iterFilesDict = dictBaseNames
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet() if ts.getTsId()
                        in self.iterFilesDict.keys()}  # Use only the ones that are not excluded with the excluded words
+        logger.info(cyanStr(f"Matching tsIds: {self.matchingTsIds}"))
 
     def generateTransformFileStep(self, tsId, matchBinningFactor):
         self.genTsPaths(tsId)
         ts = self.tsDict[tsId]
         tiNum = ts.getSize()
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        self.debug(f"Matching tsIds: {self.matchingTsIds}")
-
         tmFilePath = self.iterFilesDict.get(tsId, None)
         if tmFilePath:
             if matchBinningFactor != 1:
@@ -179,6 +179,14 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                          copyTM=False,
                          alignmentMatrix=alignmentMatrix,
                          isSemiStreamified=False)
+
+    def closeOutputSetStep(self):
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if not outTsSet:
+            raise Exception('No tilt-series was generated. Please '
+                            'check the Output Log > run.stdout and run.stderr')
+        self._closeOutputSet()
+
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

@@ -91,6 +91,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputSet())
 
+    def closeOutputSetsStep(self, attrib: str):
+        self._closeOutputSet()
+        outTsSet = getattr(self, attrib, None)
+        if not outTsSet:
+            raise Exception(f'No {attrib} were generated. Please '
+                            f'check the Output Log > run.stdout and run.stderr')
+
     @staticmethod
     def getTsCtfCommonAcqOrders(ts: Union[TiltSeries, None] = None,
                                 ctf: Union[CTFTomoSeries, None] = None,

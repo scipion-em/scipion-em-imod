@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,21 +23,19 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
+import logging
+from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.convert import genXfFile
-from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
+from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR, NEWSTACK_PROGRAM
 from pwem import ALIGN_NONE
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
-
-from imod import utils
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TS_INTERPOLATED_NAME)
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -55,7 +53,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
 
     _label = 'Apply transformation'
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
@@ -120,6 +118,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                              needsGPU=False)
             closeSetStepDeps.append(outId)
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TS_INTERPOLATED_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
@@ -130,57 +129,109 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 ts = self.getCurrentItem(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
-            genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
-
+            # Gen the xf alignment file
+            xFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            genXfFile(ts, xFile, ignoreExcludedViews=True)
+            # Get the excluded views indices
+            tsExcludedIndices = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            #Generate the command file for newstack
             paramsDict = self.getBasicNewstackParams(ts,
+                                                     firstItem.getFileName(),
                                                      self.getExtraOutFile(tsId),
-                                                     firstItem=firstItem,
-                                                     xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
+                                                     xfFile=xFile,
+                                                     tsExcludedIndices=tsExcludedIndices,
                                                      binning=self.binning.get(),
                                                      doSwap=True,
-                                                     tsExcludedIndices=ts.getExcludedViewsIndex(),
                                                      doTaper=True)
             paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
 
             if self.linear:
                 paramsDict["-linear"] = ""
 
-            self.runProgram("newstack", paramsDict)
+            self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
             if self.doOddEven:
                 paramsDict['-input'] = ts.getOddFileName()
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", paramsDict)
+                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
                 paramsDict['-input'] = ts.getEvenFileName()
                 paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", paramsDict)
+                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
+            logger.error(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
+                         f'failed with the exception -> {e}')
 
     def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-            else:
-                outputLocation = self.getExtraOutFile(tsId)
-                if os.path.exists(outputLocation):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                                   binning=self.binning.get(),
-                                                   attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                                   suffix="Interpolated",)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                outputFn = self.getExtraOutFile(tsId)
+                if exists(outputFn):
+                    angleMin = 999
+                    angleMax = -999
+                    accumDose = 0
+                    initialDose = 999
+                    tiList = []
+                    with self._lock:
+                        ts = self.getCurrentItem(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                                                         binning=self.binning.get(),
+                                                         attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                                         suffix="Interpolated", )
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        self.updateTiltSeries(outTs)
+                        outTsSet.append(outTs)
+                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                            if ti.isEnabled():
+                                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                                # these values may change if the removed tilt-images are the first or the last, for example.
+                                tiAngle = ti.getTiltAngle()
+                                angleMin = min(tiAngle, angleMin)
+                                angleMax = max(tiAngle, angleMax)
+                                accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+                                initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
 
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTsCallback=self.updateTs,
-                                     updateTiCallback=self.updateTi,
-                                     copyId=False,
-                                     copyTM=False,
-                                     excludedViews=ts.getExcludedViewsIndex())
+                                outTi = TiltImage()
+                                outTi.copyInfo(ti)
+                                outTi.setFileName(self.getExtraOutFile(tsId))
+                                outTi.getAcquisition().setTiltAxisAngle(0.)
+                                outTi.setTransform(None)
+                                tiList.append(outTi)
+
+                        if ts.hasExcludedViews():
+                            # Update the acquisition minAngle and maxAngle values of the tilt-series
+                            acq = outTs.getAcquisition()
+                            acq.setAngleMin(angleMin)
+                            acq.setAngleMax(angleMax)
+                            acq.setAccumDose(accumDose)
+                            acq.setDoseInitial(initialDose)
+                            outTs.setAcquisition(acq)
+                            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                            # specific accum and initial dose values
+                            for tiOut in tiList:
+                                tiAcq = tiOut.getAcquisition()
+                                tiAcq.setAngleMin(angleMin)
+                                tiAcq.setAngleMax(angleMax)
+                                tiOut.setAcquisition(tiAcq)
+                                outTs.append(tiOut)
+                            outTs.setAnglesCount(len(outTs))
+                        else:
+                            for tiOut in tiList:
+                                outTs.append(tiOut)
+
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
                 else:
-                    self.addToOutFailedSet(ts)
+                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -215,11 +266,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     @staticmethod
-    def updateTs(tsId, ts, tsOut, **kwargs):
+    def updateTiltSeries(tsOut: TiltSeries) -> None:
         tsOut.setInterpolated(True)
         tsOut.setAlignment(ALIGN_NONE)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        tiOut.getAcquisition().setTiltAxisAngle(0.)

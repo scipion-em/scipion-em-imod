@@ -139,6 +139,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
             if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetStep,
+                                         OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -283,13 +284,6 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel):
                     logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
             except Exception as e:
                 logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
-
-    def closeOutputSetStep(self):
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if not outTsSet:
-            raise Exception('No tilt-series was generated. Please '
-                            'check the Output Log > run.stdout and run.stderr')
-        self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
