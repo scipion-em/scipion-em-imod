@@ -172,7 +172,6 @@ def convertTxt2Fid(input_txt_file, output_fid_file):
     - chain is ethe chain number or object (0-indexed)
     """
     fiducials_by_chain = {}
-    print(input_txt_file)
     with open(input_txt_file, 'r') as f_in:
         for line in f_in:
             parts = line.strip().split()
@@ -215,12 +214,12 @@ def generateIMODFiducialTextFile(landmarkModel, outputFilePath):
 
     infoTable = landmarkModel.retrieveInfoTable()
     outputLines = []
-    print('.......................')
+
     for vector in infoTable:
-        print(vector)
+
         outputLines.append("\t%s\t%s\t%s\t%d\n" % (vector[3], vector[0],
                                                    int(float(vector[1])), int(float(vector[2])) - 1))
-    print('.......................')
+
     with open(outputFilePath, 'w') as f:
         f.writelines(outputLines)
 
