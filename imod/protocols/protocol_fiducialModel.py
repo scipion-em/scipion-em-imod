@@ -80,6 +80,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
         self._patchTrackingForm(form, 'typeOfModel == %i' % PATCH_TRACKING)
         self._fiducialSeedForm(form, 'typeOfModel == %i' % FIDUCIAL_MODEL)
+        form.addParallelSection(threads=2, mpi=0)
 
     def _patchTrackingForm(self, form, condition, levelType=params.LEVEL_NORMAL):
         patchtrack = form.addGroup('Patch Tracking',
@@ -263,18 +264,31 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
         self.genTsPaths(tsId)
         with self._lock:
             ts = self.getCurrentItem(tsId)
+            firstTi = ts.getFirstItem()
 
         # Generate the tlt file
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        genTltFile(ts,
-                   tltFile,
-                   ignoreExcludedViews=True)
+        genTltFile(ts, tltFile)
 
         # Generate the xf file
         xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-        genXfFile(ts,
-                  xfFile,
-                  ignoreExcludedViews=True)  # The programs involved on this protocols can exclude them themselves)
+        genXfFile(ts, xfFile)
+
+        # Re-stack if there are excluded views
+        if ts.hasExcludedViews():
+            rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+            doSwap = True if 45 < abs(rotationAngle) < 135 else False
+            self.runNewStackBasic(ts,
+                                  xfFile=xfFile,
+                                  doSwap=doSwap)
+            # If some views were excluded to generate the new stack,
+            # a new xfFile containing them should be generated
+            if ts.hasExcludedViews():
+                genXfFile(ts, xfFile, ignoreExcludedViews=False)
+
+        else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
 
     def generateFiducialSeedStep(self, tsId):
         try:
@@ -299,6 +313,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                 path.makePath(autofidseedDirPath)
                 path.moveTree("autofidseed.dir", autofidseedDirPath)
                 path.moveFile("autofidseed.info", self._getExtraPath(tsId))
+
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
@@ -336,7 +351,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
             sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
 
             paramsTiltXCorr = {
-                "-InputFile": ts.getFirstItem().getFileName(),
+                "-InputFile": self.getTmpOutFile(tsId),
                 "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
                 "-RotationAngle": self.acq.getTiltAxisAngle(),
                 "-TiltFile": angleFilePath,
@@ -479,7 +494,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
             ts = self.getCurrentItem(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
         paramsDict = {
-            'imageFile': ts.getFirstItem().getFileName(),
+            'imageFile': self.getTmpOutFile(tsId),
             'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
             'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
@@ -573,10 +588,10 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         if self.refineSobelFilter:
             template += "\nSobelFilterCentering"
             template += "\nScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
-
-        if ts.hasExcludedViews():
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            template += f"\nSkipViews {','.join(map(str, excludedViews))}"
+        #
+        # if ts.hasExcludedViews():
+        #     excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+        #     template += f"\nSkipViews {','.join(map(str, excludedViews))}"
 
         if hasAlignment:
             XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
