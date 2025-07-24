@@ -237,6 +237,23 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsDoseFiltered
 
     @classmethod
+    def _runFiducialEraser(cls, inTsSet, fidDiameter, erasedDiameter, excludedViews=None):
+
+        fidEraserMsg = f'fiducials of {fidDiameter} nm'
+        excludedViewsMsg = 'eV' if excludedViews else None
+        print(magentaStr(f"\n==> Running the fiducial eraser with {fidEraserMsg}:"
+                         f"\n\tExcluded views = {excludedViews is not None}"))
+        protFiducialEraser = cls.newProtocol(ProtImodFiducialEraser,
+                                         inputSetOfTiltSeries=inTsSet,
+                                         fidDiameter=fidDiameter,
+                                         erasedDiameter=erasedDiameter)
+
+        protFiducialEraser.setObjLabel(f'{fidEraserMsg}, {excludedViewsMsg}')
+        cls.launchProtocol(protFiducialEraser)
+        tsFidFiltered = getattr(protFiducialEraser, OUTPUT_TILTSERIES_NAME, None)
+        return tsFidFiltered
+
+    @classmethod
     def _runImportTrMatrix(cls, inTsSet, binningTM=1, binningTS=1,
                            filesPattern=DataSetRe4STATuto.transformPattern.value,
                            exclusionWords=None):
@@ -684,6 +701,37 @@ class TestImodDoseFilter(TestImodBase):
         tsDoseFilterred = self._runDoseFilter(importedTs, fixedDose=SCIPION_IMPORT)
         # Check the results
         self._checkTiltSeries(tsDoseFilterred, excludedViewsDict=self.excludedViewsDict)
+
+
+class TestImodFiducialEraser(TestImodBase):
+
+    def _checkTiltSeries(self, inTsSet, excludedViewsDict=None):
+        self.checkTiltSeries(inTsSet,
+                             expectedSetSize=self.expectedTsSetSize,
+                             expectedSRate=self.unbinnedSRate,
+                             imported=True,
+                             expectedDimensions=self._getExpectedDimsDict(),
+                             testAcqObj=self.testAcqObjDict,
+                             anglesCount=self.anglesCountDict,
+                             isHeterogeneousSet=True,
+                             expectedOrigin=tsOriginAngst,
+                             excludedViewsDict=excludedViewsDict)
+
+    def testFiducialEraser01(self):
+        tsFiducialErased = self._runFiducialEraser(self.importedTs, fidDiameter=10, erasedDiameter=15)
+        self._checkTiltSeries(tsFiducialErased)
+
+    def testFiducialEraser02(self):
+        importedTs = self._runImportTs()
+        # Exclude some views at metadata level
+        self._excludeSetViews(importedTs)
+        # Run the protocol
+        tsXRayErased = self._runFiducialEraser(importedTs,
+                                               fidDiameter=10.0,
+                                               erasedDiameter=15.0,
+                                               excludedViews=True)
+        # Check the results
+        self._checkTiltSeries(tsXRayErased, excludedViewsDict=self.excludedViewsDict)
 
 
 class TestImodTsPreprocess(TestImodBase):
