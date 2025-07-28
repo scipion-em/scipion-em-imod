@@ -109,7 +109,13 @@ class ImodObjectView(pwviewer.CommandView):
                 outputFile = os.path.join(tmpPath, '%s_bin_%s.mrc' % (tsId, binningstr))
                 if not os.path.exists(outputFile):
                     excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                    paramsNewstack = protocol.getBasicNewstackParams(ts, outputFile,
+                    try:
+                        from pwem import Domain
+                        imodProtBase = Domain.importFromPlugin('imod.protocols.protocol_base', doRaise=True)
+                    except Exception as e:
+                        raise Exception("Error loading the Imod plugin. Verify it is installed.")
+
+                    paramsNewstack = imodProtBase.ProtImodBase.getBasicNewstackParams(ts, outputFile,
                                                                      firstItem=obj.getFirstItem(),
                                                                      xfFile=xfFile,
                                                                      doSwap=True,

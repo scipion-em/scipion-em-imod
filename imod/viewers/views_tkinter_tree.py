@@ -354,26 +354,27 @@ class ImodListDialog(ListDialog):
                     image = imgStk.thumbnailSlice(np.array(pilImg),
                                                   int(imgW * ratio),
                                                   int(imgH * ratio))
-                rot = None
-                shifts = None
+                if self.displayInterpolated.get():
+                    rot = None
+                    shifts = None
 
-                if ti.hasTransform():
-                    transf = ti.getTransform()
-                    _, _, rot = transf.getEulerAngles()
-                    rot = np.rad2deg(-rot)
-                    mlist = transf.getMatrixAsList()
-                    shifts = mlist[2], mlist[5]
+                    if ti.hasTransform():
+                        transf = ti.getTransform()
+                        _, _, rot = transf.getEulerAngles()
+                        rot = np.rad2deg(-rot)
+                        mlist = transf.getMatrixAsList()
+                        shifts = mlist[2], mlist[5]
 
-                if rot is not None:
-                    shiftX = shifts[0] * ratio
-                    shiftY = shifts[1] * ratio
-                    image = imgStk.transformSlice(image, (shiftX, shiftY), rot)
-                    image = imgStk.thumbnailSlice(image,
-                                                  THUMBNAIL_SIZE,
-                                                  THUMBNAIL_SIZE)
-                    imgH, imgW = image.shape[:2]
-                    x = (self.canvasWidth - imgW) // 2
-                    y = (self.canvasHeight - imgH) // 2
+                    if rot is not None:
+                        shiftX = shifts[0] * ratio
+                        shiftY = shifts[1] * ratio
+                        image = imgStk.transformSlice(image, (shiftX, shiftY), rot)
+                        image = imgStk.thumbnailSlice(image,
+                                                      THUMBNAIL_SIZE,
+                                                      THUMBNAIL_SIZE)
+                        imgH, imgW = image.shape[:2]
+                        x = (self.canvasWidth - imgW) // 2
+                        y = (self.canvasHeight - imgH) // 2
 
                 image = imgStk.flipSlice(image)
                 pilImg = Image.fromarray(image)
@@ -402,8 +403,12 @@ class ImodListDialog(ListDialog):
         self.displayInterpolated = tk.BooleanVar()
         self.displayInterpolated.set(True)
         self.applyAlignmentsCheckButton = tk.Checkbutton(self.searchBoxframe, font=gui.getDefaultFont(),
-                                                         variable=self.displayInterpolated)
+                                                         variable=self.displayInterpolated,
+                                                         command=self._onApplyAlignmentsToggled)
         self.applyAlignmentsCheckButton.grid(row=0, column=5, sticky='nw', padx=1)
+
+    def _onApplyAlignmentsToggled(self, e=None):
+        self._onItemSelected(e)
 
     def _addButton(self, frame, text, image, command, sticky='news',
                    state=tk.NORMAL):
@@ -435,9 +440,12 @@ class ImodListDialog(ListDialog):
             textInfo = 'Interpolating the tiltserie...'
         self.info(textInfo)
         self.update_idletasks()
-        ImodObjectView(obj, protocol=prot, binning=self.binningVar.get(), setOfObjs=self.provider.objs,
-                       displayInterpolated=self.displayInterpolated.get()).show()
-        self.info('')
+        try:
+            ImodObjectView(obj, protocol=prot, binning=self.binningVar.get(), setOfObjs=self.provider.objs,
+                           displayInterpolated=self.displayInterpolated.get()).show()
+            self.info('')
+        except Exception as e:
+            self.info(e)
 
     def cancel(self, event=None):
         """Clean tmp folder anc close the viewer"""
