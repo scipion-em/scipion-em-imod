@@ -270,18 +270,23 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
         genTltFile(ts, tltFile, ignoreExcludedViews=True)
 
-        # Generate the xf file
-        xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-        genXfFile(ts, xfFile, ignoreExcludedViews=True)
+        # Generate the xf file and use it if there is alignment in the metadata
+        if firstTi.hasTransform():
+            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+            genXfFile(ts, xfFile, ignoreExcludedViews=True)
+            self.runNewStackBasic(ts, xfFile=xfFile)
+        else:  # Link it, so the input file expected is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
 
-        # TODO: apply alignment
+
 
         # Re-stack if there are excluded views
         # if ts.hasExcludedViews():
         # rotationAngle = ts.getAcquisition().getTiltAxisAngle()
         # doSwap = True if 45 < abs(rotationAngle) < 135 else False
-        self.runNewStackBasic(ts,
-                              xfFile=xfFile)
+        # self.runNewStackBasic(ts,
+        #                       xfFile=xfFile)
                               # doSwap=doSwap)
             # # If some views were excluded to generate the new stack,
             # # a new xfFile containing them should be generated
