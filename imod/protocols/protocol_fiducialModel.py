@@ -268,27 +268,29 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
         # Generate the tlt file
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        genTltFile(ts, tltFile)
+        genTltFile(ts, tltFile, ignoreExcludedViews=True)
 
         # Generate the xf file
         xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-        genXfFile(ts, xfFile)
+        genXfFile(ts, xfFile, ignoreExcludedViews=True)
+
+        # TODO: apply alignment
 
         # Re-stack if there are excluded views
-        if ts.hasExcludedViews():
-            rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-            doSwap = True if 45 < abs(rotationAngle) < 135 else False
-            self.runNewStackBasic(ts,
-                                  xfFile=xfFile,
-                                  doSwap=doSwap)
-            # If some views were excluded to generate the new stack,
-            # a new xfFile containing them should be generated
-            if ts.hasExcludedViews():
-                genXfFile(ts, xfFile, ignoreExcludedViews=False)
+        # if ts.hasExcludedViews():
+        # rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+        # doSwap = True if 45 < abs(rotationAngle) < 135 else False
+        self.runNewStackBasic(ts,
+                              xfFile=xfFile)
+                              # doSwap=doSwap)
+            # # If some views were excluded to generate the new stack,
+            # # a new xfFile containing them should be generated
+            # if ts.hasExcludedViews():
+            #     genXfFile(ts, xfFile, ignoreExcludedViews=False)
 
-        else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
+        # else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
+        #     outTsFn, _, _ = self.getTmpFileNames(ts)
+        #     self.linkTs(firstTi.getFileName(), outTsFn)
 
     def generateFiducialSeedStep(self, tsId):
         try:
