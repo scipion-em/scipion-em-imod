@@ -39,7 +39,7 @@ from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
 from pyworkflow.utils import Message, cyanStr
-from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
+from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel, TiltImage
 
 logger = logging.getLogger(__name__)
 
@@ -265,37 +265,34 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
         with self._lock:
             ts = self.getCurrentItem(tsId)
             firstTi = ts.getFirstItem()
-
-        # Generate the tlt file
+        # Generate the xf file. The behavior will be different if there is
+        # alignment information present in the metadata and if there are excluded views.
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        genTltFile(ts, tltFile, ignoreExcludedViews=True)
-
-        # Generate the xf file and use it if there is alignment in the metadata
-        if firstTi.hasTransform():
-            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-            genXfFile(ts, xfFile, ignoreExcludedViews=True)
-            self.runNewStackBasic(ts, xfFile=xfFile)
-        else:  # Link it, so the input file expected is in the same place in both sides of the "if"
+        hasExcludedViews = ts.hasExcludedViews()
+        hasAlignment = firstTi.hasTransform()
+        ignoreExcludedViews = False if hasExcludedViews else True
+        if not hasAlignment and not hasExcludedViews:
+             # Link it, so the input file expected is in the same place in both sides of the "if"
             outTsFn, _, _ = self.getTmpFileNames(ts)
             self.linkTs(firstTi.getFileName(), outTsFn)
+        else:
+            xfFile = None
+            if hasAlignment:
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                # The xf file must contain all thw views to interpolate and re-stack
+                genXfFile(ts, xfFile, ignoreExcludedViews=True)
+                self.runNewStackBasic(ts,
+                                      xfFile=xfFile,
+                                      ignoreExcludedViews=ignoreExcludedViews)
+                # After that, for the following programs, a new xfFile without the
+                # excluded views must be generated
+                genXfFile(ts, xfFile)
+            else:
+                # Only re-stack
+                self.runNewStackBasic(ts, xfFile=xfFile)
 
-
-
-        # Re-stack if there are excluded views
-        # if ts.hasExcludedViews():
-        # rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-        # doSwap = True if 45 < abs(rotationAngle) < 135 else False
-        # self.runNewStackBasic(ts,
-        #                       xfFile=xfFile)
-                              # doSwap=doSwap)
-            # # If some views were excluded to generate the new stack,
-            # # a new xfFile containing them should be generated
-            # if ts.hasExcludedViews():
-            #     genXfFile(ts, xfFile, ignoreExcludedViews=False)
-
-        # else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
-        #     outTsFn, _, _ = self.getTmpFileNames(ts)
-        #     self.linkTs(firstTi.getFileName(), outTsFn)
+        # Generate the tlt file
+        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
 
     def generateFiducialSeedStep(self, tsId):
         try:
@@ -430,9 +427,14 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                     with self._lock:
                         ts = self.getCurrentItem(tsId)
                         output = self.getOutputFiducialModel(self.getInputSet(pointer=True),
-                                                             attrName=OUTPUT_FIDUCIAL_GAPS_NAME, suffix="Gaps")
-                        landmarkModelGapsFilePath = self.getExtraOutFile(tsId, suffix='gaps', ext=SFID_EXT)
-                        fiducialModelGapTxtPath = self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
+                                                             attrName=OUTPUT_FIDUCIAL_GAPS_NAME,
+                                                             suffix="Gaps")
+                        landmarkModelGapsFilePath = self.getExtraOutFile(tsId,
+                                                                         suffix='gaps',
+                                                                         ext=SFID_EXT)
+                        fiducialModelGapTxtPath = self.getExtraOutFile(tsId,
+                                                                       suffix="gaps_fid",
+                                                                       ext=TXT_EXT)
 
                         fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
                         fiducialDiameter = self.fiducialDiameter.get() * 10  # From nm to angstroms
