@@ -639,7 +639,7 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
 
         paramsBeadtrack = {
-            "-ImageFile": ts.getFirstItem().getFileName(),
+            "-ImageFile": self.getTmpOutFile(tsId),
             "-InputSeedModel": self.getExtraOutFile(tsId, ext=SEED_EXT),
             "-OutputModel": self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
             "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
