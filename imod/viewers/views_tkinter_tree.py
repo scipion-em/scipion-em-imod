@@ -354,7 +354,7 @@ class ImodListDialog(ListDialog):
                     image = imgStk.thumbnailSlice(np.array(pilImg),
                                                   int(imgW * ratio),
                                                   int(imgH * ratio))
-                if self.displayInterpolated.get():
+                if hasattr(self, 'displayInterpolated') and self.displayInterpolated.get():
                     rot = None
                     shifts = None
 
