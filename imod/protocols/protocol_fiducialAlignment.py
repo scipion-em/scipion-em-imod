@@ -359,7 +359,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
             # Excluded views
             excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
             if excludedViews:
-                paramsTiltAlign["-SkipViews"] = ",".join(map(str, excludedViews))
+                paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
 
             self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
             self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},

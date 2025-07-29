@@ -261,6 +261,32 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
+    def convertInputStep(self, tsId: str):
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            firstTi = ts.getFirstItem()
+        # Generate the xf file. The behavior will be different if there is
+        # alignment information present in the metadata and if there are excluded views.
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        hasExcludedViews = ts.hasExcludedViews()
+        hasAlignment = firstTi.hasTransform()
+        ignoreExcludedViews = True  # The programs that are used in the protocols that use this convert can exclude the
+        # views directly by themselves, so no view exclusion is required here
+        if not hasAlignment and not hasExcludedViews:
+             # Link it, so the input file expected is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
+        else:
+            xfFile = None
+            if hasAlignment:
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                # The xf file must contain all thw views to interpolate and re-stack
+                genXfFile(ts, xfFile, ignoreExcludedViews=ignoreExcludedViews)
+            self.runNewStackBasic(ts, xfFile=xfFile, ignoreExcludedViews=ignoreExcludedViews)
+        # Generate the tlt file
+        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
+
     def generateFiducialSeedStep(self, tsId):
         try:
             logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
@@ -374,7 +400,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
                 paramsGapModel2Point = {
                     "-InputFile": gapsFidFile,
-                    "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT)
+                    "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT),
                 }
                 self.runProgram(MODEL2POINT_PROGRAM, paramsGapModel2Point)
             except Exception as e:
@@ -418,10 +444,10 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                         chainId = 0
 
                         for index, fiducial in enumerate(fiducialGapList):
-                            if int(fiducial[2]) <= prevTiltIm:
+                            if fiducial[2] <= prevTiltIm:
                                 chainId += 1
 
-                            prevTiltIm = int(fiducial[2])
+                            prevTiltIm = fiducial[2]
 
                             landmarkModelGaps.addLandmark(xCoor=fiducial[0],
                                                           yCoor=fiducial[1],

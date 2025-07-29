@@ -28,7 +28,7 @@ import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile
+from imod.convert import readXfFile, genXfFile, genTltFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
@@ -38,7 +38,7 @@ from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+                            OUTPUT_TS_INTERPOLATED_NAME, XF_EXT)
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +170,32 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, 
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self, tsId: str):
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentItem(tsId)
+            firstTi = ts.getFirstItem()
+        # Generate the xf file. The behavior will be different if there is
+        # alignment information present in the metadata and if there are excluded views.
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        hasExcludedViews = ts.hasExcludedViews()
+        hasAlignment = firstTi.hasTransform()
+        ignoreExcludedViews = True  # The programs that are used in the protocols that use this convert can exclude the
+        # views directly by themselves, so no view exclusion is required here
+        if not hasAlignment and not hasExcludedViews:
+             # Link it, so the input file expected is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
+        else:
+            xfFile = None
+            if hasAlignment:
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                # The xf file must contain all thw views to interpolate and re-stack
+                genXfFile(ts, xfFile, ignoreExcludedViews=ignoreExcludedViews)
+            self.runNewStackBasic(ts, xfFile=xfFile, ignoreExcludedViews=ignoreExcludedViews)
+        # Generate the tlt file
+        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
+
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
