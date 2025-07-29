@@ -27,6 +27,8 @@ import csv
 import logging
 from typing import List
 
+import numpy as np
+
 from pyworkflow.utils import cyanStr
 from tomo.objects import TiltSeries, TiltImage
 
@@ -53,25 +55,16 @@ def genXfFile(ts: TiltSeries,
     """
     logger.info(cyanStr(f"tsId = {ts.getTsId()} -> Generating the transformation xf file {outXfName}..."))
     if ignoreExcludedViews:
-        tsMatrixList = [_formatMatrix(ti) for ti in ts]
+        tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts]
     else:
         presentAcqOrders = ts.getTsPresentAcqOrders()
-        tsMatrixList = [_formatMatrix(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
-
-    # if presentAcqOrders:
-    #     tsMatrixList = [_formatMatrix(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
-    # else:
-    #     tsMatrixList = []
-    #     for ti in ts:
-    #         if not ignoreExcludedViews and not ti.isEnabled():
-    #             continue
-    #         tsMatrixList.append(_formatMatrix(ti))
+        tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
 
     with open(outXfName, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')
         csvW.writerows(tsMatrixList)
 
-def _formatMatrix(tiltImage: TiltImage) -> List[str]:
+def _tiMatrixToXfFormat(tiltImage: TiltImage) -> List[str]:
     transform = tiltImage.getTransform().getMatrix().flatten()
     transformIMOD = ['%.7f' % transform[0],
                      '%.7f' % transform[1],
@@ -80,3 +73,26 @@ def _formatMatrix(tiltImage: TiltImage) -> List[str]:
                      "{:>6}".format('%.3g' % transform[2]),
                      "{:>6}".format('%.3g' % transform[5])]
     return transformIMOD
+
+
+def readXfFile(xfFile) -> np.ndarray:
+    """ This method takes an IMOD-based transformation matrix file (.xf) path and
+    returns a 3D matrix containing the transformation matrices for
+    each tilt-image belonging to the tilt-series. """
+
+    matrix = np.loadtxt(xfFile, dtype=float, comments='#')
+    numberLines = matrix.shape[0]
+    frameMatrix = np.empty([3, 3, numberLines])
+
+    for row in range(numberLines):
+        frameMatrix[0, 0, row] = matrix[row][0]
+        frameMatrix[1, 0, row] = matrix[row][2]
+        frameMatrix[0, 1, row] = matrix[row][1]
+        frameMatrix[1, 1, row] = matrix[row][3]
+        frameMatrix[0, 2, row] = matrix[row][4]
+        frameMatrix[1, 2, row] = matrix[row][5]
+        frameMatrix[2, 0, row] = 0.0
+        frameMatrix[2, 1, row] = 0.0
+        frameMatrix[2, 2, row] = 1.0
+
+    return frameMatrix

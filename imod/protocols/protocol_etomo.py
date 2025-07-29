@@ -31,6 +31,7 @@ import numpy as np
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
+from imod.convert import readXfFile
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pyworkflow.object import Set
 import pyworkflow.utils as pwutils
@@ -339,7 +340,7 @@ class ProtImodEtomo(ProtImodBase):
                 self.debug(f"Excluding views for align: {excludedViewList}")
 
                 tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-                newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
+                newTransformationMatricesList = readXfFile(tmFilePath)
 
                 if self.applyAlignment:
                     # input TS were interpolated during the convertInputStep,

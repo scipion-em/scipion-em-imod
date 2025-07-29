@@ -94,9 +94,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def closeOutputSetsStep(self, attrib: str):
         self._closeOutputSet()
         outTsSet = getattr(self, attrib, None)
-        if not outTsSet:
-            raise Exception(f'No {attrib} were generated. Please '
-                            f'check the Output Log > run.stdout and run.stderr')
+        if not outTsSet or (outTsSet and len(outTsSet) == 0):
+            raise Exception(f'No {attrib} were generated. Please check the '
+                            f'Output Log > run.stdout and run.stderr')
 
     @staticmethod
     def getTsCtfCommonAcqOrders(ts: Union[TiltSeries, None] = None,
@@ -486,8 +486,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTiltSeries.get() if not pointer else self.inputSetOfTiltSeries
+    def getInputSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
+        tsPointer = getattr(self, IN_TS_SET)
+        return tsPointer if pointer else tsPointer.get()
 
     def getCurrentItem(self, tsId: str) -> TiltSeries:
         return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)

@@ -28,17 +28,17 @@ import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
-from imod.convert import genXfFile, genTltFile
+from imod.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
+from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem.objects import Transform
 from pyworkflow.protocol import ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
-from imod import utils
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME, XF_EXT)
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ TILT_XCORR_PROGRAM = 'tiltxcorr'
 XFTOXG_PROGRM = 'xftoxg'
 
 
-class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtStreamingBase):
+class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, ProtStreamingBase):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
@@ -170,34 +170,6 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId, **kwargs):
-        self.genTsPaths(tsId)
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            firstTi = ts.getFirstItem()
-
-        # Generate the tlt file
-        tltFile = self.getExtraOutFile(ts.getTsId(), ext=TLT_EXT)
-        genTltFile(ts,
-                   tltFile,
-                   ignoreExcludedViews=True)  # The xcorr program can exclude them itself
-
-        if firstTi.hasTransform():  # Apply a previous alignment if it exists
-            logger.info(cyanStr(f'tsId = {tsId} -> Previous alignment detected. Applying...'))
-            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-            genXfFile(ts,
-                      xfFile,
-                      ignoreExcludedViews=True)  # The xcorr program can exclude them itself
-            doSwap = True  # A transformation will be applied
-            self.runNewStackBasic(ts,
-                                  xfFile=xfFile,
-                                  doSwap=doSwap,
-                                  ignoreExcludedViews=True)  # The xcorr program can exclude them itself
-
-        else:  # Link it, so the input file expected by xcorr is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
@@ -259,28 +231,39 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtStreamingBase):
                 if exists(outputFn):
                     with self._lock:
                         ts = self.getCurrentItem(tsId)
-                        tAx = self.tiltAxisAngle.get()
-                        aliMatrixStack = utils.formatTransformationMatrix(outputFn)
-                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                        tAx = self.getTiltAxisOrientation(ts)
+                        aliMatrixStack = readXfFile(outputFn)
+                        inTsSetPointer = self.getInputSet(pointer=True)
+                        # Set of tilt-series
+                        outTsSet = self.getOutputSetOfTS(inTsSetPointer,
                                                          tiltAxisAngle=tAx)
+                        # Tilt-series
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
                         outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
                         outTs.setAlignment2D()
                         outTsSet.append(outTs)
+                        # Tilt-images
+                        stackIndex = 0
                         for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
                             outTi = TiltImage()
                             outTi.copyInfo(ti)
                             if ti.isEnabled():
-                                stackIndex = ti.getIndex() - 1
                                 self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
+                                stackIndex += 1
                             else:
                                 self.updateDisabledTi(outTi)
                             outTs.append(outTi)
+                        # Data persistence
                         outTs.write()
                         outTsSet.update(outTs)
                         outTsSet.write()
                         self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
                     logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
             except Exception as e:

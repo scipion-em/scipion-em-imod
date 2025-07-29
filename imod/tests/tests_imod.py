@@ -415,26 +415,20 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsAli, tsInterp, fiducialModels
 
     @classmethod
-    def _runBRT(cls, inTsSet, alignMode=None, genInterp=False, interpBinFactor=-1, eV=False, objLabel=None):
+    def _runBRT(cls, inTsSet, alignMode=None, eV=False, objLabel=None) -> SetOfTiltSeries:
         aliModeStr = 'patch tracking' if alignMode == PATCH_TRACKING else 'fiducial'
-        msg = (f"\n==> Running the TS {aliModeStr} alignment (Batch run tomo):"
-               f"\n\t- Generate the interpolated TS = {genInterp}")
-        if genInterp:
-            msg += f"\n\t- Interpolated TS binning factor = {interpBinFactor}"
+        msg = f"\n==> Running the TS {aliModeStr} alignment (Batch run tomo)"
         if eV:
             msg += '\n\t- Some views were excluded'
         print(magentaStr(msg))
         protBRT = cls.newProtocol(ProtImodBRT,
                                   inputSetOfTiltSeries=inTsSet,
-                                  alignMode=alignMode,
-                                  computeAlignment=genInterp,
-                                  binning=interpBinFactor)
+                                  alignMode=alignMode)
         if objLabel:
             protBRT.setObjLabel(objLabel)
         cls.launchProtocol(protBRT)
         tsAli = getattr(protBRT, OUTPUT_TILTSERIES_NAME, None)
-        tsInterp = getattr(protBRT, OUTPUT_TS_INTERPOLATED_NAME, None)
-        return tsAli, tsInterp
+        return tsAli
 
     @classmethod
     def _runTomoRec(cls, inTsSet, tomoThickness=-1, tomoWidth=0, tomoShiftX=0, tomoShiftZ=0, superSampleFactor=2,
@@ -1145,83 +1139,41 @@ class TestImodTsAlignmentBRT(TestImodBase):
     binningFactor = 4
 
     def testBRT_FiduAli_01(self):
-        tsAli, tsInterp = self._runBRT(self.importedTs,
-                                       alignMode=FIDUCIAL_MODEL,
-                                       genInterp=False,
-                                       objLabel='testBRT_FiduAli_01')
+        tsAli = self._runBRT(self.importedTs,
+                             alignMode=FIDUCIAL_MODEL,
+                             objLabel='testBRT_FiduAli_01')
         # Check the generated TS
         self._checkTiltSeries(tsAli)
-        # Check the interpolated TS
-        self.assertIsNone(tsInterp)
 
-    def testBRT_FiduAli_02(self):
-        tsAli, tsInterp = self._runBRT(self.importedTs,
-                                       alignMode=FIDUCIAL_MODEL,
-                                       genInterp=True,
-                                       interpBinFactor=self.binningFactor,
-                                       objLabel='testBRT_FiduAli_02')
-        # Check the generated TS
-        self._checkTiltSeries(tsAli)
-        # Check the interpolated TS
-        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
-
-    def testBRT_FiduAli_02_eV(self):
+    def testBRT_FiduAli_01_eV(self):
         importedTs = self._runImportTs()
         # Exclude some views at metadata level and commpute the fiducial models using them
         self._excludeSetViews(importedTs)
         # Run the protocol
-        tsAli, tsInterp = self._runBRT(importedTs,
-                                       alignMode=FIDUCIAL_MODEL,
-                                       genInterp=True,
-                                       interpBinFactor=self.binningFactor,
-                                       eV=True,
-                                       objLabel='testBRT_FiduAli_02, eV')
+        tsAli = self._runBRT(importedTs,
+                             alignMode=FIDUCIAL_MODEL,
+                             eV=True,
+                             objLabel='testBRT_FiduAli_01, eV')
         # Check the generated TS
         self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
-        # Check the interpolated TS
-        self._checkInterpTiltSeries(tsInterp,
-                                    self._gentestAcqObjDictReStacked(isInterp=True),
-                                    self.anglesCountDictExcluded,
-                                    binningFactor=self.binningFactor)
 
     def testBRT_PTAli_01(self):
-        tsAli, tsInterp = self._runBRT(self.importedTs,
-                                       alignMode=PATCH_TRACKING,
-                                       genInterp=False,
-                                       objLabel='testBRT_PTAli_01')
+        tsAli = self._runBRT(self.importedTs,
+                             alignMode=PATCH_TRACKING,
+                             objLabel='testBRT_PTAli_01')
         # Check the generated TS
         self._checkTiltSeries(tsAli)
-        # Check the interpolated TS
-        self.assertIsNone(tsInterp)
-
-    def testBRT_PTAli_02(self):
-        tsAli, tsInterp = self._runBRT(self.importedTs,
-                                       alignMode=PATCH_TRACKING,
-                                       genInterp=True,
-                                       interpBinFactor=self.binningFactor,
-                                       objLabel='testBRT_PTAli_02')
-        # Check the generated TS
-        self._checkTiltSeries(tsAli)
-        # Check the interpolated TS
-        self._checkInterpTiltSeries(tsInterp, binningFactor=self.binningFactor)
 
     def testBRT_PTAli_02_eV(self):
         importedTs = self._runImportTs()
         # Exclude some views at metadata level and commpute the fiducial models using them
         self._excludeSetViews(importedTs)
-        tsAli, tsInterp = self._runBRT(importedTs,
-                                       alignMode=PATCH_TRACKING,
-                                       genInterp=True,
-                                       interpBinFactor=self.binningFactor,
-                                       eV=True,
-                                       objLabel='testBRT_PTAli_02, eV')
+        tsAli = self._runBRT(importedTs,
+                             alignMode=PATCH_TRACKING,
+                             eV=True,
+                             objLabel='testBRT_PTAli_02, eV')
         # Check the generated TS
         self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
-        # Check the interpolated TS
-        self._checkInterpTiltSeries(tsInterp,
-                                    self._gentestAcqObjDictReStacked(isInterp=True),
-                                    self.anglesCountDictExcluded,
-                                    binningFactor=self.binningFactor)
 
 
 class TestImodTomoReconstruction(TestImodBase):

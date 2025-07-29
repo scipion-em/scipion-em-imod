@@ -30,9 +30,11 @@ import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
+    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME, XF_EXT
+from imod.convert import genXfFile, genTltFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
@@ -49,17 +51,13 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     """
 
     _label = "teamtomo/batchruntomo"
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
-                        OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     _devStatus = BETA
     stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.inTsSetPointer = None
         self.tsReadList = []
-        self.isStreamified = True
-        self.isSemiStreamified = False
 
     @classmethod
     def worksInStreaming(cls):
@@ -94,8 +92,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
-        self._insertInterpTsParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def stepsGeneratorStep(self) -> None:
@@ -106,7 +103,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         """
         closeSetStepDeps = []
         inTsSet = self.getInputSet()
-        self.inTsSetPointer = self.getInputSet(pointer=True)  # Required in some super class methods
         self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
 
         while True:
@@ -114,6 +110,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -127,12 +124,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         predFidId = self._insertFunctionStep(self.runBRT, tsId,
                                                              prerequisites=cInputId,
                                                              needsGPU=False)
-                        interpId = self._insertFunctionStep(self.computeInterpTsStep,
-                                                            tsId,
-                                                            prerequisites=predFidId,
-                                                            needsGPU=False)
                         cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                          prerequisites=interpId,
+                                                          prerequisites=predFidId,
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
@@ -154,31 +147,20 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             Plugin.runBRT(self, args)
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tiltalign execution failed for tsId {tsId} -> {e}'))
+            logger.error(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}')
 
     def createOutputStep(self, tsId: str):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-                failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
-                if failedTs:
-                    failedTs.close()
-            else:
-                self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
-                self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
-                for outputName in self._possibleOutputs.keys():
-                    output = getattr(self, outputName, None)
-                    if output:
-                        output.close()
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                with self._lock:
+                    ts = self.getCurrentItem(tsId)
+                    self.createOutTs(ts)
 
-    def closeOutputSetsStep(self):
-        if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
-            raise Exception(f'{NO_TS_PROCESSED_MSG}. One possible cause may be '
-                            'the lack of the batchruntomo required conda environment '
-                            '(teamtomoBRT-VERSION). If that is the case, please consider to '
-                            'reínstall the plugin scipion-em-imod.')
-        self._closeOutputSet()
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self) -> typing.List[str]:
@@ -197,10 +179,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         return errorMsg
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
-        tsPointer = getattr(self, IN_TS_SET)
-        return tsPointer if pointer else tsPointer.get()
-
     def _getCommonCmd(self, ts: TiltSeries):
         tsId = ts.getTsId()
         cmd = [

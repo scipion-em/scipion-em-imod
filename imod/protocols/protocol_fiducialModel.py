@@ -38,8 +38,9 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
+from pyworkflow.protocol import ProtStreamingBase, STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr
-from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel, TiltImage
+from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ BEADTRACK_PROGRAM = 'beadtrack'
 MODEL2POINT_PROGRAM = 'model2point'
 IMODCHOPCONTS_PROGRAM = 'imodchopconts'
 
-class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
+class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -61,6 +62,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
     _label = 'Generate fiducial model'
     _possibleOutputs = {OUTPUT_FIDUCIAL_GAPS_NAME: SetOfLandmarkModels}
+    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -102,7 +104,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                             default=PT_FRACTIONAL_OVERLAP,
                             label='Patch layout',
                             display=params.EnumParam.DISPLAY_HLIST)
-        # TODO: # help='To be added')
 
         patchtrack.addParam('overlapPatches',
                             params.NumericListParam,
@@ -259,40 +260,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
         tsSet = self.getInputSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
-
-    def convertInputStep(self, tsId: str):
-        self.genTsPaths(tsId)
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            firstTi = ts.getFirstItem()
-        # Generate the xf file. The behavior will be different if there is
-        # alignment information present in the metadata and if there are excluded views.
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        hasExcludedViews = ts.hasExcludedViews()
-        hasAlignment = firstTi.hasTransform()
-        ignoreExcludedViews = False if hasExcludedViews else True
-        if not hasAlignment and not hasExcludedViews:
-             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-        else:
-            xfFile = None
-            if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile, ignoreExcludedViews=True)
-                self.runNewStackBasic(ts,
-                                      xfFile=xfFile,
-                                      ignoreExcludedViews=ignoreExcludedViews)
-                # After that, for the following programs, a new xfFile without the
-                # excluded views must be generated
-                genXfFile(ts, xfFile)
-            else:
-                # Only re-stack
-                self.runNewStackBasic(ts, xfFile=xfFile)
-
-        # Generate the tlt file
-        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
 
     def generateFiducialSeedStep(self, tsId):
         try:

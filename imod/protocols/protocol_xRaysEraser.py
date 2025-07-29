@@ -208,7 +208,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                                       needsGPU=False)
                     outId = self._insertFunctionStep(self.createOutputStep,
                                                      tsId,
-                                                     prerequisites=[compId],
+                                                     prerequisites=compId,
                                                      needsGPU=False)
                     closeSetStepDeps.append(outId)
                     logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
@@ -290,6 +290,11 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                         outTsSet.update(outTs)
                         outTsSet.write()
                         self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
                     logger.error(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... ')
             except Exception as e:

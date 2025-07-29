@@ -24,18 +24,15 @@
 # *
 # *****************************************************************************
 import logging
-import os
 import time
 from os.path import exists
-
 import pyworkflow.protocol.params as params
-from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltImage, TiltSeries
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME, XF_EXT
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +102,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -211,16 +209,15 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                         outTsSet.update(outTs)
                         outTsSet.write()
                         self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
                     logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
             except Exception as e:
                 logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
-
-    def closeOutputSetsStep(self):
-        if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
-            raise Exception('No tilt-series was generated. Please '
-                            'check the Output Log > run.stdout and run.stderr')
-        self._closeOutputSet()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

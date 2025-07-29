@@ -229,6 +229,11 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                         outTsSet.update(outTs)
                         outTsSet.write()
                         self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
                     logger.error(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... ')
             except Exception as e:

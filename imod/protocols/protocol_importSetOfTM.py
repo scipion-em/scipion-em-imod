@@ -29,6 +29,7 @@ import numpy as np
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from imod.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol.constants import STEPS_SERIAL
 import pwem.objects as data
@@ -137,7 +138,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         tmFilePath = self.iterFilesDict.get(tsId, None)
         if tmFilePath:
             if matchBinningFactor != 1:
-                inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
+                inputTransformMatrixList = readXfFile(tmFilePath)
                 # Update shifts from the transformation matrix considering
                 # the matching binning between the input tilt
                 # series and the transformation matrix. We create an empty
@@ -170,7 +171,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         ts = self.tsDict[tsId]
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
         output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-        alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
+        alignmentMatrix = readXfFile(outputTransformFile)
 
         self.copyTsItems(output, ts, tsId,
                          updateTsCallback=self.updateTs,

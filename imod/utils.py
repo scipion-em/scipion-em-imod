@@ -62,30 +62,6 @@ def formatTransformFileFromTransformList(transformMatrixList, transformFilePath)
         csvW = csv.writer(f, delimiter='\t')
         csvW.writerows(tsMatrixTransformList)
 
-
-def formatTransformationMatrix(matrixFile):
-    """ This method takes an IMOD-based transformation matrix file path and
-    returns a 3D matrix containing the transformation matrices for
-    each tilt-image belonging to the tilt-series. """
-
-    matrix = np.loadtxt(matrixFile, dtype=float, comments='#')
-    numberLines = matrix.shape[0]
-    frameMatrix = np.empty([3, 3, numberLines])
-
-    for row in range(numberLines):
-        frameMatrix[0, 0, row] = matrix[row][0]
-        frameMatrix[1, 0, row] = matrix[row][2]
-        frameMatrix[0, 1, row] = matrix[row][1]
-        frameMatrix[1, 1, row] = matrix[row][3]
-        frameMatrix[0, 2, row] = matrix[row][4]
-        frameMatrix[1, 2, row] = matrix[row][5]
-        frameMatrix[2, 0, row] = 0.0
-        frameMatrix[2, 1, row] = 0.0
-        frameMatrix[2, 2, row] = 1.0
-
-    return frameMatrix
-
-
 def formatFiducialList(fiducialFilePath):
     """ This method takes an IMOD-based fiducial model file path
     and returns a list containing the coordinates of each
