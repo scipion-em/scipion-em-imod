@@ -286,6 +286,7 @@ class ImodListDialog(ListDialog):
         else:
             self._addBinningBox()
             objs = self.provider.objs
+            self.displayInterpolated = tk.BooleanVar()
             if isinstance(objs, SetOfTiltSeries) and objs.hasAlignment():
                 self._addApplyAlignmentsOption()
 
@@ -400,7 +401,6 @@ class ImodListDialog(ListDialog):
     def _addApplyAlignmentsOption(self):
         label = tk.Label(self.searchBoxframe, text="Interpolated")
         label.grid(row=0, column=4, sticky='nw', padx=5)
-        self.displayInterpolated = tk.BooleanVar()
         self.displayInterpolated.set(True)
         self.applyAlignmentsCheckButton = tk.Checkbutton(self.searchBoxframe, font=gui.getDefaultFont(),
                                                          variable=self.displayInterpolated,
@@ -438,6 +438,8 @@ class ImodListDialog(ListDialog):
         textInfo = 'Openning with Imod...'
         if isinstance(obj, tomo.objects.TiltSeries) and obj.hasAlignment() and self.displayInterpolated.get():
             textInfo = 'Interpolating the tiltserie...'
+        else:
+            self.displayInterpolated.set(False)
         self.info(textInfo)
         self.update_idletasks()
         try:
