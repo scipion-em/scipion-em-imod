@@ -67,7 +67,7 @@ class ProtImodExcludeViews(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             tsId = ts.getTsId()
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
@@ -85,7 +85,7 @@ class ProtImodExcludeViews(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def excludeViewsStep(self, tsId):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
         tsFileName = ts.getFirstItem().getFileName()
         self.genTsPaths(tsId)
 
@@ -106,11 +106,11 @@ class ProtImodExcludeViews(ProtImodBase):
 
     def createOutputStep(self, tsId):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
             excludedViews = self.getExcludedViews(ts)
 
             with self._lock:
-                output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                output = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 if excludedViews:
                     self.copyTsItems(output, ts, tsId,
                                      updateTiCallback=self.updateTi,
@@ -132,7 +132,7 @@ class ProtImodExcludeViews(ProtImodBase):
         if self.TiltSeries:
             summary.append("Excluded views:\n")
 
-            tsInSet = self.getInputSet().iterItems(orderBy='_tsId')
+            tsInSet = self.getInputTsSet().iterItems(orderBy='_tsId')
             tsOutSet = self.TiltSeries.iterItems(orderBy='_tsId')
             for tsIn, tsOut in zip(tsInSet, tsOutSet):
                 summary.append(f"Tilt-series: {tsIn.getTsId()}; "

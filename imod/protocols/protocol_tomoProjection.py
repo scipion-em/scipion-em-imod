@@ -104,7 +104,7 @@ class ProtImodTomoProjection(ProtImodBase):
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         closeSetStepDeps = []
-        for tomo in self.getInputSet():
+        for tomo in self.getInputTsSet():
             tsId = tomo.getTsId()
             compId = self._insertFunctionStep(self.projectTomogram,
                                               tsId,
@@ -125,7 +125,7 @@ class ProtImodTomoProjection(ProtImodBase):
         try:
             self.genTsPaths(tsId)
             with self._lock:
-                tomo = self.getCurrentItem(tsId)
+                tomo = self.getCurrentTs(tsId)
 
             paramsXYZproj = {
                 '-input': tomo.getFileName(),
@@ -144,13 +144,13 @@ class ProtImodTomoProjection(ProtImodBase):
 
     def generateOutputStackStep(self, tsId):
         with self._lock:
-            tomo = self.getCurrentItem(tsId)
+            tomo = self.getCurrentTs(tsId)
             if tsId in self.failedItems:
                 self.addToOutFailedSet(tomo)
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                    output = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                     newTs = TiltSeries(tsId=tsId)
                     acq = tomo.getAcquisition()
                     acq.setAngleMin(self.minAngle.get())
@@ -206,7 +206,7 @@ class ProtImodTomoProjection(ProtImodBase):
         summary = []
         output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         if output is not None:
-            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tomograms: {self.getInputTsSet().getSize()}\n"
                            f"Tilt-series generated: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -222,7 +222,7 @@ class ProtImodTomoProjection(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
+    def getInputTsSet(self, pointer=False):
         return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getRotationAxis(self):

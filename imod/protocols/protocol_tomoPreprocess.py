@@ -86,7 +86,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
         closeSetStepDeps = []
 
-        for tomo in self.getInputSet():
+        for tomo in self.getInputTsSet():
             tsId = tomo.getTsId()
             compId = self._insertFunctionStep(self.preprocessStep,
                                               tsId,
@@ -111,7 +111,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         try:
             self.genTsPaths(tsId)
             with self._lock:
-                tomo = self.getCurrentItem(tsId)
+                tomo = self.getCurrentTs(tsId)
             tomoFn = tomo.getFileName()
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
@@ -195,11 +195,11 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     def generateOutputStep(self, tsId, runNewstack, binning):
         with self._lock:
-            tomo = self.getCurrentItem(tsId)
+            tomo = self.getCurrentTs(tsId)
             if tsId in self.failedItems:
                 self.addToOutFailedSet(tomo)
             else:
-                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
+                output = self.getOutputSetOfTomograms(self.getInputTsSet(pointer=True), binning)
                 newTomogram = Tomogram()
                 newTomogram.copyInfo(tomo)
 
@@ -230,7 +230,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     def _summary(self):
         summary = []
         if self.Tomograms:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Interpolations applied: {self.Tomograms.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -244,7 +244,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
+    def getInputTsSet(self, pointer=False):
         return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
 
     def getModeToOutput(self):

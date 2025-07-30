@@ -93,7 +93,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         """
         self._initialize()
         binning = self.binning.get()
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         self.readingOutput(inTsSet)
         closeSetStepDeps = []
 
@@ -137,7 +137,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         self.genTsPaths(tsId)
         outTsFn = self.getTmpOutFile(tsId)
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
             firstTi = ts.getFirstItem()
             # Make the link using the tsId instead of the original name prevent IMOD from
             # failing in case of strange characters or even numeric names
@@ -147,7 +147,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
         try:
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             norm = self.floatDensities.get()
             paramsDict = self.getBasicNewstackParams(ts,
                                                      self.getTmpOutFile(tsId),
@@ -191,8 +191,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                 outputFn = self.getExtraOutFile(tsId)
                 if exists(outputFn):
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True), binning)
+                        ts = self.getCurrentTs(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
                         outTsSet.append(outTs)
@@ -224,7 +224,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         summary = []
         output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         if output is not None:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")

@@ -195,7 +195,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         super()._initialize()
-        tsSet = self.getInputSet()
+        tsSet = self.getInputTsSet()
         self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
         self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
         # Manage the present and not present tsIds
@@ -269,7 +269,7 @@ class ProtImodCtfCorrection(ProtImodBase):
             else:
                 outputFn = self.getExtraOutFile(tsId)
                 if os.path.exists(outputFn):
-                    inTsSet = self.getInputSet(pointer=True)
+                    inTsSet = self.getInputTsSet(pointer=True)
                     outputSetOfTs = self.getOutputSetOfTS(inTsSet)
                     newTs = TiltSeries(tsId=tsId)
                     ts = self.tsDict[tsId]
@@ -348,7 +348,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnings = []
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             if not ts.hasAlignment():
                 warnings.append(f"Input tilt-series {ts.getTsId()} does not have "
                                 "alignment information! The recommended workflow is to "
@@ -362,7 +362,7 @@ class ProtImodCtfCorrection(ProtImodBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"CTF corrections applied: {self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")

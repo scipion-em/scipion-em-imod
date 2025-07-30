@@ -131,7 +131,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, 
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
@@ -170,38 +170,12 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, 
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId: str):
-        self.genTsPaths(tsId)
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            firstTi = ts.getFirstItem()
-        # Generate the xf file. The behavior will be different if there is
-        # alignment information present in the metadata and if there are excluded views.
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        hasExcludedViews = ts.hasExcludedViews()
-        hasAlignment = firstTi.hasTransform()
-        ignoreExcludedViews = True  # The programs that are used in the protocols that use this convert can exclude the
-        # views directly by themselves, so no view exclusion is required here
-        if not hasAlignment and not hasExcludedViews:
-             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-        else:
-            xfFile = None
-            if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile, ignoreExcludedViews=ignoreExcludedViews)
-            self.runNewStackBasic(ts, xfFile=xfFile, ignoreExcludedViews=ignoreExcludedViews)
-        # Generate the tlt file
-        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
-
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         try:
             logger.info(cyanStr(f'tsId = {tsId} -> Correcting the translations with {TILT_XCORR_PROGRAM}...'))
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
             paramsXcorr = {
@@ -256,10 +230,10 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, 
                 outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
                 if exists(outputFn):
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
+                        ts = self.getCurrentTs(tsId)
                         tAx = self.getTiltAxisOrientation(ts)
                         aliMatrixStack = readXfFile(outputFn)
-                        inTsSetPointer = self.getInputSet(pointer=True)
+                        inTsSetPointer = self.getInputTsSet(pointer=True)
                         # Set of tilt-series
                         outTsSet = self.getOutputSetOfTS(inTsSetPointer,
                                                          tiltAxisAngle=tAx)
@@ -299,7 +273,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, 
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices calculated: "
                            f"{self.TiltSeries.getSize()}")
 

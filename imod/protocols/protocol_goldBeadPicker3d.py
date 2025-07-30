@@ -128,7 +128,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputSet()}
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputTsSet()}
 
     def pickGoldBeadsStep(self, tsId):
         try:
@@ -171,8 +171,8 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 if os.path.exists(coordFilePath):
                     beadDiam = self.beadDiameter.get()
                     coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
-                    output = self.getOutputSetOfCoordinates3Ds(self.getInputSet(pointer=True),
-                                                               self.getInputSet())
+                    output = self.getOutputSetOfCoordinates3Ds(self.getInputTsSet(pointer=True),
+                                                               self.getInputTsSet())
                     output.setBoxSize(beadDiam)
 
                     for element in coordList:
@@ -195,12 +195,12 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
         if coords3D is not None:
-            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tomograms: {self.getInputTsSet().getSize()}\n"
                            "Output coordinates 3D: "
                            f"{coords3D.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
+    def getInputTsSet(self, pointer=False):
         return (self.inputSetOfTomograms.get() if
                 not pointer else self.inputSetOfTomograms)

@@ -106,7 +106,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             tsId = ts.getTsId()
             compId = self._insertFunctionStep(self.computeAlignmentStep,
                                               tsId,
@@ -126,7 +126,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def computeAlignmentStep(self, tsId):
         try:
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
             # Gen the xf alignment file
@@ -177,8 +177,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     initialDose = 999
                     tiList = []
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True),
+                        ts = self.getCurrentTs(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True),
                                                          binning=self.binning.get(),
                                                          attrName=OUTPUT_TS_INTERPOLATED_NAME,
                                                          suffix="Interpolated", )
@@ -237,7 +237,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def _validate(self):
         validateMsgs = []
 
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             if not ts.hasAlignment():
                 validateMsgs.append("Some tilt-series from the input set "
                                     "are missing a transformation matrix.")
@@ -249,7 +249,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         summary = []
         output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
         if output is not None:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")

@@ -185,7 +185,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
@@ -224,7 +224,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         try:
             logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             self.genTsPaths(tsId)
             paramsCcderaser = {
                 "-InputFile": ts.getFirstItem().getFileName(),
@@ -269,8 +269,8 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 outTsFile = self.getExtraOutFile(tsId)
                 if exists(outTsFile):
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                        ts = self.getCurrentTs(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
                         outTsSet.append(outTs)
@@ -304,7 +304,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "X-rays erased output tilt series: "
                            f"{self.TiltSeries.getSize()}")
         else:

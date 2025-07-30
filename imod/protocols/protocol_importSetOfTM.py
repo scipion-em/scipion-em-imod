@@ -126,7 +126,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                 dictBaseNames[fBaseName] = iFname
                 dictBaseNames[normalizeTSId(fBaseName)] = iFname
             self.iterFilesDict = dictBaseNames
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet() if ts.getTsId()
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputTsSet() if ts.getTsId()
                        in self.iterFilesDict.keys()}  # Use only the ones that are not excluded with the excluded words
         logger.info(cyanStr(f"Matching tsIds: {self.matchingTsIds}"))
 
@@ -170,7 +170,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def assignTransformationMatricesStep(self, tsId):
         ts = self.tsDict[tsId]
         outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+        output = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
         alignmentMatrix = readXfFile(outputTransformFile)
 
         self.copyTsItems(output, ts, tsId,
@@ -200,7 +200,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         else:
             matchingFiles = self.getMatchFiles()
             if matchingFiles:
-                tsIdList = self.getInputSet().getTSIds()
+                tsIdList = self.getInputTsSet().getTSIds()
                 tmFileList = [normalizeTSId(fn) for fn, _ in self.iterFiles()]
                 self.matchingTsIds = list(set(tsIdList) & set(tmFileList))
                 if not self.matchingTsIds:
@@ -218,7 +218,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices assigned: "
                            f"{self.TiltSeries.getSize()}")
         return summary

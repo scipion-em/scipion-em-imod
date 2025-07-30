@@ -197,7 +197,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         outTsSet = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         self.readingOutput(outTsSet)
 
@@ -257,35 +257,9 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        tsSet = self.getInputSet()
+        tsSet = self.getInputTsSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
-
-    def convertInputStep(self, tsId: str):
-        self.genTsPaths(tsId)
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            firstTi = ts.getFirstItem()
-        # Generate the xf file. The behavior will be different if there is
-        # alignment information present in the metadata and if there are excluded views.
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        hasExcludedViews = ts.hasExcludedViews()
-        hasAlignment = firstTi.hasTransform()
-        ignoreExcludedViews = True  # The programs that are used in the protocols that use this convert can exclude the
-        # views directly by themselves, so no view exclusion is required here
-        if not hasAlignment and not hasExcludedViews:
-             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-        else:
-            xfFile = None
-            if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile, ignoreExcludedViews=ignoreExcludedViews)
-            self.runNewStackBasic(ts, xfFile=xfFile, ignoreExcludedViews=ignoreExcludedViews)
-        # Generate the tlt file
-        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
 
     def generateFiducialSeedStep(self, tsId):
         try:
@@ -341,7 +315,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         try:
             logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             borders = self.pxTrim.getListFromValues(caster=str)
@@ -368,6 +342,11 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             else:
                 numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
                 paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
+
+            # Excluded views
+            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            if excludedViews:
+                paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
             self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
 
@@ -418,8 +397,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
                 if exists(outputFn):
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
-                        output = self.getOutputFiducialModel(self.getInputSet(pointer=True),
+                        ts = self.getCurrentTs(tsId)
+                        output = self.getOutputFiducialModel(self.getInputTsSet(pointer=True),
                                                              attrName=OUTPUT_FIDUCIAL_GAPS_NAME,
                                                              suffix="Gaps")
                         landmarkModelGapsFilePath = self.getExtraOutFile(tsId,
@@ -471,7 +450,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
         fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         if fidModelGaps is not None:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Fiducial models (with gaps) generated: "
                            f"{fidModelGaps.getSize()}")
         else:
@@ -493,7 +472,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
     def generateTrackCom(self, tsId: str):
         logger.info(cyanStr(f'tsId = {tsId}: generating the tracking command file...'))
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
         paramsDict = {
             'imageFile': self.getTmpOutFile(tsId),
@@ -630,7 +609,7 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
 
     def genBeadTrackParams(self, tsId: str) -> dict:
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
 
         paramsBeadtrack = {

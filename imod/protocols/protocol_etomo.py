@@ -119,14 +119,14 @@ class ProtImodEtomo(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericView
-        setOftiltSeries = self.getInputSet()
+        setOftiltSeries = self.getInputTsSet()
         view = ImodGenericView(None, self, setOftiltSeries,
                                isInteractive=True)
         view.show()
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self.getInputSet():  # FIXME: why?
+        for item in self.getInputTsSet():  # FIXME: why?
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
@@ -201,7 +201,7 @@ class ProtImodEtomo(ProtImodBase):
             self.runProgram('etomo', params, cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
-        inputTS = self.getInputSet()
+        inputTS = self.getInputTsSet()
         outputTs = getattr(self, OUTPUT_TILTSERIES_NAME, None)  # original TS with new alignment
         outputPreAliTs = getattr(self, OUTPUT_PREALI_TILTSERIES_NAME, None)
         outputAliTs = getattr(self, OUTPUT_ALI_TILTSERIES_NAME, None)
@@ -224,7 +224,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputPreAliTs.setSamplingRate(newPixSize)
                     outputPreAliTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_PREALI_TILTSERIES_NAME: outputPreAliTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputPreAliTs)
                 else:
                     outputPreAliTs.enableAppend()
@@ -268,7 +268,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputAliTs.setSamplingRate(newPixSize)
                     outputAliTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_ALI_TILTSERIES_NAME: outputAliTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputAliTs)
                 else:
                     outputAliTs.enableAppend()
@@ -321,7 +321,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputTs.copyInfo(inputTS)
                     outputTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTs)
                 else:
                     outputTs.enableAppend()
@@ -391,7 +391,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputTSCoords.setSetOfTiltSeries(outputAliTs)
                     outputTSCoords.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: outputTSCoords})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTSCoords)
                 else:
                     outputTSCoords.enableAppend()
@@ -474,7 +474,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputTomos.setSamplingRate(newPixSize)
                     outputTomos.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(FullTomograms=outputTomos)
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTomos)
                 else:
                     outputTomos.enableAppend()
@@ -501,7 +501,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputPostProcessTomos.setSamplingRate(newPixSize)
                     outputPostProcessTomos.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(PostProcessTomograms=outputPostProcessTomos)
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputPostProcessTomos)
                 else:
                     outputPostProcessTomos.enableAppend()

@@ -120,7 +120,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
@@ -134,7 +134,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for ts in self.getInputSet().iterItems():
+            for ts in self.getInputTsSet().iterItems():
                 tsId = ts.getTsId()
                 compId = self._insertFunctionStep(self.doseFilterStep,
                                                   tsId,
@@ -159,7 +159,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         try:
             logger.info(cyanStr(f'tsId = {tsId} -> Dose filtering...'))
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
 
@@ -206,8 +206,8 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 outTsFile = self.getExtraOutFile(tsId)
                 if exists(outTsFile):
                     with self._lock:
-                        ts = self.getCurrentItem(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                        ts = self.getCurrentTs(tsId)
+                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
                         self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
@@ -244,7 +244,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         validateMsgs = []
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
-            for ts in self.getInputSet():
+            for ts in self.getInputTsSet():
                 if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append(f"{ts.getTsId()} has no dose information stored "
                                         "in Scipion Metadata. To solve this, re-import "
@@ -257,7 +257,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         summary = []
 
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Dose weighting applied: "
                            f"{self.TiltSeries.getSize()}")
         else:

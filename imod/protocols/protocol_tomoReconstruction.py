@@ -257,7 +257,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
-        inTsSet = self.getInputSet()
+        inTsSet = self.getInputTsSet()
         tomoWidth = self.tomoWidth.get()
         self.readingOutput()
         widthWarnTsIds = []
@@ -303,7 +303,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId, **kwargs):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
         presentAcqOrders = self.getTsCtfCommonAcqOrders(ts, onlyEnabled=True)  # Re-stack excluding views before reconstructing
         super().convertInputStep(tsId,
                                  doSwap=True,
@@ -388,7 +388,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
     def createOutputStep(self, tsId):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
             if tsId in self.failedItems:
                 self.addToOutFailedSet(ts)
                 failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
@@ -397,7 +397,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             else:
                 tomoLocation = self.getExtraOutFile(tsId, ext=MRC_EXT)
                 if os.path.exists(tomoLocation):
-                    output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True))
+                    output = self.getOutputSetOfTomograms(self.getInputTsSet(pointer=True))
 
                     newTomogram = Tomogram(tsId=tsId)
                     newTomogram.copyInfo(ts)
@@ -449,7 +449,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     def _summary(self):
         summary = []
         if self.Tomograms:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Tomograms reconstructed: {self.Tomograms.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")

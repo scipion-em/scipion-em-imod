@@ -36,7 +36,7 @@ from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           CTFTomo, SetOfTiltSeriesCoordinates, TiltSeries,
-                          TiltImage, CTFTomoSeries, SetOfLandmarkModels)
+                          TiltImage, CTFTomoSeries, SetOfLandmarkModels, Tomogram)
 from imod import Plugin, utils
 from imod.constants import *
 from tomo.utils import getCommonTsAndCtfElements
@@ -89,7 +89,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.doOddEven = self.applyToOddEven(self.getInputSet())
+        self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
     def closeOutputSetsStep(self, attrib: str):
         self._closeOutputSet()
@@ -469,10 +469,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def addToOutFailedSet(self, tsId: str) -> None:
         """ Just copy input item to the failed output set. """
         logger.info(cyanStr(f'Failed TS ---> {tsId}'))
-        inputSet = self.getInputSet(pointer=True)
+        inputSet = self.getInputTsSet(pointer=True)
         output = self.getOutputFailedSet(inputSet)
         with self._lock:
-            item = self.getCurrentItem(tsId)
+            item = self.getCurrentTs(tsId)
             newItem = item.clone()
             newItem.copyInfo(item)
             output.append(newItem)
@@ -486,19 +486,26 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._store(output)
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
-        tsPointer = getattr(self, IN_TS_SET)
-        return tsPointer if pointer else tsPointer.get()
+    def getInputTsSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
+        tsSetPointer = getattr(self, IN_TS_SET)
+        return tsSetPointer if pointer else tsSetPointer.get()
 
-    def getCurrentItem(self, tsId: str) -> TiltSeries:
-        return self.getInputSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+    def getCurrentTs(self, tsId: str) -> TiltSeries:
+        return self.getInputTsSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
+
+    def getInputTomoSet(self, pointer: bool = False) -> Union[Pointer, SetOfTomograms]:
+        tomoSetPointer = getattr(self, IN_TS_SET)
+        return tomoSetPointer if pointer else tomoSetPointer.get()
+
+    def getCurrentTomo(self, tsId: str) -> Tomogram:
+        return self.getInputTomoSet().getItem(Tomogram.TS_ID_FIELD, tsId)
 
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
         current tilt-series in tmp and extra"""
         path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
 
-    def readingOutput(self, outSet: Union[SetOfTiltSeries, SetOfTomograms]) -> None:
+    def readingOutput(self, outSet: Union[SetOfTiltSeries, SetOfTomograms, SetOfLandmarkModels]) -> None:
         if outSet:
             for item in outSet:
                 self.tsIdReadList.append(item.getTsId())
@@ -799,5 +806,5 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnMsgList = []
-        self.warningOddEven(self.getInputSet(), warnMsgList)
+        self.warningOddEven(self.getInputTsSet(), warnMsgList)
         return warnMsgList

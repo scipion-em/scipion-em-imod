@@ -294,7 +294,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         expDefoci = self.getExpectedDefocus()
 
         closeSetStepDeps = []
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             tsId = ts.getTsId()
             convId = self._insertFunctionStep(self.convertInputStep,
                                               tsId,
@@ -317,7 +317,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        tsSet = self.getInputSet()
+        tsSet = self.getInputTsSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
@@ -331,7 +331,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         """Run ctfplotter IMOD program"""
         try:
             with self._lock:
-                ts = self.getCurrentItem(tsId)
+                ts = self.getCurrentTs(tsId)
 
             paramsCtfPlotter = {
                 "-InputStack": self.getTmpOutFile(tsId),
@@ -411,13 +411,13 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
             if tsId in self.failedItems:
                 self.addToOutFailedSet(ts)
             else:
                 defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
                 if os.path.exists(defocusFilePath):
-                    output = self.getOutputSetOfCTFTomoSeries(self.getInputSet(pointer=True),
+                    output = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
                                                               outputSetName)
                     newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
                     newCTFTomoSeries.copyInfo(ts)
@@ -442,7 +442,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
 
         ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
         if ctfSeries is not None:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Number of CTF estimated: {ctfSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")

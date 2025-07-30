@@ -35,6 +35,7 @@ from imod.convert import readXfFile, genXfFile, genTltFile
 from imod.protocols import ProtImodBase
 from imod.utils import formatAngleList
 from pwem.objects import Transform
+from pyworkflow.object import Pointer
 from tomo.objects import TiltSeries, TiltImage
 
 logger = logging.getLogger(__name__)
@@ -52,14 +53,15 @@ class ProtImodBaseTsAlign(ProtImodBase):
     def convertInputStep(self, tsId: str):
         self.genTsPaths(tsId)
         with self._lock:
-            ts = self.getCurrentItem(tsId)
+            ts = self.getCurrentTs(tsId)
             firstTi = ts.getFirstItem()
         # Generate the xf file. The behavior will be different if there is
         # alignment information present in the metadata and if there are excluded views.
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
         hasExcludedViews = ts.hasExcludedViews()
         hasAlignment = firstTi.hasTransform()
-        ignoreExcludedViews = False if hasExcludedViews else True
+        ignoreExcludedViews = True  # The programs that are used in the protocols that use this convert can exclude the
+        # views directly by themselves, so no view exclusion is required here
         if not hasAlignment and not hasExcludedViews:
              # Link it, so the input file expected is in the same place in both sides of the "if"
             outTsFn, _, _ = self.getTmpFileNames(ts)
@@ -69,17 +71,8 @@ class ProtImodBaseTsAlign(ProtImodBase):
             if hasAlignment:
                 xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
                 # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile, ignoreExcludedViews=True)
-                self.runNewStackBasic(ts,
-                                      xfFile=xfFile,
-                                      ignoreExcludedViews=ignoreExcludedViews)
-                # After that, for the following programs, a new xfFile without the
-                # excluded views must be generated
-                genXfFile(ts, xfFile)
-            else:
-                # Only re-stack
-                self.runNewStackBasic(ts, xfFile=xfFile)
-
+                genXfFile(ts, xfFile, ignoreExcludedViews=ignoreExcludedViews)
+            self.runNewStackBasic(ts, xfFile=xfFile, ignoreExcludedViews=ignoreExcludedViews)
         # Generate the tlt file
         genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
 
@@ -88,14 +81,13 @@ class ProtImodBaseTsAlign(ProtImodBase):
         # To be defined by the child classes
         pass
 
-    def createOutTs(self, ts: TiltSeries) -> None:
+    def createOutTs(self, ts: TiltSeries, inTsSetPointer: Pointer) -> None:
         tsId = ts.getTsId()
         xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
         if exists(xfFile) and stat(xfFile).st_size != 0:
             tltFile = self.getTltFilePath(tsId)
             aliMatrix = readXfFile(xfFile)
             tiltAngles = formatAngleList(tltFile)
-            inTsSetPointer = self.getInputSet(pointer=True)
             # Set of tilt-series
             outTsSet = self.getOutputSetOfTS(inTsSetPointer)
             # Tilt-series
