@@ -149,6 +149,13 @@ class ProtImodCtfCorrection(ProtImodBase):
                            "entering the negative of the desired spacing, "
                            "which disables the scaling of the spacing.")
 
+        form.addParam('invertDefocus',
+                      params.BooleanParam,
+                      label='Invert defocus gradient?',
+                      default=False,
+                      important=True,
+                      help="Invert the tilt angles for defocus calculation. Should only be used if you know that the defocus gradient is inverted with the current tilt axis angle. The default convention in IMOD corresponds to -1 defocus sign in RELION.See IMOD ctfplotter documentation for details.")
+
         form.addHidden(params.USE_GPU,
                        params.BooleanParam,
                        default=True,
@@ -236,6 +243,9 @@ class ProtImodCtfCorrection(ProtImodBase):
                 "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
                 "-InterpolationWidth": self.interpolationWidth.get()
             }
+
+            if self.invertDefocus:
+                 paramsCtfPhaseFlip["-InvertTiltAngles"] = ''
 
             if self.usesGpu():
                 paramsCtfPhaseFlip["-UseGPU"] = self.getGpuList()[0]
