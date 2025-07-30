@@ -92,7 +92,7 @@ class ImodObjectView(pwviewer.CommandView):
         """
         # Get default binning level has been defined for 3dmod
         binningstr = str(binning)
-        prj = protocol.getProject()
+        prj = protocol.getProject() if protocol is not None else None
         cmd = f"{Plugin.getImodCmd('3dmod')} "
         displayInterpolated = kwargs.get("displayInterpolated", False)
 
