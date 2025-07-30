@@ -1,12 +1,13 @@
-# *****************************************************************************
+# -*- coding: utf-8 -*-
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team
 # *
-# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
+# * National Center of Biotechnology, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 3 of the License, or
+# * the Free Software Foundation; either version 2 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -22,16 +23,21 @@
 # *  All comments concerning this program package may be sent to the
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
-# *****************************************************************************
+# **************************************************************************
+import logging
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
+from pyworkflow.utils import Message, cyanStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
+
+logger = logging.getLogger(__name__)
+
+EXCLUDE_VIEWS_PROGRAM = "excludeviews"
 
 
 class ProtImodExcludeViews(ProtImodBase):
@@ -61,7 +67,7 @@ class ProtImodExcludeViews(ProtImodBase):
                       label='Input set of tilt-series')
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -75,56 +81,111 @@ class ProtImodExcludeViews(ProtImodBase):
                                                   needsGPU=False)
             outStepId = self._insertFunctionStep(self.createOutputStep,
                                                  tsId,
-                                                 prerequisites=[exclStepId],
+                                                 prerequisites=exclStepId,
                                                  needsGPU=False)
             closeSetStepDeps.append(outStepId)
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def excludeViewsStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-        tsFileName = ts.getFirstItem().getFileName()
+    def excludeViewsStep(self, tsId: str):
         self.genTsPaths(tsId)
+        try:
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                firstTi = ts.getFirstItem()
 
-        outputFileName = self.getExtraOutFile(tsId)
-        excludedViews = self.getExcludedViews(ts)
+            tsFileName = firstTi.getFileName()
+            outputFileName = self.getExtraOutFile(tsId)
 
-        if excludedViews:
-            path.copyFile(tsFileName, outputFileName)
-            params = {
-                '-StackName': outputFileName,
-                '-ViewsToExclude': ",".join(map(str, excludedViews)),
-            }
-            self.runProgram("excludeviews", params)
-        else:
-            # Just create the link
-            self.info(f"No views to exclude for {tsId}")
-            path.createLink(tsFileName, outputFileName)
+            if ts.hasExcludedViews():
+                logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
+                path.copyFile(tsFileName, outputFileName)
+                excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                eVParams = {
+                    '-StackName': outputFileName,
+                    '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
+                }
+                self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
+            else:
+                # Just create the link
+                logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
+                path.createLink(tsFileName, outputFileName)
+
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(f'tsId = {tsId} -> {EXCLUDE_VIEWS_PROGRAM} execution failed with the exception -> {e}')
 
     def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            excludedViews = self.getExcludedViews(ts)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    outFn = self.getExtraOutFile(tsId)
+                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    outTsSet.append(outTs)
 
-            with self._lock:
-                output = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                if excludedViews:
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTiCallback=self.updateTi,
-                                     copyId=False, copyTM=True,
-                                     excludedViews=excludedViews)
-                else:
-                    newTs = ts.clone(ignoreAttrs=[])
-                    output.append(newTs)
-                    for ti in ts:
-                        newTi = ti.clone()
-                        newTs.append(newTi)
+                    angleMin = 999
+                    angleMax = -999
+                    accumDose = 0
+                    initialDose = 999
+                    tiList = []
+                    for ti in ts.iterItems():
+                        if ti.isEnabled():
+                            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                            # these values may change if the removed tilt-images are the first or the last, for example.
+                            tiAngle = ti.getTiltAngle()
+                            angleMin = min(tiAngle, angleMin)
+                            angleMax = max(tiAngle, angleMax)
+                            accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+                            initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
 
-                    output.update(newTs)
-                    self._store(output)
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(outFn)
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
+                            tiList.append(outTi)
+
+                    if ts.hasExcludedViews():
+                        # Update the acquisition minAngle and maxAngle values of the tilt-series
+                        acq = outTs.getAcquisition()
+                        acq.setAngleMin(angleMin)
+                        acq.setAngleMax(angleMax)
+                        acq.setAccumDose(accumDose)
+                        acq.setDoseInitial(initialDose)
+                        outTs.setAcquisition(acq)
+                        # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                        # specific accum and initial dose values
+                        for tiOut in tiList:
+                            tiAcq = tiOut.getAcquisition()
+                            tiAcq.setAngleMin(angleMin)
+                            tiAcq.setAngleMax(angleMax)
+                            tiOut.setAcquisition(tiAcq)
+                            outTs.append(tiOut)
+                        outTs.setAnglesCount(len(outTs))
+                    else:
+                        for tiOut in tiList:
+                            outTs.append(tiOut)
+
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -143,8 +204,4 @@ class ProtImodExcludeViews(ProtImodBase):
         return summary
 
     # --------------------------- UTILS functions -----------------------------
-    @staticmethod
-    def getExcludedViews(ts):
-        """ Returns the indexes of the tilt to exclude for a
-        specific tilt series starting from 1. """
-        return ts.getExcludedViewsIndex()
+

@@ -201,6 +201,15 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                 outTi.setFileName(self.getExtraOutFile(tsId))
                                 outTi.getAcquisition().setTiltAxisAngle(0.)
                                 outTi.setTransform(None)
+
+                                if self.doOddEven:
+                                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                      self.getExtraOutFile(tsId, suffix=EVEN)])
+                                else:
+                                    outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                    # to consider them in the current execution, so they should be set to empty to avoid
+                                    # next protocols be confused about having them.
+
                                 tiList.append(outTi)
 
                         if ts.hasExcludedViews():

@@ -36,6 +36,7 @@ from imod.protocols import ProtImodBase
 from imod.utils import formatAngleList
 from pwem.objects import Transform
 from pyworkflow.object import Pointer
+from pyworkflow.protocol import STEPS_PARALLEL
 from tomo.objects import TiltSeries, TiltImage
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,14 @@ IDENTITY_MATRIX = np.eye(3)  # Store in memory instead of multiple creation
 
 class ProtImodBaseTsAlign(ProtImodBase):
 
+    stepsExecutionMode = STEPS_PARALLEL
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str):

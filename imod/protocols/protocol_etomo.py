@@ -31,7 +31,7 @@ import numpy as np
 
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile
+from imod.convert import readXfFile, fiducialModel2List, fidResidualModel2List
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pyworkflow.object import Set
 import pyworkflow.utils as pwutils
@@ -425,11 +425,11 @@ class ProtImodEtomo(ProtImodBase):
 
                 outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModel(outputPreAliTs)
 
-                fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
+                fiducialNoGapList = fiducialModel2List(modelFilePathTxt)
 
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="nogaps",
                                                                    ext=SFID_EXT)
-                fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
+                fiducialNoGapsResidList = fidResidualModel2List(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                             fileName=landmarkModelNoGapsFilePath,
                                                             modelName=modelFilePath,

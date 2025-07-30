@@ -96,3 +96,46 @@ def readXfFile(xfFile) -> np.ndarray:
         frameMatrix[2, 2, row] = 1.0
 
     return frameMatrix
+
+
+def fiducialModel2List(fiducialFilePath: str) -> list:
+    """ This method takes an IMOD-based fiducial model file path
+    and returns a list containing the coordinates of each
+    fiducial for each tilt-image belonging to the tilt-series. """
+
+    fiducialList = []
+
+    with open(fiducialFilePath) as f:
+        fiducialText = f.read().splitlines()
+
+        for line in fiducialText:
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            vector = line.replace('-', ' -').split()
+            vector = [round(float(i)) for i in vector]
+            fiducialList.append(vector)
+
+    return fiducialList
+
+
+def fidResidualModel2List(fiducialFilePath: str) -> list:
+    """ This method takes an IMOD-based fiducial residual model
+    file path and returns a list containing the coordinates
+    and residual values of each fiducial for each tilt-image
+    belonging to the tilt-series. Since IMOD establishes a
+    float value for each coordinate they are parsed to int. """
+
+    fiducialResidList = []
+
+    with open(fiducialFilePath) as f:
+        fiducialText = f.read().splitlines()
+
+        for line in fiducialText[1:]:
+            # Fix IMOD bug: columns merge in coordinates exceed 3 digits
+            vector = line.replace('-', ' -').split()
+            fiducialResidList.append([round(float(vector[0])),
+                                      round(float(vector[1])),
+                                      int(vector[2]),
+                                      float(vector[3]),
+                                      float(vector[4])])
+
+    return fiducialResidList

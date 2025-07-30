@@ -270,6 +270,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 if exists(outTsFile):
                     with self._lock:
                         ts = self.getCurrentTs(tsId)
+                        outFn = self.getExtraOutFile(tsId)
                         outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
@@ -277,7 +278,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                         for ti in ts.iterItems():
                             outTi = TiltImage()
                             outTi.copyInfo(ti)
-                            outTi.setFileName(self.getExtraOutFile(tsId))
+                            outTi.setFileName(outFn)
                             if self.doOddEven:
                                 outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
                                                   self.getExtraOutFile(tsId, suffix=EVEN)])

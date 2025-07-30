@@ -1090,8 +1090,8 @@ class TestImodTsAlignment(TestImodBase):
         self._checkFiducialModels(fiducialModels)
 
     def testFiducialAli05(self):
-        preAliTsSet, _ = self._runXcorrAli(self.importedTs)
-        # Exclude some views at metadata level and commpute the fiducial models using them
+        preAliTsSet = self._runXcorrAli(self.importedTs)
+        # Exclude some views at metadata level and compute the fiducial models using them
         self._excludeSetViews(preAliTsSet)
         fiducialModels = self._genFiducialModel(preAliTsSet)
         # Run the protocol

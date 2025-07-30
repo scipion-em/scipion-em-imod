@@ -28,17 +28,16 @@ import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile, genXfFile, genTltFile
+from imod.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem.objects import Transform
-from pyworkflow.protocol import ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME, XF_EXT)
+                            OUTPUT_TS_INTERPOLATED_NAME)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ TILT_XCORR_PROGRAM = 'tiltxcorr'
 XFTOXG_PROGRM = 'xftoxg'
 
 
-class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:

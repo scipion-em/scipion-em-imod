@@ -27,18 +27,16 @@ import logging
 import time
 from os.path import exists
 import pyworkflow.protocol.params as params
-from imod.convert import genTltFile, genXfFile
+from imod.convert import fiducialModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 import pyworkflow.utils.path as path
-from imod import utils
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
                             FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
-from pyworkflow.protocol import ProtStreamingBase, STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
 
@@ -49,7 +47,7 @@ BEADTRACK_PROGRAM = 'beadtrack'
 MODEL2POINT_PROGRAM = 'model2point'
 IMODCHOPCONTS_PROGRAM = 'imodchopconts'
 
-class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
+class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -62,7 +60,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
     _label = 'Generate fiducial model'
     _possibleOutputs = {OUTPUT_FIDUCIAL_GAPS_NAME: SetOfLandmarkModels}
-    stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -408,7 +405,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                                                        suffix="gaps_fid",
                                                                        ext=TXT_EXT)
 
-                        fiducialGapList = utils.formatFiducialList(fiducialModelGapTxtPath)
+                        fiducialGapList = fiducialModel2List(fiducialModelGapTxtPath)
                         fiducialDiameter = self.fiducialDiameter.get() * 10  # From nm to angstroms
 
                         landmarkModelGaps = LandmarkModel(tsId=tsId,

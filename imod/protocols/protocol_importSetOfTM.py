@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,22 +23,19 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import csv
 import logging
-
 import numpy as np
-
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from imod.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem.objects import Transform
 from pyworkflow.protocol.constants import STEPS_SERIAL
-import pwem.objects as data
 from pyworkflow.utils import cyanStr
-from tomo.objects import SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
-
-from imod import utils
 from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
 from imod.protocols import ProtImodBase
 
@@ -54,8 +51,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **kwargs):
-        ProtImodBase().__init__(**kwargs)
-        ProtTomoImportFiles.__init__(self, **kwargs)
+        super().__init__(**kwargs)
         self.matchingTsIds = None
         self.iterFilesDict = None
 
@@ -106,7 +102,8 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                                      tsId,
                                      needsGPU=False)
 
-        self._insertFunctionStep(self.closeOutputSetStep,
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TILTSERIES_NAME,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
@@ -131,63 +128,72 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         logger.info(cyanStr(f"Matching tsIds: {self.matchingTsIds}"))
 
     def generateTransformFileStep(self, tsId, matchBinningFactor):
-        self.genTsPaths(tsId)
-        ts = self.tsDict[tsId]
-        tiNum = ts.getSize()
-        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        tmFilePath = self.iterFilesDict.get(tsId, None)
-        if tmFilePath:
-            if matchBinningFactor != 1:
-                inputTransformMatrixList = readXfFile(tmFilePath)
-                # Update shifts from the transformation matrix considering
-                # the matching binning between the input tilt
-                # series and the transformation matrix. We create an empty
-                # tilt-series containing only tilt-images
-                # with transform information.
-                transformMatrixList = []
+        try:
+            self.genTsPaths(tsId)
+            ts = self.tsDict[tsId]
+            tiNum = ts.getSize()
+            outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            tmFilePath = self.iterFilesDict.get(tsId, None)
+            if tmFilePath:
+                if matchBinningFactor != 1:
+                    inputTransformMatrixList = readXfFile(tmFilePath)
+                    # Update shifts from the transformation matrix considering
+                    # the matching binning between the input tilt
+                    # series and the transformation matrix. We create an empty
+                    # tilt-series containing only tilt-images
+                    # with transform information.
+                    transformMatrixList = []
 
-                for index in range(tiNum):
-                    inputTransformMatrix = inputTransformMatrixList[:, :, index]
+                    for index in range(tiNum):
+                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
 
-                    outputTransformMatrix = inputTransformMatrix
-                    outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
-                    outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                    outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
-                    outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
-                    outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                    outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
-                    outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
-                    outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
-                    outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
+                        outputTransformMatrix = inputTransformMatrix
+                        outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
+                        outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
+                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
+                        outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
+                        outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
+                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
+                        outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
+                        outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
+                        outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
 
-                    transformMatrixList.append(outputTransformMatrix)
+                        transformMatrixList.append(outputTransformMatrix)
 
-                utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
+                    self.writeXfFileFromTrList(transformMatrixList, outputTransformFile)
 
-            else:
-                pwutils.createLink(tmFilePath, outputTransformFile)
+                else:
+                    pwutils.createLink(tmFilePath, outputTransformFile)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(f'tsId = {tsId} -> failed with the exception -> {e}')
 
     def assignTransformationMatricesStep(self, tsId):
-        ts = self.tsDict[tsId]
-        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        output = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-        alignmentMatrix = readXfFile(outputTransformFile)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                ts = self.tsDict[tsId]
+                outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                alignmentMatrix = readXfFile(outputTransformFile)
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                outTs.setAlignment2D()
+                outTsSet.append(outTs)
+                enabledInd = 0
+                for ti in ts.iterItems():
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    if ti.isEnabled():
+                        newTransform = alignmentMatrix[:, :, enabledInd]
+                        self.updateTiltImage(ti, outTi, newTransform)
+                        enabledInd += 1
+                    outTs.append(outTi)
+                outTsSet.update(outTs)
 
-        self.copyTsItems(output, ts, tsId,
-                         updateTsCallback=self.updateTs,
-                         updateTiCallback=self.updateTi,
-                         copyId=True,
-                         copyTM=False,
-                         alignmentMatrix=alignmentMatrix,
-                         isSemiStreamified=False)
-
-    def closeOutputSetStep(self):
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if not outTsSet:
-            raise Exception('No tilt-series was generated. Please '
-                            'check the Output Log > run.stdout and run.stderr')
-        self._closeOutputSet()
-
+            except Exception as e:
+                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -262,23 +268,42 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
         return allowedFiles
 
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        transform = data.Transform()
-        alignmentMatrix = kwargs.get("alignmentMatrix")
+    @staticmethod
+    def writeXfFileFromTrList(transformMatrixList, transformFilePath):
+        """ This method takes a list of Transform matrices and the output
+        transformation file path and creates an
+        IMOD-based transform file in the location indicated.
+        :param transformMatrixList: list of transformation matrices to be written
+        :param transformFilePath: output location of the file. """
 
+        tsMatrixTransformList = []
+
+        for tm in transformMatrixList:
+            tmFlat = tm.flatten()
+            transformIMOD = [tmFlat[0],
+                             tmFlat[1],
+                             tmFlat[3],
+                             tmFlat[4],
+                             tmFlat[2],
+                             tmFlat[5]]
+            tsMatrixTransformList.append(transformIMOD)
+
+        with open(transformFilePath, 'w') as f:
+            csvW = csv.writer(f, delimiter='\t')
+            csvW.writerows(tsMatrixTransformList)
+
+    def updateTiltImage(self,
+                        ti: TiltImage,
+                        tiOut: TiltImage,
+                        newTransform: np.array) -> None:
+        transform = Transform()
         if ti.hasTransform() and not self.override.get():
             previousTransform = ti.getTransform().getMatrix()
-            newTransform = alignmentMatrix[:, :, index]
             previousTransformArray = np.array(previousTransform)
             newTransformArray = np.array(newTransform)
             outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
             transform.setMatrix(outputTransformMatrix)
         else:
-            transform.setMatrix(alignmentMatrix[:, :, index])
-
+            transform.setMatrix(newTransform)
         tiOut.setTransform(transform)
-
-    @staticmethod
-    def updateTs(tsId, ts, tsOut, **kwargs):
-        tsOut.setAlignment2D()
 

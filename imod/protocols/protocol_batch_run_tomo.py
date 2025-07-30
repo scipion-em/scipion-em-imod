@@ -30,21 +30,20 @@ import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME, XF_EXT
+    BRT_ENV_NAME, XF_EXT
 from imod.convert import genXfFile, genTltFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
-from pyworkflow.object import Pointer
-from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.protocol import PointerParam, EnumParam, IntParam, GT
+from pyworkflow.utils import Message, cyanStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodBRT(ProtImodBaseTsAlign):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
@@ -53,15 +52,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     _label = "teamtomo/batchruntomo"
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     _devStatus = BETA
-    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.tsReadList = []
-
-    @classmethod
-    def worksInStreaming(cls):
-        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -143,7 +137,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             firstTi = ts.getFirstItem()
         # Generate the xf file. The behavior will be different if there is
         # alignment information present in the metadata and if there are excluded views.
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
         hasExcludedViews = ts.hasExcludedViews()
         hasAlignment = firstTi.hasTransform()
         ignoreExcludedViews = False if hasExcludedViews else True
@@ -168,6 +161,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 self.runNewStackBasic(ts, xfFile=xfFile)
 
         # Generate the tlt file
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
         genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
 
     def runBRT(self, tsId: str):

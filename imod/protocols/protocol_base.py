@@ -24,7 +24,7 @@
 # *
 # *****************************************************************************
 import logging
-from typing import Union, Tuple
+from typing import Union, Tuple, List
 
 from imod.convert import genXfFile
 from pyworkflow.object import Set, CsvList, Boolean, Pointer
@@ -91,11 +91,16 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
-    def closeOutputSetsStep(self, attrib: str):
+    def closeOutputSetsStep(self, attrib: Union[List[str], str]):
         self._closeOutputSet()
-        outTsSet = getattr(self, attrib, None)
-        if not outTsSet or (outTsSet and len(outTsSet) == 0):
-            raise Exception(f'No {attrib} were generated. Please check the '
+        attribList = [attrib] if type(attrib) is str else attrib
+        failedOutputList = []
+        for attr in attribList:
+            outTsSet = getattr(self, attr, None)
+            if not outTsSet or (outTsSet and len(outTsSet) == 0):
+                failedOutputList.append(attr)
+        if failedOutputList:
+            raise Exception(f'No output/s {failedOutputList} were generated. Please check the '
                             f'Output Log > run.stdout and run.stderr')
 
     @staticmethod
@@ -365,21 +370,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._defineSourceRelation(inputPtr, fidModel)
 
         return fidModel
-
-    def getOutputSetOfTiltSeriesCoordinates(self, inputPtr):
-        tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
-        if tsCoords is not None:
-            tsCoords.enableAppend()
-        else:
-            tsCoords = SetOfTiltSeriesCoordinates.create(self._getPath(),
-                                                         suffix='Fiducials3D')
-            tsCoords.setSetOfTiltSeries(inputPtr)
-            tsCoords.setStreamState(Set.STREAM_OPEN)
-
-            self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: tsCoords})
-            self._defineSourceRelation(inputPtr, tsCoords)
-
-        return tsCoords
 
     def getOutputSetOfCoordinates3Ds(self, inputPtr, outputSet):
         coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
