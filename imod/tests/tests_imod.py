@@ -507,7 +507,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                          excludedViewsDict: Union[dict, None] = None) -> None:
         if not excludedViewsDict:
             excludedViewsDict = cls.excludedViewsDict
-        objList = [obj.clone() for obj in inSet]
+        objList = [obj.clone(ignoreAttrs=[]) for obj in inSet]
         for obj in objList:
             cls._excIntermediateSetViews(inSet, obj, excludedViewsDict[obj.getTsId()])
 

@@ -31,7 +31,7 @@ from typing import Tuple, List
 
 import numpy as np
 from imod.constants import XF_EXT, TLT_EXT
-from imod.convert import readXfFile, genXfFile, genTltFile
+from imod.convert import readXfFile, genXfFile
 from imod.protocols import ProtImodBase
 from imod.utils import formatAngleList
 from pwem.objects import Transform

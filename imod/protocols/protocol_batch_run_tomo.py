@@ -31,13 +31,13 @@ import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
     BRT_ENV_NAME, XF_EXT
-from imod.convert import genXfFile, genTltFile
+from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
 from pyworkflow.protocol import PointerParam, EnumParam, IntParam, GT
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
@@ -131,38 +131,43 @@ class ProtImodBRT(ProtImodBaseTsAlign):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, tsId: str):
-        self.genTsPaths(tsId)
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            firstTi = ts.getFirstItem()
-        # Generate the xf file. The behavior will be different if there is
-        # alignment information present in the metadata and if there are excluded views.
-        hasExcludedViews = ts.hasExcludedViews()
-        hasAlignment = firstTi.hasTransform()
-        ignoreExcludedViews = False if hasExcludedViews else True
-        if not hasAlignment and not hasExcludedViews:
-             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-        else:
-            xfFile = None
-            if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile, ignoreExcludedViews=True)
-                self.runNewStackBasic(ts,
-                                      xfFile=xfFile,
-                                      ignoreExcludedViews=ignoreExcludedViews)
-                # After that, for the following programs, a new xfFile without the
-                # excluded views must be generated
-                genXfFile(ts, xfFile)
+        try:
+            self.genTsPaths(tsId)
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                firstTi = ts.getFirstItem()
+            # Generate the xf file. The behavior will be different if there is
+            # alignment information present in the metadata and if there are excluded views.
+            hasExcludedViews = ts.hasExcludedViews()
+            hasAlignment = firstTi.hasTransform()
+            ignoreExcludedViews = False if hasExcludedViews else True
+            if not hasAlignment and not hasExcludedViews:
+                 # Link it, so the input file expected is in the same place in both sides of the "if"
+                outTsFn, _, _ = self.getTmpFileNames(ts)
+                self.linkTs(firstTi.getFileName(), outTsFn)
             else:
-                # Only re-stack
-                self.runNewStackBasic(ts, xfFile=xfFile)
+                xfFile = None
+                if hasAlignment:
+                    xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                    # The xf file must contain all thw views to interpolate and re-stack
+                    genXfFile(ts, xfFile, ignoreExcludedViews=True)
+                    self.runNewStackBasic(ts,
+                                          xfFile=xfFile,
+                                          ignoreExcludedViews=ignoreExcludedViews)
+                    # After that, for the following programs, a new xfFile without the
+                    # excluded views must be generated
+                    genXfFile(ts, xfFile)
+                else:
+                    # Only re-stack
+                    self.runNewStackBasic(ts, xfFile=xfFile)
 
-        # Generate the tlt file
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
+                # Generate the tlt file
+                tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+                genTltFile(ts, tltFile, ignoreExcludedViews=ignoreExcludedViews)
+
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
 
     def runBRT(self, tsId: str):
         logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
@@ -175,7 +180,7 @@ class ProtImodBRT(ProtImodBaseTsAlign):
             Plugin.runBRT(self, args)
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -187,7 +192,7 @@ class ProtImodBRT(ProtImodBaseTsAlign):
                     self.createOutTs(ts, self.getInputTsSet(pointer=True))
 
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
 
     # --------------------------- INFO functions ------------------------------

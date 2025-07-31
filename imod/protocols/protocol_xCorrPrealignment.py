@@ -127,7 +127,7 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
         form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()

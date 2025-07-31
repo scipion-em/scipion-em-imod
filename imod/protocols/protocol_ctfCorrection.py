@@ -24,25 +24,29 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
-
+import logging
+import time
+from os.path import exists
+from typing import Union, Set
+from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
 from pwem import ALIGN_NONE
-from pyworkflow.object import String
+from pyworkflow.object import Pointer
 import pyworkflow.protocol.params as params
-from pwem.emlib.image import ImageHandler as ih
-from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, SetOfCTFTomoSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
-
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
                             EVEN, OUTPUT_TILTSERIES_NAME)
 
+logger = logging.getLogger(__name__)
 
-class ProtImodCtfCorrection(ProtImodBase):
+CTF_PHASE_FLIP_PROGRAM = 'ctfphaseflip'
+
+class ProtImodCtfCorrection(ProtImodBase, ProtStreamingBase):
     """
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:
@@ -82,9 +86,7 @@ class ProtImodCtfCorrection(ProtImodBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.matchingMsg = String()
-        self.ctfDict = None
-        self.presentTsIds = None
+        self.tsReadList = []
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -165,64 +167,114 @@ class ProtImodCtfCorrection(ProtImodBase):
                             "(starting from 1).")
 
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
+        closeSetStepDeps = []
         self._initialize()
-        pIdList = []
-        for tsId in self.presentTsIds:
-            presentAcqOrders = getCommonTsAndCtfElements(self.tsDict[tsId], self.ctfDict[tsId])
-            pidConvert = self._insertFunctionStep(self.convertInputsStep,
-                                                  tsId,
-                                                  presentAcqOrders,
-                                                  prerequisites=[],
-                                                  needsGPU=False)
-            pidProcess = self._insertFunctionStep(self.ctfCorrection,
-                                                  tsId,
-                                                  prerequisites=pidConvert,
-                                                  needsGPU=True)
-            pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                       tsId,
-                                                       presentAcqOrders,
-                                                       prerequisites=pidProcess,
-                                                       needsGPU=False)
-            pIdList.append(pidCreateOutput)
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=pIdList,
-                                 needsGPU=False)
+        inTsSet = self.getInputTsSet()
+        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
+
+        while True:
+            listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+            closeSetStepDeps = []
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    pidConvert = self._insertFunctionStep(self.convertInputsStep,
+                                                          tsId,
+                                                          prerequisites=[],
+                                                          needsGPU=False)
+                    pidProcess = self._insertFunctionStep(self.ctfCorrection,
+                                                          tsId,
+                                                          prerequisites=pidConvert,
+                                                          needsGPU=True)
+                    pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                               tsId,
+                                                               prerequisites=pidProcess,
+                                                               needsGPU=False)
+                    closeSetStepDeps.append(pidCreateOutput)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsReadList.append(tsId)
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         super()._initialize()
         tsSet = self.getInputTsSet()
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in tsSet}
-        self.ctfDict = {ctf.getTsId(): ctf.clone(ignoreAttrs=[]) for ctf in self.inputSetOfCtfTomoSeries.get()}
-        # Manage the present and not present tsIds
-        tsIds = list(self.tsDict.keys())
-        ctfTsIds = list(self.ctfDict.keys())
-        self.presentTsIds = set(tsIds) & set(ctfTsIds)
-        allTsIds = set(tsIds + ctfTsIds)
-        nonMatchingTsIds = [tsId for tsId in allTsIds if tsId not in self.presentTsIds]
-        # Update the msg for each protocol execution to avoid duplicities in the summary
-        if nonMatchingTsIds:
-            self.matchingMsg.set(f'WARNING! No CTFTomoSeries found for the tilt-series: {nonMatchingTsIds}')
-            self._store(self.matchingMsg)
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
-    def convertInputsStep(self, tsId, presentAcqOrders):
-        # Generate the alignment-related files: xf, tlt, and a possible mrc
-        super().convertInputStep(tsId,  # Considering swapXY is required to make tilt axis vertical
-                                 doSwap=True,
-                                 oddEven=self.doOddEven,
-                                 presentAcqOrders=presentAcqOrders)
-        # Generate the defocus file
-        self.generateDefocusFile(tsId, presentAcqOrders=presentAcqOrders)
-
-    def ctfCorrection(self, tsId):
+    def convertInputsStep(self, tsId: str):
         try:
-            ts = self.tsDict[tsId]
+            self.genTsPaths(tsId)
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                ctf = self.getCurrentCtf(tsId)
+            presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)   
+            
+            try:
+                firstTi = ts.getFirstItem()
+                # Generate the xf file. The behavior will be different if there is
+                # alignment information present in the metadata and if there are excluded views.
+                hasExcludedViews = ts.hasExcludedViews()
+                hasAlignment = firstTi.hasTransform()
+                if not hasAlignment and not hasExcludedViews:
+                    # Link it, so the input file expected is in the same place in both sides of the "if"
+                    outTsFn, _, _ = self.getTmpFileNames(ts)
+                    self.linkTs(firstTi.getFileName(), outTsFn)
+                else:
+                    xfFile = None  # Only re-stack
+                    if hasAlignment:
+                        xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                        # The xf file must contain all thw views to interpolate and re-stack
+                        genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+                        self.runNewStackBasic(ts,
+                                              xfFile=xfFile,
+                                              presentAcqOrders=presentAcqOrders)
+                        # After that, for the following programs, a new xfFile without the
+                        # excluded views must be generated
+                        genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+                    else:
+                        self.runNewStackBasic(ts,
+                                              xfFile=xfFile,
+                                              presentAcqOrders=presentAcqOrders)
+
+                # Generate the tlt file
+                tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+                ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
+                
+                # Generate the defocus file
+                self.generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+
+            except Exception as e2:
+                logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e2}'))
+        except Exception as e1:
+            self.failedItems.append(tsId)
+            logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
+            logger.info(f'{e1}')
+
+    def ctfCorrection(self, tsId: str):
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: correcting the CTF...'))
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
 
             paramsCtfPhaseFlip = {
                 "-InputStack": self.getTmpOutFile(tsId),
@@ -244,104 +296,126 @@ class ProtImodCtfCorrection(ProtImodBase):
             if ts.hasAlignment():
                 paramsCtfPhaseFlip["-TransformFile"] = self.getExtraOutFile(tsId, ext=XF_EXT)
 
-            self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
+            self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
 
             if self.doOddEven:
                 # ODD
                 paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=ODD)
                 paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
+                self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
 
                 # EVEN
                 paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=EVEN)
                 paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram('ctfphaseflip', paramsCtfPhaseFlip)
+                self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f"ctfphaseflip execution failed for tsId {tsId} -> {e}")
+            logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed with the exception -> {e}'))
 
-    def createOutputStep(self, tsId, presentAcqOrders):
-        with self._lock:
-            ts = self.tsDict[tsId]
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-            else:
+    def createOutputStep(self, tsId: str):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
                 outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    inTsSet = self.getInputTsSet(pointer=True)
-                    outputSetOfTs = self.getOutputSetOfTS(inTsSet)
-                    newTs = TiltSeries(tsId=tsId)
-                    ts = self.tsDict[tsId]
-                    newTs.copyInfo(ts)
-                    newTs.setAlignment(ALIGN_NONE)
-                    newTs.setAnglesCount(len(presentAcqOrders))
-                    newTs.setCtfCorrected(True)
-                    newTs.setInterpolated(True)
-                    newTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
-                    outputSetOfTs.append(newTs)
+                if exists(outputFn):
+                    with self._lock:
+                        ts = self.getCurrentTs(tsId)
+                        ctf = self.getCurrentCtf(tsId)
+                        presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+                        # Set of tilt-series
+                        inTsSetPointer = self.getInputTsSet(pointer=True)
+                        outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+                        # Tilt-series
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        outTs.setAlignment(ALIGN_NONE)
+                        outTs.setAnglesCount(len(presentAcqOrders))
+                        outTs.setCtfCorrected(True)
+                        outTs.setInterpolated(True)
+                        outTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+                        outTsSet.append(outTs)
+                        # Tilt-images
+                        angleMin = 999
+                        angleMax = -999
+                        tiList = []
+                        for index, inTi in enumerate(ts.iterItems()):
+                            if inTi.getAcquisitionOrder() in presentAcqOrders:
+                                outTi = TiltImage()
+                                outTi.copyInfo(inTi, copyTM=False)
+                                acq = inTi.getAcquisition()
+                                acq.setTiltAxisAngle(0.)  # Is interpolated
+                                outTi.setAcquisition(acq)
+                                outTi.setFileName(outputFn)
+                                if self.doOddEven:
+                                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                      self.getExtraOutFile(tsId, suffix=EVEN)])
+                                else:
+                                    outTi.setOddEven([])   # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
 
-                    angleMin = 999
-                    angleMax = -999
-                    tiList = []
-                    for index, inTi in enumerate(ts.iterItems()):
-                        if inTi.getAcquisitionOrder() in presentAcqOrders:
-                            newTi = TiltImage(tsId=tsId)
-                            newTi.copyInfo(inTi, copyId=True, copyTM=False)
-                            acq = inTi.getAcquisition()
-                            acq.setTiltAxisAngle(0.)  # Is interpolated
-                            newTi.setAcquisition(acq)
-                            newTi.setLocation(index + 1, outputFn)
-                            if self.doOddEven:
-                                locationOdd = index + 1, self.getExtraOutFile(tsId, suffix=ODD)
-                                locationEven = index + 1, self.getExtraOutFile(tsId, suffix=EVEN)
-                                newTi.setOddEven([ih.locationToXmipp(locationOdd),
-                                                  ih.locationToXmipp(locationEven)])
-                            else:
-                                newTi.setOddEven([])
-                            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-                            # these values may change if the removed tilt-images are the first or the last, for example.
-                            tiAngle = newTi.getTiltAngle()
-                            angleMin = min(tiAngle, angleMin)
-                            angleMax = max(tiAngle, angleMax)
+                                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                                # these values may change if the removed tilt-images are the first or the last, for example.
+                                tiAngle = outTi.getTiltAngle()
+                                angleMin = min(tiAngle, angleMin)
+                                angleMax = max(tiAngle, angleMax)
+                                tiList.append(outTi)
 
-                            tiList.append(newTi)
+                        if len(presentAcqOrders) != max(len(ts), len(ctf)):
+                            # Update the acquisition minAngle and maxAngle values of the tilt-series
+                            acq = outTs.getAcquisition()
+                            acq.setAngleMin(angleMin)
+                            acq.setAngleMax(angleMax)
+                            acq.setAccumDose(0)
+                            acq.setDoseInitial(0)
+                            outTi.setAcquisition(acq)
+                            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                            # specific accum and initial dose values
+                            for tiOut in tiList:
+                                tiAcq = tiOut.getAcquisition()
+                                tiAcq.setAngleMin(angleMin)
+                                tiAcq.setAngleMax(angleMax)
+                                tiAcq.setAccumDose(0)
+                                tiAcq.setDoseInitial(0)
+                                outTs.append(tiOut)
+                            outTs.setAnglesCount(len(outTs))
+                        else:
+                            for tiOut in tiList:
+                                outTs.append(tiOut)
 
-                    if len(presentAcqOrders) != max(len(ts), len(self.ctfDict[tsId])):
-                        # Update the acquisition minAngle and maxAngle values of the tilt-series
-                        acq = newTs.getAcquisition()
-                        acq.setAngleMin(angleMin)
-                        acq.setAngleMax(angleMax)
-                        acq.setAccumDose(0)
-                        acq.setDoseInitial(0)
-                        newTs.setAcquisition(acq)
-                        # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
-                        # specific accum and initial dose values
-                        for tiOut in tiList:
-                            tiAcq = tiOut.getAcquisition()
-                            tiAcq.setAngleMin(angleMin)
-                            tiAcq.setAngleMax(angleMax)
-                            tiAcq.setAccumDose(0)
-                            tiAcq.setDoseInitial(0)
-                            newTs.append(tiOut)
-                        newTs.setAnglesCount(len(newTs))
-                    else:
-                        for tiOut in tiList:
-                            newTs.append(tiOut)
+                        # Data persistence
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
 
-                    newTs.write(properties=False)
-                    outputSetOfTs.update(newTs)
-                    outputSetOfTs.write()
-                    self._store(outputSetOfTs)
+                else:
+                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            except Exception as e:
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- UTILS functions -----------------------------
-    def generateDefocusFile(self, tsId, presentAcqOrders=None):
-        ts = self.tsDict[tsId]
-        ctfTomoSeries = self.ctfDict[tsId]
+    def getInputCtfSet(self, pointer: bool = False) -> Union[Pointer, SetOfCTFTomoSeries]:
+        ctfSetPointer = getattr(self, IN_CTF_TOMO_SET)
+        return ctfSetPointer if pointer else ctfSetPointer.get()
 
-        self.debug(f"Generating defocus file for {tsId}")
+    def getCurrentCtf(self, tsId: str) -> CTFTomoSeries:
+        return self.getInputCtfSet().getItem(CTFTomoSeries.TS_ID_FIELD, tsId)
+
+    def generateDefocusFile(self, ts: TiltSeries, 
+                            ctf: CTFTomoSeries,
+                            presentAcqOrders: Set[int]) -> None:
+        tsId = ts.getTsId()
+        self.debug(f"tsId = {tsId} -> Generating defocus file...")
         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-        utils.generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
+        utils.generateDefocusIMODFileFromObject(ctf, defocusFilePath,
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
 
@@ -366,8 +440,6 @@ class ProtImodCtfCorrection(ProtImodBase):
                            f"CTF corrections applied: {self.TiltSeries.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
-        if self.matchingMsg.get():
-            summary.append(self.matchingMsg.get())
         return summary
 
     def _methods(self):

@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import typing
 from typing import Union, Tuple, List
 
 from imod.convert import genXfFile
@@ -152,14 +153,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def runNewStackBasic(self,
                          ts: TiltSeries,
                          xfFile: str = None,
-                         doSwap: bool = False,
                          binning: int = 1,
-                         ignoreExcludedViews: bool=False) -> None:
+                         presentAcqOrders: typing.Set[int] = None) -> None:
 
         logger.info(cyanStr(f'tsId = {ts.getTsId()} - running {NEWSTACK_PROGRAM}...'))
-        tsExcludedIndices = None if ignoreExcludedViews else (
-            ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders()))
+        tsExcludedIndices = None if not presentAcqOrders else ts.getTsExcludedViewsIndices(presentAcqOrders)
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+        doSwap = 45 < abs(rotationAngle) < 135
         if ts.hasExcludedViews():
             logger.info(cyanStr(f'\t--> Excluded views detected ==> {tsExcludedIndices}.'))
             logger.info(cyanStr("\t--> Re-stacking the tilt-series with IMOD..."))

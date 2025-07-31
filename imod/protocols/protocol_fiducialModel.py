@@ -191,7 +191,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                                            'data.')
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()

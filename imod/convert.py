@@ -25,7 +25,7 @@
 # *****************************************************************************
 import csv
 import logging
-from typing import List
+from typing import List, Set
 
 import numpy as np
 
@@ -35,17 +35,9 @@ from tomo.objects import TiltSeries, TiltImage
 logger = logging.getLogger(__name__)
 
 
-def genTltFile(ts: TiltSeries,
-               outTltFileName: str,
-               ignoreExcludedViews: bool = False) -> None:
-    logger.info(cyanStr(f"tsId = {ts.getTsId()} -> Generating the angles tlt file {outTltFileName}..."))
-    ts.generateTltFile(outTltFileName,
-                       excludeViews=not ignoreExcludedViews)
-
-
 def genXfFile(ts: TiltSeries,
               outXfName: str,
-              ignoreExcludedViews: bool = False) -> None:
+              presentAcqOrders: Set[int] = None) -> None:
     """ This method takes a tilt series and the output transformation file path
     and creates an IMOD-based transform file in the location indicated. The transformation matrix
     of a tilt-image is only added if its acquisition order is contained in a set composed of the
@@ -54,11 +46,11 @@ def genXfFile(ts: TiltSeries,
     generated considering the enabled elements of the intersection.
     """
     logger.info(cyanStr(f"tsId = {ts.getTsId()} -> Generating the transformation xf file {outXfName}..."))
-    if ignoreExcludedViews:
-        tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts]
-    else:
+    if presentAcqOrders:
         presentAcqOrders = ts.getTsPresentAcqOrders()
         tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
+    else:
+        tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts]
 
     with open(outXfName, 'w') as f:
         csvW = csv.writer(f, delimiter='\t')
