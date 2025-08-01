@@ -199,18 +199,18 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             raise Exception(f'No output/s {failedOutputList} were generated. Please check the '
                             f'Output Log > run.stdout and run.stderr')
 
-    @staticmethod
-    def getTsCtfCommonAcqOrders(ts: Union[TiltSeries, None] = None,
-                                ctf: Union[CTFTomoSeries, None] = None,
-                                onlyEnabled: bool = True):
-        if not ts or not ctf:
-            obj = ts if ts else ctf
-            if onlyEnabled:
-                return {ti.getAcquisitionOrder() for ti in obj if ti.isEnabled()}
-            else:
-                return {ti.getAcquisitionOrder() for ti in obj}
-        else:
-            return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
+    # @staticmethod
+    # def getTsCtfCommonAcqOrders(ts: Union[TiltSeries, None] = None,
+    #                             ctf: Union[CTFTomoSeries, None] = None,
+    #                             onlyEnabled: bool = True):
+    #     if not ts or not ctf:
+    #         obj = ts if ts else ctf
+    #         if onlyEnabled:
+    #             return {ti.getAcquisitionOrder() for ti in obj if ti.isEnabled()}
+    #         else:
+    #             return {ti.getAcquisitionOrder() for ti in obj}
+    #     else:
+    #         return getCommonTsAndCtfElements(ts, ctf, onlyEnabled=onlyEnabled)
 
     # def convertInputStep(self, tsId: str,
     #                      generateAngleFile: bool = True,

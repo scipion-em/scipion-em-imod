@@ -110,7 +110,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    convId = self._insertFunctionStep(self.convertInputStep,
+                    convId = self._insertFunctionStep(self.convertInStep,
                                                       tsId,
                                                       prerequisites=[],
                                                       needsGPU=False)
@@ -133,7 +133,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId: str):
+    def convertInStep(self, tsId: str):
         try:
             self.genTsPaths(tsId)
             outTsFn = self.getTmpOutFile(tsId)

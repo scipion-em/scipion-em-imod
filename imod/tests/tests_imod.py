@@ -1152,7 +1152,7 @@ class TestImodTomoReconstruction(TestImodBase):
     def _runPreviousProtocols(cls):
         cls.importedTs = cls._runImportTs()
         cls.tsPreprocessed = cls._runTsPreprocess(cls.importedTs, binning=cls.binningFactor)
-        cls.preAliTsSet, _ = cls._runXcorrAli(cls.tsPreprocessed)
+        cls.preAliTsSet = cls._runXcorrAli(cls.tsPreprocessed)
         cls.fiducialModels = cls._genFiducialModel(cls.preAliTsSet)
         cls.tsAli, _ = cls._runFiducialAli(cls.fiducialModels)
 
