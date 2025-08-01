@@ -23,20 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-from imod.protocols import ProtImodBase
-from pyworkflow.protocol import STEPS_PARALLEL, LEVEL_ADVANCED, NumericListParam, IntParam, LEVEL_NORMAL, FloatParam
+from pwem.protocols import EMProtocol
+from pyworkflow.protocol import LEVEL_ADVANCED, NumericListParam, IntParam, LEVEL_NORMAL, FloatParam
 
 
-class ProtImodBaseXcorrFidModel(ProtImodBase):
-    
-    stepsExecutionMode = STEPS_PARALLEL
+class ProtImodBaseXcorrFidModel(EMProtocol):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    @classmethod
-    def worksInStreaming(cls):
-        return True
     
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod

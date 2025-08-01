@@ -37,7 +37,8 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ BEADTRACK_PROGRAM = 'beadtrack'
 MODEL2POINT_PROGRAM = 'model2point'
 IMODCHOPCONTS_PROGRAM = 'imodchopconts'
 
-class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
+class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -60,6 +61,14 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
     _label = 'Generate fiducial model'
     _possibleOutputs = {OUTPUT_FIDUCIAL_GAPS_NAME: SetOfLandmarkModels}
+    stepsExecutionMode = STEPS_PARALLEL
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -284,8 +293,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
-                         f'failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
     def generateFiducialModelStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -305,8 +314,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def xcorrStep(self, tsId):
         try:
@@ -349,8 +358,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
-                         f'failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
     def chopcontsStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -366,8 +375,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                 self.runProgram(IMODCHOPCONTS_PROGRAM, paramschopconts)
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {IMODCHOPCONTS_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {IMODCHOPCONTS_PROGRAM} execution '
+                                     f'failed with the exception -> {e}'))
 
     def translateFiducialPointModelStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -381,8 +390,8 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                 self.runProgram(MODEL2POINT_PROGRAM, paramsGapModel2Point)
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def computeOutputModelsStep(self, tsId: str):
         """ Create the output set of landmark models with gaps. """
@@ -437,9 +446,9 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel):
                         output.write(output)
                         self._store(output)
                 else:
-                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -566,10 +575,6 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
         if self.refineSobelFilter:
             template += "\nSobelFilterCentering"
             template += "\nScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
-        #
-        # if ts.hasExcludedViews():
-        #     excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-        #     template += f"\nSkipViews {','.join(map(str, excludedViews))}"
 
         if hasAlignment:
             XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)

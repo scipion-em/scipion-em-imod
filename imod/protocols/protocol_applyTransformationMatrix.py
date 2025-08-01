@@ -30,7 +30,7 @@ from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR, NEWSTACK_PROGRAM
 from pwem import ALIGN_NONE
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TS_INTERPOLATED_NAME)
@@ -130,18 +130,20 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
             # Gen the xf alignment file
-            xFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            genXfFile(ts, xFile, ignoreExcludedViews=True)
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            genXfFile(ts, xfFile)
             # Get the excluded views indices
             tsExcludedIndices = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            # Get the doSwap argument value
+            doSwap = self.getNewstackDoSwap(firstItem, xfFile)
             #Generate the command file for newstack
             paramsDict = self.getBasicNewstackParams(ts,
                                                      firstItem.getFileName(),
                                                      self.getExtraOutFile(tsId),
-                                                     xfFile=xFile,
+                                                     xfFile=xfFile,
                                                      tsExcludedIndices=tsExcludedIndices,
                                                      binning=self.binning.get(),
-                                                     doSwap=True,
+                                                     doSwap=doSwap,
                                                      doTaper=True)
             paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
 
@@ -161,8 +163,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
-                         f'failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -238,9 +240,9 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                         outTsSet.write()
                         self._store(outTsSet)
                 else:
-                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

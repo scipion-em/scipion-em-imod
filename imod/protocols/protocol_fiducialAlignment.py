@@ -32,6 +32,7 @@ import pyworkflow.protocol.params as params
 from imod.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltSeries)
@@ -82,7 +83,7 @@ TILT_ALIGN_PROGRAM = 'tiltalign'
 ALIGNLOG_PROGRAM = 'alignlog'
 
 
-class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
+class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -159,9 +160,14 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels
     }
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):

@@ -27,11 +27,13 @@ import logging
 import typing
 from typing import Union, Tuple, List
 
+import numpy as np
+
 from imod.convert import genXfFile
 from pyworkflow.object import Set, CsvList, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow.utils import path, cyanStr
+from pyworkflow.utils import path, cyanStr, redStr
 from pwem.emlib.image import ImageHandler as ih
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
@@ -92,6 +94,99 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
+    def convertInputStep(self,
+                         tsId: str,
+                         presentAcqOrders: typing.Optional[typing.Set[int]] = None):
+        try:
+            if presentAcqOrders:
+                self.convertInputForNonEvProgram(tsId, presentAcqOrders)
+            else:
+                self.convertInputForEvProgram(tsId)
+
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+
+    def convertInputForEvProgram(self, tsId: str) -> None:
+        """The input converters of the protocols that use main IMOD programs (excluding newstack,
+        considered here as an auxiliary program) that can manage the excluded views must behave as
+        described below to work as expected:
+
+            -> Excluded views must be ignored in the generation of the tlt and, if the tilt-series
+               has alignment, in the generation of the xf. The program newstack is only executed in
+               case of alignment for interpolation.
+
+        These programs are the ones used in the coarse pre-alignment, fiducial model and fiducial alignment.
+        """
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+            firstTi = ts.getFirstItem()
+
+        hasAlignment = firstTi.hasTransform()
+        if hasAlignment:
+            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+            # The xf file must contain all thw views to interpolate and re-stack
+            genXfFile(ts, xfFile)
+            self.runNewStackBasic(ts, xfFile=xfFile)
+        else:
+            # Link it, so the input file expected is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
+
+        # Generate the tlt file
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        ts.generateTltFile(tltFile)
+
+    def convertInputForNonEvProgram(self,
+                                    tsId: str,
+                                    presentAcqOrders: typing.Set[int]) -> None:
+        """The input converters of the protocols that use main IMOD programs (excluding newstack,
+          considered here as an auxiliary program) that can manage the excluded views must behave as
+          described below to work as expected:
+
+              -> Excluded views must be considered in the generation of the tlt.
+              -> If the tilt-series has alignment, a first xf file must be generated containing all
+                 the views and the program newstack must be executed with the whole xf file and passing
+                 the present acquisition orders. This will generate an interpolated and re-stacked
+                 tilt-series. After that, a new xf file will be generated containing only the
+                 transformations that correspond to the non-excluded views to be used by the protocol's
+                 main program.
+              -> If the tilt-series does not have alignment, the acquisition orders will be used for
+                 re-stacking the tilt-series.
+          """
+        self.genTsPaths(tsId)
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+
+        firstTi = ts.getFirstItem()
+        hasExcludedViews = ts.hasExcludedViews()
+        hasAlignment = firstTi.hasTransform()
+        if not hasAlignment and not hasExcludedViews:
+            # Link it, so the input file expected is in the same place in both sides of the "if"
+            outTsFn, _, _ = self.getTmpFileNames(ts)
+            self.linkTs(firstTi.getFileName(), outTsFn)
+        else:
+            if hasAlignment:
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                # The xf file must contain all the views to make newstack interpolate and
+                # re-stack using its own excluded views feature
+                genXfFile(ts, xfFile)
+                self.runNewStackBasic(ts,
+                                      xfFile=xfFile,
+                                      presentAcqOrders=presentAcqOrders)
+                # After that, for the following programs, a new xfFile without the
+                # excluded views must be generated to be used by the protocol main program
+                genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+            else:
+                # Re-stack
+                self.runNewStackBasic(ts,
+                                      presentAcqOrders=presentAcqOrders)
+
+        # Generate the tlt file without the excluded views must be generated to be
+        # used by the protocol main program
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
+
     def closeOutputSetsStep(self, attrib: Union[List[str], str]):
         self._closeOutputSet()
         attribList = [attrib] if type(attrib) is str else attrib
@@ -150,22 +245,30 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     #                            oddEven=oddEven,
     #                            presentAcqOrders=ts.getTsPresentAcqOrders())
 
+    @staticmethod
+    def getNewstackDoSwap(ti: TiltImage, xfFile: str) -> bool:
+        doSwap = False
+        if xfFile:  # No xf file means that newstack will be used only
+            # for scaling or re-stacking, but not for interpolation
+            rotationAngle = ti.getRotationAngle()
+            doSwap = 45 < abs(rotationAngle) < 135
+        return doSwap
+
     def runNewStackBasic(self,
                          ts: TiltSeries,
                          xfFile: str = None,
                          binning: int = 1,
                          presentAcqOrders: typing.Set[int] = None) -> None:
 
-        logger.info(cyanStr(f'tsId = {ts.getTsId()} - running {NEWSTACK_PROGRAM}...'))
-        tsExcludedIndices = None if not presentAcqOrders else ts.getTsExcludedViewsIndices(presentAcqOrders)
+        tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
-        rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-        doSwap = 45 < abs(rotationAngle) < 135
-        if ts.hasExcludedViews():
-            logger.info(cyanStr(f'\t--> Excluded views detected ==> {tsExcludedIndices}.'))
-            logger.info(cyanStr("\t--> Re-stacking the tilt-series with IMOD..."))
+        firstTi = ts.getFirstItem()
+        doSwap = self.getNewstackDoSwap(firstTi, xfFile)
+        if presentAcqOrders:
+            tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
+
         param = self.getBasicNewstackParams(ts,
-                                            ts.getFirstItem().getFileName(),
+                                            firstTi.getFileName(),
                                             outTsFn,
                                             xfFile=xfFile,
                                             doSwap=doSwap,
@@ -553,8 +656,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param doTaper: optionally taper the tilt-series
         :param doNorm: optionally normalize the tilt-series
         """
+        logger.info(cyanStr(f'tsId = {ts.getTsId()}. Executing {NEWSTACK_PROGRAM}:.'))
         # Apply interpolation
-        params = {
+        paramsNs = {
             '-input': inFileName,
             '-output': outFileName,
             '-bin': binning,
@@ -562,29 +666,36 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             '-imagebinned': 1.0
         }
         if doTaper:
-            params["-taper"] = "1,1"
+            paramsNs["-taper"] = "1,1"
         if doNorm:
-            params["-FloatDensities"] = 2
+            paramsNs["-FloatDensities"] = 2
 
         if xfFile is not None:
-            params['-xform'] = xfFile
+            paramsNs['-xform'] = xfFile
+            logger.info(cyanStr(f'\t--> xf file detected. The tilt-series will be interpolated with {xfFile}'))
 
             if doSwap:
-                rotationAngle = ts.getAcquisition().getTiltAxisAngle()
-                # Check if rotation angle is greater than 45º. If so,
-                # swap x and y dimensions to adapt output image sizes to
-                # the final sample disposition.
-                if 45 < abs(rotationAngle) < 135:
+                # rotationAngle = ts.getAcquisition().getTiltAxisAngle()
+                # # Check if rotation angle is greater than 45º. If so,
+                # # swap x and y dimensions to adapt output image sizes to
+                # # the final sample disposition.
+                # if 45 < abs(rotationAngle) < 135:
                     dimX, dimY, _ = ts.getFirstItem().getDim()
-                    params["-size"] = f"{round(dimY / binning)}," \
+                    paramsNs["-size"] = f"{round(dimY / binning)}," \
                                       f"{round(dimX / binning)}"
 
         if tsExcludedIndices:
-            params["-exclude"] = ",".join(map(str, tsExcludedIndices))
+            paramsNs["-exclude"] = ",".join(map(str, tsExcludedIndices))
             # From IMOD's newstack doc: "sections are numbered from 0 unless -fromone is entered"
-            params["-fromone"] = ""
+            paramsNs["-fromone"] = ""
+            logger.info(cyanStr(f'\t--> Excluded views detected. ==> {tsExcludedIndices}. '
+                                f'The tilt-series passed to the main program/s of the protocol '
+                                f'will be re-stacked '))
 
-        return params
+        if binning > 1:
+            logger.info(cyanStr(f'\t--> The tilt-series will be re-scaled to bin {binning}.'))
+
+        return paramsNs
 
     @staticmethod
     def parseTSDefocusFile(inputTs, defocusFilePath, newCTFTomoSeries):

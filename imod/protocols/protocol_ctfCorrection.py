@@ -30,6 +30,7 @@ from os.path import exists
 from typing import Union, Set
 from imod.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
+from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pwem import ALIGN_NONE
 from pyworkflow.object import Pointer
 import pyworkflow.protocol.params as params
@@ -38,7 +39,6 @@ from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, SetOfCTFTomoSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
-from imod.protocols import ProtImodBase
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
                             EVEN, OUTPUT_TILTSERIES_NAME)
 
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 CTF_PHASE_FLIP_PROGRAM = 'ctfphaseflip'
 
-class ProtImodCtfCorrection(ProtImodBase, ProtStreamingBase):
+class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
     """
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:
@@ -194,7 +194,7 @@ class ProtImodCtfCorrection(ProtImodBase, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    pidConvert = self._insertFunctionStep(self.convertInputsStep,
+                    pidConvert = self._insertFunctionStep(self.convertInStep,
                                                           tsId,
                                                           prerequisites=[],
                                                           needsGPU=False)
@@ -221,54 +221,21 @@ class ProtImodCtfCorrection(ProtImodBase, ProtStreamingBase):
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
-    def convertInputsStep(self, tsId: str):
+    def convertInStep(self, tsId: str):
         try:
             self.genTsPaths(tsId)
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 ctf = self.getCurrentCtf(tsId)
-            presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)   
-            
-            try:
-                firstTi = ts.getFirstItem()
-                # Generate the xf file. The behavior will be different if there is
-                # alignment information present in the metadata and if there are excluded views.
-                hasExcludedViews = ts.hasExcludedViews()
-                hasAlignment = firstTi.hasTransform()
-                if not hasAlignment and not hasExcludedViews:
-                    # Link it, so the input file expected is in the same place in both sides of the "if"
-                    outTsFn, _, _ = self.getTmpFileNames(ts)
-                    self.linkTs(firstTi.getFileName(), outTsFn)
-                else:
-                    xfFile = None  # Only re-stack
-                    if hasAlignment:
-                        xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                        # The xf file must contain all thw views to interpolate and re-stack
-                        genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
-                        self.runNewStackBasic(ts,
-                                              xfFile=xfFile,
-                                              presentAcqOrders=presentAcqOrders)
-                        # After that, for the following programs, a new xfFile without the
-                        # excluded views must be generated
-                        genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
-                    else:
-                        self.runNewStackBasic(ts,
-                                              xfFile=xfFile,
-                                              presentAcqOrders=presentAcqOrders)
-
-                # Generate the tlt file
-                tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-                ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
-                
+                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+                super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
                 # Generate the defocus file
                 self.generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
 
-            except Exception as e2:
-                logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e2}'))
-        except Exception as e1:
+        except Exception as e:
             self.failedItems.append(tsId)
             logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
-            logger.info(f'{e1}')
+            logger.info(f'{e}')
 
     def ctfCorrection(self, tsId: str):
         try:

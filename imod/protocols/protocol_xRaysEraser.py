@@ -29,7 +29,7 @@ from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
@@ -259,7 +259,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -297,9 +297,9 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                             if output:
                                 output.close()
                 else:
-                    logger.error(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... ')
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

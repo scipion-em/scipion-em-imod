@@ -30,7 +30,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
@@ -116,7 +116,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {EXCLUDE_VIEWS_PROGRAM} execution failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {EXCLUDE_VIEWS_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -185,7 +185,7 @@ class ProtImodExcludeViews(ProtImodBase):
                     self._store(outTsSet)
 
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

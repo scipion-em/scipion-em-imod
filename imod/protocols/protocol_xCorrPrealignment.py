@@ -29,11 +29,11 @@ from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
 from imod.convert import readXfFile
-from imod.protocols.protocol_base import IN_TS_SET
-from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from imod.protocols.protocol_base import IN_TS_SET, ProtImodBase
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem.objects import Transform
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.protocol import ProtStreamingBase, STEPS_PARALLEL
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
@@ -45,7 +45,7 @@ TILT_XCORR_PROGRAM = 'tiltxcorr'
 XFTOXG_PROGRM = 'xftoxg'
 
 
-class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
+class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
@@ -71,9 +71,14 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
 
     _label = 'Coarse prealignment'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -217,8 +222,8 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
-                         f'failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
+                                f'failed with the exception -> {e}'))
 
     def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
@@ -264,9 +269,9 @@ class ProtImodXcorrPrealignment(ProtImodBaseXcorrFidModel, ProtImodBaseTsAlign):
                             if output:
                                 output.close()
                 else:
-                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

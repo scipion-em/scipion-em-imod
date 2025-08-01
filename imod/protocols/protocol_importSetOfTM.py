@@ -32,7 +32,7 @@ from imod.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
 from pwem.objects import Transform
 from pyworkflow.protocol.constants import STEPS_SERIAL
-from pyworkflow.utils import cyanStr
+from pyworkflow.utils import cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
@@ -70,8 +70,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         form.addParam("override",
                       params.BooleanParam,
                       default=True,
-                      help='If True, the imported transformations will override the previous alignmnets, otherwise, the alignmnets will be combined (alignment matrices multiplied)',
-                      label='Override aligmnents')
+                      help='If True, the imported transformations will override the previous alignments, '
+                           'otherwise, the alignments will be combined (alignment matrices multiplied.',
+                      label='Override alignments')
 
         groupMatchBinning = form.addGroup('Match binning')
 
@@ -127,7 +128,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                        in self.iterFilesDict.keys()}  # Use only the ones that are not excluded with the excluded words
         logger.info(cyanStr(f"Matching tsIds: {self.matchingTsIds}"))
 
-    def generateTransformFileStep(self, tsId, matchBinningFactor):
+    def generateTransformFileStep(self,
+                                  tsId: str,
+                                  matchBinningFactor: int):
         try:
             self.genTsPaths(tsId)
             ts = self.tsDict[tsId]
@@ -166,9 +169,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     pwutils.createLink(tmFilePath, outputTransformFile)
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> failed with the exception -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> failed with the exception -> {e}'))
 
-    def assignTransformationMatricesStep(self, tsId):
+    def assignTransformationMatricesStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
         else:
@@ -193,7 +196,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                 outTsSet.update(outTs)
 
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
