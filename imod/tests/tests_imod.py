@@ -30,7 +30,7 @@ import numpy as np
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
 from pyworkflow.utils import magentaStr, cyanStr
-from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries, SetOfLandmarkModels
+from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries, SetOfLandmarkModels, SetOfTomograms
 from tomo.protocols import ProtImportTs, ProtImportTomograms, ProtImportTsCTF
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
 from tomo.protocols.protocol_import_ctf import ImportChoice
@@ -1245,7 +1245,8 @@ class TestImodTomoReconstruction(TestImodBase):
 class TestImodTomogramPreprocess(TestImodBase):
     binningFactor = 4
 
-    def _checkTomos(self, inTomos, binningFactor=1):
+    def _checkTomos(self, inTomos: SetOfTomograms,
+                    binningFactor: int = 1) -> None:
         # The input tomograms are at binning 4, so it will be the reference binning
         binnedSRate = self.unbinnedSRate * self.binningFactor * binningFactor
         testAcqObjDict = {
@@ -1276,29 +1277,14 @@ class TestImodTomogramPreprocess(TestImodBase):
     def _runPreviousProtocols(cls):
         cls.importedTomos = cls._runImportTomograms()
 
-    def testTsPreprocess00(self):
-        tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-                                                         densAdjustMode=0)  # No adjust
-        self._checkTomos(tomosPreprocessed)
-
-    def testTsPreprocess01(self):
-        binningFactor = 1
+    def testTomoPreprocess01(self):
+        binningFactor = 2
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          binning=binningFactor,
-                                                         densAdjustMode=0,  # No adjust
-                                                         scaleMax=200,
-                                                         scaleMin=20)
+                                                         densAdjustMode=0)  # No adjust
         self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    # This density adjust method was deprecated
-    # def testTsPreprocess02(self):
-    #     binningFactor = 2
-    #     tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-    #                                                      binning=binningFactor,
-    #                                                      densAdjustMode=1)  # range between min and max
-    #     self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
-
-    def testTsPreprocess02(self):
+    def testTomoPreprocess02(self):
         binningFactor = 2
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          binning=binningFactor,
@@ -1308,23 +1294,14 @@ class TestImodTomogramPreprocess(TestImodBase):
                                                          scaleSd=1)
         self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
 
-    def testTsPreprocess03(self):
+    def testTomoPreprocess03(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          densAdjustMode=2,
                                                          # scaled to common mean and standard deviation
                                                          meanSdToggle=False)
         self._checkTomos(tomosPreprocessed)
 
-    # This density adjust method was deprecated
-    # def testTsPreprocess05(self):
-    #     binningFactor = 3
-    #     tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
-    #                                                      binning=binningFactor,
-    #                                                      densAdjustMode=3,  # shifted to a common mean without scaling
-    #                                                      meanSdToggle=False)
-    #     self._checkTomos(tomosPreprocessed, binningFactor=binningFactor)
-
-    def testTsPreprocess04(self):
+    def testTomoPreprocess04(self):
         tomosPreprocessed = self._runTomogramsPreprocess(self.importedTomos,
                                                          densAdjustMode=4,
                                                          # shifted to mean and rescaled to a min and max

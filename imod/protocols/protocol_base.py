@@ -491,7 +491,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return coords3D
 
-    def getOutputSetOfTomograms(self, inputPtr, binning=1):
+    def getOutputSetOfTomograms(self,
+                                inputPtr: Pointer,
+                                binning: int = 1) -> SetOfTomograms:
         inputSet = inputPtr.get()
 
         if self.Tomograms:
@@ -588,7 +590,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         return self.getInputTsSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def getInputTomoSet(self, pointer: bool = False) -> Union[Pointer, SetOfTomograms]:
-        tomoSetPointer = getattr(self, IN_TS_SET)
+        tomoSetPointer = getattr(self, IN_TOMO_SET)
         return tomoSetPointer if pointer else tomoSetPointer.get()
 
     def getCurrentTomo(self, tsId: str) -> Tomogram:
@@ -635,7 +637,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         Plugin.runImod(self, program, args, cwd)
 
     @staticmethod
-    def getBasicNewstackParams(ts: TiltSeries,
+    def getBasicNewstackParams(ts: Union[TiltSeries, Tomogram],
                                inFileName: str,
                                outFileName: str,
                                xfFile: str = None,
@@ -646,7 +648,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                doNorm: bool = False):
         """ Returns basic newstack arguments
 
-        :param ts: Title Series object
+        :param ts: Title Series or Tomogram object
         :param inFileName: Input tilt-series file name.
         :param outFileName:  Output tilt-series file name.
         :param xfFile: xf file name, if passed, alignment will be generated and used
@@ -656,7 +658,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         :param doTaper: optionally taper the tilt-series
         :param doNorm: optionally normalize the tilt-series
         """
-        logger.info(cyanStr(f'tsId = {ts.getTsId()}. Executing {NEWSTACK_PROGRAM}:.'))
+        logger.info(cyanStr(f'tsId = {ts.getTsId()} -> Executing {NEWSTACK_PROGRAM}:.'))
         # Apply interpolation
         paramsNs = {
             '-input': inFileName,
@@ -908,5 +910,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
         warnMsgList = []
-        self.warningOddEven(self.getInputTsSet(), warnMsgList)
+        if getattr(self, IN_TS_SET, None):
+            inSet = self.getInputTsSet()
+            self.warningOddEven(inSet, warnMsgList)
+        elif getattr(self, IN_TOMO_SET, None):
+            inSet = self.getInputTomoSet()
+            self.warningOddEven(inSet, warnMsgList)
         return warnMsgList
