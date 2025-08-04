@@ -141,17 +141,18 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
 
     def runBRT(self, tsId: str):
-        logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-        try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            self.genTsPaths(tsId)
-            args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
-                else self._getPatchTrackingCmd(ts)
-            Plugin.runBRT(self, args)
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                self.genTsPaths(tsId)
+                args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
+                    else self._getPatchTrackingCmd(ts)
+                Plugin.runBRT(self, args)
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:

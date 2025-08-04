@@ -148,44 +148,45 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
 
     def generateOutputStackStep(self, tsId: str, binning: int):
-        logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
-        try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            norm = self.floatDensities.get()
-            paramsDict = self.getBasicNewstackParams(ts,
-                                                     self.getTmpOutFile(tsId),
-                                                     self.getExtraOutFile(tsId),
-                                                     binning=binning,
-                                                     doNorm=norm != 0)
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                norm = self.floatDensities.get()
+                paramsDict = self.getBasicNewstackParams(ts,
+                                                         self.getTmpOutFile(tsId),
+                                                         self.getExtraOutFile(tsId),
+                                                         binning=binning,
+                                                         doNorm=norm != 0)
 
-            paramsDict["-antialias"] = self.antialias.get() + 1
-            # Float densities
-            if norm > 0:
-                paramsDict["-FloatDensities"] = norm
-                if norm == 2:
-                    paramsDict["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
-                elif norm == 4:
-                    paramsDict["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
+                paramsDict["-antialias"] = self.antialias.get() + 1
+                # Float densities
+                if norm > 0:
+                    paramsDict["-FloatDensities"] = norm
+                    if norm == 2:
+                        paramsDict["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
+                    elif norm == 4:
+                        paramsDict["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
 
-            if self.getModeToOutput() is not None:
-                paramsDict["-ModeToOutput"] = self.getModeToOutput()
+                if self.getModeToOutput() is not None:
+                    paramsDict["-ModeToOutput"] = self.getModeToOutput()
 
-            self.runProgram(NEWSTACK_PROGRAM, paramsDict)
-
-            if self.doOddEven:
-                paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
-                paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
+                if self.doOddEven:
+                    paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=ODD)
+                    paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                    self.runProgram(NEWSTACK_PROGRAM, paramsDict)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
-                                f'failed with the exception -> {e}'))
+                    paramsDict['-input'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                    paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                    self.runProgram(NEWSTACK_PROGRAM, paramsDict)
+
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId: str, binning: int):
         if tsId in self.failedItems:

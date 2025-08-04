@@ -35,12 +35,9 @@ from tomo.objects import Tomogram, SetOfTomograms
 from imod import Plugin
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
-                            OUTPUT_TOMOGRAMS_NAME)
+                            OUTPUT_TOMOGRAMS_NAME, TRIMVOL_PROGRAM, TILT_PROGRAM)
 
 logger = logging.getLogger(__name__)
-
-TILT_PROGRAM = 'tilt'
-TRIMVOL_PROGRAM = 'trimvol'
 
 
 class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
@@ -311,80 +308,81 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
 
     def computeReconstructionStep(self, tsId, tomoWidth):
-        logger.info(cyanStr(f'===> tsId = {tsId}: reconstructing the tomogram...'))
-        try:
-            # run tilt
-            paramsTilt = {
-                "-InputProjections": self.getTmpOutFile(tsId),
-                "-OutputFile": self.getTmpOutFile(tsId, ext=MRC_EXT),
-                "-TILTFILE": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-THICKNESS": self.tomoThickness.get(),
-                "-FalloffIsTrueSigma": 1,
-                "-RADIAL": f"{self.radialFirstParameter.get()},{self.radialSecondParameter.get()}",
-                "-SHIFT": f"{self.tomoShiftX.get()},{self.tomoShiftZ.get()}",
-                "-OFFSET": f"{self.angleOffset.get()},{self.tiltAxisOffset.get()}",
-                "-MODE": 1,
-                "-PERPENDICULAR": "",
-                "-AdjustOrigin": "",
-                "SuperSampleFactor": self.superSampleFactor.get()
-            }
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'===> tsId = {tsId}: reconstructing the tomogram...'))
+                # run tilt
+                paramsTilt = {
+                    "-InputProjections": self.getTmpOutFile(tsId),
+                    "-OutputFile": self.getTmpOutFile(tsId, ext=MRC_EXT),
+                    "-TILTFILE": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                    "-THICKNESS": self.tomoThickness.get(),
+                    "-FalloffIsTrueSigma": 1,
+                    "-RADIAL": f"{self.radialFirstParameter.get()},{self.radialSecondParameter.get()}",
+                    "-SHIFT": f"{self.tomoShiftX.get()},{self.tomoShiftZ.get()}",
+                    "-OFFSET": f"{self.angleOffset.get()},{self.tiltAxisOffset.get()}",
+                    "-MODE": 1,
+                    "-PERPENDICULAR": "",
+                    "-AdjustOrigin": "",
+                    "SuperSampleFactor": self.superSampleFactor.get()
+                }
 
-            if self.fakeInteractionsSIRT.get() != 0:
-                paramsTilt["-FakeSIRTiterations"] = self.fakeInteractionsSIRT.get()
+                if self.fakeInteractionsSIRT.get() != 0:
+                    paramsTilt["-FakeSIRTiterations"] = self.fakeInteractionsSIRT.get()
 
-            # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
-            # # Excluded views
-            # ts = self.getCurrentItem(tsId)
-            # excludedViews = ts.getExcludedViewsIndex(caster=str)
-            # if len(excludedViews):
-            #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
+                # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
+                # # Excluded views
+                # ts = self.getCurrentItem(tsId)
+                # excludedViews = ts.getExcludedViewsIndex(caster=str)
+                # if len(excludedViews):
+                #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
 
-            if self.usesGpu():
-                paramsTilt["-UseGPU"] = self.getGpuList()[0]
-                paramsTilt["-ActionIfGPUFails"] = "2,2"
+                if self.usesGpu():
+                    paramsTilt["-UseGPU"] = self.getGpuList()[0]
+                    paramsTilt["-ActionIfGPUFails"] = "2,2"
 
-            self.runProgram(TILT_PROGRAM, paramsTilt)
-
-            # run trimvol
-            trimVolOpts = "-rx "
-            if tomoWidth > 0:
-                trimVolOpts += f" -nx {tomoWidth}"
-
-            paramsTrimVol = {
-                'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
-                'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
-                'options': trimVolOpts
-            }
-
-            argsTrimvol = "%(options)s %(input)s %(output)s"
-            Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
-
-            oddEvenTmp = [[], []]
-            if self.doOddEven:
-                # Odd
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
-                oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[0]
                 self.runProgram(TILT_PROGRAM, paramsTilt)
 
-                paramsTrimVol['input'] = oddEvenTmp[0]
-                paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                # run trimvol
+                trimVolOpts = "-rx "
+                if tomoWidth > 0:
+                    trimVolOpts += f" -nx {tomoWidth}"
+
+                paramsTrimVol = {
+                    'input': self.getTmpOutFile(tsId, ext=MRC_EXT),
+                    'output': self.getExtraOutFile(tsId, ext=MRC_EXT),
+                    'options': trimVolOpts
+                }
+
+                argsTrimvol = "%(options)s %(input)s %(output)s"
                 Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
 
-                # Even
-                paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                oddEvenTmp[1] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                paramsTilt['-OutputFile'] = oddEvenTmp[1]
-                self.runProgram(TILT_PROGRAM, paramsTilt)
+                oddEvenTmp = [[], []]
+                if self.doOddEven:
+                    # Odd
+                    paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
+                    oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                    paramsTilt['-OutputFile'] = oddEvenTmp[0]
+                    self.runProgram(TILT_PROGRAM, paramsTilt)
 
-                paramsTrimVol['input'] = oddEvenTmp[1]
-                paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
+                    paramsTrimVol['input'] = oddEvenTmp[0]
+                    paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                    Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {TILT_PROGRAM} or {TRIMVOL_PROGRAM} execution '
-                                f'failed with the exception -> {e}'))
+                    # Even
+                    paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                    oddEvenTmp[1] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                    paramsTilt['-OutputFile'] = oddEvenTmp[1]
+                    self.runProgram(TILT_PROGRAM, paramsTilt)
+
+                    paramsTrimVol['input'] = oddEvenTmp[1]
+                    paramsTrimVol['output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                    Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
+
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_PROGRAM} or {TRIMVOL_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:

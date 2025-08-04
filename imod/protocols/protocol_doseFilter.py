@@ -36,11 +36,9 @@ from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
-                            OUTPUT_TILTSERIES_NAME)
+                            OUTPUT_TILTSERIES_NAME, MTTFILTER_PROGRAM)
 
 logger = logging.getLogger(__name__)
-
-MTTFILTER_PROGRAM = "mtffilter"
 
 
 class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):

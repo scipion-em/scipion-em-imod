@@ -32,11 +32,9 @@ from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT, CCDERASER_PROGRAM
 
 logger = logging.getLogger(__name__)
-
-CCDERASER_PROGRAM = 'ccderaser'
 
 
 class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):

@@ -38,11 +38,10 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
-                            EVEN, OUTPUT_TILTSERIES_NAME)
+                            EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM)
 
 logger = logging.getLogger(__name__)
 
-CTF_PHASE_FLIP_PROGRAM = 'ctfphaseflip'
 
 class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
     """
@@ -233,50 +232,51 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         except Exception as e:
             self.failedItems.append(tsId)
             logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
-            logger.info(f'{e}')
+            logger.error(redStr(f'{e}'))
 
     def ctfCorrection(self, tsId: str):
-        try:
-            logger.info(cyanStr(f'tsId = {tsId}: correcting the CTF...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: correcting the CTF...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
 
-            paramsCtfPhaseFlip = {
-                "-InputStack": self.getTmpOutFile(tsId),
-                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-OutputFileName": self.getExtraOutFile(tsId),
-                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-                "-Voltage": int(self.acq.getVoltage()),
-                "-SphericalAberration": self.acq.getSphericalAberration(),
-                "-DefocusTol": self.defocusTol.get(),
-                "-PixelSize": self.sRate / 10,  # nm
-                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
-                "-InterpolationWidth": self.interpolationWidth.get()
-            }
+                paramsCtfPhaseFlip = {
+                    "-InputStack": self.getTmpOutFile(tsId),
+                    "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                    "-OutputFileName": self.getExtraOutFile(tsId),
+                    "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                    "-Voltage": int(self.acq.getVoltage()),
+                    "-SphericalAberration": self.acq.getSphericalAberration(),
+                    "-DefocusTol": self.defocusTol.get(),
+                    "-PixelSize": self.sRate / 10,  # nm
+                    "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+                    "-InterpolationWidth": self.interpolationWidth.get()
+                }
 
-            if self.usesGpu():
-                paramsCtfPhaseFlip["-UseGPU"] = self.getGpuList()[0]
-                paramsCtfPhaseFlip["-ActionIfGPUFails"] = "2,2"
+                if self.usesGpu():
+                    paramsCtfPhaseFlip["-UseGPU"] = self.getGpuList()[0]
+                    paramsCtfPhaseFlip["-ActionIfGPUFails"] = "2,2"
 
-            if ts.hasAlignment():
-                paramsCtfPhaseFlip["-TransformFile"] = self.getExtraOutFile(tsId, ext=XF_EXT)
+                if ts.hasAlignment():
+                    paramsCtfPhaseFlip["-TransformFile"] = self.getExtraOutFile(tsId, ext=XF_EXT)
 
-            self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
-
-            if self.doOddEven:
-                # ODD
-                paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=ODD)
-                paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
 
-                # EVEN
-                paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=EVEN)
-                paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
+                if self.doOddEven:
+                    # ODD
+                    paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=ODD)
+                    paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=ODD)
+                    self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed with the exception -> {e}'))
+                    # EVEN
+                    paramsCtfPhaseFlip["-InputStack"] = self.getTmpOutFile(tsId, suffix=EVEN)
+                    paramsCtfPhaseFlip["-OutputFileName"] = self.getExtraOutFile(tsId, suffix=EVEN)
+                    self.runProgram(CTF_PHASE_FLIP_PROGRAM, paramsCtfPhaseFlip)
+
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:

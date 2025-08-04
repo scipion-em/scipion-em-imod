@@ -33,7 +33,8 @@ from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidMode
 import pyworkflow.utils.path as path
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             SFID_EXT, OUTPUT_FIDUCIAL_GAPS_NAME,
-                            FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES)
+                            FIDUCIAL_MODEL, PATCH_TRACKING, PT_FRACTIONAL_OVERLAP, PT_NUM_PATCHES, AUTOFIDSEED_PROGRAM,
+                            BEADTRACK_PROGRAM, IMODCHOPCONTS_PROGRAM, MODEL2POINT_PROGRAM)
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
@@ -43,10 +44,6 @@ from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
 
 logger = logging.getLogger(__name__)
 
-AUTOFIDSEED_PROGRAM = 'autofidseed'
-BEADTRACK_PROGRAM = 'beadtrack'
-MODEL2POINT_PROGRAM = 'model2point'
-IMODCHOPCONTS_PROGRAM = 'imodchopconts'
 
 class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
@@ -268,33 +265,34 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         self.acq = tsSet.getAcquisition()
 
     def generateFiducialSeedStep(self, tsId):
-        try:
-            logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
-            self.generateTrackCom(tsId)
-            trackFile = self.getExtraOutFile(tsId, suffix="track", ext="com")
-            if exists(trackFile):
-                paramsAutofidseed = {
-                    "-TrackCommandFile": trackFile,
-                    "-MinSpacing": 0.85,
-                    "-AdjustSizes": "",
-                    "-PeakStorageFraction": 1.0,
-                    "-TargetNumberOfBeads": self.numberFiducial.get(),
-                }
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
+                self.generateTrackCom(tsId)
+                trackFile = self.getExtraOutFile(tsId, suffix="track", ext="com")
+                if exists(trackFile):
+                    paramsAutofidseed = {
+                        "-TrackCommandFile": trackFile,
+                        "-MinSpacing": 0.85,
+                        "-AdjustSizes": "",
+                        "-PeakStorageFraction": 1.0,
+                        "-TargetNumberOfBeads": self.numberFiducial.get(),
+                    }
 
-                if self.twoSurfaces:
-                    paramsAutofidseed["-TwoSurfaces"] = ""
+                    if self.twoSurfaces:
+                        paramsAutofidseed["-TwoSurfaces"] = ""
 
-                self.runProgram(AUTOFIDSEED_PROGRAM, paramsAutofidseed)
+                    self.runProgram(AUTOFIDSEED_PROGRAM, paramsAutofidseed)
 
-                autofidseedDirPath = self._getExtraPath(tsId, "autofidseed.dir")
-                path.makePath(autofidseedDirPath)
-                path.moveTree("autofidseed.dir", autofidseedDirPath)
-                path.moveFile("autofidseed.info", self._getExtraPath(tsId))
+                    autofidseedDirPath = self._getExtraPath(tsId, "autofidseed.dir")
+                    path.makePath(autofidseedDirPath)
+                    path.moveTree("autofidseed.dir", autofidseedDirPath)
+                    path.moveFile("autofidseed.info", self._getExtraPath(tsId))
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
-                                f'failed with the exception -> {e}'))
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def generateFiducialModelStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -318,49 +316,50 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                     f'failed with the exception -> {e}'))
 
     def xcorrStep(self, tsId):
-        try:
-            logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-            borders = self.pxTrim.getListFromValues(caster=str)
-            sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+                xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+                borders = self.pxTrim.getListFromValues(caster=str)
+                sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
 
-            paramsTiltXCorr = {
-                "-InputFile": self.getTmpOutFile(tsId),
-                "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
-                "-RotationAngle": self.acq.getTiltAxisAngle(),
-                "-TiltFile": angleFilePath,
-                "-FilterRadius2": self.filterRadius2.get(),
-                "-FilterSigma1": self.filterSigma1.get(),
-                "-FilterSigma2": self.filterSigma2.get(),
-                "-BordersInXandY": ",".join(borders),
-                "-IterateCorrelations": self.iterationsSubpixel.get(),
-                "-SizeOfPatchesXandY": ",".join(sizePatches),
-                "-PrealignmentTransformFile": xfFile,
-                "-ImagesAreBinned": 1,
-            }
+                paramsTiltXCorr = {
+                    "-InputFile": self.getTmpOutFile(tsId),
+                    "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+                    "-RotationAngle": self.acq.getTiltAxisAngle(),
+                    "-TiltFile": angleFilePath,
+                    "-FilterRadius2": self.filterRadius2.get(),
+                    "-FilterSigma1": self.filterSigma1.get(),
+                    "-FilterSigma2": self.filterSigma2.get(),
+                    "-BordersInXandY": ",".join(borders),
+                    "-IterateCorrelations": self.iterationsSubpixel.get(),
+                    "-SizeOfPatchesXandY": ",".join(sizePatches),
+                    "-PrealignmentTransformFile": xfFile,
+                    "-ImagesAreBinned": 1,
+                }
 
-            if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
-                patchesXY = self.overlapPatches.getListFromValues(caster=str)
-                paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
-            else:
-                numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
-                paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
+                if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
+                    patchesXY = self.overlapPatches.getListFromValues(caster=str)
+                    paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
+                else:
+                    numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
+                    paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
 
-            # Excluded views
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            if excludedViews:
-                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
+                # Excluded views
+                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                if excludedViews:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                    paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
-            self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
+                self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
-                                f'failed with the exception -> {e}'))
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def chopcontsStep(self, tsId: str):
         if tsId not in self.failedItems:

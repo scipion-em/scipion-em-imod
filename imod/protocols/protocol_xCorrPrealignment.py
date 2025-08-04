@@ -37,12 +37,9 @@ from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+                            OUTPUT_TS_INTERPOLATED_NAME, XFTOXG_PROGRM, TILT_XCORR_PROGRAM)
 
 logger = logging.getLogger(__name__)
-
-TILT_XCORR_PROGRAM = 'tiltxcorr'
-XFTOXG_PROGRM = 'xftoxg'
 
 
 class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStreamingBase):
@@ -176,55 +173,56 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
     # --------------------------- STEPS functions -----------------------------
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
-        try:
-            logger.info(cyanStr(f'tsId = {tsId} -> Correcting the translations with {TILT_XCORR_PROGRAM}...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            tiltAxisAngle = self.getTiltAxisOrientation(ts)
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Correcting the translations with {TILT_XCORR_PROGRAM}...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
-            paramsXcorr = {
-                "-input": self.getTmpOutFile(tsId),
-                "-output": self.getExtraOutFile(tsId, ext=PREXF_EXT),
-                "-tiltfile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-RotationAngle": tiltAxisAngle,
-                "-FilterSigma1": self.filterSigma1.get(),
-                "-FilterSigma2": self.filterSigma2.get(),
-                "-FilterRadius1": self.filterRadius1.get(),
-                "-FilterRadius2": self.filterRadius2.get()
-            }
+                paramsXcorr = {
+                    "-input": self.getTmpOutFile(tsId),
+                    "-output": self.getExtraOutFile(tsId, ext=PREXF_EXT),
+                    "-tiltfile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                    "-RotationAngle": tiltAxisAngle,
+                    "-FilterSigma1": self.filterSigma1.get(),
+                    "-FilterSigma2": self.filterSigma2.get(),
+                    "-FilterRadius1": self.filterRadius1.get(),
+                    "-FilterRadius2": self.filterRadius2.get()
+                }
 
-            if self.cumulativeCorr:
-                paramsXcorr["-CumulativeCorrelation"] = ""
+                if self.cumulativeCorr:
+                    paramsXcorr["-CumulativeCorrelation"] = ""
 
-            doTrim = any([getattr(self, attr).hasValue() for
-                          attr in ["xmin", "xmax", "ymin", "ymax"]])
-            if doTrim:
-                xdim, ydim, _ = ts.getDim()
-                xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim - 1
-                ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim - 1
+                doTrim = any([getattr(self, attr).hasValue() for
+                              attr in ["xmin", "xmax", "ymin", "ymax"]])
+                if doTrim:
+                    xdim, ydim, _ = ts.getDim()
+                    xmin, xmax = self.xmin.get() or 0, self.xmax.get() or xdim - 1
+                    ymin, ymax = self.ymin.get() or 0, self.ymax.get() or ydim - 1
 
-                paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
-                paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
+                    paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
+                    paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
 
-            # Excluded views
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            if excludedViews:
-                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
+                # Excluded views
+                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                if excludedViews:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                    paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
-            self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)
+                self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)
 
-            paramsXftoxg = {
-                "-input": self.getExtraOutFile(tsId, ext=PREXF_EXT),
-                "-goutput": self.getExtraOutFile(tsId, ext=PREXG_EXT),
-                "-NumberToFit": 0
-            }
-            self.runProgram(XFTOXG_PROGRM, paramsXftoxg)
+                paramsXftoxg = {
+                    "-input": self.getExtraOutFile(tsId, ext=PREXF_EXT),
+                    "-goutput": self.getExtraOutFile(tsId, ext=PREXG_EXT),
+                    "-NumberToFit": 0
+                }
+                self.runProgram(XFTOXG_PROGRM, paramsXftoxg)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
-                                f'failed with the exception -> {e}'))
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """

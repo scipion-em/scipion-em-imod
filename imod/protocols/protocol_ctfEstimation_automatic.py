@@ -29,15 +29,14 @@ from os.path import exists
 from typing import Union, Optional
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
+from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT, CTFPLOTTER_PROGRAM
 
 logger = logging.getLogger(__name__)
-
-CTFPLOTTER_PROGRAM = 'ctfplotter'
 
 
 class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
@@ -348,9 +347,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
     def ctfEstimation(self, tsId: str,
                       expDefoci: Optional[dict] = None):
         """Run ctfplotter IMOD program"""
-        if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
-        else:
+        if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
                 with self._lock:
@@ -468,32 +465,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
             except Exception as e:
                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
-        # with self._lock:
-        #     ts = self.getCurrentTs(tsId)
-        #     if tsId in self.failedItems:
-        #         self.addToOutFailedSet(ts)
-        #     else:
-        #         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-        #         if exists(defocusFilePath):
-        #             output = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
-        #                                                       outputSetName)
-        #             newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
-        #             newCTFTomoSeries.copyInfo(ts)
-        #             newCTFTomoSeries.setTiltSeries(ts)
-        #
-        #             # flags below will be updated in parseTSDefocusFile
-        #             newCTFTomoSeries.setIMODDefocusFileFlag(1)
-        #             newCTFTomoSeries.setNumberOfEstimationsInRange(0)
-        #             output.append(newCTFTomoSeries)
-        #
-        #             self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
-        #
-        #             output.update(newCTFTomoSeries)
-        #             output.write()
-        #             self._store(output)
-        #         else:
-        #             self.addToOutFailedSet(ts)
-
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
@@ -529,3 +500,22 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
             return result
         else:
             return None
+
+    def getOutputSetOfCTFTomoSeries(self,
+                                    inputPtr: Pointer,
+                                    outputSetName: str) -> SetOfCTFTomoSeries:
+        inputSet = inputPtr.get()
+
+        outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
+
+        if outputSetOfCTFTomoSeries is not None:
+            outputSetOfCTFTomoSeries.enableAppend()
+        else:
+            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                                 template='CTFmodels%s.sqlite')
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
+            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
+
+        return outputSetOfCTFTomoSeries

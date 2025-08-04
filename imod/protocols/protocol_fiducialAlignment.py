@@ -40,7 +40,7 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                             OUTPUT_TS_INTERPOLATED_NAME,
-                            OUTPUT_TS_COORDINATES_NAME)
+                            OUTPUT_TS_COORDINATES_NAME, ALIGNLOG_PROGRAM, TILT_ALIGN_PROGRAM)
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +77,6 @@ DIST_SKEW_ONLY = 2
 DISTORTION_SOLUTION_CHOICES = ['Disabled',
                                'Full solution',
                                'Skew only']
-
-# Programs used
-TILT_ALIGN_PROGRAM = 'tiltalign'
-ALIGNLOG_PROGRAM = 'alignlog'
 
 
 class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
@@ -326,77 +322,79 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
     # --------------------------- STEPS functions -----------------------------
     def computeFiducialAlignmentStep(self, tsId):
-        try:
-            logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-            ts = self.getCurrentTs(tsId)
-            paramsTiltAlign = {
-                "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
-                "-ImageFile": self.getTmpOutFile(tsId), "-ImagesAreBinned": 1,
-                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
-                "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
-                "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
-                "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
-                "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
-                "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
-                "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
-                "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
-                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-AngleOffset": 0.0,
-                "-RotOption": self.getRotationType(),
-                "-RotDefaultGrouping": self.groupRotationSize.get(),
-                "-TiltOption": self.getTiltAngleType(),
-                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
-                "-MagReferenceView": 1,
-                "-MagOption": self.getMagnificationType(),
-                "-MagDefaultGrouping": self.groupMagnificationSize.get(),
-                "-XStretchOption": self.getStretchType(),
-                "-SkewOption": self.getSkewType(),
-                "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
-                "-SkewDefaultGrouping": self.skewGroupSize.get(),
-                "-BeamTiltOption": 0,
-                "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000,
-                "-ResidualReportCriterion": 3.0,
-                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
-                "-MetroFactor": 0.25,
-                "-MaximumCycles": 1000,
-                "-KFactorScaling": 1.0,
-                "-NoSeparateTiltGroups": 1,
-                "-AxisZShift": 0.0,
-                "-ShiftZFromOriginal": 1,
-                "-TargetPatchSizeXandY": '700,700',
-                "-MinSizeOrOverlapXandY": '0.5,0.5',
-                "-MinFidsTotalAndEachSurface": '8,3',
-                "-FixXYZCoordinates": 0,
-                "-RobustFitting": ""}
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
+                ts = self.getCurrentTs(tsId)
+                paramsTiltAlign = {
+                    "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
+                    "-ImageFile": self.getTmpOutFile(tsId), "-ImagesAreBinned": 1,
+                    "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
+                    "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
+                    "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
+                    "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
+                    "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
+                    "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
+                    "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
+                    "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+                    "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
+                    "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                    "-AngleOffset": 0.0,
+                    "-RotOption": self.getRotationType(),
+                    "-RotDefaultGrouping": self.groupRotationSize.get(),
+                    "-TiltOption": self.getTiltAngleType(),
+                    "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
+                    "-MagReferenceView": 1,
+                    "-MagOption": self.getMagnificationType(),
+                    "-MagDefaultGrouping": self.groupMagnificationSize.get(),
+                    "-XStretchOption": self.getStretchType(),
+                    "-SkewOption": self.getSkewType(),
+                    "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
+                    "-SkewDefaultGrouping": self.skewGroupSize.get(),
+                    "-BeamTiltOption": 0,
+                    "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000,
+                    "-ResidualReportCriterion": 3.0,
+                    "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
+                    "-MetroFactor": 0.25,
+                    "-MaximumCycles": 1000,
+                    "-KFactorScaling": 1.0,
+                    "-NoSeparateTiltGroups": 1,
+                    "-AxisZShift": 0.0,
+                    "-ShiftZFromOriginal": 1,
+                    "-TargetPatchSizeXandY": '700,700',
+                    "-MinSizeOrOverlapXandY": '0.5,0.5',
+                    "-MinFidsTotalAndEachSurface": '8,3',
+                    "-FixXYZCoordinates": 0,
+                    "-RobustFitting": ""}
 
-            # Excluded views
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            if excludedViews:
-                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
+                # Excluded views
+                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                if excludedViews:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                    paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
 
-            paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
+                paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
 
-            self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
-            self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
-                            cwd=self._getExtraPath())
+                self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
+                self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
+                                cwd=self._getExtraPath())
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
-                         f'failed with the exception -> {e}')
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
+                             f'failed with the exception -> {e}')
 
     def translateFiducialPointModelStep(self, tsId):
-        # Check that previous steps have been completed satisfactorily
         if tsId not in self.failedItems:
-            noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
-            if os.path.exists(noGapsFid):
-                paramsNoGapModel2Point = {
-                    "-InputFile": noGapsFid,
-                    "-OutputFile": self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
-                }
-                self.runProgram('model2point', paramsNoGapModel2Point)
+            # Check that previous steps have been completed satisfactorily
+            if tsId not in self.failedItems:
+                noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
+                if os.path.exists(noGapsFid):
+                    paramsNoGapModel2Point = {
+                        "-InputFile": noGapsFid,
+                        "-OutputFile": self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
+                    }
+                    self.runProgram('model2point', paramsNoGapModel2Point)
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:

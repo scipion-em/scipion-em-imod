@@ -33,11 +33,9 @@ from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, EXCLUDE_VIEWS_PROGRAM
 
 logger = logging.getLogger(__name__)
-
-EXCLUDE_VIEWS_PROGRAM = "excludeviews"
 
 
 class ProtImodExcludeViews(ProtImodBase):

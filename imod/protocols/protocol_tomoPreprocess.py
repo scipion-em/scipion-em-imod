@@ -31,11 +31,9 @@ from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, moveFile, cyanStr, redStr
 from tomo.objects import Tomogram, SetOfTomograms
-from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN, BINVOL_PROGRAM
 
 logger = logging.getLogger(__name__)
-
-BINVOL_PROGRAM = 'binvol'
 
 
 class ProtImodTomoNormalization(ProtImodBasePreprocess):
@@ -142,7 +140,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                            runNewstack: bool,
                            binning: int):
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(tsId, inputsAreTs=False)
         else:
             try:
                 outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
