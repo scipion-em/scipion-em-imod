@@ -104,6 +104,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 self.convertInputForEvProgram(tsId)
 
         except Exception as e:
+            self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
 
     def convertInputForEvProgram(self, tsId: str) -> None:
@@ -596,12 +597,21 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def getCurrentTomo(self, tsId: str) -> Tomogram:
         return self.getInputTomoSet().getItem(Tomogram.TS_ID_FIELD, tsId)
 
+    def getInputCtfSet(self, pointer: bool = False) -> Union[Pointer, SetOfCTFTomoSeries]:
+        tomoSetPointer = getattr(self, IN_CTF_TOMO_SET)
+        return tomoSetPointer if pointer else tomoSetPointer.get()
+
+    def getCurrentCtf(self, tsId: str) -> CTFTomoSeries:
+        return self.getInputTomoSet().getItem(CTFTomoSeries.TS_ID_FIELD, tsId)
+
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
         current tilt-series in tmp and extra"""
         path.makePath(*[self._getExtraPath(tsId), self._getTmpPath(tsId)])
 
-    def readingOutput(self, outSet: Union[SetOfTiltSeries, SetOfTomograms, SetOfLandmarkModels]) -> None:
+    def readingOutput(self,
+                      outSet: Union[SetOfTiltSeries, SetOfTomograms,
+                      SetOfLandmarkModels, SetOfCTFTomoSeries]) -> None:
         if outSet:
             for item in outSet:
                 self.tsIdReadList.append(item.getTsId())

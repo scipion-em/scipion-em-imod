@@ -209,6 +209,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
             # Excluded views
             excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
             if excludedViews:
+                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
                 paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
             self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)

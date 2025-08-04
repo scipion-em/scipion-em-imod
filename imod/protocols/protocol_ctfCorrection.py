@@ -27,16 +27,14 @@
 import logging
 import time
 from os.path import exists
-from typing import Union, Set
-from imod.convert import genXfFile
+from typing import Set
 from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pwem import ALIGN_NONE
-from pyworkflow.object import Pointer
 import pyworkflow.protocol.params as params
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, SetOfCTFTomoSeries, CTFTomoSeries
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
@@ -369,14 +367,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputCtfSet(self, pointer: bool = False) -> Union[Pointer, SetOfCTFTomoSeries]:
-        ctfSetPointer = getattr(self, IN_CTF_TOMO_SET)
-        return ctfSetPointer if pointer else ctfSetPointer.get()
-
-    def getCurrentCtf(self, tsId: str) -> CTFTomoSeries:
-        return self.getInputCtfSet().getItem(CTFTomoSeries.TS_ID_FIELD, tsId)
-
-    def generateDefocusFile(self, ts: TiltSeries, 
+    def generateDefocusFile(self, ts: TiltSeries,
                             ctf: CTFTomoSeries,
                             presentAcqOrders: Set[int]) -> None:
         tsId = ts.getTsId()

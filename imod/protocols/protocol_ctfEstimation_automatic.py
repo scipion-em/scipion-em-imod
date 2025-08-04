@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,20 +23,24 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
+import logging
+import time
+from os.path import exists
+from typing import Union, Optional
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
-
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT
 
+logger = logging.getLogger(__name__)
 
-class ProtImodAutomaticCtfEstimation(ProtImodBase):
+CTFPLOTTER_PROGRAM = 'ctfplotter'
+
+
+class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
     """
     CTF estimation of a set of input tilt-series using the IMOD procedure.
     More info:
@@ -53,6 +57,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self.sRate = None
         self.acq = None
 
+    @classmethod
+    def worksInStreaming(cls):
+        return True
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -286,34 +293,51 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
-            form.addParallelSection(threads=3, mpi=0)
+            form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
-        expDefoci = self.getExpectedDefocus()
-
         closeSetStepDeps = []
-        for ts in self.getInputTsSet():
-            tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            compId = self._insertFunctionStep(self.ctfEstimation,
-                                              tsId,
-                                              expDefoci,
-                                              prerequisites=[convId],
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createOutputStep,
-                                             tsId,
-                                             prerequisites=[compId],
-                                             needsGPU=False)
-            closeSetStepDeps.append(outId)
+        expDefoci = self.getExpectedDefocus()
+        inTsSet = self.getInputTsSet()
+        outCtfSet = getattr(self, OUTPUT_CTF_SERIE, None)
+        self.readingOutput(outCtfSet)
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_CTF_SERIE,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
+
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
+                    convId = self._insertFunctionStep(self.convertInputStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.ctfEstimation,
+                                                      tsId,
+                                                      expDefoci,
+                                                      prerequisites=convId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     prerequisites=compId,
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
+
+            time.sleep(10)
+            if inTsSet.isStreamOpen():
+                with self._lock:
+                    inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
@@ -321,120 +345,154 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
-    def convertInputStep(self, tsId, **kwargs):
-        """ Implement the convertStep to cancel interpolation of the tilt series."""
-        super().convertInputStep(tsId,
-                                 imodInterpolation=False,
-                                 lockGetItem=True)
-
-    def ctfEstimation(self, tsId, expDefoci):
+    def ctfEstimation(self, tsId: str,
+                      expDefoci: Optional[dict] = None):
         """Run ctfplotter IMOD program"""
-        try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+    
+                paramsCtfPlotter = {
+                    "-InputStack": self.getTmpOutFile(tsId),
+                    "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                    "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                    "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
+                    "-PixelSize": self.sRate / 10,  # nm
+                    "-Voltage": int(self.acq.getVoltage()),
+                    "-SphericalAberration": self.acq.getSphericalAberration(),
+                    "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+                    "-DefocusTol": self.defocusTol.get(),
+                    "-PSResolution": 101,
+                    "-LeftDefTol": self.leftDefTol.get(),
+                    "-RightDefTol": self.rightDefTol.get(),
+                    "-tileSize": self.tileSize.get(),
+                }
+    
+                if self.expectedDefocusOrigin.get() == 0:
+                    paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
+                else:
+                    self.debug(f"Expected defoci: {expDefoci}")
+                    defocus = expDefoci.get(tsId, None)
+                    if defocus is None:
+                        raise ValueError(f"{tsId} not found in the provided defocus file.")
+    
+                    paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
+    
+                # Excluded views
+                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                if excludedViews:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                    paramsCtfPlotter["-ViewsToSkip"] = ",".join(map(str, excludedViews))
+    
+                if self._interactiveMode:
+                    paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
+                else:
+                    if self.extraZerosToFit.get() != 0:
+                        paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
+    
+                    if self.skipAstigmaticViews:
+                        paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
+    
+                    if self.searchAstigmatism:
+                        paramsCtfPlotter.update({
+                            "-SearchAstigmatism": "",
+                            "-MaximumAstigmatism": self.maximumAstigmatism.get(),
+                            "-NumberOfSectors": self.numberSectorsAstigmatism.get()
+                        })
+    
+                    if self.searchPhaseShift:
+                        paramsCtfPlotter["-SearchPhaseShift"]: ""
+    
+                    if self.searchAstigmatism and self.searchPhaseShift:
+                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
+                                                                     f"{self.minimumViewsPhaseShift.get()}"
+                    elif self.searchAstigmatism:
+                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
+                    elif self.searchPhaseShift:
+                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
+    
+                    if self.searchCutOnFreq:
+                        paramsCtfPlotter["-SearchCutonFrequency"] = ""
+    
+                        if self.maximumCutOnFreq.get() != -1.0:
+                            paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
+    
+                    paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
+                    paramsCtfPlotter["-SaveAndExit"] = ""
+    
+                    if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+                        paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
+    
+                self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
 
-            paramsCtfPlotter = {
-                "-InputStack": self.getTmpOutFile(tsId),
-                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
-                "-PixelSize": self.sRate / 10,  # nm
-                "-Voltage": int(self.acq.getVoltage()),
-                "-SphericalAberration": self.acq.getSphericalAberration(),
-                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
-                "-DefocusTol": self.defocusTol.get(),
-                "-PSResolution": 101,
-                "-LeftDefTol": self.leftDefTol.get(),
-                "-RightDefTol": self.rightDefTol.get(),
-                "-tileSize": self.tileSize.get(),
-            }
-
-            if self.expectedDefocusOrigin.get() == 0:
-                paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
-            else:
-                self.debug(f"Expected defoci: {expDefoci}")
-                defocus = expDefoci.get(tsId, None)
-                if defocus is None:
-                    raise ValueError(f"{tsId} not found in the provided defocus file.")
-
-                paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
-
-            # Excluded views
-            excludedViews = ts.getExcludedViewsIndex(caster=str)
-            if excludedViews:
-                paramsCtfPlotter["-ViewsToSkip"] = ",".join(excludedViews)
-
-            if self._interactiveMode:
-                paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
-            else:
-                if self.extraZerosToFit.get() != 0:
-                    paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
-
-                if self.skipAstigmaticViews:
-                    paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
-
-                if self.searchAstigmatism:
-                    paramsCtfPlotter.update({
-                        "-SearchAstigmatism": "",
-                        "-MaximumAstigmatism": self.maximumAstigmatism.get(),
-                        "-NumberOfSectors": self.numberSectorsAstigmatism.get()
-                    })
-
-                if self.searchPhaseShift:
-                    paramsCtfPlotter["-SearchPhaseShift"]: ""
-
-                if self.searchAstigmatism and self.searchPhaseShift:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
-                                                                 f"{self.minimumViewsPhaseShift.get()}"
-                elif self.searchAstigmatism:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
-                elif self.searchPhaseShift:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
-
-                if self.searchCutOnFreq:
-                    paramsCtfPlotter["-SearchCutonFrequency"] = ""
-
-                    if self.maximumCutOnFreq.get() != -1.0:
-                        paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
-
-                paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
-                paramsCtfPlotter["-SaveAndExit"] = ""
-
-                if self.startFreq.get() != 0 or self.endFreq.get() != 0:
-                    paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
-
-            self.runProgram('ctfplotter', paramsCtfPlotter)
-
-        except Exception as e:
-            self.failedItems.append(tsId)
-            self.error(f'ctfplotter execution failed for tsId {tsId} -> {e}')
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            if tsId in self.failedItems:
-                self.addToOutFailedSet(ts)
-            else:
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
                 defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-                if os.path.exists(defocusFilePath):
-                    output = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
-                                                              outputSetName)
-                    newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
-                    newCTFTomoSeries.copyInfo(ts)
-                    newCTFTomoSeries.setTiltSeries(ts)
+                if exists(defocusFilePath):
+                    with self._lock:
+                        ts = self.getCurrentTs(tsId)
+                        outputCtfSet = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
+                                                                  outputSetName)
+                        outCtfSeries = CTFTomoSeries(tsId=tsId)
+                        outCtfSeries.copyInfo(ts)
+                        outCtfSeries.setTiltSeries(ts)
 
-                    # flags below will be updated in parseTSDefocusFile
-                    newCTFTomoSeries.setIMODDefocusFileFlag(1)
-                    newCTFTomoSeries.setNumberOfEstimationsInRange(0)
-                    output.append(newCTFTomoSeries)
+                        # flags below will be updated in parseTSDefocusFile
+                        outCtfSeries.setIMODDefocusFileFlag(1)
+                        outCtfSeries.setNumberOfEstimationsInRange(0)
+                        outputCtfSet.append(outCtfSeries)
+                        self.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
 
-                    self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
-
-                    output.update(newCTFTomoSeries)
-                    output.write()
-                    self._store(output)
+                        outCtfSeries.write()
+                        outputCtfSet.update(outCtfSeries)
+                        outputCtfSet.write()
+                        self._store(outputCtfSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
-                    self.addToOutFailedSet(ts)
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {defocusFilePath} was not generated. Skipping... '))
+            except Exception as e:
+               logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+
+        # with self._lock:
+        #     ts = self.getCurrentTs(tsId)
+        #     if tsId in self.failedItems:
+        #         self.addToOutFailedSet(ts)
+        #     else:
+        #         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+        #         if exists(defocusFilePath):
+        #             output = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
+        #                                                       outputSetName)
+        #             newCTFTomoSeries = CTFTomoSeries(tsId=tsId)
+        #             newCTFTomoSeries.copyInfo(ts)
+        #             newCTFTomoSeries.setTiltSeries(ts)
+        #
+        #             # flags below will be updated in parseTSDefocusFile
+        #             newCTFTomoSeries.setIMODDefocusFileFlag(1)
+        #             newCTFTomoSeries.setNumberOfEstimationsInRange(0)
+        #             output.append(newCTFTomoSeries)
+        #
+        #             self.parseTSDefocusFile(ts, defocusFilePath, newCTFTomoSeries)
+        #
+        #             output.update(newCTFTomoSeries)
+        #             output.write()
+        #             self._store(output)
+        #         else:
+        #             self.addToOutFailedSet(ts)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -462,7 +520,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase):
     def allowsDelete(self, obj):
         return True
 
-    def getExpectedDefocus(self):
+    def getExpectedDefocus(self) -> Union[dict, None]:
         if self.expectedDefocusOrigin.get() == 1:
             with open(self.expectedDefocusFile.get()) as f:
                 lines = f.readlines()

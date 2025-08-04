@@ -373,6 +373,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
             # Excluded views
             excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
             if excludedViews:
+                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
                 paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
 
             paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
