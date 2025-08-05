@@ -426,15 +426,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                                           hasResidualInfo=False)
                         landmarkModelGaps.setTiltSeries(ts)
 
-                        # prevTiltIm = 0
-                        # chainId = 0
-
                         for index, fiducial in enumerate(fiducialGapList):
-                            # if fiducial[2] <= prevTiltIm:
-                            #     chainId += 1
-
-                            prevTiltIm = fiducial[4]
-
                             landmarkModelGaps.addLandmark(xCoor=fiducial[2],
                                                           yCoor=fiducial[3],
                                                           tiltIm=fiducial[4] + 1,
