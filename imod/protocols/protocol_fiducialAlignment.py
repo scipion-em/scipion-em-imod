@@ -34,14 +34,15 @@ from imod.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltSeries)
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                             OUTPUT_TS_INTERPOLATED_NAME,
-                            OUTPUT_TS_COORDINATES_NAME, ALIGNLOG_PROGRAM, TILT_ALIGN_PROGRAM)
+                            OUTPUT_TS_COORDINATES_NAME, ALIGNLOG_PROGRAM, TILT_ALIGN_PROGRAM, MODEL2POINT_PROGRAM,
+                            POINT2MODEL_PROGRAM)
 
 logger = logging.getLogger(__name__)
 
@@ -296,7 +297,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
             for fidModel in self.getInputSetOfLandmarks():
                 tsId = fidModel.getTsId()
-                cInId = self._insertFunctionStep(self.convertInputStep,
+                cInId = self._insertFunctionStep(self.convertInStep,
                                                  tsId,
                                                  prerequisites=[],
                                                  needsGPU=False)
@@ -322,14 +323,43 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInStep(self, tsId: str):
+        super().convertInputStep(tsId)
+        if tsId not in self.failedItems:
+            try:
+                # TODO: Check the non-imod fiducials combined with excluded views
+                # If the fiducial model was not computed with imod, it is converted into the expected format here
+                currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+                if not currentModelFn or not exists(currentModelFn):
+                    logger.info(cyanStr(f'tsId = {tsId}: not IMOD fiducial model detected. Generating...'))
+                    fidFn = self._getExtraPath(tsId, tsId + '_imod.fid')
+                    tsFn = self.getTmpOutFile(tsId)
+                    fnTxt = self._getExtraPath(tsId, tsId + '_points.txt')
+                    utils.convertTxt2Fid(currentModelFn, fnTxt)
+                    paramsPoint2Model = {
+                        "-InputFile": fnTxt,
+                        "-OutputFile": fidFn,
+                        "-image": tsFn
+                    }
+                    self.runProgram(POINT2MODEL_PROGRAM, paramsPoint2Model)
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
+                             f'failed with the exception -> {e}')
+
     def computeFiducialAlignmentStep(self, tsId):
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-                ts = self.getCurrentTs(tsId)
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+
+                currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+                tsFn = self.getTmpOutFile(tsId)
                 paramsTiltAlign = {
-                    "-ModelFile": self.getCurrentFidModel(tsId).getModelName(),
-                    "-ImageFile": self.getTmpOutFile(tsId), "-ImagesAreBinned": 1,
+                    "-ModelFile": currentModelFn,
+                    "-ImageFile": tsFn,
+                    "-ImagesAreBinned": 1,
                     "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
                     "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
                     "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
@@ -367,50 +397,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     "-MinFidsTotalAndEachSurface": '8,3',
                     "-FixXYZCoordinates": 0,
                     "-RobustFitting": ""}
-        fnTxt = self._getExtraPath(tsId, tsId+'_points.txt')
-        fnFid = self._getExtraPath(tsId, tsId + '_imod.fid')
-        fnTs = self.getCurrentItem(tsId).getFirstItem().getFileName()
-        utils.convertTxt2Fid(self.getCurrentFidModel(tsId).getFileName(), fnTxt)
-        if not os.path.exists(fnFid):
-            paramsPoint2Model = {
-                "-InputFile": fnTxt,
-                "-OutputFile": fnFid,
-                "-image": fnTs
-            }
-            self.runProgram('point2model', paramsPoint2Model)
-
-        try:
-            logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-            ts = self.getCurrentItem(tsId)
-            paramsTiltAlign = {
-                "-ModelFile": fnFid,
-                "-ImageFile": fnTs, "-ImagesAreBinned": 1,
-                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
-                "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
-                "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
-                "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
-                "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
-                "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
-                "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
-                "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
-                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT), "-AngleOffset": 0.0,
-                "-RotOption": self.getRotationType(),
-                "-RotDefaultGrouping": self.groupRotationSize.get(),
-                "-TiltOption": self.getTiltAngleType(),
-                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(), "-MagReferenceView": 1,
-                "-MagOption": self.getMagnificationType(),
-                "-MagDefaultGrouping": self.groupMagnificationSize.get(),
-                "-XStretchOption": self.getStretchType(), "-SkewOption": self.getSkewType(),
-                "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
-                "-SkewDefaultGrouping": self.skewGroupSize.get(), "-BeamTiltOption": 0,
-                "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000, "-ResidualReportCriterion": 3.0,
-                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(), "-MetroFactor": 0.25,
-                "-MaximumCycles": 1000, "-KFactorScaling": 1.0, "-NoSeparateTiltGroups": 1,
-                "-AxisZShift": 0.0, "-ShiftZFromOriginal": 1, "-TargetPatchSizeXandY": '700,700',
-                "-MinSizeOrOverlapXandY": '0.5,0.5', "-MinFidsTotalAndEachSurface": '8,3',
-                "-FixXYZCoordinates": 0, "-RobustFitting": "",
-                "2>&1 | tee ": self._getExtraPath("align.log")}
 
                 # Excluded views
                 excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
@@ -431,20 +417,22 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def translateFiducialPointModelStep(self, tsId):
         if tsId not in self.failedItems:
-            # Check that previous steps have been completed satisfactorily
-            if tsId not in self.failedItems:
+            try:
+                # Check that previous steps have been completed satisfactorily
                 noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
-                if os.path.exists(noGapsFid):
+                if exists(noGapsFid):
                     paramsNoGapModel2Point = {
                         "-InputFile": noGapsFid,
                         "-OutputFile": self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
                     }
-                    self.runProgram('model2point', paramsNoGapModel2Point)
+                    self.runProgram(MODEL2POINT_PROGRAM, paramsNoGapModel2Point)
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
+                             f'failed with the exception -> {e}')
 
     def createOutputStep(self, tsId: str):
-        if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
-        else:
+        if tsId not in self.failedItems:
             try:
                 with self._lock:
                     # Fiducial model
@@ -621,5 +609,4 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 output.write(output)
                 self._store(output)
         else:
-            logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
-
+            logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
