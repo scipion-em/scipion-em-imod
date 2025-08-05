@@ -29,6 +29,7 @@ import time
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
+from imod import utils
 from imod.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
@@ -366,6 +367,50 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     "-MinFidsTotalAndEachSurface": '8,3',
                     "-FixXYZCoordinates": 0,
                     "-RobustFitting": ""}
+        fnTxt = self._getExtraPath(tsId, tsId+'_points.txt')
+        fnFid = self._getExtraPath(tsId, tsId + '_imod.fid')
+        fnTs = self.getCurrentItem(tsId).getFirstItem().getFileName()
+        utils.convertTxt2Fid(self.getCurrentFidModel(tsId).getFileName(), fnTxt)
+        if not os.path.exists(fnFid):
+            paramsPoint2Model = {
+                "-InputFile": fnTxt,
+                "-OutputFile": fnFid,
+                "-image": fnTs
+            }
+            self.runProgram('point2model', paramsPoint2Model)
+
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
+            ts = self.getCurrentItem(tsId)
+            paramsTiltAlign = {
+                "-ModelFile": fnFid,
+                "-ImageFile": fnTs, "-ImagesAreBinned": 1,
+                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
+                "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
+                "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
+                "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
+                "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
+                "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
+                "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
+                "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+                "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT), "-AngleOffset": 0.0,
+                "-RotOption": self.getRotationType(),
+                "-RotDefaultGrouping": self.groupRotationSize.get(),
+                "-TiltOption": self.getTiltAngleType(),
+                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(), "-MagReferenceView": 1,
+                "-MagOption": self.getMagnificationType(),
+                "-MagDefaultGrouping": self.groupMagnificationSize.get(),
+                "-XStretchOption": self.getStretchType(), "-SkewOption": self.getSkewType(),
+                "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
+                "-SkewDefaultGrouping": self.skewGroupSize.get(), "-BeamTiltOption": 0,
+                "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000, "-ResidualReportCriterion": 3.0,
+                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(), "-MetroFactor": 0.25,
+                "-MaximumCycles": 1000, "-KFactorScaling": 1.0, "-NoSeparateTiltGroups": 1,
+                "-AxisZShift": 0.0, "-ShiftZFromOriginal": 1, "-TargetPatchSizeXandY": '700,700',
+                "-MinSizeOrOverlapXandY": '0.5,0.5', "-MinFidsTotalAndEachSurface": '8,3',
+                "-FixXYZCoordinates": 0, "-RobustFitting": "",
+                "2>&1 | tee ": self._getExtraPath("align.log")}
 
                 # Excluded views
                 excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())

@@ -72,6 +72,12 @@ class TestImodBase(BaseTest):
         return cls.protDoseFilter
 
     @classmethod
+    def _runFiducialEraser(cls, **kwargs):
+        cls.protFidEraser = cls.newProtocol(ProtImodFiducialEraser, **kwargs)
+        cls.launchProtocol(cls.protFidEraser)
+        return cls.protFidEraser
+
+    @classmethod
     def _runTSNormalization(cls, **kwargs):
         cls.protTSNormalization = cls.newProtocol(ProtImodTsNormalization, **kwargs)
         cls.launchProtocol(cls.protTSNormalization)
@@ -205,6 +211,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                 inputDoseType=1,
                                                 fixedImageDose=2.0)
 
+        cls.protFiducialEraser = cls._runFiducialEraser(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
+                                                    fiducialDiameter=10,
+                                                    erasedDiameter=12)
+
         cls.protTSNormalization = cls._runTSNormalization(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
                                                           binning=cls.binningTsNormalization,
                                                           floatDensities=2,
@@ -276,6 +286,15 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
     def test_xRaysEraserOutputTS(self):
         ts = self.protXRaysEraser.TiltSeries
+        self.assertSetSize(ts)
+
+        tsId = ts.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(self.protXRaysEraser._getExtraPath(tsId,
+                                                                          tsId + ".mrcs")))
+
+    def test_FiducialEraser(self):
+        ts = self.protFiducialEraser.TiltSeries
         self.assertSetSize(ts)
 
         tsId = ts.getFirstItem().getTsId()
