@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -29,7 +29,6 @@ import time
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
-from imod import utils
 from imod.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
@@ -335,7 +334,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     fidFn = self._getExtraPath(tsId, tsId + '_imod.fid')
                     tsFn = self.getTmpOutFile(tsId)
                     fnTxt = self._getExtraPath(tsId, tsId + '_points.txt')
-                    utils.convertTxt2Fid(currentModelFn, fnTxt)
+                    self._convertTxt2Fid(currentModelFn, fnTxt)
                     paramsPoint2Model = {
                         "-InputFile": fnTxt,
                         "-OutputFile": fidFn,
@@ -344,8 +343,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     self.runProgram(POINT2MODEL_PROGRAM, paramsPoint2Model)
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def computeFiducialAlignmentStep(self, tsId):
         if tsId not in self.failedItems:
@@ -412,8 +411,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def translateFiducialPointModelStep(self, tsId):
         if tsId not in self.failedItems:
@@ -428,8 +427,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     self.runProgram(MODEL2POINT_PROGRAM, paramsNoGapModel2Point)
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
-                             f'failed with the exception -> {e}')
+                logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
+                                    f'failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -441,7 +440,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     ts = self.getCurrentTs(tsId)
                     self.createOutTs(ts, self._getInTsSet(pointer=True))
             except Exception as e:
-                logger.error(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... ')
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
+                                    f'with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -610,3 +610,36 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 self._store(output)
         else:
             logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
+    @staticmethod
+    def _convertTxt2Fid(input_txt_file, output_fid_file):
+        """
+        input_txt_file: x y view chain
+        - x, y are the coordinates of the fiducials
+        - vView is the number of the image (0-indexed)
+        - chain is ethe chain number or object (0-indexed)
+        """
+        fiducials_by_chain = {}
+        with open(input_txt_file, 'r') as f_in:
+            for line in f_in:
+                parts = line.strip().split()
+                try:
+                    x = float(parts[0])
+                    y = float(parts[1])
+                    view = int(parts[2])
+                    chain = int(parts[3])
+
+                    if chain not in fiducials_by_chain:
+                        fiducials_by_chain[chain] = []
+                    fiducials_by_chain[chain].append((view, x, y))
+                except ValueError:
+                    print(f"Warning: Skipping line, it is not in the proper format: {line.strip()}")
+
+        with open(output_fid_file, 'w') as f_out:
+            # IMOD expects a number of chains at the beginning of the file
+            for chain_id in sorted(fiducials_by_chain.keys()):
+                fiducials = fiducials_by_chain[chain_id]
+                for view, x, y in fiducials:
+                    # IMOD coordinates ar integers * 100
+                    # and the views are  0-indexed.
+                    f_out.write(f"{1}\t{chain_id}\t{x}\t{y}\t{float(view - 1)}\n")
