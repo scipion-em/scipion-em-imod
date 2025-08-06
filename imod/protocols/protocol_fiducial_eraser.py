@@ -170,21 +170,21 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
-                    convId = self._insertFunctionStep(self.convertInputStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
+                    cInId = self._insertFunctionStep(self.linkTsStep,
+                                                     tsId,
+                                                     prerequisites=[],
+                                                     needsGPU=False)
                     beadsId = self._insertFunctionStep(self.imodfindbeadsStep,
                                                        tsId,
-                                                       prerequisites=[convId],
+                                                       prerequisites=cInId,
                                                        needsGPU=False)
                     eraserId = self._insertFunctionStep(self.ccderaserStep,
                                                         tsId,
-                                                        prerequisites=[beadsId],
+                                                        prerequisites=beadsId,
                                                         needsGPU=False)
                     createOutputId = self._insertFunctionStep(self.createOutputStep,
                                                               tsId,
-                                                              prerequisites=[eraserId],
+                                                              prerequisites=eraserId,
                                                               needsGPU=False)
                     closeSetStepDeps.append(createOutputId)
                     logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
@@ -198,7 +198,6 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         super()._initialize()
-
 
     def imodfindbeadsStep(self, tsId: str):
         """This step creates a fiducial model"""
@@ -220,7 +219,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
             logger.error(redStr(f'tsId = {tsId} -> {IMODFINDBEADS_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
 
-    def ccderaserStep(self, tsId):
+    def ccderaserStep(self, tsId: str):
         """This step erase the gold beads from the fiducial model"""
         if tsId not in self.failedItems:
             try:
@@ -260,7 +259,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed'
                                     f' with the exception -> {e}'))
 
-    def createOutputStep(self, tsId):
+    def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
         else:

@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -87,10 +87,24 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
+    def linkTsStep(self, tsId: str):
+        # Link the tils-series to tmp using the tsId as basename, preventing problematic
+        # filenames, such as the ones starting by a number or containing special characters. That
+        # won't happen with the tsId as it is normalized
+        try:
+            self.genTsPaths(tsId)
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+            self.linkTs(ts.getFirstItem().getFileName(), self.getTmpOutFile(tsId))
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+
     def convertInputStep(self,
                          tsId: str,
                          presentAcqOrders: typing.Optional[typing.Set[int]] = None):
         try:
+            self.genTsPaths(tsId)
             if presentAcqOrders:
                 self.convertInputForNonEvProgram(tsId, presentAcqOrders)
             else:
@@ -111,7 +125,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         These programs are the ones used in the coarse pre-alignment, fiducial model and fiducial alignment.
         """
-        self.genTsPaths(tsId)
         with self._lock:
             ts = self.getCurrentTs(tsId)
             firstTi = ts.getFirstItem()
@@ -148,7 +161,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
               -> If the tilt-series does not have alignment, the acquisition orders will be used for
                  re-stacking the tilt-series.
           """
-        self.genTsPaths(tsId)
         with self._lock:
             ts = self.getCurrentTs(tsId)
 

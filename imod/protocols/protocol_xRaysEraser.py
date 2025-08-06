@@ -200,9 +200,13 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
-                    compId = self._insertFunctionStep(self.eraseXraysStep,
+                    cInId = self._insertFunctionStep(self.linkTsStep,
                                                       tsId,
                                                       prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.eraseXraysStep,
+                                                      tsId,
+                                                      prerequisites=cInId,
                                                       needsGPU=False)
                     outId = self._insertFunctionStep(self.createOutputStep,
                                                      tsId,
@@ -218,51 +222,52 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # -------------------------- STEPS functions ------------------------------
-    def eraseXraysStep(self, tsId):
-        try:
-            logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
+    def eraseXraysStep(self, tsId: str):
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
 
-            paramsCcderaser = {
-                "-InputFile": ts.getFirstItem().getFileName(),
-                "-OutputFile": self.getExtraOutFile(tsId),
-                "-FindPeaks": 1,
-                "-PeakCriterion": self.peakCriterion.get(),
-                "-DiffCriterion": self.diffCriterion.get(),
-                "-GrowCriterion": 4.,
-                "-ScanCriterion": 3.,
-                "-MaximumRadius": self.maximumRadius.get(),
-                "-GiantCriterion": 12.,
-                "-ExtraLargeRadius": 8.,
-                "-BigDiffCriterion": self.bigDiffCriterion.get(),
-                "-AnnulusWidth": 2.0,
-                "-XYScanSize": 100,
-                "-EdgeExclusionWidth": 4,
-                "-PointModel": self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
-                "-BorderSize": 2,
-                "-PolynomialOrder": 2,
-            }
+                paramsCcderaser = {
+                    "-InputFile": self.getTmpOutFile(tsId),
+                    "-OutputFile": self.getExtraOutFile(tsId),
+                    "-FindPeaks": 1,
+                    "-PeakCriterion": self.peakCriterion.get(),
+                    "-DiffCriterion": self.diffCriterion.get(),
+                    "-GrowCriterion": 4.,
+                    "-ScanCriterion": 3.,
+                    "-MaximumRadius": self.maximumRadius.get(),
+                    "-GiantCriterion": 12.,
+                    "-ExtraLargeRadius": 8.,
+                    "-BigDiffCriterion": self.bigDiffCriterion.get(),
+                    "-AnnulusWidth": 2.0,
+                    "-XYScanSize": 100,
+                    "-EdgeExclusionWidth": 4,
+                    "-PointModel": self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
+                    "-BorderSize": 2,
+                    "-PolynomialOrder": 2,
+                }
 
-            self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
-
-            if self.doOddEven:
-                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
-                paramsCcderaser['-InputFile'] = ts.getOddFileName(),
-                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
-                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
-                paramsCcderaser['-InputFile'] = ts.getEvenFileName(),
-                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+                if self.doOddEven:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
+                    paramsCcderaser['-InputFile'] = ts.getOddFileName(),
+                    paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
-                                f'with the exception -> {e}'))
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
+                    paramsCcderaser['-InputFile'] = ts.getEvenFileName(),
+                    paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
-    def createOutputStep(self, tsId):
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
+                                    f'with the exception -> {e}'))
+
+    def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
         else:

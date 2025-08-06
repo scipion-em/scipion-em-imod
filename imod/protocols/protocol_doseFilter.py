@@ -26,16 +26,12 @@
 import logging
 import time
 from os.path import exists
-
 import numpy as np
-
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
-
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
                             OUTPUT_TILTSERIES_NAME, MTTFILTER_PROGRAM)
@@ -136,9 +132,13 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
             for ts in self.getInputTsSet().iterItems():
                 tsId = ts.getTsId()
+                cInId = self._insertFunctionStep(self.linkTsStep,
+                                                 tsId,
+                                                 prerequisites=[],
+                                                 needsGPU=False)
                 compId = self._insertFunctionStep(self.doseFilterStep,
                                                   tsId,
-                                                  prerequisites=[],
+                                                  prerequisites=cInId,
                                                   needsGPU=False)
                 outId = self._insertFunctionStep(self.createOutputStep,
                                                  tsId,
@@ -154,17 +154,15 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                     inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def doseFilterStep(self, tsId):
+    def doseFilterStep(self, tsId: str):
         """Apply the dose filter to every tilt series"""
         try:
             logger.info(cyanStr(f'tsId = {tsId} -> Dose filtering...'))
             with self._lock:
                 ts = self.getCurrentTs(tsId)
-            firstItem = ts.getFirstItem()
-            self.genTsPaths(tsId)
 
             progParams = {
-                '-input': firstItem.getFileName(),
+                '-input': self.getTmpOutFile(tsId),
                 '-output': self.getExtraOutFile(tsId),
                 '-PixelSize': ts.getSamplingRate(),
                 '-Voltage': int(ts.getAcquisition().getVoltage()),
@@ -197,7 +195,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed with the exception -> {e}'))
 
-    def createOutputStep(self, tsId):
+    def createOutputStep(self, tsId: str):
         """Generate output filtered tilt series"""
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)

@@ -147,7 +147,7 @@ class ProtImodTomoProjection(ProtImodBase):
             logger.error(redStr(f'tsId = {tsId} -> {XYZPROJ_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
 
-    def generateOutputStackStep(self, tsId):
+    def generateOutputStackStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId, inputsAreTs=False)
         else:
