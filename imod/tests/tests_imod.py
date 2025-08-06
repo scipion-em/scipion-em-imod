@@ -25,7 +25,7 @@
 import copy
 import math
 from os.path import exists
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional, List, Set
 import numpy as np
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
@@ -114,7 +114,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         cls.importedTs = cls._runImportTs()
 
     @classmethod
-    def _gentestAcqObjDictReStacked(cls, isInterp=False):
+    def _gentestAcqObjDictReStacked(cls, isInterp: bool = False) -> dict:
         # The accumDose, angle min and angle max for the re-stacked TS, as these values may change if the
         # removed tilt-images are the first or the last, for example.
         testAcqObjDictReStacked = {}
@@ -136,7 +136,11 @@ class TestImodBase(TestBaseCentralizedLayer):
         return testAcqObjDictReStacked
 
     @classmethod
-    def _getExpectedDimsDict(cls, unbinnedXYDims=None, nImgsDict=None, binningFactor=1, swapXY=False):
+    def _getExpectedDimsDict(cls,
+                             unbinnedXYDims: List[int] = None,
+                             nImgsDict: dict = None,
+                             binningFactor: int = 1,
+                             swapXY: bool = False) -> dict:
         if not nImgsDict:
             nImgsDict = cls.anglesCountDict
         if not unbinnedXYDims:
@@ -178,7 +182,7 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsImported
 
     @classmethod
-    def _runImportCtf(cls, isTsSet):
+    def _runImportCtf(cls, isTsSet: SetOfTiltSeries) -> SetOfCTFTomoSeries:
         print(magentaStr("\n==> Importing the CTFs:"))
         protImportCtf = cls.newProtocol(ProtImportTsCTF,
                                         filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
@@ -190,7 +194,9 @@ class TestImodBase(TestBaseCentralizedLayer):
         return importedCtfs
 
     @classmethod
-    def _runImportTomograms(cls, filesPattern=DataSetRe4STATuto.tomosPattern.value):
+    def _runImportTomograms(cls,
+                            filesPattern: str = DataSetRe4STATuto.tomosPattern.value) -> SetOfTomograms:
+
         print(magentaStr("\n==> Importing the tomograms:"))
         protImportTomos = cls.newProtocol(ProtImportTomograms,
                                           filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
@@ -205,7 +211,10 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTomos
 
     @classmethod
-    def _runXRayEraser(cls, inTsSet, excludedViews=None):
+    def _runXRayEraser(cls,
+                       inTsSet: SetOfTiltSeries,
+                       excludedViews: bool = False) -> SetOfTiltSeries:
+
         excludedViewsMsg = 'eV' if excludedViews else ''
         print(magentaStr(f"\n==> Running the X-Ray eraser:"
                          f"\n\t- Excluded views = {excludedViews is not None}"))
@@ -222,6 +231,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                        doseType: int = FIXED_DOSE,
                        fixedDoseValue: float = 0.,
                        excludedViewsFlag: bool = False) -> SetOfTiltSeries:
+
         doseMsg = 'fixed dose' if doseType == FIXED_DOSE else 'Scipion import dose'
         excludedViewsMsg = 'eV' if excludedViewsFlag else None
         print(magentaStr(f"\n==> Running the dose filter with {doseMsg}:"
@@ -237,16 +247,20 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsDoseFiltered
 
     @classmethod
-    def _runFiducialEraser(cls, inTsSet, fidDiameter, erasedDiameter, excludedViews=None):
+    def _runFiducialEraser(cls,
+                           inTsSet: SetOfTiltSeries,
+                           fidDiameter: float,
+                           erasedDiameter: float,
+                           excludedViews: bool = False) -> SetOfTiltSeries:
 
         fidEraserMsg = f'fiducials of {fidDiameter} nm'
         excludedViewsMsg = 'eV' if excludedViews else None
         print(magentaStr(f"\n==> Running the fiducial eraser with {fidEraserMsg}:"
                          f"\n\tExcluded views = {excludedViews is not None}"))
         protFiducialEraser = cls.newProtocol(ProtImodFiducialEraser,
-                                         inputSetOfTiltSeries=inTsSet,
-                                         fidDiameter=fidDiameter,
-                                         erasedDiameter=erasedDiameter)
+                                             inputSetOfTiltSeries=inTsSet,
+                                             fidDiameter=fidDiameter,
+                                             erasedDiameter=erasedDiameter)
 
         protFiducialEraser.setObjLabel(f'{fidEraserMsg}, {excludedViewsMsg}')
         cls.launchProtocol(protFiducialEraser)
@@ -254,9 +268,13 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsFidFiltered
 
     @classmethod
-    def _runImportTrMatrix(cls, inTsSet, binningTM=1, binningTS=1,
-                           filesPattern=DataSetRe4STATuto.transformPattern.value,
-                           exclusionWords=None):
+    def _runImportTrMatrix(cls,
+                           inTsSet: SetOfTiltSeries,
+                           binningTM: int = 1,
+                           binningTS: int = 1,
+                           filesPattern: str = DataSetRe4STATuto.transformPattern.value,
+                           exclusionWords: Optional[str] = None) -> SetOfTiltSeries:
+
         print(magentaStr("\n==> Importing the TS' transformation matrices with IMOD:"
                          f"\n\t- Files pattern = {filesPattern}"
                          f"\n\t- Excluded words = {exclusionWords}"
@@ -275,7 +293,13 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runApplytTrMatrix(cls, inTsSet, binning=1, taperInside=False, linearInterp=False, excludeViews=False):
+    def _runApplytTrMatrix(cls,
+                           inTsSet: SetOfTiltSeries,
+                           binning: int = 1,
+                           taperInside: bool = False,
+                           linearInterp: bool = False,
+                           excludeViews: bool = False) -> SetOfTiltSeries:
+
         interpMsg = 'linear' if linearInterp else 'cubic'
         excludeViewsMsg = ''
         print(magentaStr(f"\n==> Applying the TS' transformation matrices with IMOD:"
@@ -297,7 +321,12 @@ class TestImodBase(TestBaseCentralizedLayer):
         return outTsSet
 
     @classmethod
-    def _runTsPreprocess(cls, inTsSet, binning=1, densAdjustMode=2, excludedViews=False, **kwargs):
+    def _runTsPreprocess(cls,
+                         inTsSet: SetOfTiltSeries,
+                         binning: int = 1,
+                         densAdjustMode: int = 2,
+                         excludedViews: bool = False, **kwargs) -> SetOfTiltSeries:
+
         print(magentaStr(f"\n==> Running the TS preprocessing:"
                          f"\n\t- Binning factor = {binning}"
                          f"\n\t- Excluded views = {excludedViews}"
@@ -397,8 +426,12 @@ class TestImodBase(TestBaseCentralizedLayer):
         fiducialModels = getattr(protFiduAli, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         return fiducialModels
 
-    def _checkFiducialModels(self, inFiducialsSet, expectedSetSize=2, expectedFiduSizeAngs=100,
-                             presentTsIds=(TS_03, TS_54)):
+    def _checkFiducialModels(self,
+                             inFiducialsSet: SetOfLandmarkModels,
+                             expectedSetSize: int = 2,
+                             expectedFiduSizeAngs: float = 100.,
+                             presentTsIds: Set[str] = (TS_03, TS_54)) -> None:
+
         self.assertSetSize(inFiducialsSet, expectedSetSize)
         for fiducialModel in inFiducialsSet:
             self.assertTrue(fiducialModel.getTsId() in presentTsIds)
@@ -416,6 +449,7 @@ class TestImodBase(TestBaseCentralizedLayer):
                         tiltAngleType: int = GROUP_TILTS,
                         distortionType: int = DIST_DISABLED,
                         objLabel: str = None) -> Tuple[SetOfTiltSeries, SetOfLandmarkModels]:
+
         msg = (f"\n==> Running the TS alignment:"
                f"\n\t- Beads on two surfaces = {bothSurfaces}")
         msg += (f"\n\t- Rotation solution type = {ROT_SOLUTION_CHOICES[rotationType]}"
@@ -439,7 +473,12 @@ class TestImodBase(TestBaseCentralizedLayer):
         return tsAli, fiducialModels
 
     @classmethod
-    def _runBRT(cls, inTsSet, alignMode=None, eV=False, objLabel=None) -> SetOfTiltSeries:
+    def _runBRT(cls,
+                inTsSet: SetOfTiltSeries,
+                alignMode: Optional[int],
+                eV: Optional[bool] = False,
+                objLabel: Optional[str] = None) -> SetOfTiltSeries:
+
         aliModeStr = 'patch tracking' if alignMode == PATCH_TRACKING else 'fiducial'
         msg = f"\n==> Running the TS {aliModeStr} alignment (Batch run tomo)"
         if eV:
@@ -601,7 +640,10 @@ class TestImodBase(TestBaseCentralizedLayer):
         outFiduCoords = getattr(protGbp, OUTPUT_COORDINATES_3D_NAME, None)
         return outFiduCoords
 
-    def _checkTiltSeries(self, inTsSet, binningFactor=1, excludedViewsDict=None):
+    def _checkTiltSeries(self,
+                         inTsSet: SetOfTiltSeries,
+                         binningFactor: Optional[int] = 1,
+                         excludedViewsDict: Optional[dict] = None) -> None:
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
@@ -705,7 +747,10 @@ class TestImodDoseFilter(TestImodBase):
 
 class TestImodFiducialEraser(TestImodBase):
 
-    def _checkTiltSeries(self, inTsSet, excludedViewsDict=None):
+    def _checkTiltSeries(self,
+                         inTsSet: SetOfTiltSeries,
+                         binningFactor: Optional[int] = 1,
+                         excludedViewsDict: Optional[dict] = None) -> None:
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate,

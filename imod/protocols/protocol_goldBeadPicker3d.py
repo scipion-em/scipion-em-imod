@@ -25,6 +25,8 @@
 # *****************************************************************************
 import logging
 from os.path import exists
+from typing import List
+
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TOMO_SET
 from imod.protocols.protocol_fiducialModel import MODEL2POINT_PROGRAM
@@ -33,7 +35,6 @@ from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
 
@@ -180,7 +181,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                 if exists(coordFilePath):
                     tomo = self.tomoDict[tsId]
                     beadDiam = self.beadDiameter.get()
-                    coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
+                    coordList = self.formatGoldBead3DCoordinatesList(coordFilePath)
                     output = self.getOutputSetOfCoordinates3Ds(self.getInputTomoSet(pointer=True))
                     output.setBoxSize(beadDiam)
 
@@ -215,7 +216,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
     # --------------------------- UTILS functions -----------------------------
     def getOutputSetOfCoordinates3Ds(self,
-                                     inTomosSetPointer: Pointer):
+                                     inTomosSetPointer: Pointer) -> SetOfCoordinates3D:
         coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
         if coords3D is not None:
             coords3D.enableAppend()
@@ -231,5 +232,24 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             self._defineSourceRelation(inTomosSetPointer, coords3D)
 
         return coords3D
+
+    @staticmethod
+    def formatGoldBead3DCoordinatesList(coordFilePath: str) -> List[List[float]]:
+        """This method takes the IMOD-based gold bead 3D
+        coordinates obtained with find3dbeads program file
+        path and returns a list containing each coordinate
+        for each bead belonging to the tilt-series"""
+
+        coorList = []
+
+        with open(coordFilePath) as f:
+            coorText = f.read().splitlines()
+
+            for line in coorText:
+                vector = line.split()
+                coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
+
+        return coorList
+
 
 

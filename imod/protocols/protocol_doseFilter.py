@@ -27,6 +27,8 @@ import logging
 import time
 from os.path import exists
 
+import numpy as np
+
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
@@ -173,7 +175,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
             if self.inputDoseType.get() == SCIPION_IMPORT:
                 outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
-                utils.generateDoseFile(ts, outputDoseFilePath)
+                self.generateDoseFile(ts, outputDoseFilePath)
                 progParams["-TypeOfDoseFile"] = 2
                 progParams["-DoseWeightingFile"] = outputDoseFilePath
 
@@ -289,3 +291,18 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         acq.setAccumDose(0.)
         acq.setDoseInitial(0.)
         tsOut.setAcquisition(acq)
+
+    @staticmethod
+    def generateDoseFile(ts: TiltSeries, doseFileOutputPath: str) -> None:
+        """ This method generates a file containing the dose information
+        of a tilt series in the specified location from the accumulated
+        dose and dose per tilt. The format is two columns per each tilt image:
+         the prior accumulated dose and the image dose
+         """
+        doseInfoList = []
+
+        for ti in ts.iterItems(iterate=False):
+            acq = ti.getAcquisition()
+            doseInfoList.append((acq.getAccumDose() - acq.getDosePerFrame(), acq.getDosePerFrame()))
+
+        np.savetxt(doseFileOutputPath, np.asarray(doseInfoList), fmt='%f', delimiter=" ")

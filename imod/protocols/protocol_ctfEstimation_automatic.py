@@ -28,6 +28,7 @@ import time
 from os.path import exists
 from typing import Union, Optional
 import pyworkflow.protocol.params as params
+from imod.convert.dataimport import ImodCtfParser
 from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
@@ -449,7 +450,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                         outCtfSeries.setIMODDefocusFileFlag(1)
                         outCtfSeries.setNumberOfEstimationsInRange(0)
                         outputCtfSet.append(outCtfSeries)
-                        self.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
+                        ctfParser = ImodCtfParser(self)
+                        ctfParser.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
 
                         outCtfSeries.write()
                         outputCtfSet.update(outCtfSeries)

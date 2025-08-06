@@ -28,7 +28,7 @@ import logging
 import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile
+from imod.convert.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
 from pwem.objects import Transform
 from pyworkflow.protocol.constants import STEPS_SERIAL

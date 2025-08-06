@@ -75,6 +75,7 @@ TILT_XCORR_PROGRAM = 'tiltxcorr'
 XFTOXG_PROGRM = 'xftoxg'
 CCDERASER_PROGRAM = 'ccderaser'
 XYZPROJ_PROGRAM = 'xyzproj'
+IMODFINDBEADS_PROGRAM = 'imodfindbeads'
 
 
 OUTPUT_TS_COORDINATES_NAME = "TiltSeriesCoordinates"

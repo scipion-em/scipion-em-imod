@@ -29,7 +29,7 @@ import time
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
-from imod.convert import fiducialModel2List, fidResidualModel2List
+from imod.convert.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase

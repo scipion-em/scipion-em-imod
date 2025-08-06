@@ -223,7 +223,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
             with self._lock:
                 ts = self.getCurrentTs(tsId)
-            self.genTsPaths(tsId)
+
             paramsCcderaser = {
                 "-InputFile": ts.getFirstItem().getFileName(),
                 "-OutputFile": self.getExtraOutFile(tsId),
@@ -247,17 +247,20 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
             if self.doOddEven:
+                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
                 paramsCcderaser['-InputFile'] = ts.getOddFileName(),
                 paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
+                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
                 paramsCcderaser['-InputFile'] = ts.getEvenFileName(),
                 paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
+                                f'with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -268,15 +271,17 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 if exists(outTsFile):
                     with self._lock:
                         ts = self.getCurrentTs(tsId)
-                        outFn = self.getExtraOutFile(tsId)
+                        # Set of tilt-series
                         outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                        # Tilt-series
                         outTs = TiltSeries()
                         outTs.copyInfo(ts)
                         outTsSet.append(outTs)
+                        # Tilt-images
                         for ti in ts.iterItems():
                             outTi = TiltImage()
                             outTi.copyInfo(ti)
-                            outTi.setFileName(outFn)
+                            outTi.setFileName(outTsFile)
                             if self.doOddEven:
                                 outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
                                                   self.getExtraOutFile(tsId, suffix=EVEN)])
@@ -285,6 +290,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                 # to consider them in the current execution, so they should be set to empty to avoid
                                 # next protocols be confused about having them.
                             outTs.append(outTi)
+                        # Data persistence
                         outTs.write()
                         outTsSet.update(outTs)
                         outTsSet.write()

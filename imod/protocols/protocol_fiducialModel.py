@@ -27,7 +27,7 @@ import logging
 import time
 from os.path import exists
 import pyworkflow.protocol.params as params
-from imod.convert import fiducialModel2List
+from imod.convert.convert import fiducialModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 import pyworkflow.utils.path as path

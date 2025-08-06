@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,26 +23,21 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
-
-import numpy as np
-
+import logging
+import time
+from os.path import exists
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
-from pwem import ALIGN_NONE
-from pwem.objects import Transform
-from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
-
-from imod import utils
+from imod.protocols.protocol_base import IN_TS_SET
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
-                            OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME, MRCS_EXT)
+from imod.constants import OUTPUT_TILTSERIES_NAME, IMODFINDBEADS_PROGRAM, CCDERASER_PROGRAM, ODD, EVEN
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodFiducialEraser(ProtImodBase):
+class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
     """
     This protocol will erase the fiducial gold beads present in the tilt
      series images using IMOD procedures.
@@ -123,6 +118,13 @@ class ProtImodFiducialEraser(ProtImodBase):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
@@ -145,106 +147,168 @@ class ProtImodFiducialEraser(ProtImodBase):
                       default=12.0,
                       label='Diameter to erase (nm)')
 
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            beadsId = self._insertFunctionStep(self.imodfindbeadsStep,
-                                              tsId,
-                                              prerequisites=[convId],
-                                              needsGPU=False)
+        inTsSet = self.getInputTsSet()
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
-            eraserId = self._insertFunctionStep(self.ccderaserStep,
-                                              tsId,
-                                              prerequisites=[beadsId],
-                                              needsGPU=False)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
 
-            createOutputId = self._insertFunctionStep(self.createOutputStep,
-                                              tsId,
-                                              prerequisites=[eraserId],
-                                              needsGPU=False)
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
+                    convId = self._insertFunctionStep(self.convertInputStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    beadsId = self._insertFunctionStep(self.imodfindbeadsStep,
+                                                       tsId,
+                                                       prerequisites=[convId],
+                                                       needsGPU=False)
+                    eraserId = self._insertFunctionStep(self.ccderaserStep,
+                                                        tsId,
+                                                        prerequisites=[beadsId],
+                                                        needsGPU=False)
+                    createOutputId = self._insertFunctionStep(self.createOutputStep,
+                                                              tsId,
+                                                              prerequisites=[eraserId],
+                                                              needsGPU=False)
+                    closeSetStepDeps.append(createOutputId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
-            closeSetStepDeps.append(createOutputId)
-
-        self._insertFunctionStep(self.closeOutputSetsStep, 
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+                time.sleep(10)
+                if inTsSet.isStreamOpen():
+                    with self._lock:
+                        inTsSet.loadAllProperties()  # refresh status for the streaming
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, tsId, **kwargs):
-        oddEvenFlag = self.applyToOddEven(self.getInputSet())
-        super().convertInputStep(tsId,
-                                 oddEven=oddEvenFlag,
-                                 lockGetItem=True)
+    def _initialize(self):
+        super()._initialize()
 
-    def imodfindbeadsStep(self, tsId):
+
+    def imodfindbeadsStep(self, tsId: str):
         """This step creates a fiducial model"""
-        fnTs = self.getCurrentItem(tsId).getFirstItem().getFileName()
-        fnModel = self._getExtraPath(tsId, f'{tsId}_model')
-        fidSizePx = 10 * self.fidDiameter.get() / self.getCurrentItem(tsId).getSamplingRate()
-        paramsImodFindBeads = {
-            "-inp": fnTs,
-            "-o": fnModel,
-            "-size": fidSizePx
-        }
+        try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Finding the fiducials...'))
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                firstTi = ts.getFirstItem()
 
-        self.runProgram('imodfindbeads', paramsImodFindBeads)
+            paramsImodFindBeads = {
+                "-inp": firstTi.getFileName(),
+                "-o": self._getModelFileName(tsId),
+                "-size": self._getFiducialDiameterPx(ts)
+            }
+            self.runProgram(IMODFINDBEADS_PROGRAM, paramsImodFindBeads)
+
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {IMODFINDBEADS_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
     def ccderaserStep(self, tsId):
         """This step erase the gold beads from the fiducial model"""
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the gold beads...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    firstTi = ts.getFirstItem()
 
-        #ccderaser -ExpandCircleIterations 3 -BetterRadius 10 -input IS002_291013_005.mrcs -output fidFree.mrc -ModelFile kkmodel -MergePatches 1 -ExcludeAdjacent -CircleObjects / -SkipTurnedOffPoints 1 -PolynomialOrder 0
-        fnTs = self.getCurrentItem(tsId).getFirstItem().getFileName()
-        fnModel = self._getExtraPath(tsId, f'{tsId}_model')
-        fnOut = self._getExtraPath(tsId, f'{tsId}.{MRCS_EXT}')
-        #0.5 because we need a radius, and 10 because the conversion from nm to A
-        fidSizePx = round(0.5* 10 * self.fidDiameter.get() / self.getCurrentItem(tsId).getSamplingRate())
-        paramsCCDeraser = {
-            "-ExpandCircleIterations": 3,
-            "-BetterRadius": 60,#int(round(fidSizePx)),
-            "-input": fnTs,
-            "-output": fnOut,
-            "-ModelFile": fnModel,
-            "-MergePatches": '',
-            "-ExcludeAdjacent": '',
-            "-CircleObjects": '/',
-            "-SkipTurnedOffPoints": 1,
-            "-PolynomialOrder": -1,
-        }
+                paramsCCDeraser = {
+                    "-ExpandCircleIterations": 3,
+                    "-BetterRadius": self._getFiducialDiameterPx(ts) / 2,
+                    "-input": firstTi.getFileName(),
+                    "-output": self.getExtraOutFile(tsId),
+                    "-ModelFile": self._getModelFileName(tsId),
+                    "-MergePatches": '',
+                    "-ExcludeAdjacent": '',
+                    "-CircleObjects": '/',
+                    "-SkipTurnedOffPoints": 1,
+                    "-PolynomialOrder": -1,
+                }
 
-        self.runProgram('ccderaser', paramsCCDeraser)
+                self.runProgram(CCDERASER_PROGRAM, paramsCCDeraser)
+
+                if self.doOddEven:
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the gold beads (ODD Tilt-series) ...'))
+                    paramsCCDeraser['-input'] = ts.getOddFileName(),
+                    paramsCCDeraser['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCCDeraser)
+
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the gold beads (EVEN Tilt-series) ...'))
+                    paramsCCDeraser['-input'] = ts.getEvenFileName(),
+                    paramsCCDeraser['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCCDeraser)
+
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed'
+                                    f' with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
-            else:
-                outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTiCallback=self.updateTi,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=True)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                outTsFile = self.getExtraOutFile(tsId)
+                if exists(outTsFile):
+                    with self._lock:
+                        ts = self.getCurrentTs(tsId)
+                        # Set of tilt-series
+                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                        # Tilt-series
+                        outTs = TiltSeries()
+                        outTs.copyInfo(ts)
+                        outTsSet.append(outTs)
+                        # Tilt-images
+                        for ti in ts.iterItems():
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(outTsFile)
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
+                            outTs.append(outTi)
+                        # Data persistence
+                        outTs.write()
+                        outTsSet.update(outTs)
+                        outTsSet.write()
+                        self._store(outTsSet)
+                        # Close explicitly the outputs (for streaming)
+                        for outputName in self._possibleOutputs.keys():
+                            output = getattr(self, outputName, None)
+                            if output:
+                                output.close()
                 else:
-                    self.createOutputFailedSet(ts)
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+
+            except Exception as e:
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices calculated: "
                            f"{self.TiltSeries.getSize()}")
         else:
@@ -258,3 +322,10 @@ class ProtImodFiducialEraser(ProtImodBase):
                            f"{self.TiltSeries.getSize()} tilt-series using "
                            "the IMOD *tiltxcorr* command.")
         return methods
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getFiducialDiameterPx(self, ts: TiltSeries) -> float:
+        return 10 * self.fidDiameter.get() / ts.getSamplingRate()
+
+    def _getModelFileName(self, tsId: str) -> str:
+        return self._getExtraPath(tsId, f'{tsId}_model')

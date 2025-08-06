@@ -1,10 +1,8 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
-# * [1] SciLifeLab, Stockholm University
-# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
+# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -25,24 +23,24 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
+import logging
 import os
 import numpy as np
-
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile, fiducialModel2List, fidResidualModel2List
+from imod.convert.convert import readXfFile, fiducialModel2List, fidResidualModel2List
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pyworkflow.object import Set
 import pyworkflow.utils as pwutils
 from pwem.emlib.image import ImageHandler as ih
 from pwem.objects import Transform
 import tomo.objects as tomoObj
-
 from imod import Plugin, utils
 from imod.protocols import ProtImodBase
 from imod.constants import *
 from tomo.objects import TiltSeries
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -396,7 +394,7 @@ class ProtImodEtomo(ProtImodBase):
                 else:
                     outputTSCoords.enableAppend()
 
-                coordList, _, _ = utils.format3DCoordinatesList(coordFilePath)
+                coordList, _, _ = self.format3DCoordinatesList(coordFilePath)
 
                 for element in coordList:
                     newCoord3D = tomoObj.TiltSeriesCoordinate()
@@ -669,6 +667,32 @@ ProcessTrack.TomogramCombination=Not started
             self.debug(f"{tltFilePath} read: {tltList}")
 
         return tltList
+
+    @staticmethod
+    def format3DCoordinatesList(coordFilePath):
+        """ This method takes an IMOD-based fiducial coordinates
+        file path and returns a list containing each coordinate
+        for each fiducial belonging to the tilt-series. """
+
+        coorList = []
+
+        with open(coordFilePath) as f:
+            coorText = f.read().splitlines()
+
+            for i, line in enumerate(coorText):
+                if line != '':
+
+                    logger.debug("Fiducial coordinate line is: %s" % line)
+                    vector = line.replace('-', ' -').split()
+
+                    logger.debug("Fiducial vector is: %s" % vector)
+                    if i == 0:
+                        xDim = int(vector[-2])
+                        yDim = int(vector[-1])
+
+                    coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
+
+        return coorList, xDim, yDim
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

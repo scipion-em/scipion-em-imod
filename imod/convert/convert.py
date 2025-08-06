@@ -26,9 +26,7 @@
 import csv
 import logging
 from typing import List, Set
-
 import numpy as np
-
 from pyworkflow.utils import cyanStr
 from tomo.objects import TiltSeries, TiltImage
 
@@ -131,3 +129,6 @@ def fidResidualModel2List(fiducialFilePath: str) -> list:
                                       float(vector[4])])
 
     return fiducialResidList
+
+
+

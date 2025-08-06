@@ -26,7 +26,7 @@
 import logging
 from os.path import exists
 import pyworkflow.protocol.params as params
-from imod.convert import genXfFile
+from imod.convert.convert import genXfFile
 from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR, NEWSTACK_PROGRAM
 from pwem import ALIGN_NONE
 from pyworkflow.protocol import STEPS_PARALLEL

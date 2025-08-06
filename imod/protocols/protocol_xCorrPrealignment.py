@@ -28,7 +28,7 @@ import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
-from imod.convert import readXfFile
+from imod.convert.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET, ProtImodBase
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem.objects import Transform
