@@ -58,6 +58,10 @@ class ProtImodManualCtfEstimation(ProtImodAutomaticCtfEstimation):
         ProtImodAutomaticCtfEstimation.__init__(self, **args)
         self.OUTPUT_PREFIX = OUTPUT_CTF_SERIE
 
+    @classmethod
+    def worksInStreaming(cls):
+        return False
+
     def _insertAllSteps(self):
         self._initialize()
         self._insertFunctionStep(self.runCTFEtimationStep, interactive=True)
