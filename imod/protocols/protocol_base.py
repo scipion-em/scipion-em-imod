@@ -350,23 +350,24 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                 inputPtr: Pointer,
                                 binning: int = 1) -> SetOfTomograms:
         inputSet = inputPtr.get()
+        outputSet = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
 
-        if self.Tomograms:
-            getattr(self, OUTPUT_TOMOGRAMS_NAME).enableAppend()
+        if outputSet:
+            outputSet.enableAppend()
         else:
-            outputSetOfTomograms = self._createSetOfTomograms()
-            outputSetOfTomograms.copyInfo(inputSet)
+            outputSet = self._createSetOfTomograms()
+            outputSet.copyInfo(inputSet)
 
             if binning > 1:
                 samplingRate = inputSet.getSamplingRate() * binning
-                outputSetOfTomograms.setSamplingRate(samplingRate)
+                outputSet.setSamplingRate(samplingRate)
 
-            outputSetOfTomograms.setStreamState(Set.STREAM_OPEN)
+            outputSet.setStreamState(Set.STREAM_OPEN)
 
-            self._defineOutputs(**{OUTPUT_TOMOGRAMS_NAME: outputSetOfTomograms})
-            self._defineSourceRelation(inputPtr, outputSetOfTomograms)
+            self._defineOutputs(**{OUTPUT_TOMOGRAMS_NAME: outputSet})
+            self._defineSourceRelation(inputPtr, outputSet)
 
-        return self.Tomograms
+        return outputSet
 
     def getOutputFailedSet(self,
                            inputPtr: Pointer,
@@ -407,21 +408,27 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                           inputsAreTs: bool = True) -> None:
         """ Just copy input item to the failed output set. """
         logger.info(cyanStr(f'Failed TS ---> {tsId}'))
-        inputSet = self.getInputTsSet(pointer=True) if inputsAreTs else self.getInputTomoSet(pointer=True)
-        output = self.getOutputFailedSet(inputSet, inputsAreTs=inputsAreTs)
-        with self._lock:
-            item = self.getCurrentTs(tsId) if inputsAreTs else self.getCurrentTomo(tsId)
-            newItem = item.clone()
-            newItem.copyInfo(item)
-            output.append(newItem)
+        try:
+            with self._lock:
+                inputSet = self.getInputTsSet(pointer=True) if inputsAreTs else self.getInputTomoSet(pointer=True)
+                output = self.getOutputFailedSet(inputSet, inputsAreTs=inputsAreTs)
+                item = self.getCurrentTs(tsId) if inputsAreTs else self.getCurrentTomo(tsId)
+                newItem = item.clone()
+                newItem.copyInfo(item)
+                output.append(newItem)
 
-            if isinstance(item, TiltSeries):
-                newItem.copyItems(item)
-                newItem.write(properties=False)
+                if isinstance(item, TiltSeries):
+                    newItem.copyItems(item)
+                    newItem.write()
 
-            output.update(newItem)
-            output.write()
-            self._store(output)
+                output.update(newItem)
+                output.write()
+                self._store(output)
+                # Close explicitly the outputs (for streaming)
+                output.close()
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the failed output with '
+                                f'exception {e}. Skipping... '))
 
     # --------------------------- UTILS functions -----------------------------
     def getInputTsSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
