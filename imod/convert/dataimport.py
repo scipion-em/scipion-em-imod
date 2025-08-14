@@ -83,12 +83,6 @@ class ImodCtfParser:
             newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
 
             if ti.isEnabled():
-                # newCTFTomo.setAcquisitionOrder(ti.getAcquisitionOrder())
-                # newCTFTomo.setIndex(ti.getIndex())
-
-                # if tiObjId not in defocusUDict.keys() and not ti.isEnabled():
-                #     raise IndexError("ERROR IN TILT-SERIES %s: NO CTF ESTIMATED FOR VIEW %d, TILT ANGLE %f" % (
-                #         inputTs.getTsId(), tiObjId, inputTs[tiObjId].getTiltAngle()))
 
                 if defocusFileFlag == 1:
                     " Astigmatism estimation "
@@ -242,246 +236,152 @@ class ImodCtfParser:
                     defocusTable.append(vector)
 
             return defocusTable
-
+    
     @staticmethod
-    def refactorCTFDefocusEstimationInfo(ctfInfoIMODTable):
+    def appendToDict(dictionary: dict,
+                     index: int,
+                     value: float) -> None:
+        #Python Dictionary setdefault() returns the value of a key (if the key is in dictionary).
+        # Else, it inserts a key with the default value to the dictionary.
+        dictionary.setdefault(index, []).append(Float(value))
+
+    def refactorCTFDefocusEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of
         an IMOD-based CTF estimation containing only defocus
         information (5 columns) and produces a new dictionary
         containing the same information in a format readable for
         Scipion. Flag 0. """
 
-        if len(ctfInfoIMODTable[0]) == 5:
-            defocusUDict = {}
+        if len(ctfInfoIMODTable[0]) != 5:
+            raise RuntimeError("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
 
-            for element in ctfInfoIMODTable:
+        defocusUDict = {}
 
-                # Segregate information from range
-                for index in range(int(element[0]), int(element[1]) + 1):
+        for element in ctfInfoIMODTable:
+            start, end = int(element[0]), int(element[1])
+            defocus = float(element[4]) * 10
 
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocus = float(element[4]) * 10
-
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(Float(defocus))
-                    else:
-                        defocusUDict[index] = [Float(defocus)]
-
-        else:
-            raise RuntimeError("Misleading file format, CTF estimation with "
-                               "no astigmatism should be 5 columns long")
+            for index in range(start, end + 1):
+                self.appendToDict(defocusUDict, index, defocus)
 
         return defocusUDict
 
-    @staticmethod
-    def refactorCTFDesfocusAstigmatismEstimationInfo(ctfInfoIMODTable):
+    def refactorCTFDesfocusAstigmatismEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of an
         IMOD-based CTF estimation containing defocus and
         astigmatism information (7 columns) and produces a set
         of dictionaries table containing the same information in a
         format readable for Scipion. Flag 1. """
 
-        if len(ctfInfoIMODTable[0]) == 7:
-            defocusUDict = {}
-            defocusVDict = {}
-            defocusAngleDict = {}
-
-            for element in ctfInfoIMODTable:
-
-                # Segregate information from range
-                for index in range(int(element[0]), int(element[1]) + 1):
-
-                    # Defocus U info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusU = float(element[4]) * 10
-
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(Float(defocusU))
-                    else:
-                        defocusUDict[index] = [Float(defocusU)]
-
-                    # Defocus V info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusV = float(element[5]) * 10
-
-                    if index in defocusVDict.keys():
-                        defocusVDict[index].append(Float(defocusV))
-                    else:
-                        defocusVDict[index] = [Float(defocusV)]
-
-                    # Defocus angle info
-                    if index in defocusAngleDict.keys():
-                        defocusAngleDict[index].append(Float(element[6]))
-                    else:
-                        defocusAngleDict[index] = [Float(element[6])]
-
-        else:
+        if len(ctfInfoIMODTable[0]) != 7:
             raise RuntimeError("Misleading file format, CTF estimation "
                                "with astigmatism should be 7 columns long")
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
+
+        for element in ctfInfoIMODTable:
+            start, end = int(element[0]), int(element[1])
+            defocusU = float(element[4]) * 10  # From nm to angstroms
+            defocusV = float(element[5]) * 10  # From nm to angstroms
+            defocusAngle = float(element[6])
+
+            # Segregate information from range
+            for index in range(start, end + 1):
+                self.appendToDict(defocusUDict, index, defocusU)
+                self.appendToDict(defocusVDict, index, defocusV)
+                self.appendToDict(defocusAngleDict, index, defocusAngle)
 
         return defocusUDict, defocusVDict, defocusAngleDict
 
     @staticmethod
-    def refactorCTFDefocusPhaseShiftEstimationInfo(ctfInfoIMODTable):
+    def refactorCTFDefocusPhaseShiftEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of
         an IMOD-based CTF estimation containing defocus, and phase
         shift information (6 columns) and produces a new set of
         dictionaries containing the same information in a format
         readable for Scipion. Flag 4. """
 
-        if len(ctfInfoIMODTable[0]) == 6:
-            defocusUDict = {}
-            phaseShiftDict = {}
+        if len(ctfInfoIMODTable[0]) != 6:
+            raise RuntimeError(
+                "Misleading file format, CTF estimation with defocus and phase shift should be 6 columns long")
 
-            for element in ctfInfoIMODTable:
+        defocusUDict = {}
+        phaseShiftDict = {}
 
-                # Segregate information from range
-                for index in range(int(element[0]), int(element[1]) + 1):
+        for element in ctfInfoIMODTable:
+            start, end = int(element[0]), int(element[1])
+            defocusU = float(element[4]) * 10
+            phaseShift = float(element[5])
 
-                    # Defocus U info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusU = float(element[4]) * 10
-
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(Float(defocusU))
-                    else:
-                        defocusUDict[index] = [Float(defocusU)]
-
-                    # Phase shift info
-                    if index in phaseShiftDict.keys():
-                        phaseShiftDict[index].append(Float(element[5]))
-                    else:
-                        phaseShiftDict[index] = [Float(element[5])]
-
-        else:
-            raise RuntimeError("Misleading file format, CTF estimation with "
-                               "defocus and phase shift should be 6 columns "
-                               "long")
+            for index in range(start, end + 1):
+                self.appendToDict(defocusUDict, index, defocusU)
+                self.appendToDict(phaseShiftDict, index, phaseShift)
 
         return defocusUDict, phaseShiftDict
 
-    @staticmethod
-    def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(ctfInfoIMODTable):
+    def refactorCTFDefocusAstigmatismPhaseShiftEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of
         an IMOD-based CTF estimation containing defocus, astigmatism
         and phase shift information (8 columns) and produces a new
         set of dictionaries containing the same information in a
         format readable for Scipion. Flag 5. """
 
-        if len(ctfInfoIMODTable[0]) == 8:
-            defocusUDict = {}
-            defocusVDict = {}
-            defocusAngleDict = {}
-            phaseShiftDict = {}
+        if len(ctfInfoIMODTable[0]) != 8:
+            raise RuntimeError(
+                "Misleading file format, CTF estimation with astigmatism and phase shift should be 8 columns long")
 
-            for element in ctfInfoIMODTable:
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
+        phaseShiftDict = {}
 
-                # Segregate information from range
-                for index in range(int(element[0]), int(element[1]) + 1):
+        for element in ctfInfoIMODTable:
+            start, end = int(element[0]), int(element[1])
+            defocusU = float(element[4]) * 10
+            defocusV = float(element[5]) * 10
+            angle = float(element[6])
+            phaseShift = float(element[7])
 
-                    # Defocus U info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusU = float(element[4]) * 10
-
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(Float(defocusU))
-                    else:
-                        defocusUDict[index] = [Float(defocusU)]
-
-                    # Defocus V info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusV = float(element[5]) * 10
-
-                    if index in defocusVDict.keys():
-                        defocusVDict[index].append(Float(defocusV))
-                    else:
-                        defocusVDict[index] = [Float(defocusV)]
-
-                    # Defocus angle info
-                    if index in defocusAngleDict.keys():
-                        defocusAngleDict[index].append(Float(element[6]))
-                    else:
-                        defocusAngleDict[index] = [Float(element[6])]
-
-                    # Phase shift info
-                    if index in phaseShiftDict.keys():
-                        phaseShiftDict[index].append(Float(element[7]))
-                    else:
-                        phaseShiftDict[index] = [Float(element[7])]
-
-        else:
-            raise RuntimeError("Misleading file format, CTF estimation with "
-                               "astigmatism and phase shift should be 8 columns "
-                               "long")
+            for index in range(start, end + 1):
+                self.appendToDict(defocusUDict, index, defocusU)
+                self.appendToDict(defocusVDict, index, defocusV)
+                self.appendToDict(defocusAngleDict, index, angle)
+                self.appendToDict(phaseShiftDict, index, phaseShift)
 
         return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict
 
-    @staticmethod
-    def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(ctfInfoIMODTable):
+    def refactorCTFDefocusAstigmatismPhaseShiftCutOnFreqEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of an
         IMOD-based CTF estimation containing defocus, astigmatism, phase
         shift information and cut-on frequency (8 columns) and produces a
         new set of dictionaries containing the same information in a
         format readable for Scipion. Flag 37. """
 
-        if len(ctfInfoIMODTable[0]) == 9:
-            defocusUDict = {}
-            defocusVDict = {}
-            defocusAngleDict = {}
-            phaseShiftDict = {}
-            cutOnFreqDict = {}
+        if len(ctfInfoIMODTable[0]) != 9:
+            raise RuntimeError(
+                "Misleading file format, CTF estimation with astigmatism, phase shift and cut-on frequency should be 9 columns long")
 
-            for element in ctfInfoIMODTable:
+        defocusUDict = {}
+        defocusVDict = {}
+        defocusAngleDict = {}
+        phaseShiftDict = {}
+        cutOnFreqDict = {}
 
-                # Segregate information from range
-                for index in range(int(element[0]), int(element[1]) + 1):
+        for element in ctfInfoIMODTable:
+            start, end = int(element[0]), int(element[1])
+            defocusU = float(element[4]) * 10
+            defocusV = float(element[5]) * 10
+            angle = float(element[6])
+            phaseShift = float(element[7])
+            cutOnFreq = float(element[8])
 
-                    # Defocus U info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusU = float(element[4]) * 10
-
-                    if index in defocusUDict.keys():
-                        defocusUDict[index].append(Float(defocusU))
-                    else:
-                        defocusUDict[index] = [Float(defocusU)]
-
-                    # Defocus V info
-
-                    # CONVERT DEFOCUS VALUE TO ANGSTROMS (SCIPION CONVENTION)
-                    defocusV = float(element[5]) * 10
-
-                    if index in defocusVDict.keys():
-                        defocusVDict[index].append(Float(defocusV))
-                    else:
-                        defocusVDict[index] = [Float(defocusV)]
-
-                    # Defocus angle info
-                    if index in defocusAngleDict.keys():
-                        defocusAngleDict[index].append(Float(element[6]))
-                    else:
-                        defocusAngleDict[index] = [Float(element[6])]
-
-                    # Phase shift info
-                    if index in phaseShiftDict.keys():
-                        phaseShiftDict[index].append(Float(element[7]))
-                    else:
-                        phaseShiftDict[index] = [Float(element[7])]
-
-                    # Cut-on frequency info
-                    if index in cutOnFreqDict.keys():
-                        cutOnFreqDict[index].append(Float(element[8]))
-                    else:
-                        cutOnFreqDict[index] = [Float(element[8])]
-
-        else:
-            raise RuntimeError("Misleading file format, CTF estimation with "
-                               "astigmatism, phase shift and cut-on frequency "
-                               "should be 8 columns long")
+            for index in range(start, end + 1):
+                self.appendToDict(defocusUDict, index, defocusU)
+                self.appendToDict(defocusVDict, index, defocusV)
+                self.appendToDict(defocusAngleDict, index, angle)
+                self.appendToDict(phaseShiftDict, index, phaseShift)
+                self.appendToDict(cutOnFreqDict, index, cutOnFreq)
 
         return defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict
+
