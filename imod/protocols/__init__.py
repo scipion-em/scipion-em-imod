@@ -40,6 +40,7 @@ from .protocol_importSetOfTM import ProtImodImportTransformationMatrix
 from .protocol_tomoPreprocess import ProtImodTomoNormalization
 from .protocol_tomoProjection import ProtImodTomoProjection
 from .protocol_tomoReconstruction import ProtImodTomoReconstruction
+#from .protocol_tomoReconstruction_ctf3d import ProtImodTomoReconstructionCTF3D
 from .protocol_tsPreprocess import ProtImodTsNormalization
 from .protocol_xCorrPrealignment import ProtImodXcorrPrealignment
 from .protocol_xRaysEraser import ProtImodXraysEraser
