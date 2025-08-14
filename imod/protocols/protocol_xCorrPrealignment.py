@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -165,10 +164,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                     logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                     self.tsIdReadList.append(tsId)
 
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def computeXcorrStep(self, tsId):

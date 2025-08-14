@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import time
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -130,7 +129,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for ts in self.getInputTsSet().iterItems():
+            for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 cInId = self._insertFunctionStep(self.linkTsStep,
                                                  tsId,
@@ -148,10 +147,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                 self.tsIdReadList.append(tsId)
 
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def doseFilterStep(self, tsId: str):

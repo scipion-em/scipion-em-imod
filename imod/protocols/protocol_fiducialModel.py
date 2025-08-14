@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import time
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List
@@ -253,10 +252,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                     logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                     self.tsIdReadList.append(tsId)
 
-                time.sleep(10)
-                if inTsSet.isStreamOpen():
-                    with self._lock:
-                        inTsSet.loadAllProperties()  # refresh status for the streaming
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):

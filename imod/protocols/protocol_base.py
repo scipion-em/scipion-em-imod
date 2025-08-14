@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import time
 import typing
 from typing import Union, Tuple, List
 from imod.convert.convert import genXfFile
@@ -86,6 +87,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
+
+    def refreshStreaming(self, inSet: Union[SetOfTiltSeries, SetOfLandmarkModels]):
+        # Refresh status for the streaming
+        time.sleep(10)
+        if inSet.isStreamOpen():
+            with self._lock:
+                inSet.loadAllProperties()
+
 
     def linkTsStep(self, tsId: str):
         # Link the tils-series to tmp using the tsId as basename, preventing problematic

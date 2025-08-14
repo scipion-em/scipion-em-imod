@@ -26,7 +26,6 @@
 # **************************************************************************
 import logging
 import subprocess
-import time
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
@@ -128,10 +127,8 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                         closeSetStepDeps.append(cOutId)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsReadList.append(tsId)
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, tsId: str):

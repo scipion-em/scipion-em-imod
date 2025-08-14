@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import time
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -295,10 +294,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                     self.tsReadList.append(tsId)
 
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, tsId, **kwargs):

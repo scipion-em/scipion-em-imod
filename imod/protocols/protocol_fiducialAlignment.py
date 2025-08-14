@@ -25,7 +25,6 @@
 # *****************************************************************************
 import logging
 import os
-import time
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -280,13 +279,13 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
         closeSetStepDeps = []
-        inTsSet = self._getInTsSet()
+        inSetOfLandmarks = self.getInputSetOfLandmarks()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+            listInTsIds = self._getInTsSet().getTSIds()
+            if not inSetOfLandmarks.isStreamOpen() and self.tsIdReadList == listInTsIds:
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME],
@@ -316,10 +315,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                 self.tsIdReadList.append(tsId)
 
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+            self.refreshStreaming(inSetOfLandmarks)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, tsId: str):
