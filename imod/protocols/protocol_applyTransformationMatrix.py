@@ -51,7 +51,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     errors during the image processing. This protocol allows to apply
     the transformation matrix to the tilt series
     """
-
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
@@ -64,7 +63,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                       pointerClass='SetOfTiltSeries',
                       important=True,
                       label='Tilt-series to apply the transformation matrix')
-
         form.addParam(BINNING_FACTOR, params.IntParam,
                       default=1,
                       label='Binning for the interpolated',
@@ -76,7 +74,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is the average of pixel values in each block of pixels '
                            'being binned. Binning is applied before all other image '
                            'transformations.')
-
         form.addParam('taperInside',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -86,7 +83,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'are filled in (e.g. because of rotation). '
                            'Decide whether tapering is done inwards or outwards '
                            'from the edge.')
-
         form.addParam('linear',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -97,9 +93,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is more suitable when images are very noisy, but cubic '
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
-
         self.addOddEvenParams(form)
-
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
@@ -129,6 +123,8 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 ts = self.getCurrentTs(tsId)
             firstItem = ts.getFirstItem()
             self.genTsPaths(tsId)
+            inputFile = firstItem.getFileName()
+            outputFile = self.getExtraOutFile(tsId)
             # Gen the xf alignment file
             xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
             genXfFile(ts, xfFile)
@@ -136,30 +132,16 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             tsExcludedIndices = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
             # Get the doSwap argument value
             doSwap = self.getNewstackDoSwap(firstItem, xfFile)
-            #Generate the command file for newstack
-            paramsDict = self.getBasicNewstackParams(ts,
-                                                     firstItem.getFileName(),
-                                                     self.getExtraOutFile(tsId),
-                                                     xfFile=xfFile,
-                                                     tsExcludedIndices=tsExcludedIndices,
-                                                     binning=self.binning.get(),
-                                                     doSwap=doSwap,
-                                                     doTaper=True)
-            paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
-
-            if self.linear:
-                paramsDict["-linear"] = ""
-
-            self.runProgram(NEWSTACK_PROGRAM, paramsDict)
-
+            self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
             if self.doOddEven:
-                paramsDict['-input'] = ts.getOddFileName()
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
-
-                paramsDict['-input'] = ts.getEvenFileName()
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram(NEWSTACK_PROGRAM, paramsDict)
+                # Odd
+                inputFile = ts.getOddFileName()
+                outputFile = self.getExtraOutFile(tsId, suffix=ODD)
+                self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
+                # Even
+                inputFile = ts.getEvenFileName()
+                outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
+                self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -197,13 +179,13 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                             angleMax = max(tiAngle, angleMax)
                             accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
                             initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
-
+                            # Tilt-image
                             outTi = TiltImage()
                             outTi.copyInfo(ti)
                             outTi.setFileName(self.getExtraOutFile(tsId))
                             outTi.getAcquisition().setTiltAxisAngle(0.)
                             outTi.setTransform(None)
-
+                            # Odd/even
                             if self.doOddEven:
                                 outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
                                                   self.getExtraOutFile(tsId, suffix=EVEN)])
@@ -211,7 +193,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                 outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
                                 # to consider them in the current execution, so they should be set to empty to avoid
                                 # next protocols be confused about having them.
-
                             tiList.append(outTi)
 
                     if ts.hasExcludedViews():
@@ -234,7 +215,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                     else:
                         for tiOut in tiList:
                             outTs.append(tiOut)
-
+                    # Data persistence
                     outTs.write()
                     outTsSet.update(outTs)
                     outTsSet.write()
@@ -247,13 +228,11 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
-
         for ts in self.getInputTsSet():
             if not ts.hasAlignment():
                 validateMsgs.append("Some tilt-series from the input set "
                                     "are missing a transformation matrix.")
                 break
-
         return validateMsgs
 
     def _summary(self):
@@ -276,9 +255,30 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
+    def _runNewstack(self,
+                    ts: TiltSeries,
+                    inputFile: str,
+                    outputFile: str,
+                    xfFile: str,
+                    doSwap: bool,
+                    tsExcludedIndices: set) -> None:
+
+        # Generate the command file for newstack
+        paramsDict = self.getBasicNewstackParams(ts,
+                                                 inputFile,
+                                                 outputFile,
+                                                 xfFile=xfFile,
+                                                 tsExcludedIndices=tsExcludedIndices,
+                                                 binning=self.binning.get(),
+                                                 doSwap=doSwap,
+                                                 doTaper=True)
+        paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
+        if self.linear:
+            paramsDict["-linear"] = ""
+        self.runProgram(NEWSTACK_PROGRAM, paramsDict)
+
     @staticmethod
     def updateTiltSeries(tsOut: TiltSeries) -> None:
         tsOut.setInterpolated(True)
         tsOut.setAlignment(ALIGN_NONE)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
-
