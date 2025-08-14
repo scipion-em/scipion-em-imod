@@ -71,6 +71,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                       label='Tilt Series')
 
     @staticmethod
+    def addInTomoSetFormParam(form):
+        form.addParam(IN_TOMO_SET,
+                      params.PointerParam,
+                      pointerClass='SetOfTomograms',
+                      important=True,
+                      label='Input set of tomograms')
+
+    @staticmethod
     def addOddEvenParams(form, isTomogram=False):
         objStr = 'tomograms' if isTomogram else 'tilt-series'
         form.addParam(PROCESS_ODD_EVEN,

@@ -25,8 +25,7 @@
 # *****************************************************************************
 import logging
 from os.path import exists
-import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TOMO_SET, NEWSTACK_PROGRAM
+from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, moveFile, cyanStr, redStr
@@ -62,7 +61,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     the stored data in order to reduce the disc occupancy.
     """
 
-    _label = 'Tomo preprocess'
+    _label = 'tomo preprocess'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
     stepsExecutionMode = STEPS_PARALLEL
 
@@ -72,11 +71,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms')
+        super().addInTomoSetFormParam(form)
         super()._defineParams(form, isTomogram=True)
         form.addParallelSection(threads=1, mpi=0)
 

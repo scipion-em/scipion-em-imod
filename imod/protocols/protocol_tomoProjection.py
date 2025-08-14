@@ -26,7 +26,6 @@
 import logging
 from os.path import exists
 from typing import List
-from imod.protocols.protocol_base import IN_TOMO_SET
 from pwem.objects import Transform
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
@@ -65,32 +64,23 @@ class ProtImodTomoProjection(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms to be projected')
-
+        super().addInTomoSetFormParam(form)
         line = form.addLine('Tilt angles  (deg)',
                             help='Starting, ending, and increment tilt angle. '
                                  'Enter the same value for starting and '
                                  'ending angle to get only one image.')
-
         line.addParam('minAngle',
                       params.FloatParam,
                       default=-60.0,
                       label='Minimum rotation')
-
         line.addParam('maxAngle',
                       params.FloatParam,
                       default=60.0,
                       label='Maximum rotation')
-
         line.addParam('stepAngle',
                       params.FloatParam,
                       default=2.0,
                       label='Step angle')
-
         form.addParam('rotationAxis',
                       params.EnumParam,
                       choices=['X', 'Y', 'Z'],
@@ -100,7 +90,6 @@ class ProtImodTomoProjection(ProtImodBase):
                       help='Axis to tilt around (X, Y, or Z). Y axis usually '
                            'corresponds to the typical rotation axis '
                            'acquisition.')
-
         form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------

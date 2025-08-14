@@ -28,7 +28,6 @@ from os.path import exists
 from typing import List
 
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TOMO_SET
 from imod.protocols.protocol_fiducialModel import MODEL2POINT_PROGRAM
 from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL
@@ -61,22 +60,12 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms',
-                      help='Input set of tomograms from which gold beads '
-                           'will be picked. A tomogram needs to be thicker '
-                           'than normal because the program cannot find '
-                           'beads too close to the surfaces of a tomogram.')
-
+        super().addInTomoSetFormParam(form)
         form.addParam('beadDiameter',
                       params.FloatParam,
                       label='Fiducials diameter (px)',
                       default=18,
                       help="Diameter of beads in pixels.")
-
         form.addParam('beadsColor',
                       params.EnumParam,
                       choices=['Dark', 'Light'],
@@ -86,7 +75,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       help='Contrast of the gold beads:\n'
                            '-Dark: beads are dark on light background.\n'
                            '-Light: beads are light on dark background.')
-
         form.addParam('minRelativeStrength',
                       params.FloatParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -103,7 +91,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'of strengths.  If the program fails to find a '
                            'histogram dip, one strategy is to try raising '
                            'this value.')
-
         form.addParam('minSpacing',
                       params.FloatParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -115,7 +102,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'eliminated unless the -both option is entered. '
                            'The default is 0.9. A value less than 1 is '
                            'helpful for picking both beads in a pair.')
-
         form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
