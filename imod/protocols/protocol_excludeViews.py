@@ -58,12 +58,7 @@ class ProtImodExcludeViews(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Input set of tilt-series')
-
+        super().addInTsSetFormParam(form)
         self.addOddEvenParams(form)
         form.addParallelSection(threads=2, mpi=0)
 

@@ -59,14 +59,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def _defineParams(self, form):
         ProtTomoImportFiles._defineImportParams(self, form)
         ProtTomoImportFiles.addExclusionWordsParam(form)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      help='Set of tilt-series on which transformation matrices '
-                           'will be assigned.',
-                      label='Input set of tilt-series')
-
+        super().addInTsSetFormParam(form)
         form.addParam("override",
                       params.BooleanParam,
                       default=True,

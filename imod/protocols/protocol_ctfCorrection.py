@@ -87,22 +87,13 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      label="Input tilt-series",
-                      pointerClass='SetOfTiltSeries',
-                      help='Select the set of tilt-series to be '
-                           'CTF corrected. Usually this will be the '
-                           'tilt-series with alignment information.')
-
+        super().addInTsSetFormParam(form)
         form.addParam(IN_CTF_TOMO_SET,
                       params.PointerParam,
                       label="Input CTF estimation",
                       pointerClass='SetOfCTFTomoSeries',
                       help='Select the CTF estimation for the set '
                            'of tilt-series.')
-
         form.addParam('defocusTol',
                       params.IntParam,
                       label='Defocus tolerance (nm)',
@@ -119,7 +110,6 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                            'constant defocus and are used to compute the '
                            'initial CTF after being further tessellated '
                            'into tiles.')
-
         form.addParam('interpolationWidth',
                       params.IntParam,
                       label='Interpolation width (px)',
@@ -146,14 +136,12 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                            "at constant spacing can still be obtained by "
                            "entering the negative of the desired spacing, "
                            "which disables the scaling of the spacing.")
-
         form.addHidden(params.USE_GPU,
                        params.BooleanParam,
                        default=True,
                        label="Use GPU for execution",
                        help="This protocol has both CPU and GPU implementation."
                             "Select the one you want to use.")
-
         form.addHidden(params.GPU_LIST,
                        params.StringParam,
                        default='0',
@@ -161,7 +149,6 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                        help="GPU ID. To pick the best available one set 0. "
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
-
         self.addOddEvenParams(form)
         form.addParallelSection(threads=2, mpi=0)
 

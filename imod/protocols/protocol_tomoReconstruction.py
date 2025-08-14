@@ -79,13 +79,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt Series')
-
+        super().addInTsSetFormParam(form)
         form.addParam('tomoThickness',
                       params.IntParam,
                       default=300,
@@ -93,7 +87,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                       important=True,
                       help='Size in voxels of the tomogram along the z '
                            'axis (beam direction).')
-
         form.addParam('tomoWidth',
                       params.IntParam,
                       default=0,
@@ -101,7 +94,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Number of pixels to cut out in X, centered on the middle in X. '
                            'Leave 0 for default X.')
-
         lineShift = form.addLine('Tomogram shift (px)',
                                  expertLevel=params.LEVEL_ADVANCED,
                                  help="This entry allows one to shift the reconstructed"
@@ -112,17 +104,14 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                       " If the Z shift is positive, the slice is shifted "
                                       " upward. The Z entry is optional and defaults to 0 when "
                                       " omitted.")
-
         lineShift.addParam('tomoShiftX',
                            params.FloatParam,
                            default=0,
                            label=' in X ')
-
         lineShift.addParam('tomoShiftZ',
                            params.FloatParam,
                            default=0,
                            label=' in Z ')
-
         lineoffSet = form.addLine('Offset (deg) of the ',
                                   expertLevel=params.LEVEL_ADVANCED,
                                   help="* Tilt angle offset: pply an angle offset in "
@@ -132,7 +121,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                        "offset to the tilt axis in a stack of full-sized "
                                        "projection images, cutting the X-axis at NX/2 + "
                                        "offset instead of NX/2.")
-
         lineoffSet.addParam('angleOffset',
                             params.FloatParam,
                             default=0,
@@ -140,7 +128,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                             help='Apply an angle offset in degrees to all tilt '
                                  'angles. This offset positively rotates the '
                                  'reconstructed sections anticlockwise.')
-
         lineoffSet.addParam('tiltAxisOffset',
                             params.FloatParam,
                             default=0,
@@ -150,7 +137,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                  'X-axis at NX/2 + offset instead of NX/2. The '
                                  'DELXX entry is optional and defaults to 0 '
                                  'when omitted.')
-
         form.addParam('superSampleFactor',
                       params.IntParam,
                       default=2,
@@ -185,7 +171,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                            'achieved with the falloff of the radial filter.  This will be noticeable '
                            'in a tomogram and would be particularly helpful if setting the radial '
                            'filter cutoff higher than the default for subvolume averaging.\n')
-
         form.addParam('fakeInteractionsSIRT',
                       params.IntParam,
                       default=0,
@@ -199,7 +184,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                            'is described in: \n\t'
                            'https://bio3d.colorado.edu/imod/doc/man/tilt.html'
                            'This entry corresponds to the imod parameter – FakeSIRTiterations')
-
         groupRadialFrequencies = form.addGroup('Radial filtering',
                                                help='This entry controls low-pass filtering with the radial weighting '
                                                     'function. The radial weighting function is linear away from the '
@@ -207,7 +191,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                                     'first value, followed by a Gaussian fall-off determined by the '
                                                     'second value.',
                                                expertLevel=params.LEVEL_ADVANCED)
-
         groupRadialFrequencies.addParam('radialFirstParameter',
                                         params.FloatParam,
                                         default=0.35,
@@ -218,21 +201,18 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                              'as pixels in Fourier space; otherwise they are treated as '
                                              'frequencies in cycles/pixel, which range from 0 to 0.5. '
                                              'Use a cutoff of 0.5 for no low-pass filtering.')
-
         groupRadialFrequencies.addParam('radialSecondParameter',
                                         params.FloatParam,
                                         default=0.035,
                                         label='Radial fall-off',
                                         help='Gaussian fall-off parameter. The sigma (or standard deviation) '
                                              'of the Gaussian is the second value times 0.707.')
-
         form.addHidden(params.USE_GPU,
                        params.BooleanParam,
                        default=True,
                        label="Use GPU for execution",
                        help="This protocol has both CPU and GPU implementation. "
                             "Select the one you want to use.")
-
         form.addHidden(params.GPU_LIST,
                        params.StringParam,
                        default='0',
@@ -241,7 +221,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                        help="GPU ID. To pick the best available one set 0. "
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
-
         self.addOddEvenParams(form, isTomogram=True)
         form.addParallelSection(threads=2, mpi=0)
 

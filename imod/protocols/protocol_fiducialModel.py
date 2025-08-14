@@ -75,13 +75,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                       default=FIDUCIAL_MODEL,
                       important=True,
                       label='Model generation')
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt Series')
-
+        super().addInTsSetFormParam(form)
         self._patchTrackingForm(form, 'typeOfModel == %i' % PATCH_TRACKING)
         self._fiducialSeedForm(form, 'typeOfModel == %i' % FIDUCIAL_MODEL)
         form.addParallelSection(threads=2, mpi=0)

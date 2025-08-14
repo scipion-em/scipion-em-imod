@@ -62,15 +62,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      label="Input tilt-series",
-                      pointerClass='SetOfTiltSeries',
-                      help='This should be a *raw stack*, not an aligned stack, '
-                           'because the interpolation used to make '
-                           'an aligned stack attenuates high frequencies and '
-                           'the noise power spectra would no longer match.')
-
+        super().addInTsSetFormParam(form)
         form.addParam('defocusTol',
                       params.IntParam,
                       label='Defocus tolerance (nm)',
@@ -84,7 +76,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                            'AngleRange are considered to have a constant '
                            'defocus and are used to compute the initial CTF '
                            'after being further tessellated into tiles.')
-
         form.addParam('expectedDefocusOrigin',
                       params.EnumParam,
                       choices=['Value', 'List'],
@@ -92,7 +83,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                       label='Input expected defocus as:',
                       important=True,
                       display=params.EnumParam.DISPLAY_HLIST)
-
         form.addParam('expectedDefocusValue',
                       params.FloatParam,
                       default=6000.,
@@ -102,7 +92,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                       help='This value will be applied as the expected '
                            'defocus in nanometers for every tilt-series '
                            'from the set.')
-
         form.addParam('expectedDefocusFile',
                       params.PathParam,
                       label='Expected defocus file',
@@ -117,7 +106,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                            'TS_01 4000\n'
                            'TS_02 1500\n'
                            '...')
-
         form.addParam('leftDefTol',
                       params.FloatParam,
                       label='Left defocus tolerance (nm)',
@@ -125,7 +113,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the left of the center strip.")
-
         form.addParam('rightDefTol',
                       params.FloatParam,
                       label='Right defocus tolerance (nm)',
@@ -133,7 +120,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help="Defocus tolerance in nanometers for strips "
                            "to the right of the center strip.")
-
         form.addParam('tileSize',
                       params.IntParam,
                       label='Tile size (px)',

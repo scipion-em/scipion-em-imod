@@ -58,11 +58,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series to apply the transformation matrix')
+        super().addInTsSetFormParam(form)
         form.addParam(BINNING_FACTOR, params.IntParam,
                       default=1,
                       label='Binning for the interpolated',

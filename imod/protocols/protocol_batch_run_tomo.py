@@ -63,10 +63,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET, PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series')
+        super().addInTsSetFormParam(form)
         form.addParam('alignMode', EnumParam,
                       important=True,
                       choices=['Fiducial alignment', 'Patch tracking'],

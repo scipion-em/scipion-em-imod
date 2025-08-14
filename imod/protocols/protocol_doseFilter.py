@@ -69,15 +69,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt Series',
-                      help='This input tilt-series will be low pass '
-                           'filtered according to their accumulated dose.')
-
+        super().addInTsSetFormParam(form)
         form.addParam('initialDose',
                       params.FloatParam,
                       default=0.0,
@@ -86,7 +78,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                       help='Dose applied before any of the images in the '
                            'input file were taken; this value will be '
                            'added to all the dose values.')
-
         form.addParam('inputDoseType',
                       params.EnumParam,
                       choices=['Scipion import', 'Fixed dose'],
@@ -99,7 +90,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                            '- Fixed dose: manually input fixed dose '
                            'for each image of the input file, '
                            'in electrons/Å^2.')
-
         form.addParam('fixedImageDose',
                       params.FloatParam,
                       default=FIXED_DOSE,
@@ -107,7 +97,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                       condition='inputDoseType == %i' % FIXED_DOSE,
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
-
         self.addOddEvenParams(form)
         form.addParallelSection(threads=2, mpi=0)
 

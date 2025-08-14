@@ -59,25 +59,17 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series')
-
+        super().addInTsSetFormParam(form)
         form.addParam('fidDiameter',
                       params.FloatParam,
                       important=True,
                       default= 10.0,
                       label='Fiducial diameter (nm)')
-
         form.addParam('erasedDiameter',
                       params.FloatParam,
                       important=True,
                       default=12.0,
                       label='Diameter to erase (nm)')
-
         form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------

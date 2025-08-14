@@ -76,11 +76,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Input set of tilt-series')
+        super().addInTsSetFormParam(form)
         super()._defineParams(form)
 
     # -------------------------- INSERT steps functions -----------------------

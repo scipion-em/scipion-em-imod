@@ -79,13 +79,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series to be prealigned')
-
+        super().addInTsSetFormParam(form)
         form.addParam('cumulativeCorr',
                       params.BooleanParam,
                       default=False,
@@ -98,11 +92,9 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                            'images that have already been aligned. When the most '
                            'negative tilt angle is reached, the procedure is repeated '
                            'from the zero-tilt view to more positive tilt angles.')
-
         form.addParam('Trimming parameters', params.LabelParam,
                       label='Tilt axis angle detected from import. In case another '
                             'value is desired please adjust the number below.')
-
         form.addParam('tiltAxisAngle',
                       params.FloatParam,
                       allowsNull=True,
@@ -114,10 +106,8 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                            'correct at in this point. Usually, it will be 90 '
                            'degrees less than the RotationAngle in a system with '
                            'no axis inversions.')
-
         trimming = form.addGroup('Trimming parameters',
                                  expertLevel=params.LEVEL_ADVANCED)
-
         self.addTrimingParams(trimming,
                               pxTrimCondition=False,
                               correlationCondition=True,
