@@ -442,8 +442,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-
-        interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
         fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
         tsCoords = getattr(self, OUTPUT_TS_COORDINATES_NAME, None)
 
@@ -451,13 +449,10 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
             summary.append("Fiducial models generated with no gaps: "
                            f"{fidModelNoGaps.getSize()}")
 
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append("Transformation matrices updated from the "
-                           f"input tilt-series: {self.TiltSeries.getSize()}")
-
-        if interpTS is not None:
-            summary.append("Interpolated tilt-series calculated: "
-                           f"{interpTS.getSize()}")
+                           f"input tilt-series: {output.getSize()}")
 
         if tsCoords is not None:
             summary.append("Fiducial 3D coordinates calculated: "

@@ -226,10 +226,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices assigned: "
-                           f"{self.TiltSeries.getSize()}")
+                           f"{output.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------

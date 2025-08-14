@@ -390,9 +390,10 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
-                           f"CTF corrections applied: {self.TiltSeries.getSize()}")
+                           f"CTF corrections applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary

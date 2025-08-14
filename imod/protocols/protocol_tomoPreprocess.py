@@ -178,9 +178,10 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.Tomograms:
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTomoSet().getSize()}\n"
-                           f"Interpolations applied: {self.Tomograms.getSize()}")
+                           f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary

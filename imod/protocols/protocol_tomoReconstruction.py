@@ -429,9 +429,10 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
         summary = []
-        if self.Tomograms:
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
-                           f"Tomograms reconstructed: {self.Tomograms.getSize()}")
+                           f"Tomograms reconstructed: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary

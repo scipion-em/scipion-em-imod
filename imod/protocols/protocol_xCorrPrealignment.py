@@ -272,10 +272,11 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices calculated: "
-                           f"{self.TiltSeries.getSize()}")
+                           f"{output.getSize()}")
 
             interpTS = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
             if interpTS is not None:

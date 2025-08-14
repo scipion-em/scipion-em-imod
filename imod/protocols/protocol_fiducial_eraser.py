@@ -235,10 +235,11 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices calculated: "
-                           f"{self.TiltSeries.getSize()}")
+                           f"{output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
