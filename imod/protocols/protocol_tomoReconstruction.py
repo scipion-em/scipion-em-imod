@@ -438,8 +438,9 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-        if self.Tomograms:
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
             methods.append("The reconstruction has been computed for "
-                           f"{self.Tomograms.getSize()} tilt-series using "
+                           f"{output.getSize()} tilt-series using "
                            "the IMOD *tilt* command.")
         return methods

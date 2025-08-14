@@ -478,7 +478,6 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-
         ctfSeries = getattr(self, OUTPUT_CTF_SERIE, None)
         if ctfSeries is not None:
             methods.append(f"{ctfSeries.getSize()} tilt-series CTF "

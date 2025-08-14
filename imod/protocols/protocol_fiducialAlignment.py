@@ -469,7 +469,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-
         fidModelNoGaps = getattr(self, OUTPUT_FIDUCIAL_NO_GAPS_NAME, None)
         if fidModelNoGaps is not None:
             methods.append("Solved fiducials alignment for "

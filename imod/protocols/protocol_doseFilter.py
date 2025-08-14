@@ -262,9 +262,10 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             methods.append("The dose-weighting has been applied to "
-                           f"{self.TiltSeries.getSize()} "
+                           f"{output.getSize()} "
                            "tilt-series using the IMOD *mtffilter* command.")
         return methods
 

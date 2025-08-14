@@ -320,9 +320,10 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output:
             methods.append(f"The x-rays artifacts have been erased for "
-                           f"{self.TiltSeries.getSize()} tilt-series using "
+                           f"{output.getSize()} tilt-series using "
                            f"the IMOD *{CCDERASER_PROGRAM}* command.")
 
         return methods

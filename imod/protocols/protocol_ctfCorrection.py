@@ -399,7 +399,8 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
-            methods.append(f"{self.TiltSeries.getSize()} tilt-series have been "
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
+            methods.append(f"{output.getSize()} tilt-series have been "
                            "CTF corrected using the IMOD *ctfphaseflip* program.")
         return methods

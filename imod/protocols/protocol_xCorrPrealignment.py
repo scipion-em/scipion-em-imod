@@ -287,9 +287,10 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             methods.append(f"The transformation matrix has been calculated for "
-                           f"{self.TiltSeries.getSize()} tilt-series using "
+                           f"{output.getSize()} tilt-series using "
                            f"the IMOD *{TILT_XCORR_PROGRAM}* command.")
         return methods
 

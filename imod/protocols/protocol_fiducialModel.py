@@ -454,13 +454,11 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
     def _methods(self):
         methods = []
-
         fidModelGaps = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
         if fidModelGaps is not None:
             methods.append(f"The fiducial model (with gaps) has been computed for "
                            f"{fidModelGaps.getSize()} tilt-series using "
                            f"the IMOD *{BEADTRACK_PROGRAM}* command.")
-
         return methods
 
     # --------------------------- UTILS functions -----------------------------

@@ -58,10 +58,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.failedItems = []
         self.doOddEven = False
 
-        # Possible outputs (synchronize these names with the constants)
-        self.TiltSeries = None
-        self.Tomograms = None
-
         # Streaming
         self.tsIdReadList = []
 

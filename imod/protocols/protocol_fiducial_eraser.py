@@ -245,9 +245,10 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
             methods.append("The transformation matrix has been calculated for "
-                           f"{self.TiltSeries.getSize()} tilt-series using "
+                           f"{output.getSize()} tilt-series using "
                            "the IMOD *tiltxcorr* command.")
         return methods
 

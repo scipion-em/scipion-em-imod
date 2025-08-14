@@ -187,8 +187,9 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     def _methods(self):
         methods = []
-        if self.Tomograms:
-            methods.append(f"{self.Tomograms.getSize()} tomograms have been "
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
+            methods.append(f"{output.getSize()} tomograms have been "
                            "preprocessed using the IMOD *binvol* command.")
         return methods
 
