@@ -50,8 +50,6 @@ BINNING_FACTOR = 'binning'
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
     """ Base class with methods used in the rest of the imod protocols. """
-    _label = None
-    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
