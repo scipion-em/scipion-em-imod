@@ -199,43 +199,44 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         """Generate output filtered tilt series"""
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outTsFile = self.getExtraOutFile(tsId)
-                if exists(outTsFile):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                        outTs = TiltSeries()
-                        outTs.copyInfo(ts)
-                        self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
-                        outTsSet.append(outTs)
-                        for ti in ts.iterItems():
-                            outTi = TiltImage()
-                            outTi.copyInfo(ti)
-                            outTi.setFileName(self.getExtraOutFile(tsId))
-                            self.updateTiAcquisition(outTi)
-                            if self.doOddEven:
-                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
-                            else:
-                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
-                                # to consider them in the current execution, so they should be set to empty to avoid
-                                # next protocols be confused about having them.
-                            outTs.append(outTi)
-                        outTs.write()
-                        outTsSet.update(outTs)
-                        outTsSet.write()
-                        self._store(outTsSet)
-                        # Close explicitly the outputs (for streaming)
-                        for outputName in self._possibleOutputs.keys():
-                            output = getattr(self, outputName, None)
-                            if output:
-                                output.close()
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            return
+
+        try:
+            outTsFile = self.getExtraOutFile(tsId)
+            if exists(outTsFile):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
+                    outTsSet.append(outTs)
+                    for ti in ts.iterItems():
+                        outTi = TiltImage()
+                        outTi.copyInfo(ti)
+                        outTi.setFileName(self.getExtraOutFile(tsId))
+                        self.updateTiAcquisition(outTi)
+                        if self.doOddEven:
+                            outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                              self.getExtraOutFile(tsId, suffix=EVEN)])
+                        else:
+                            outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                            # to consider them in the current execution, so they should be set to empty to avoid
+                            # next protocols be confused about having them.
+                        outTs.append(outTi)
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+                    # Close explicitly the outputs (for streaming)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

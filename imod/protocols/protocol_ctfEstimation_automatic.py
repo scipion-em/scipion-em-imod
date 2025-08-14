@@ -434,38 +434,39 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-                if exists(defocusFilePath):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        outputCtfSet = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
-                                                                  outputSetName)
-                        outCtfSeries = CTFTomoSeries(tsId=tsId)
-                        outCtfSeries.copyInfo(ts)
-                        outCtfSeries.setTiltSeries(ts)
+            return
 
-                        # flags below will be updated in parseTSDefocusFile
-                        outCtfSeries.setIMODDefocusFileFlag(1)
-                        outCtfSeries.setNumberOfEstimationsInRange(0)
-                        outputCtfSet.append(outCtfSeries)
-                        ctfParser = ImodCtfParser(self)
-                        ctfParser.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
+        try:
+            defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
+            if exists(defocusFilePath):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    outputCtfSet = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
+                                                              outputSetName)
+                    outCtfSeries = CTFTomoSeries(tsId=tsId)
+                    outCtfSeries.copyInfo(ts)
+                    outCtfSeries.setTiltSeries(ts)
 
-                        outCtfSeries.write()
-                        outputCtfSet.update(outCtfSeries)
-                        outputCtfSet.write()
-                        self._store(outputCtfSet)
-                        # Close explicitly the outputs (for streaming)
-                        for outputName in self._possibleOutputs.keys():
-                            output = getattr(self, outputName, None)
-                            if output:
-                                output.close()
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {defocusFilePath} was not generated. Skipping... '))
-            except Exception as e:
-               logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                    # flags below will be updated in parseTSDefocusFile
+                    outCtfSeries.setIMODDefocusFileFlag(1)
+                    outCtfSeries.setNumberOfEstimationsInRange(0)
+                    outputCtfSet.append(outCtfSeries)
+                    ctfParser = ImodCtfParser(self)
+                    ctfParser.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
+
+                    outCtfSeries.write()
+                    outputCtfSet.update(outCtfSeries)
+                    outputCtfSet.write()
+                    self._store(outputCtfSet)
+                    # Close explicitly the outputs (for streaming)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {defocusFilePath} was not generated. Skipping... '))
+        except Exception as e:
+           logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -228,49 +228,50 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
         """ Generate tilt-series with the associated transform matrix """
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-                if exists(outputFn):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        tAx = self.getTiltAxisOrientation(ts)
-                        aliMatrixStack = readXfFile(outputFn)
-                        inTsSetPointer = self.getInputTsSet(pointer=True)
-                        # Set of tilt-series
-                        outTsSet = self.getOutputSetOfTS(inTsSetPointer,
-                                                         tiltAxisAngle=tAx)
-                        # Tilt-series
-                        outTs = TiltSeries()
-                        outTs.copyInfo(ts)
-                        outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-                        outTs.setAlignment2D()
-                        outTsSet.append(outTs)
-                        # Tilt-images
-                        stackIndex = 0
-                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                            outTi = TiltImage()
-                            outTi.copyInfo(ti)
-                            if ti.isEnabled():
-                                self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
-                                stackIndex += 1
-                            else:
-                                self.updateDisabledTi(outTi)
-                            outTs.append(outTi)
-                        # Data persistence
-                        outTs.write()
-                        outTsSet.update(outTs)
-                        outTsSet.write()
-                        self._store(outTsSet)
-                        # Close explicitly the outputs (for streaming)
-                        for outputName in self._possibleOutputs.keys():
-                            output = getattr(self, outputName, None)
-                            if output:
-                                output.close()
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            return
+
+        try:
+            outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+            if exists(outputFn):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    tAx = self.getTiltAxisOrientation(ts)
+                    aliMatrixStack = readXfFile(outputFn)
+                    inTsSetPointer = self.getInputTsSet(pointer=True)
+                    # Set of tilt-series
+                    outTsSet = self.getOutputSetOfTS(inTsSetPointer,
+                                                     tiltAxisAngle=tAx)
+                    # Tilt-series
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+                    outTs.setAlignment2D()
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    stackIndex = 0
+                    for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                        outTi = TiltImage()
+                        outTi.copyInfo(ti)
+                        if ti.isEnabled():
+                            self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
+                            stackIndex += 1
+                        else:
+                            self.updateDisabledTi(outTi)
+                        outTs.append(outTi)
+                    # Data persistence
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+                    # Close explicitly the outputs (for streaming)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

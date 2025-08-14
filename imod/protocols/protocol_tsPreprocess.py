@@ -191,38 +191,39 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
     def createOutputStep(self, tsId: str, binning: int):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId)
-                if exists(outputFn):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
-                        outTs = TiltSeries()
-                        outTs.copyInfo(ts)
-                        outTsSet.append(outTs)
-                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                            outTi = TiltImage()
-                            outTi.copyInfo(ti)
-                            outTi.setFileName(outputFn)
-                            self.updateTransformMatrix(outTi, binning=binning)
-                            if self.doOddEven:
-                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
-                            outTs.append(outTi)
-                        outTs.write()
-                        outTsSet.update(outTs)
-                        outTsSet.write()
-                        self._store(outTsSet)
-                        # Close explicitly the outputs (for streaming)
-                        for outputName in self._possibleOutputs.keys():
-                            output = getattr(self, outputName, None)
-                            if output:
-                                output.close()
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            return
+
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    outTsSet.append(outTs)
+                    for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                        outTi = TiltImage()
+                        outTi.copyInfo(ti)
+                        outTi.setFileName(outputFn)
+                        self.updateTransformMatrix(outTi, binning=binning)
+                        if self.doOddEven:
+                            outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                              self.getExtraOutFile(tsId, suffix=EVEN)])
+                        outTs.append(outTi)
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+                    # Close explicitly the outputs (for streaming)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

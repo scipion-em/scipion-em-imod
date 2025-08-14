@@ -281,90 +281,90 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId)
-                if exists(outputFn):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        ctf = self.getCurrentCtf(tsId)
-                        presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
-                        # Set of tilt-series
-                        inTsSetPointer = self.getInputTsSet(pointer=True)
-                        outTsSet = self.getOutputSetOfTS(inTsSetPointer)
-                        # Tilt-series
-                        outTs = TiltSeries()
-                        outTs.copyInfo(ts)
-                        outTs.setAlignment(ALIGN_NONE)
-                        outTs.setAnglesCount(len(presentAcqOrders))
-                        outTs.setCtfCorrected(True)
-                        outTs.setInterpolated(True)
-                        outTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
-                        outTsSet.append(outTs)
-                        # Tilt-images
-                        angleMin = 999
-                        angleMax = -999
-                        tiList = []
-                        for index, inTi in enumerate(ts.iterItems()):
-                            if inTi.getAcquisitionOrder() in presentAcqOrders:
-                                outTi = TiltImage()
-                                outTi.copyInfo(inTi, copyTM=False)
-                                acq = inTi.getAcquisition()
-                                acq.setTiltAxisAngle(0.)  # Is interpolated
-                                outTi.setAcquisition(acq)
-                                outTi.setFileName(outputFn)
-                                if self.doOddEven:
-                                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                                      self.getExtraOutFile(tsId, suffix=EVEN)])
-                                else:
-                                    outTi.setOddEven([])   # the input may have odd/even but the user may have decided not
-                                # to consider them in the current execution, so they should be set to empty to avoid
-                                # next protocols be confused about having them.
-
-                                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-                                # these values may change if the removed tilt-images are the first or the last, for example.
-                                tiAngle = outTi.getTiltAngle()
-                                angleMin = min(tiAngle, angleMin)
-                                angleMax = max(tiAngle, angleMax)
-                                tiList.append(outTi)
-
-                        if len(presentAcqOrders) != max(len(ts), len(ctf)):
-                            # Update the acquisition minAngle and maxAngle values of the tilt-series
-                            acq = outTs.getAcquisition()
-                            acq.setAngleMin(angleMin)
-                            acq.setAngleMax(angleMax)
-                            acq.setAccumDose(0)
-                            acq.setDoseInitial(0)
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    ctf = self.getCurrentCtf(tsId)
+                    presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+                    # Set of tilt-series
+                    inTsSetPointer = self.getInputTsSet(pointer=True)
+                    outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+                    # Tilt-series
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    outTs.setAlignment(ALIGN_NONE)
+                    outTs.setAnglesCount(len(presentAcqOrders))
+                    outTs.setCtfCorrected(True)
+                    outTs.setInterpolated(True)
+                    outTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    angleMin = 999
+                    angleMax = -999
+                    tiList = []
+                    for index, inTi in enumerate(ts.iterItems()):
+                        if inTi.getAcquisitionOrder() in presentAcqOrders:
+                            outTi = TiltImage()
+                            outTi.copyInfo(inTi, copyTM=False)
+                            acq = inTi.getAcquisition()
+                            acq.setTiltAxisAngle(0.)  # Is interpolated
                             outTi.setAcquisition(acq)
-                            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
-                            # specific accum and initial dose values
-                            for tiOut in tiList:
-                                tiAcq = tiOut.getAcquisition()
-                                tiAcq.setAngleMin(angleMin)
-                                tiAcq.setAngleMax(angleMax)
-                                tiAcq.setAccumDose(0)
-                                tiAcq.setDoseInitial(0)
-                                outTs.append(tiOut)
-                            outTs.setAnglesCount(len(outTs))
-                        else:
-                            for tiOut in tiList:
-                                outTs.append(tiOut)
+                            outTi.setFileName(outputFn)
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])   # the input may have odd/even but the user may have decided not
+                            # to consider them in the current execution, so they should be set to empty to avoid
+                            # next protocols be confused about having them.
 
-                        # Data persistence
-                        outTs.write()
-                        outTsSet.update(outTs)
-                        outTsSet.write()
-                        self._store(outTsSet)
-                        # Close explicitly the outputs (for streaming)
-                        for outputName in self._possibleOutputs.keys():
-                            output = getattr(self, outputName, None)
-                            if output:
-                                output.close()
+                            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                            # these values may change if the removed tilt-images are the first or the last, for example.
+                            tiAngle = outTi.getTiltAngle()
+                            angleMin = min(tiAngle, angleMin)
+                            angleMax = max(tiAngle, angleMax)
+                            tiList.append(outTi)
 
-                else:
-                    logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                    if len(presentAcqOrders) != max(len(ts), len(ctf)):
+                        # Update the acquisition minAngle and maxAngle values of the tilt-series
+                        acq = outTs.getAcquisition()
+                        acq.setAngleMin(angleMin)
+                        acq.setAngleMax(angleMax)
+                        acq.setAccumDose(0)
+                        acq.setDoseInitial(0)
+                        outTi.setAcquisition(acq)
+                        # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                        # specific accum and initial dose values
+                        for tiOut in tiList:
+                            tiAcq = tiOut.getAcquisition()
+                            tiAcq.setAngleMin(angleMin)
+                            tiAcq.setAngleMax(angleMax)
+                            tiAcq.setAccumDose(0)
+                            tiAcq.setDoseInitial(0)
+                            outTs.append(tiOut)
+                        outTs.setAnglesCount(len(outTs))
+                    else:
+                        for tiOut in tiList:
+                            outTs.append(tiOut)
+
+                    # Data persistence
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+                    # Close explicitly the outputs (for streaming)
+                    for outputName in self._possibleOutputs.keys():
+                        output = getattr(self, outputName, None)
+                        if output:
+                            output.close()
+
+            else:
+                logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- UTILS functions -----------------------------
     def generateDefocusFile(self, ts: TiltSeries,

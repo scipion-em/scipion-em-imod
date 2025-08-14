@@ -169,80 +169,80 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId)
-                if exists(outputFn):
-                    angleMin = 999
-                    angleMax = -999
-                    accumDose = 0
-                    initialDose = 999
-                    tiList = []
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True),
-                                                         binning=self.binning.get(),
-                                                         attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                                         suffix="Interpolated", )
-                        outTs = TiltSeries()
-                        outTs.copyInfo(ts)
-                        self.updateTiltSeries(outTs)
-                        outTsSet.append(outTs)
-                        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                            if ti.isEnabled():
-                                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-                                # these values may change if the removed tilt-images are the first or the last, for example.
-                                tiAngle = ti.getTiltAngle()
-                                angleMin = min(tiAngle, angleMin)
-                                angleMax = max(tiAngle, angleMax)
-                                accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
-                                initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                angleMin = 999
+                angleMax = -999
+                accumDose = 0
+                initialDose = 999
+                tiList = []
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True),
+                                                     binning=self.binning.get(),
+                                                     attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                                                     suffix="Interpolated", )
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    self.updateTiltSeries(outTs)
+                    outTsSet.append(outTs)
+                    for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                        if ti.isEnabled():
+                            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                            # these values may change if the removed tilt-images are the first or the last, for example.
+                            tiAngle = ti.getTiltAngle()
+                            angleMin = min(tiAngle, angleMin)
+                            angleMax = max(tiAngle, angleMax)
+                            accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+                            initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
 
-                                outTi = TiltImage()
-                                outTi.copyInfo(ti)
-                                outTi.setFileName(self.getExtraOutFile(tsId))
-                                outTi.getAcquisition().setTiltAxisAngle(0.)
-                                outTi.setTransform(None)
+                            outTi = TiltImage()
+                            outTi.copyInfo(ti)
+                            outTi.setFileName(self.getExtraOutFile(tsId))
+                            outTi.getAcquisition().setTiltAxisAngle(0.)
+                            outTi.setTransform(None)
 
-                                if self.doOddEven:
-                                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                                      self.getExtraOutFile(tsId, suffix=EVEN)])
-                                else:
-                                    outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
-                                    # to consider them in the current execution, so they should be set to empty to avoid
-                                    # next protocols be confused about having them.
+                            if self.doOddEven:
+                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+                            else:
+                                outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                                # to consider them in the current execution, so they should be set to empty to avoid
+                                # next protocols be confused about having them.
 
-                                tiList.append(outTi)
+                            tiList.append(outTi)
 
-                        if ts.hasExcludedViews():
-                            # Update the acquisition minAngle and maxAngle values of the tilt-series
-                            acq = outTs.getAcquisition()
-                            acq.setAngleMin(angleMin)
-                            acq.setAngleMax(angleMax)
-                            acq.setAccumDose(accumDose)
-                            acq.setDoseInitial(initialDose)
-                            outTs.setAcquisition(acq)
-                            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
-                            # specific accum and initial dose values
-                            for tiOut in tiList:
-                                tiAcq = tiOut.getAcquisition()
-                                tiAcq.setAngleMin(angleMin)
-                                tiAcq.setAngleMax(angleMax)
-                                tiOut.setAcquisition(tiAcq)
-                                outTs.append(tiOut)
-                            outTs.setAnglesCount(len(outTs))
-                        else:
-                            for tiOut in tiList:
-                                outTs.append(tiOut)
+                    if ts.hasExcludedViews():
+                        # Update the acquisition minAngle and maxAngle values of the tilt-series
+                        acq = outTs.getAcquisition()
+                        acq.setAngleMin(angleMin)
+                        acq.setAngleMax(angleMax)
+                        acq.setAccumDose(accumDose)
+                        acq.setDoseInitial(initialDose)
+                        outTs.setAcquisition(acq)
+                        # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                        # specific accum and initial dose values
+                        for tiOut in tiList:
+                            tiAcq = tiOut.getAcquisition()
+                            tiAcq.setAngleMin(angleMin)
+                            tiAcq.setAngleMax(angleMax)
+                            tiOut.setAcquisition(tiAcq)
+                            outTs.append(tiOut)
+                        outTs.setAnglesCount(len(outTs))
+                    else:
+                        for tiOut in tiList:
+                            outTs.append(tiOut)
 
-                        outTs.write()
-                        outTsSet.update(outTs)
-                        outTsSet.write()
-                        self._store(outTsSet)
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
