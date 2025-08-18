@@ -30,7 +30,6 @@ from typing import Union, Tuple, List
 from imod.convert.convert import genXfFile
 from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
-from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import path, cyanStr, redStr
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase

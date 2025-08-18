@@ -327,91 +327,93 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
-    def ctfEstimation(self, tsId: str,
-                      expDefoci: Optional[dict] = None):
+    def ctfEstimation(self,
+                      tsId: str,
+                      expDefoci: dict = None):
         """Run ctfplotter IMOD program"""
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-    
-                paramsCtfPlotter = {
-                    "-InputStack": self.getTmpOutFile(tsId),
-                    "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                    "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-                    "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
-                    "-PixelSize": self.sRate / 10,  # nm
-                    "-Voltage": int(self.acq.getVoltage()),
-                    "-SphericalAberration": self.acq.getSphericalAberration(),
-                    "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
-                    "-DefocusTol": self.defocusTol.get(),
-                    "-PSResolution": 101,
-                    "-LeftDefTol": self.leftDefTol.get(),
-                    "-RightDefTol": self.rightDefTol.get(),
-                    "-tileSize": self.tileSize.get(),
-                }
-    
-                if self.expectedDefocusOrigin.get() == 0:
-                    paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
-                else:
-                    self.debug(f"Expected defoci: {expDefoci}")
-                    defocus = expDefoci.get(tsId, None)
-                    if defocus is None:
-                        raise ValueError(f"{tsId} not found in the provided defocus file.")
-    
-                    paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
-    
-                # Excluded views
-                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                if excludedViews:
-                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                    paramsCtfPlotter["-ViewsToSkip"] = ",".join(map(str, excludedViews))
-    
-                if self._interactiveMode:
-                    paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
-                else:
-                    if self.extraZerosToFit.get() != 0:
-                        paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
-    
-                    if self.skipAstigmaticViews:
-                        paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
-    
-                    if self.searchAstigmatism:
-                        paramsCtfPlotter.update({
-                            "-SearchAstigmatism": "",
-                            "-MaximumAstigmatism": self.maximumAstigmatism.get(),
-                            "-NumberOfSectors": self.numberSectorsAstigmatism.get()
-                        })
-    
-                    if self.searchPhaseShift:
-                        paramsCtfPlotter["-SearchPhaseShift"]: ""
-    
-                    if self.searchAstigmatism and self.searchPhaseShift:
-                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
-                                                                     f"{self.minimumViewsPhaseShift.get()}"
-                    elif self.searchAstigmatism:
-                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
-                    elif self.searchPhaseShift:
-                        paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
-    
-                    if self.searchCutOnFreq:
-                        paramsCtfPlotter["-SearchCutonFrequency"] = ""
-    
-                        if self.maximumCutOnFreq.get() != -1.0:
-                            paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
-    
-                    paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
-                    paramsCtfPlotter["-SaveAndExit"] = ""
-    
-                    if self.startFreq.get() != 0 or self.endFreq.get() != 0:
-                        paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
-    
-                self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
 
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution failed with the exception -> {e}'))
+            paramsCtfPlotter = {
+                "-InputStack": self.getTmpOutFile(tsId),
+                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-PixelSize": self.sRate / 10,  # nm
+                "-Voltage": int(self.acq.getVoltage()),
+                "-SphericalAberration": self.acq.getSphericalAberration(),
+                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+                "-DefocusTol": self.defocusTol.get(),
+                "-PSResolution": 101,
+                "-LeftDefTol": self.leftDefTol.get(),
+                "-RightDefTol": self.rightDefTol.get(),
+                "-tileSize": self.tileSize.get(),
+            }
+
+            if self.expectedDefocusOrigin.get() == 0:
+                paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
+            else:
+                self.debug(f"Expected defoci: {expDefoci}")
+                defocus = expDefoci.get(tsId, None)
+                if defocus is None:
+                    raise ValueError(f"{tsId} not found in the provided defocus file.")
+
+                paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
+
+            # Excluded views
+            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            if excludedViews:
+                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                paramsCtfPlotter["-ViewsToSkip"] = ",".join(map(str, excludedViews))
+
+            if self._interactiveMode:
+                paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
+            else:
+                if self.extraZerosToFit.get() != 0:
+                    paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
+
+                if self.skipAstigmaticViews:
+                    paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
+
+                if self.searchAstigmatism:
+                    paramsCtfPlotter.update({
+                        "-SearchAstigmatism": "",
+                        "-MaximumAstigmatism": self.maximumAstigmatism.get(),
+                        "-NumberOfSectors": self.numberSectorsAstigmatism.get()
+                    })
+
+                if self.searchPhaseShift:
+                    paramsCtfPlotter["-SearchPhaseShift"]: ""
+
+                if self.searchAstigmatism and self.searchPhaseShift:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
+                                                                 f"{self.minimumViewsPhaseShift.get()}"
+                elif self.searchAstigmatism:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
+                elif self.searchPhaseShift:
+                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
+
+                if self.searchCutOnFreq:
+                    paramsCtfPlotter["-SearchCutonFrequency"] = ""
+
+                    if self.maximumCutOnFreq.get() != -1.0:
+                        paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
+
+                paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
+                paramsCtfPlotter["-SaveAndExit"] = ""
+
+                if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+                    paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
+
+            self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
+
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         if tsId in self.failedItems:
