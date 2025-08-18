@@ -230,7 +230,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsOut.setAlignment(ALIGN_NONE)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
-
     def _prepareOutputSet(self) -> SetOfTiltSeries:
             return self.getOutputSetOfTS(
                 self.getInputTsSet(pointer=True),
@@ -243,7 +242,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         outTs.copyInfo(ts)
         self.updateTiltSeries(outTs)
         return outTs
-
 
     def _processTiltImages(self, ts: TiltSeries) -> Tuple[list, float, float, float, float]:
         tsId = ts.getTsId()

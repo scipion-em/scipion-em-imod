@@ -26,8 +26,8 @@
 # *****************************************************************************
 import logging
 from os.path import exists
-from typing import Set
-from imod.protocols.protocol_base import IN_TS_SET, IN_CTF_TOMO_SET
+from typing import Set, Tuple
+from imod.protocols.protocol_base import IN_CTF_TOMO_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pwem import ALIGN_NONE
 import pyworkflow.protocol.params as params
@@ -211,7 +211,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
                 super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
                 # Generate the defocus file
-                self.generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+                self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -277,63 +277,11 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                     inTsSetPointer = self.getInputTsSet(pointer=True)
                     outTsSet = self.getOutputSetOfTS(inTsSetPointer)
                     # Tilt-series
-                    outTs = TiltSeries()
-                    outTs.copyInfo(ts)
-                    outTs.setAlignment(ALIGN_NONE)
-                    outTs.setAnglesCount(len(presentAcqOrders))
-                    outTs.setCtfCorrected(True)
-                    outTs.setInterpolated(True)
-                    outTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+                    outTs = self._createOutputTiltSeries(ts, presentAcqOrders)
                     outTsSet.append(outTs)
                     # Tilt-images
-                    angleMin = 999
-                    angleMax = -999
-                    tiList = []
-                    for index, inTi in enumerate(ts.iterItems()):
-                        if inTi.getAcquisitionOrder() in presentAcqOrders:
-                            outTi = TiltImage()
-                            outTi.copyInfo(inTi, copyTM=False)
-                            acq = inTi.getAcquisition()
-                            acq.setTiltAxisAngle(0.)  # Is interpolated
-                            outTi.setAcquisition(acq)
-                            outTi.setFileName(outputFn)
-                            if self.doOddEven:
-                                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                                  self.getExtraOutFile(tsId, suffix=EVEN)])
-                            else:
-                                outTi.setOddEven([])   # the input may have odd/even but the user may have decided not
-                            # to consider them in the current execution, so they should be set to empty to avoid
-                            # next protocols be confused about having them.
-
-                            # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-                            # these values may change if the removed tilt-images are the first or the last, for example.
-                            tiAngle = outTi.getTiltAngle()
-                            angleMin = min(tiAngle, angleMin)
-                            angleMax = max(tiAngle, angleMax)
-                            tiList.append(outTi)
-
-                    if len(presentAcqOrders) != max(len(ts), len(ctf)):
-                        # Update the acquisition minAngle and maxAngle values of the tilt-series
-                        acq = outTs.getAcquisition()
-                        acq.setAngleMin(angleMin)
-                        acq.setAngleMax(angleMax)
-                        acq.setAccumDose(0)
-                        acq.setDoseInitial(0)
-                        outTi.setAcquisition(acq)
-                        # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
-                        # specific accum and initial dose values
-                        for tiOut in tiList:
-                            tiAcq = tiOut.getAcquisition()
-                            tiAcq.setAngleMin(angleMin)
-                            tiAcq.setAngleMax(angleMax)
-                            tiAcq.setAccumDose(0)
-                            tiAcq.setDoseInitial(0)
-                            outTs.append(tiOut)
-                        outTs.setAnglesCount(len(outTs))
-                    else:
-                        for tiOut in tiList:
-                            outTs.append(tiOut)
-
+                    tiList, angleMin, angleMax = self._processTiltImages(ts, presentAcqOrders, outputFn)
+                    self._updateAcquisition(ts, ctf, presentAcqOrders, outTs, tiList, angleMin, angleMax)
                     # Data persistence
                     outTs.write()
                     outTsSet.update(outTs)
@@ -351,15 +299,88 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- UTILS functions -----------------------------
-    def generateDefocusFile(self, ts: TiltSeries,
-                            ctf: CTFTomoSeries,
-                            presentAcqOrders: Set[int]) -> None:
+    def _generateDefocusFile(self, ts: TiltSeries,
+                             ctf: CTFTomoSeries,
+                             presentAcqOrders: Set[int]) -> None:
         tsId = ts.getTsId()
         self.debug(f"tsId = {tsId} -> Generating defocus file...")
         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
         utils.generateDefocusIMODFileFromObject(ctf, defocusFilePath,
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
+
+    @staticmethod
+    def _createOutputTiltSeries(ts: TiltSeries, presentAcqOrders: Set[int]) ->TiltSeries:
+        outTs = TiltSeries()
+        outTs.copyInfo(ts)
+        outTs.setAlignment(ALIGN_NONE)
+        outTs.setAnglesCount(len(presentAcqOrders))
+        outTs.setCtfCorrected(True)
+        outTs.setInterpolated(True)
+        outTs.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
+        return outTs
+
+    def _processTiltImages(self,
+                           ts: TiltSeries,
+                           presentAcqOrders: Set[int],
+                           outputFn: str) -> Tuple[list, float, float]:
+        tsId = ts.getTsId()
+        angleMin, angleMax = 999, -999
+        tiList = []
+        for index, inTi in enumerate(ts.iterItems()):
+            if inTi.getAcquisitionOrder() in presentAcqOrders:
+                outTi = TiltImage()
+                outTi.copyInfo(inTi, copyTM=False)
+                acq = inTi.getAcquisition()
+                acq.setTiltAxisAngle(0.)  # Is interpolated
+                outTi.setAcquisition(acq)
+                outTi.setFileName(outputFn)
+                if self.doOddEven:
+                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                      self.getExtraOutFile(tsId, suffix=EVEN)])
+                else:
+                    outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                # to consider them in the current execution, so they should be set to empty to avoid
+                # next protocols be confused about having them.
+
+                # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                # these values may change if the removed tilt-images are the first or the last, for example.
+                tiAngle = outTi.getTiltAngle()
+                angleMin = min(tiAngle, angleMin)
+                angleMax = max(tiAngle, angleMax)
+                tiList.append(outTi)
+
+        return tiList, angleMin, angleMax
+
+    @staticmethod
+    def _updateAcquisition(ts: TiltSeries,
+                           ctf: CTFTomoSeries,
+                           presentAcqOrders: Set[int],
+                           outTs: TiltSeries,
+                           tiList: list,
+                           angleMin: float,
+                           angleMax: float) -> None:
+        if len(presentAcqOrders) != max(len(ts), len(ctf)):
+            # Update the acquisition minAngle and maxAngle values of the tilt-series
+            acq = outTs.getAcquisition()
+            acq.setAngleMin(angleMin)
+            acq.setAngleMax(angleMax)
+            acq.setAccumDose(0)
+            acq.setDoseInitial(0)
+            outTs.setAcquisition(acq)
+            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+            # specific accum and initial dose values
+            for tiOut in tiList:
+                tiAcq = tiOut.getAcquisition()
+                tiAcq.setAngleMin(angleMin)
+                tiAcq.setAngleMax(angleMax)
+                tiAcq.setAccumDose(0)
+                tiAcq.setDoseInitial(0)
+                outTs.append(tiOut)
+            outTs.setAnglesCount(len(outTs))
+        else:
+            for tiOut in tiList:
+                outTs.append(tiOut)
 
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
