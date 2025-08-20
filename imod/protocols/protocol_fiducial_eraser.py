@@ -222,25 +222,6 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
-    def _summary(self):
-        summary = []
-        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if output is not None:
-            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
-                           "Transformation matrices calculated: "
-                           f"{output.getSize()}")
-        else:
-            summary.append("Outputs are not ready yet.")
-        return summary
-
-    def _methods(self):
-        methods = []
-        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if output is not None:
-            methods.append("The transformation matrix has been calculated for "
-                           f"{output.getSize()} tilt-series using "
-                           "the IMOD *tiltxcorr* command.")
-        return methods
 
     # --------------------------- UTILS functions -----------------------------
     def _getFiducialDiameterPx(self, ts: TiltSeries) -> float:

@@ -141,19 +141,9 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                     transformMatrixList = []
 
                     for index in range(tiNum):
-                        inputTransformMatrix = inputTransformMatrixList[:, :, index]
-
-                        outputTransformMatrix = inputTransformMatrix
-                        outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
-                        outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                        outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
-                        outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
-                        outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                        outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
-                        outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
-                        outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
-                        outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
-
+                        outputTransformMatrix = inputTransformMatrixList[:, :, index]
+                        outputTransformMatrix[0][2] *= matchBinningFactor
+                        outputTransformMatrix[1][2] *= matchBinningFactor
                         transformMatrixList.append(outputTransformMatrix)
 
                     self.writeXfFileFromTrList(transformMatrixList, outputTransformFile)
