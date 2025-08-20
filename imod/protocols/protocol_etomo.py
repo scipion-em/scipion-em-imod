@@ -1,10 +1,8 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
-# * [1] SciLifeLab, Stockholm University
-# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
+# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -25,23 +23,24 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
+import logging
 import os
 import numpy as np
-
 import pyworkflow as pw
 import pyworkflow.protocol.params as params
+from imod.convert.convert import readXfFile, fiducialModel2List, fidResidualModel2List
 from pyworkflow.protocol.constants import STEPS_SERIAL
 from pyworkflow.object import Set
 import pyworkflow.utils as pwutils
 from pwem.emlib.image import ImageHandler as ih
 from pwem.objects import Transform
 import tomo.objects as tomoObj
-
 from imod import Plugin, utils
 from imod.protocols import ProtImodBase
 from imod.constants import *
 from tomo.objects import TiltSeries
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodEtomo(ProtImodBase):
@@ -118,14 +117,14 @@ class ProtImodEtomo(ProtImodBase):
     # --------------------------- STEPS functions -----------------------------
     def runEtomoStep(self):
         from imod.viewers import ImodGenericView
-        setOftiltSeries = self.getInputSet()
+        setOftiltSeries = self.getInputTsSet()
         view = ImodGenericView(None, self, setOftiltSeries,
                                isInteractive=True)
         view.show()
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self.getInputSet():  # FIXME: why?
+        for item in self.getInputTsSet():
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
@@ -200,7 +199,7 @@ class ProtImodEtomo(ProtImodBase):
             self.runProgram('etomo', params, cwd=self._getExtraPath(tsId))
 
     def createOutput(self):
-        inputTS = self.getInputSet()
+        inputTS = self.getInputTsSet()
         outputTs = getattr(self, OUTPUT_TILTSERIES_NAME, None)  # original TS with new alignment
         outputPreAliTs = getattr(self, OUTPUT_PREALI_TILTSERIES_NAME, None)
         outputAliTs = getattr(self, OUTPUT_ALI_TILTSERIES_NAME, None)
@@ -223,7 +222,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputPreAliTs.setSamplingRate(newPixSize)
                     outputPreAliTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_PREALI_TILTSERIES_NAME: outputPreAliTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputPreAliTs)
                 else:
                     outputPreAliTs.enableAppend()
@@ -267,7 +266,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputAliTs.setSamplingRate(newPixSize)
                     outputAliTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_ALI_TILTSERIES_NAME: outputAliTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputAliTs)
                 else:
                     outputAliTs.enableAppend()
@@ -320,7 +319,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputTs.copyInfo(inputTS)
                     outputTs.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_TILTSERIES_NAME: outputTs})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTs)
                 else:
                     outputTs.enableAppend()
@@ -339,7 +338,7 @@ class ProtImodEtomo(ProtImodBase):
                 self.debug(f"Excluding views for align: {excludedViewList}")
 
                 tmFilePath = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-                newTransformationMatricesList = utils.formatTransformationMatrix(tmFilePath)
+                newTransformationMatricesList = readXfFile(tmFilePath)
 
                 if self.applyAlignment:
                     # input TS were interpolated during the convertInputStep,
@@ -390,12 +389,12 @@ class ProtImodEtomo(ProtImodBase):
                     outputTSCoords.setSetOfTiltSeries(outputAliTs)
                     outputTSCoords.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(**{OUTPUT_TS_COORDINATES_NAME: outputTSCoords})
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTSCoords)
                 else:
                     outputTSCoords.enableAppend()
 
-                coordList, _, _ = utils.format3DCoordinatesList(coordFilePath)
+                coordList, _, _ = self.format3DCoordinatesList(coordFilePath)
 
                 for element in coordList:
                     newCoord3D = tomoObj.TiltSeriesCoordinate()
@@ -424,11 +423,11 @@ class ProtImodEtomo(ProtImodBase):
 
                 outputSetOfLandmarkModelsNoGaps = self.getOutputFiducialModel(outputPreAliTs)
 
-                fiducialNoGapList = utils.formatFiducialList(modelFilePathTxt)
+                fiducialNoGapList = fiducialModel2List(modelFilePathTxt)
 
                 landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="nogaps",
                                                                    ext=SFID_EXT)
-                fiducialNoGapsResidList = utils.formatFiducialResidList(residFilePath)
+                fiducialNoGapsResidList = fidResidualModel2List(residFilePath)
                 landmarkModelNoGaps = tomoObj.LandmarkModel(tsId=tsId,
                                                             fileName=landmarkModelNoGapsFilePath,
                                                             modelName=modelFilePath,
@@ -473,7 +472,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputTomos.setSamplingRate(newPixSize)
                     outputTomos.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(FullTomograms=outputTomos)
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputTomos)
                 else:
                     outputTomos.enableAppend()
@@ -500,7 +499,7 @@ class ProtImodEtomo(ProtImodBase):
                     outputPostProcessTomos.setSamplingRate(newPixSize)
                     outputPostProcessTomos.setStreamState(Set.STREAM_OPEN)
                     self._defineOutputs(PostProcessTomograms=outputPostProcessTomos)
-                    self._defineSourceRelation(self.getInputSet(pointer=True),
+                    self._defineSourceRelation(self.getInputTsSet(pointer=True),
                                                outputPostProcessTomos)
                 else:
                     outputPostProcessTomos.enableAppend()
@@ -668,6 +667,32 @@ ProcessTrack.TomogramCombination=Not started
             self.debug(f"{tltFilePath} read: {tltList}")
 
         return tltList
+
+    @staticmethod
+    def format3DCoordinatesList(coordFilePath):
+        """ This method takes an IMOD-based fiducial coordinates
+        file path and returns a list containing each coordinate
+        for each fiducial belonging to the tilt-series. """
+
+        coorList = []
+
+        with open(coordFilePath) as f:
+            coorText = f.read().splitlines()
+
+            for i, line in enumerate(coorText):
+                if line != '':
+
+                    logger.debug("Fiducial coordinate line is: %s" % line)
+                    vector = line.replace('-', ' -').split()
+
+                    logger.debug("Fiducial vector is: %s" % vector)
+                    if i == 0:
+                        xDim = int(vector[-2])
+                        yDim = int(vector[-1])
+
+                    coorList.append([float(vector[1]), float(vector[2]), float(vector[3])])
+
+        return coorList, xDim, yDim
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

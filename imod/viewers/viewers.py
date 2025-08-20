@@ -151,7 +151,7 @@ class ImodObjectView(pwviewer.CommandView):
                                                 extension))
 
                 if not os.path.exists(outputTSPath):
-                    ts.applyTransform(outputTSPath)
+                    ts.applyTransform(outputTSPath, ignoreExcludedViews=True)
 
             else:
                 outputTSPath = tsFn

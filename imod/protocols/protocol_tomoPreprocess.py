@@ -1,6 +1,6 @@
 # *****************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,15 +23,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import pyworkflow.protocol.params as params
-import pyworkflow.utils.path as pwpath
-from imod.protocols.protocol_base import IN_TOMO_SET
+import logging
+from os.path import exists
+from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, moveFile, cyanStr, redStr
 from tomo.objects import Tomogram, SetOfTomograms
-from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN
+from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN, BINVOL_PROGRAM
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodTomoNormalization(ProtImodBasePreprocess):
@@ -60,7 +61,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     the stored data in order to reduce the disc occupancy.
     """
 
-    _label = 'Tomo preprocess'
+    _label = 'tomo preprocess'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
     stepsExecutionMode = STEPS_PARALLEL
 
@@ -70,13 +71,9 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms')
+        super().addInTomoSetFormParam(form)
         super()._defineParams(form, isTomogram=True)
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -86,7 +83,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
         closeSetStepDeps = []
 
-        for tomo in self.getInputSet():
+        for tomo in self.getInputTomoSet():
             tsId = tomo.getTsId()
             compId = self._insertFunctionStep(self.preprocessStep,
                                               tsId,
@@ -103,150 +100,105 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TOMOGRAMS_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def preprocessStep(self, tsId, runNewstack, binning):
+    def _initialize(self):
+        self.doOddEven = self.applyToOddEven(self.getInputTomoSet())
+
+    def preprocessStep(self, tsId: str,
+                       runNewstack: bool,
+                       binning: int):
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Preprocessing...'))
             self.genTsPaths(tsId)
             with self._lock:
-                tomo = self.getCurrentItem(tsId)
-            tomoFn = tomo.getFileName()
+                tomo = self.getCurrentTomo(tsId)
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
-            # Run newstack
-            norm = self.floatDensities.get()
-            # Important not to bin at this step
-            paramsNewstack = self.getBasicNewstackParams(tomo, outputFile,
-                                                         firstItem=tomo,
-                                                         binning=1,
-                                                         doNorm=norm != 0)
-
-            paramsNewstack["-antialias"] = self.antialias.get() + 1
-            # Float densities
-            if norm > 0:
-                paramsNewstack["-FloatDensities"] = norm
-                if norm == 2:
-                    paramsNewstack["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
-                elif norm == 4:
-                    paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
-
-            if self.getModeToOutput() is not None:
-                paramsNewstack["-ModeToOutput"] = self.getModeToOutput()
-
-            oddEvenOutput = [[], []]
-
+            # Operations that don't concern the 3D binning
             if runNewstack:
-                self.runProgram("newstack", paramsNewstack)
+               self._runNewstack(tomo, outputFile)
 
-                if self.oddEvenFlag:
-                    oddFn, evenFn = tomo.getHalfMaps().split(',')
-                    paramsNewstack['-input'] = oddFn
-                    oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                    paramsNewstack['-output'] = oddEvenOutput[0]
-                    self.runProgram("newstack", paramsNewstack)
-
-                    paramsNewstack['-input'] = evenFn
-                    oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                    paramsNewstack['-output'] = oddEvenOutput[1]
-                    self.runProgram("newstack", paramsNewstack)
-
-            # Run binvol
+            # Run binvol for 3D binning (more precise for volumes than newstack)
             if binning != 1:
-                if runNewstack:
-                    # Move previous outputs to tmp
-                    tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
-                    pwpath.moveFile(outputFile, tmpPath)
-                    inputTomoPath = tmpPath
-
-                    if self.oddEvenFlag:
-                        inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                               self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
-                        pwpath.moveFile(oddEvenOutput[0], inputOdd)
-                        pwpath.moveFile(oddEvenOutput[1], inputEven)
-
-                else:
-                    inputTomoPath = tomoFn
-                    if self.oddEvenFlag:
-                        inputOdd, inputEven = tomo.getHalfMaps().split(',')
-
-                paramsBinvol = {
-                    '-input': inputTomoPath,
-                    '-output': outputFile,
-                    '-binning': binning,
-                    '-antialias': self.antialias.get() + 1
-                }
-
-                self.runProgram('binvol', paramsBinvol)
-
-                if self.oddEvenFlag:
-                    paramsBinvol['-input'] = inputOdd
-                    paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
-                    self.runProgram('binvol', paramsBinvol)
-
-                    paramsBinvol['-input'] = inputEven
-                    paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
-                    self.runProgram('binvol', paramsBinvol)
+                self._runBinvol(tomo, outputFile, binning, runNewstack)
 
         except Exception as e:
-            self._failedTomos.append(tsId)
-            self.error(f'Preprocessing failed for tsId {tsId} -> {e}')
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} or {BINVOL_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
-    def generateOutputStep(self, tsId, runNewstack, binning):
-        with self._lock:
-            tomo = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
-            else:
-                output = self.getOutputSetOfTomograms(self.getInputSet(pointer=True), binning)
-                newTomogram = Tomogram()
-                newTomogram.copyInfo(tomo)
-
-                if not runNewstack and binning == 1:
-                    newTomogram.setLocation(tomo.getFileName())
+    def generateOutputStep(self, tsId: str,
+                           runNewstack: bool,
+                           binning: int):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId, inputsAreTs=False)
+        else:
+            try:
+                outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
+                if exists(outputFn):
+                    with self._lock:
+                        tomo = self.getCurrentTomo(tsId)
+                        # Set of tomograms
+                        outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True),
+                                                                  binning=binning)
+                        # Tomogram
+                        outTomo = Tomogram(tsId=tsId)
+                        outTomo.copyInfo(tomo)
+                        outTomo.setFileName(outputFn)
+                        if binning > 1:
+                            outTomo.setSamplingRate(tomo.getSamplingRate() * binning)
+                            # Fix the mrc tomogram
+                            outTomo.fixMRCVolume(setSamplingRate=True)
+                            # Set default tomogram origin
+                            outTomo.setOrigin(newOrigin=None)
+                        if self.doOddEven:
+                            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                            outTomo.setHalfMaps(halfMapsList)
+                        # Data persistence
+                        outTomoSet.append(outTomo)
+                        outTomoSet.updateDim()
+                        outTomoSet.update(outTomo)
+                        outTomoSet.write()
+                        self._store(outTomoSet)
                 else:
-                    newTomogram.setLocation(self.getExtraOutFile(tsId, ext=MRC_EXT))
-
-                if binning > 1:
-                    newTomogram.setSamplingRate(tomo.getSamplingRate() * binning)
-                    # Fix the mrc tomogram
-                    newTomogram.fixMRCVolume(setSamplingRate=True)
-                    # Set default tomogram origin
-                    newTomogram.setOrigin(newOrigin=None)
-
-                if self.oddEvenFlag:
-                    halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                    self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                    newTomogram.setHalfMaps(halfMapsList)
-
-                output.append(newTomogram)
-                output.updateDim()
-                output.update(newTomogram)
-                output.write()
-                self._store(output)
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+            except Exception as e:
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.Tomograms:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
-                           f"Interpolations applied: {self.Tomograms.getSize()}")
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
+            summary.append(f"Input tilt-series: {self.getInputTomoSet().getSize()}\n"
+                           f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
         return summary
 
     def _methods(self):
         methods = []
-        if self.Tomograms:
-            methods.append(f"{self.Tomograms.getSize()} tomograms have been "
+        output = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
+        if output is not None:
+            methods.append(f"{output.getSize()} tomograms have been "
                            "preprocessed using the IMOD *binvol* command.")
         return methods
 
-    # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
+    def _validate(self):
+        errorMsg = []
+        binning = self.binning.get()
+        norm = self.floatDensities.get()
+        runNewStack = norm != 0 or (self.getModeToOutput() is not None)
+        if binning == 1 and not runNewStack:
+            errorMsg.append('No operation will be carried out with the parameters introduced.')
+        return errorMsg
 
+    # --------------------------- UTILS functions -----------------------------
     def getModeToOutput(self):
         parseParamsOutputMode = {
             0: None,
@@ -257,3 +209,88 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             5: 2
         }
         return parseParamsOutputMode[self.modeToOutput.get()]
+
+    def _runNewstack(self,
+                     tomo: Tomogram,
+                     outputFile: str) -> None:
+        tsId = tomo.getTsId()
+        oddEvenOutput = [[], []]
+
+        norm = self.floatDensities.get()
+        # Important not to bin at this step
+        paramsNewstack = self.getBasicNewstackParams(tomo,
+                                                     tomo.getFileName(),
+                                                     outputFile,
+                                                     doNorm=norm != 0)
+
+        paramsNewstack["-antialias"] = self.antialias.get() + 1
+        # Float densities
+        if norm > 0:
+            paramsNewstack["-FloatDensities"] = norm
+            if norm == 2:
+                paramsNewstack["-MeanAndStandardDeviation"] = f"{self.scaleMean.get()},{self.scaleSd.get()}"
+            elif norm == 4:
+                paramsNewstack["-ScaleMinAndMax"] = f"{self.scaleMax.get()},{self.scaleMin.get()}"
+
+        if self.getModeToOutput() is not None:
+            paramsNewstack["-ModeToOutput"] = self.getModeToOutput()
+        self.runProgram(NEWSTACK_PROGRAM, paramsNewstack)
+
+        if self.doOddEven:
+            oddFn, evenFn = tomo.getHalfMaps().split(',')
+            # Odd
+            paramsNewstack['-input'] = oddFn
+            oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+            paramsNewstack['-output'] = oddEvenOutput[0]
+            self.runProgram(NEWSTACK_PROGRAM, paramsNewstack)
+            # Even
+            paramsNewstack['-input'] = evenFn
+            oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+            paramsNewstack['-output'] = oddEvenOutput[1]
+            self.runProgram(NEWSTACK_PROGRAM, paramsNewstack)
+
+    def _runBinvol(self,
+                   tomo: Tomogram,
+                   outputFile: str,
+                   binning: int,
+                   runNewstack: bool) -> None:
+        tsId = tomo.getTsId()
+        oddEvenOutput = [[], []]
+        logger.info(cyanStr(f'tsId = {tsId}. Executing {BINVOL_PROGRAM}:.'))
+
+        if runNewstack:
+            # Move previous outputs to tmp as intermediate results and use them as inputs for binvol
+            tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
+            moveFile(outputFile, tmpPath)
+            inputTomoPath = tmpPath
+
+            if self.doOddEven:
+                inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                       self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
+                moveFile(oddEvenOutput[0], inputOdd)
+                moveFile(oddEvenOutput[1], inputEven)
+
+        else:
+            tomoFn = tomo.getFileName()
+            inputTomoPath = tomoFn
+            if self.doOddEven:
+                inputOdd, inputEven = tomo.getHalfMaps().split(',')
+
+        paramsBinvol = {
+            '-input': inputTomoPath,
+            '-output': outputFile,
+            '-binning': binning,
+            '-antialias': self.antialias.get() + 1
+        }
+
+        self.runProgram(BINVOL_PROGRAM, paramsBinvol)
+
+        if self.doOddEven:
+            # Odd
+            paramsBinvol['-input'] = inputOdd
+            paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+            self.runProgram(BINVOL_PROGRAM, paramsBinvol)
+            # Even
+            paramsBinvol['-input'] = inputEven
+            paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+            self.runProgram(BINVOL_PROGRAM, paramsBinvol)

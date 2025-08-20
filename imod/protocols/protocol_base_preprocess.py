@@ -24,10 +24,9 @@
 # *
 # *****************************************************************************
 from typing import List
-
 from imod.protocols import ProtImodBase
 from imod.protocols.protocol_base import BINNING_FACTOR
-from pyworkflow.protocol import params
+from pyworkflow.protocol import params, Form
 
 # Float densities modes
 FLOAT_DENSITIES_CHOICES = ['No adjust',
@@ -48,7 +47,9 @@ class ProtImodBasePreprocess(ProtImodBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _defineParams(self, form, isTomogram=False):
+    def _defineParams(self,
+                      form: Form,
+                      isTomogram: bool = False):
         objStr = 'tomograms' if isTomogram else 'images'
 
         form.addParam(BINNING_FACTOR,

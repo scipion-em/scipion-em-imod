@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,16 +23,23 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
+import logging
+from os.path import exists
+from typing import List
+
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TOMO_SET
+from imod.protocols.protocol_fiducialModel import MODEL2POINT_PROGRAM
+from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
+from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfCoordinates3D, Coordinate3D
 import tomo.constants as constants
-from imod import utils
 from imod.protocols import ProtImodBase
 from imod.constants import XYZ_EXT, MOD_EXT, OUTPUT_COORDINATES_3D_NAME
+
+logger = logging.getLogger(__name__)
+
+FINDBEADS3D_PROGRAM = 'findbeads3d'
 
 # Beads color options
 DARK_BEADS = 0
@@ -53,22 +60,12 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms',
-                      help='Input set of tomograms from which gold beads '
-                           'will be picked. A tomogram needs to be thicker '
-                           'than normal because the program cannot find '
-                           'beads too close to the surfaces of a tomogram.')
-
+        super().addInTomoSetFormParam(form)
         form.addParam('beadDiameter',
                       params.FloatParam,
                       label='Fiducials diameter (px)',
                       default=18,
                       help="Diameter of beads in pixels.")
-
         form.addParam('beadsColor',
                       params.EnumParam,
                       choices=['Dark', 'Light'],
@@ -78,7 +75,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                       help='Contrast of the gold beads:\n'
                            '-Dark: beads are dark on light background.\n'
                            '-Light: beads are light on dark background.')
-
         form.addParam('minRelativeStrength',
                       params.FloatParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -95,7 +91,6 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'of strengths.  If the program fails to find a '
                            'histogram dip, one strategy is to try raising '
                            'this value.')
-
         form.addParam('minSpacing',
                       params.FloatParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -107,8 +102,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                            'eliminated unless the -both option is entered. '
                            'The default is 0.9. A value less than 1 is '
                            'helpful for picking both beads in a pair.')
-
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -124,14 +118,16 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             allOutputId.append(outputID)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_COORDINATES_3D_NAME,
                                  prerequisites=allOutputId)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputSet()}
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in self.getInputTomoSet()}
 
     def pickGoldBeadsStep(self, tsId):
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Finding the gold beads...'))
             self.genTsPaths(tsId)
             tomo = self.tomoDict[tsId]
 
@@ -148,31 +144,31 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             if self.beadsColor.get() == 1:
                 paramsFindbeads3d["-LightBeads"] = ""
 
-            self.runProgram('findbeads3d', paramsFindbeads3d)
+            self.runProgram(FINDBEADS3D_PROGRAM, paramsFindbeads3d)
 
             # Run model2point
             paramsModel2Point = {
                 "-InputFile": self.getExtraOutFile(tsId, ext=MOD_EXT),
                 "-OutputFile": self.getExtraOutFile(tsId, ext=XYZ_EXT),
             }
-            self.runProgram('model2point', paramsModel2Point)
+            self.runProgram(MODEL2POINT_PROGRAM, paramsModel2Point)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f"findbeads3d or model2point execution failed for tsId {tsId} -> {e}")
+            logger.error(redStr(f'tsId = {tsId} -> {FINDBEADS3D_PROGRAM} or {MODEL2POINT_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
 
     def createOutputStep(self, tsId):
-        tomo = self.tomoDict[tsId]
-        with self._lock:
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
-            else:
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId, inputsAreTs=False)
+        else:
+            try:
                 coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
-                if os.path.exists(coordFilePath):
+                if exists(coordFilePath):
+                    tomo = self.tomoDict[tsId]
                     beadDiam = self.beadDiameter.get()
-                    coordList = utils.formatGoldBead3DCoordinatesList(coordFilePath)
-                    output = self.getOutputSetOfCoordinates3Ds(self.getInputSet(pointer=True),
-                                                               self.getInputSet())
+                    coordList = self.formatGoldBead3DCoordinatesList(coordFilePath)
+                    output = self.getOutputSetOfCoordinates3Ds(self.getInputTomoSet(pointer=True))
                     output.setBoxSize(beadDiam)
 
                     for element in coordList:
@@ -184,10 +180,14 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
                         output.append(newCoord3D)
                         output.update(newCoord3D)
+
+                    # Data persistence
                     output.write()
                     self._store(output)
                 else:
-                    self.createOutputFailedSet(tomo)
+                    logger.error(redStr(f'tsId = {tsId} -> Output file {coordFilePath} was not generated. Skipping... '))
+            except Exception as e:
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -195,12 +195,47 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
 
         coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
         if coords3D is not None:
-            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tomograms: {self.getInputTsSet().getSize()}\n"
                            "Output coordinates 3D: "
                            f"{coords3D.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
-        return (self.inputSetOfTomograms.get() if
-                not pointer else self.inputSetOfTomograms)
+    def getOutputSetOfCoordinates3Ds(self,
+                                     inTomosSetPointer: Pointer) -> SetOfCoordinates3D:
+        coords3D = getattr(self, OUTPUT_COORDINATES_3D_NAME, None)
+        if coords3D is not None:
+            coords3D.enableAppend()
+        else:
+            inTomoSet = inTomosSetPointer.get()
+            coords3D = self._createSetOfCoordinates3D(volSet=inTomoSet,
+                                                      suffix='Fiducials3D')
+            coords3D.setSamplingRate(inTomoSet.getSamplingRate())
+            coords3D.setPrecedents(inTomoSet)
+            coords3D.setStreamState(Set.STREAM_OPEN)
+
+            self._defineOutputs(**{OUTPUT_COORDINATES_3D_NAME: coords3D})
+            self._defineSourceRelation(inTomosSetPointer, coords3D)
+
+        return coords3D
+
+    @staticmethod
+    def formatGoldBead3DCoordinatesList(coordFilePath: str) -> List[List[float]]:
+        """This method takes the IMOD-based gold bead 3D
+        coordinates obtained with find3dbeads program file
+        path and returns a list containing each coordinate
+        for each bead belonging to the tilt-series"""
+
+        coorList = []
+
+        with open(coordFilePath) as f:
+            coorText = f.read().splitlines()
+
+            for line in coorText:
+                vector = line.split()
+                coorList.append([float(vector[0]), float(vector[1]), float(vector[2])])
+
+        return coorList
+
+
+

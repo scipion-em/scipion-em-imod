@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,105 +23,41 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
-
+import logging
+from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
-
+from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.utils import Message, cyanStr, redStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT
+from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT, CCDERASER_PROGRAM
+
+logger = logging.getLogger(__name__)
 
 
-class ProtImodXraysEraser(ProtImodBase):
+class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
     """
     Erase Xrays from aligned tilt-series based on the IMOD procedure.
     More info:
             https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
-
-    This program replaces deviant pixels with interpolated values from
-    surrounding pixels. It is designed to correct defects in electron
-    microscope images from CCD cameras. It can use two algorithms to
-    automatically remove peaks in intensity caused by X-rays.\n
-
-    The automatic removal of X-rays works by dividing the area of each
-    image into patches for scanning. The mean and standard deviation (SD)
-    of the pixels in a patch are computed. The patch is then scanned for
-    pixels that deviate from the mean by more than a criterion number of
-    SDs (the scan criterion, a relatively low number to keep from missing
-    peaks). When such a pixel is found, the program searches neighboring
-    pixels to find a peak in intensity. It then computes the mean and SD
-    of pixels in an annulus around the peak and makes sure that the peak
-    deviates from this local mean by more than a criterion number of SDs
-    (the peak criterion).  Neighboring pixels inside the inner radius of
-    the annulus are added to the list of pixels to be replaced if they
-    deviate by a lower criterion (the grow criterion).  The patch of pixels
-    is then replaced by fitting a polynomial to adjacent pixels and inter-
-    polating from the polynomial.  If the peak does not deviate suffi-
-    ciently from this local mean, but is stronger than the mean of the scan
-    area by the scan criterion plus 1, then the mean and SD is again com-
-    puted in a larger annulus.  If the peak deviates from this mean by a
-    number of SDs bigger than another criterion for extra-large peaks, a
-    patch of pixels is found, but it is replaced only if enough pixels dif-
-    fer from adjacent ones by large enough amounts (see the -big option
-    below).  The reason for these two stages is that the inner radius for
-    the first stage must be set safely smaller than the radius of gold
-    beads to avoid erasing part of the beads, whereas the second stage can
-    work with larger areas because it has more stringent criteria that
-    reject gold beads.
-
-    After the peaks are found in a scanning patch, the program next finds
-    the difference between each pixel and the mean of the eight adjacent
-    pixels.  The mean and SD of this difference is computed, then pixels
-    are sought that deviate from the mean by yet another criterion, the
-    difference criterion.  When such a pixel is found, neighboring pixels
-    are examined and added to the patch of pixels to replace if their dif-
-    ference exceeds the grow criterion.  If the number of pixels in the
-    patch does not exceed a specified maximum, replacement proceeds as
-    above; otherwise the patch is ignored.
-
-    Two methods are used because the first method is probably more reliable
-    for dealing with strong peaks that extend over several pixels, while
-    the second method is definitely better for finding small X-rays.
-
-    After all the patches have been scanned for a section, the program then
-    searches for single pixels with large interpixel differences at the
-    edges of the image, over the width set by the -border option.  A dif-
-    ference between a pixel and the mean of whatever adjacent pixels exist
-    is computed and its deviation from the overall mean interpixel differ-
-    ence is divided by the maximum SD of interpixel differences over all of
-    the scans.  When this value exceeds the difference criterion and the
-    interpixel difference is greater than that of its neighbors, the pixel
-    is replaced with the mean.  This procedure is iterated up to 4 times to
-    catch adjacent extreme pixels.
-
-    Tuning the removal of X-rays would primarily involve adjusting two of
-    the criteria.  The peak and difference criteria would be adjusted down
-    or up to increase or decrease the number of deviant pixels that are
-    found.  The grow criterion could also be adjusted down or up depending
-    on whether too few or too many pixels are included in a patch that is
-    replaced, but this step is not usually done in practice.  If there are
-    strong, large artifacts that are not being removed, the big difference
-    criterion for extra-large peaks should be lowered first, then if neces-
-    sary, the maximum radius and criterion strength for extra-large peaks
-    can be adjusted.
-
     """
 
     _label = 'X-rays eraser'
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    stepsExecutionMode = STEPS_PARALLEL
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @classmethod
+    def worksInStreaming(cls):
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
-
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt Series')
-
+        super().addInTsSetFormParam(form)
         form.addParam('peakCriterion',
                       params.FloatParam,
                       default=8.0,
@@ -129,7 +65,6 @@ class ProtImodXraysEraser(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Criterion # of SDs above local mean for erasing '
                            'peak based on intensity (the default is 10 SDs)')
-
         form.addParam('diffCriterion',
                       params.FloatParam,
                       default=6.0,
@@ -138,7 +73,6 @@ class ProtImodXraysEraser(ProtImodBase):
                       help='Criterion # of SDs above mean pixel-to-pixel '
                            'difference for erasing a peak based on '
                            'differences (the default is 8 SDs).')
-
         form.addParam('maximumRadius',
                       params.FloatParam,
                       default=4.2,
@@ -146,7 +80,6 @@ class ProtImodXraysEraser(ProtImodBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Maximum radius of peak area to erase (the '
                            'default is 4.2 pixels).')
-
         form.addParam('bigDiffCriterion',
                       params.IntParam,
                       default=19,
@@ -164,104 +97,149 @@ class ProtImodXraysEraser(ProtImodBase):
                            'with small gold particles, and a lower value '
                            'may be needed to make extra-large peak removal '
                            'useful.')
-
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
+        inTsSet = self.getInputTsSet()
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
-        for ts in self.getInputSet():
-            tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.convertInputStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
-            compId = self._insertFunctionStep(self.eraseXraysStep,
-                                              tsId,
-                                              prerequisites=[convId],
-                                              needsGPU=False)
-            outId = self._insertFunctionStep(self.createOutputStep,
-                                             tsId,
-                                             prerequisites=[compId],
-                                             needsGPU=False)
-            closeSetStepDeps.append(outId)
+        while True:
+            listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+                logger.info(cyanStr('Input set closed.\n'))
+                self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
+                                         prerequisites=closeSetStepDeps,
+                                         needsGPU=False)
+                break
 
-        self._insertFunctionStep(self.closeOutputSetsStep,
-                                 prerequisites=closeSetStepDeps,
-                                 needsGPU=False)
+            for ts in inTsSet.iterItems():
+                tsId = ts.getTsId()
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
+                    cInId = self._insertFunctionStep(self.linkTsStep,
+                                                      tsId,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                    compId = self._insertFunctionStep(self.eraseXraysStep,
+                                                      tsId,
+                                                      prerequisites=cInId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     prerequisites=compId,
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
-    def convertInputStep(self, tsId, **kwargs):
-        super().convertInputStep(tsId,
-                                 imodInterpolation=False,
-                                 generateAngleFile=False,
-                                 oddEven=self.oddEvenFlag,
-                                 lockGetItem=True)
+            self.refreshStreaming(inTsSet)
 
-    def eraseXraysStep(self, tsId):
+    # -------------------------- STEPS functions ------------------------------
+    def eraseXraysStep(self, tsId: str):
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                inputFile = self.getTmpOutFile(tsId)
+                outputFile = self.getExtraOutFile(tsId)
+                paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
+                self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+                if self.doOddEven:
+                    # Odd
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
+                    inputFile = ts.getOddFileName(),
+                    outputFile = self.getExtraOutFile(tsId, suffix=ODD)
+                    paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+                    # Even
+                    logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
+                    inputFile = ts.getEvenFileName(),
+                    outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
+                    paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
+                    self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
+                                    f'with the exception -> {e}'))
+
+    def createOutputStep(self, tsId: str):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+            return
         try:
-            paramsCcderaser = {
-                "-InputFile": self.getTmpOutFile(tsId),
-                "-OutputFile": self.getExtraOutFile(tsId),
-                "-FindPeaks": 1,
-                "-PeakCriterion": self.peakCriterion.get(),
-                "-DiffCriterion": self.diffCriterion.get(),
-                "-GrowCriterion": 4.,
-                "-ScanCriterion": 3.,
-                "-MaximumRadius": self.maximumRadius.get(),
-                "-GiantCriterion": 12.,
-                "-ExtraLargeRadius": 8.,
-                "-BigDiffCriterion": self.bigDiffCriterion.get(),
-                "-AnnulusWidth": 2.0,
-                "-XYScanSize": 100,
-                "-EdgeExclusionWidth": 4,
-                "-PointModel": self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
-                "-BorderSize": 2,
-                "-PolynomialOrder": 2,
-            }
-
-            self.runProgram('ccderaser', paramsCcderaser)
-
-            if self.oddEvenFlag:
-                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=ODD)
-                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram('ccderaser', paramsCcderaser)
-
-                paramsCcderaser['-InputFile'] = self.getTmpOutFile(tsId, suffix=EVEN)
-                paramsCcderaser['-OutputFile'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram('ccderaser', paramsCcderaser)
-
-        except Exception as e:
-            self.failedItems.append(tsId)
-            self.error(f'ccderaser execution failed for tsId {tsId} -> {e}')
-
-    def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+            outTsFile = self.getExtraOutFile(tsId)
+            if exists(outTsFile):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    # Set of tilt-series
+                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                    # Tilt-series
+                    outTs = TiltSeries()
+                    outTs.copyInfo(ts)
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    for ti in ts.iterItems():
+                        outTi = TiltImage()
+                        outTi.copyInfo(ti)
+                        outTi.setFileName(outTsFile)
+                        if self.doOddEven:
+                            outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                              self.getExtraOutFile(tsId, suffix=EVEN)])
+                        else:
+                            outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+                            # to consider them in the current execution, so they should be set to empty to avoid
+                            # next protocols be confused about having them.
+                        outTs.append(outTi)
+                    # Data persistence
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
+                    # Close explicitly the outputs (for streaming)
+                    self.closeOutputsForStreaming()
             else:
-                outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTiCallback=self.updateTi,
-                                     copyDisabledViews=True,
-                                     copyId=True,
-                                     copyTM=True)
-                else:
-                    self.createOutputFailedSet(ts)
-
+    # --------------------------- UTILS functions -----------------------------
+    def getCcdEraserParamsDict(self,
+                               tsId: str,
+                               inputFile: str,
+                               outputFile = str) -> dict:
+        return {
+            "-InputFile": inputFile,
+            "-OutputFile": outputFile,
+            "-FindPeaks": 1,
+            "-PeakCriterion": self.peakCriterion.get(),
+            "-DiffCriterion": self.diffCriterion.get(),
+            "-GrowCriterion": 4.,
+            "-ScanCriterion": 3.,
+            "-MaximumRadius": self.maximumRadius.get(),
+            "-GiantCriterion": 12.,
+            "-ExtraLargeRadius": 8.,
+            "-BigDiffCriterion": self.bigDiffCriterion.get(),
+            "-AnnulusWidth": 2.0,
+            "-XYScanSize": 100,
+            "-EdgeExclusionWidth": 4,
+            "-PointModel": self.getExtraOutFile(tsId, suffix="fid", ext=MOD_EXT),
+            "-BorderSize": 2,
+            "-PolynomialOrder": 2,
+        }
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "X-rays erased output tilt series: "
-                           f"{self.TiltSeries.getSize()}")
+                           f"{output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
 
@@ -269,9 +247,10 @@ class ProtImodXraysEraser(ProtImodBase):
 
     def _methods(self):
         methods = []
-        if self.TiltSeries:
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output:
             methods.append(f"The x-rays artifacts have been erased for "
-                           f"{self.TiltSeries.getSize()} tilt-series using "
-                           "the IMOD *ccderaser* command.")
+                           f"{output.getSize()} tilt-series using "
+                           f"the IMOD *{CCDERASER_PROGRAM}* command.")
 
         return methods
