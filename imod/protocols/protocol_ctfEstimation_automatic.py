@@ -25,14 +25,13 @@
 # *****************************************************************************
 import logging
 from os.path import exists
-from typing import Union, Optional
+from typing import Union
 import pyworkflow.protocol.params as params
 from imod.convert.dataimport import ImodCtfParser
-from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
-from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries
+from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries, TiltSeries
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT, CTFPLOTTER_PROGRAM
 
@@ -337,80 +336,8 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
             logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
             with self._lock:
                 ts = self.getCurrentTs(tsId)
-
-            paramsCtfPlotter = {
-                "-InputStack": self.getTmpOutFile(tsId),
-                "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
-                "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
-                "-PixelSize": self.sRate / 10,  # nm
-                "-Voltage": int(self.acq.getVoltage()),
-                "-SphericalAberration": self.acq.getSphericalAberration(),
-                "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
-                "-DefocusTol": self.defocusTol.get(),
-                "-PSResolution": 101,
-                "-LeftDefTol": self.leftDefTol.get(),
-                "-RightDefTol": self.rightDefTol.get(),
-                "-tileSize": self.tileSize.get(),
-            }
-
-            if self.expectedDefocusOrigin.get() == 0:
-                paramsCtfPlotter["-ExpectedDefocus"] = self.expectedDefocusValue.get()
-            else:
-                self.debug(f"Expected defoci: {expDefoci}")
-                defocus = expDefoci.get(tsId, None)
-                if defocus is None:
-                    raise ValueError(f"{tsId} not found in the provided defocus file.")
-
-                paramsCtfPlotter["-ExpectedDefocus"] = float(defocus)
-
-            # Excluded views
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            if excludedViews:
-                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                paramsCtfPlotter["-ViewsToSkip"] = ",".join(map(str, excludedViews))
-
-            if self._interactiveMode:
-                paramsCtfPlotter["-AngleRange"] = "-20.0,20.0"
-            else:
-                if self.extraZerosToFit.get() != 0:
-                    paramsCtfPlotter["-ExtraZerosToFit"] = self.extraZerosToFit.get()
-
-                if self.skipAstigmaticViews:
-                    paramsCtfPlotter["-SkipOnlyForAstigPhase"] = ""
-
-                if self.searchAstigmatism:
-                    paramsCtfPlotter.update({
-                        "-SearchAstigmatism": "",
-                        "-MaximumAstigmatism": self.maximumAstigmatism.get(),
-                        "-NumberOfSectors": self.numberSectorsAstigmatism.get()
-                    })
-
-                if self.searchPhaseShift:
-                    paramsCtfPlotter["-SearchPhaseShift"]: ""
-
-                if self.searchAstigmatism and self.searchPhaseShift:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},"\
-                                                                 f"{self.minimumViewsPhaseShift.get()}"
-                elif self.searchAstigmatism:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
-                elif self.searchPhaseShift:
-                    paramsCtfPlotter["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"
-
-                if self.searchCutOnFreq:
-                    paramsCtfPlotter["-SearchCutonFrequency"] = ""
-
-                    if self.maximumCutOnFreq.get() != -1.0:
-                        paramsCtfPlotter["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
-
-                paramsCtfPlotter["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
-                paramsCtfPlotter["-SaveAndExit"] = ""
-
-                if self.startFreq.get() != 0 or self.endFreq.get() != 0:
-                    paramsCtfPlotter["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
-
+                paramsCtfPlotter = self._genCtfPlotterParams(ts, expDefoci)
             self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
-
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution failed with the exception -> {e}'))
@@ -502,3 +429,84 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
             self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
 
         return outputSetOfCTFTomoSeries
+
+    def _genCtfPlotterParams(self,
+                             ts: TiltSeries,
+                             expDefoci: dict = None) -> dict:
+        tsId = ts.getTsId()
+        ctfPlotterParams = {
+            "-InputStack": self.getTmpOutFile(tsId),
+            "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+            "-DefocusFile": self.getExtraOutFile(tsId, ext=DEFOCUS_EXT),
+            "-AxisAngle": ts.getAcquisition().getTiltAxisAngle(),
+            "-PixelSize": self.sRate / 10,
+            "-Voltage": int(self.acq.getVoltage()),
+            "-SphericalAberration": self.acq.getSphericalAberration(),
+            "-AmplitudeContrast": self.acq.getAmplitudeContrast(),
+            "-DefocusTol": self.defocusTol.get(),
+            "-PSResolution": 101,
+            "-LeftDefTol": self.leftDefTol.get(),
+            "-RightDefTol": self.rightDefTol.get(),
+            "-tileSize": self.tileSize.get()
+        }
+        self._addExpectedDefocus(tsId, ctfPlotterParams, expDefoci)
+        self._addExcludedViews(ts, ctfPlotterParams)
+        self._addAdvancedParams(ctfPlotterParams)
+        return ctfPlotterParams
+
+    def _addExpectedDefocus(self,
+                            tsId: str,
+                            paramsDict: dict,
+                            expDefoci: dict) -> None:
+        if self.expectedDefocusOrigin.get() == 0:
+            paramsDict["-ExpectedDefocus"] = self.expectedDefocusValue.get()
+        else:
+            defocus = expDefoci.get(tsId)
+            if defocus is None:
+                raise ValueError(f"{tsId} not found in the provided defocus file.")
+            paramsDict["-ExpectedDefocus"] = float(defocus)
+
+    @staticmethod
+    def _addExcludedViews(ts: TiltSeries,
+                          paramsDict: dict) -> None:
+        excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+        if excludedViews:
+            logger.info(cyanStr(f'tsId = {ts.getTsId()} -> Excluded views detected {excludedViews}'))
+            paramsDict["-ViewsToSkip"] = ",".join(map(str, excludedViews))
+
+    def _addAdvancedParams(self, paramsDict: dict) -> None:
+        if self._interactiveMode:
+            paramsDict["-AngleRange"] = "-20.0,20.0"
+        else:
+            if self.extraZerosToFit.get() != 0:
+                paramsDict["-ExtraZerosToFit"] = self.extraZerosToFit.get()
+            if self.skipAstigmaticViews:
+                paramsDict["-SkipOnlyForAstigPhase"] = ""
+            if self.searchAstigmatism:
+                paramsDict.update({
+                    "-SearchAstigmatism": "",
+                    "-MaximumAstigmatism": self.maximumAstigmatism.get(),
+                    "-NumberOfSectors": self.numberSectorsAstigmatism.get()
+                })
+            if self.searchPhaseShift:
+                paramsDict["-SearchPhaseShift"] = ""
+            self._addMinViewsAstigAndPhase(paramsDict)
+            if self.searchCutOnFreq:
+                paramsDict["-SearchCutonFrequency"] = ""
+                if self.maximumCutOnFreq.get() != -1.0:
+                    paramsDict["-MaxCutOnToSearch"] = self.maximumCutOnFreq.get()
+            paramsDict["-AutoFitRangeAndStep"] = f"{self.angleRange.get()},{self.angleStep.get()}"
+            if self.startFreq.get() != 0 or self.endFreq.get() != 0:
+                paramsDict["-FrequencyRangeToFit"] = f"{self.startFreq.get()},{self.endFreq.get()}"
+            paramsDict["-SaveAndExit"] = ""
+
+    def _addMinViewsAstigAndPhase(self, paramsDict: dict) -> None:
+        astig = self.searchAstigmatism
+        phase = self.searchPhaseShift
+        if astig and phase:
+            paramsDict["-MinViewsAstigAndPhase"] = (f"{self.minimumViewsAstigmatism.get()},"
+                                                    f"{self.minimumViewsPhaseShift.get()}")
+        elif astig:
+            paramsDict["-MinViewsAstigAndPhase"] = f"{self.minimumViewsAstigmatism.get()},0"
+        elif phase:
+            paramsDict["-MinViewsAstigAndPhase"] = f"0,{self.minimumViewsPhaseShift.get()}"

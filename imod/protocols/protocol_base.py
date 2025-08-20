@@ -229,74 +229,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             raise Exception(f'No output/s {failedOutputList} were generated. Please check the '
                             f'Output Log > run.stdout and run.stderr')
 
-    @staticmethod
-    def getNewstackDoSwap(ti: TiltImage, xfFile: str) -> bool:
-        doSwap = False
-        if xfFile:  # No xf file means that newstack will be used only
-            # for scaling or re-stacking, but not for interpolation
-            rotationAngle = ti.getRotationAngle()
-            doSwap = 45 < abs(rotationAngle) < 135
-        return doSwap
-
-    def runNewStackBasic(self,
-                         ts: TiltSeries,
-                         xfFile: str = None,
-                         binning: int = 1,
-                         presentAcqOrders: typing.Set[int] = None) -> None:
-
-        tsExcludedIndices = None
-        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
-        firstTi = ts.getFirstItem()
-        doSwap = self.getNewstackDoSwap(firstTi, xfFile)
-        if presentAcqOrders:
-            tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
-
-        param = self.getBasicNewstackParams(ts,
-                                            firstTi.getFileName(),
-                                            outTsFn,
-                                            xfFile=xfFile,
-                                            doSwap=doSwap,
-                                            tsExcludedIndices=tsExcludedIndices,
-                                            binning=binning)
-        self.runProgram(NEWSTACK_PROGRAM, param)
-
-        if self.doOddEven:
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the ODD tilt-series'))
-            param = self.getBasicNewstackParams(ts,
-                                                ts.getOddFileName(),
-                                                outTsOddFn,
-                                                xfFile=xfFile,
-                                                doSwap=doSwap,
-                                                tsExcludedIndices=tsExcludedIndices,
-                                                binning=binning)
-            self.runProgram(NEWSTACK_PROGRAM, param)
-
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the EVEN tilt-series'))
-            param = self.getBasicNewstackParams(ts,
-                                                ts.getEvenFileName(),
-                                                outTsEvenFn,
-                                                xfFile=xfFile,
-                                                doSwap=doSwap,
-                                                tsExcludedIndices=tsExcludedIndices,
-                                                binning=binning)
-            self.runProgram(NEWSTACK_PROGRAM, param)
-
-    def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
-        tsId = ts.getTsId()
-        tsFn = self.getTmpOutFile(tsId)
-        if self.doOddEven:
-            tsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
-            tsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
-            return tsFn, tsFnOdd, tsFnEven
-        else:
-            return tsFn, None, None
-
-    @staticmethod
-    def linkTs(inFileName: str, outFileName: str):
-        logger.info(cyanStr("\t--> Tilt-series file linked."))
-        path.createAbsLink(inFileName, outFileName)
-
-    # --------------------------- OUTPUT functions ----------------------------
+       # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
                          inputPtr,
                          binning=1,
@@ -575,6 +508,73 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             logger.info(cyanStr(f'\t--> The tilt-series will be re-scaled to bin {binning}.'))
 
         return paramsNs
+
+    @staticmethod
+    def getNewstackDoSwap(ti: TiltImage, xfFile: str) -> bool:
+        doSwap = False
+        if xfFile:  # No xf file means that newstack will be used only
+            # for scaling or re-stacking, but not for interpolation
+            rotationAngle = ti.getRotationAngle()
+            doSwap = 45 < abs(rotationAngle) < 135
+        return doSwap
+
+    def runNewStackBasic(self,
+                         ts: TiltSeries,
+                         xfFile: str = None,
+                         binning: int = 1,
+                         presentAcqOrders: typing.Set[int] = None) -> None:
+
+        tsExcludedIndices = None
+        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+        firstTi = ts.getFirstItem()
+        doSwap = self.getNewstackDoSwap(firstTi, xfFile)
+        if presentAcqOrders:
+            tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
+
+        param = self.getBasicNewstackParams(ts,
+                                            firstTi.getFileName(),
+                                            outTsFn,
+                                            xfFile=xfFile,
+                                            doSwap=doSwap,
+                                            tsExcludedIndices=tsExcludedIndices,
+                                            binning=binning)
+        self.runProgram(NEWSTACK_PROGRAM, param)
+
+        if self.doOddEven:
+            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the ODD tilt-series'))
+            param = self.getBasicNewstackParams(ts,
+                                                ts.getOddFileName(),
+                                                outTsOddFn,
+                                                xfFile=xfFile,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices,
+                                                binning=binning)
+            self.runProgram(NEWSTACK_PROGRAM, param)
+
+            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the EVEN tilt-series'))
+            param = self.getBasicNewstackParams(ts,
+                                                ts.getEvenFileName(),
+                                                outTsEvenFn,
+                                                xfFile=xfFile,
+                                                doSwap=doSwap,
+                                                tsExcludedIndices=tsExcludedIndices,
+                                                binning=binning)
+            self.runProgram(NEWSTACK_PROGRAM, param)
+
+    def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
+        tsId = ts.getTsId()
+        tsFn = self.getTmpOutFile(tsId)
+        if self.doOddEven:
+            tsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+            tsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
+            return tsFn, tsFnOdd, tsFnEven
+        else:
+            return tsFn, None, None
+
+    @staticmethod
+    def linkTs(inFileName: str, outFileName: str):
+        logger.info(cyanStr("\t--> Tilt-series file linked."))
+        path.createAbsLink(inFileName, outFileName)
 
     # --------------------------- INFO functions ------------------------------
     def _warnings(self):
