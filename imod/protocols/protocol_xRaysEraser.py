@@ -202,10 +202,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                     outTsSet.write()
                     self._store(outTsSet)
                     # Close explicitly the outputs (for streaming)
-                    for outputName in self._possibleOutputs.keys():
-                        output = getattr(self, outputName, None)
-                        if output:
-                            output.close()
+                    self.closeOutputsForStreaming()
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
         except Exception as e:

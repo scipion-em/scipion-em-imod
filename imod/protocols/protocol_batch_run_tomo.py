@@ -151,14 +151,14 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
-        else:
-            try:
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    self.createOutTs(ts, self.getInputTsSet(pointer=True))
+            return
+        try:
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                self.createOutTs(ts, self.getInputTsSet(pointer=True))
 
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
 
 
     # --------------------------- INFO functions ------------------------------

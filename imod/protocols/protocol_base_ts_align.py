@@ -91,10 +91,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
             outTsSet.write()
             self._store(outTsSet)
             # Close explicitly the outputs (for streaming)
-            for outputName in self._possibleOutputs.keys():
-                output = getattr(self, outputName, None)
-                if output:
-                    output.close()
+            self.closeOutputsForStreaming()
         else:
             logger.error(f'tsId = {tsId} -> Output file {xfFile} was not generated or is empty. Skipping... ')
 

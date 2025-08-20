@@ -104,6 +104,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             with self._lock:
                 inSet.loadAllProperties()
 
+    def closeOutputsForStreaming(self):
+        # Close explicitly the outputs (for streaming)
+        for outputName in self._possibleOutputs.keys():
+            output = getattr(self, outputName, None)
+            if output:
+                output.close()
 
     def linkTsStep(self, tsId: str):
         # Link the tils-series to tmp using the tsId as basename, preventing problematic
