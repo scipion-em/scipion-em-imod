@@ -124,7 +124,7 @@ class ProtImodEtomo(ProtImodBase):
         self.createOutput()
 
     def runAllSteps(self, obj):
-        for item in self.getInputTsSet():  # FIXME: why?
+        for item in self.getInputTsSet():
             if item.getTsId() == obj.getTsId():
                 self.runEtomo(item)
                 break
