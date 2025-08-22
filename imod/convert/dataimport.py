@@ -23,6 +23,8 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from typing import List
+
 from pyworkflow.object import CsvList, Float
 import pyworkflow.utils as pwutils
 
@@ -44,28 +46,28 @@ class ImodCtfParser:
         defocusFileFlag = self.getDefocusFileFlag(defocusFilePath)
 
         if defocusFileFlag == 0:
-            " Plain estimation "
+            # Plain estimation
             defocusUDict = self.readCTFEstimationInfoFile(defocusFilePath,
                                                           flag=defocusFileFlag)
 
         elif defocusFileFlag == 1:
-            " Astigmatism estimation "
+            # Astigmatism estimation
             defocusUDict, defocusVDict, defocusAngleDict = self.readCTFEstimationInfoFile(defocusFilePath,
                                                                                           flag=defocusFileFlag)
 
         elif defocusFileFlag == 4:
-            " Phase-shift information "
+            # Phase-shift information
             defocusUDict, phaseShiftDict = self.readCTFEstimationInfoFile(defocusFilePath,
                                                                           flag=defocusFileFlag)
 
         elif defocusFileFlag == 5:
-            " Astigmatism and phase shift estimation "
+            # Astigmatism and phase shift estimation
             defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict = \
                 self.readCTFEstimationInfoFile(defocusFilePath,
                                                flag=defocusFileFlag)
 
         elif defocusFileFlag == 37:
-            " Astigmatism, phase shift and cut-on frequency estimation "
+            # Astigmatism, phase shift and cut-on frequency estimation
             defocusUDict, defocusVDict, defocusAngleDict, phaseShiftDict, cutOnFreqDict = \
                 self.readCTFEstimationInfoFile(defocusFilePath,
                                                flag=defocusFileFlag)
@@ -78,14 +80,15 @@ class ImodCtfParser:
         for i, ti in enumerate(inputTs):
             tiObjId = ti.getObjId()
             newCTFTomo = CTFTomo()
-            " Plain estimation (any defocus flag)"
-            newCTFTomo._defocusUList = CsvList(pType=float)
-            newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
 
             if ti.isEnabled():
 
+                # Plain estimation (any defocus flag)
+                newCTFTomo._defocusUList = CsvList(pType=float)
+                newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
+
                 if defocusFileFlag == 1:
-                    " Astigmatism estimation "
+                    # Astigmatism estimation
                     newCTFTomo._defocusVList = CsvList(pType=float)
                     newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
@@ -93,12 +96,12 @@ class ImodCtfParser:
                     newCTFTomo.setDefocusAngleList(defocusAngleDict.get(tiObjId, [0.]))
 
                 elif defocusFileFlag == 4:
-                    " Phase-shift information "
+                    # Phase-shift information
                     newCTFTomo._phaseShiftList = CsvList(pType=float)
                     newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
                 elif defocusFileFlag == 5:
-                    " Astigmatism and phase shift estimation "
+                    # Astigmatism and phase shift estimation
                     newCTFTomo._defocusVList = CsvList(pType=float)
                     newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
@@ -109,7 +112,7 @@ class ImodCtfParser:
                     newCTFTomo.setPhaseShiftList(phaseShiftDict.get(tiObjId, [0.]))
 
                 elif defocusFileFlag == 37:
-                    " Astigmatism, phase shift and cut-on frequency estimation "
+                    # Astigmatism, phase shift and cut-on frequency estimation
                     newCTFTomo._defocusVList = CsvList(pType=float)
                     newCTFTomo.setDefocusVList(defocusVDict.get(tiObjId, [0.]))
 
@@ -135,7 +138,7 @@ class ImodCtfParser:
         newCTFTomoSeries.setNumberOfEstimationsInRangeFromDefocusList()
 
     @staticmethod
-    def getDefocusFileFlag(defocusFilePath: str):
+    def getDefocusFileFlag(defocusFilePath: str) -> int:
         """ This method returns the flag that indicate the
         information contained in an IMOD defocus file. The flag
         value "is the sum of:
@@ -149,22 +152,19 @@ class ImodCtfParser:
              32 if the file has cut-on frequencies attenuating the phase
                  at low frequencies"
 
-                 from https://bio3d.colorado.edu/imod/doc/man/ctfphaseflip.html """
+        (from https://bio3d.colorado.edu/imod/doc/man/ctfphaseflip.html). """
 
         with open(defocusFilePath) as f:
             lines = f.readlines()
-
-        " File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency) "
+        # File contains only defocus information (no astigmatism, no phase shift, no cut-on frequency)
         if len(lines) == 1:
             return 0
         elif len(lines[1].split()) == 5:
             return 0
+        # File contains more information apart
+        return int(lines[0].split()[0])
 
-        else:
-            " File contains more information apart "
-            return int(lines[0].split()[0])
-
-    def readCTFEstimationInfoFile(self, defocusFilePath, flag):
+    def readCTFEstimationInfoFile(self, defocusFilePath: str, flag: int):
         """ This method takes an IMOD-based file path containing the
         information associated to a CTF estimation and produces a set
         of dictionaries containing the information of each parameter
@@ -200,7 +200,7 @@ class ImodCtfParser:
                              "1, 4, 5, and 37.")
 
     @staticmethod
-    def readDefocusFileAsTable(defocusFilePath):
+    def readDefocusFileAsTable(defocusFilePath: str) -> List[List[float]]:
         """ This method takes an IMOD-based ctf estimation file path
         and returns a table containing the CTF estimation
         information of each tilt-image (per line) belonging to the tilt-series. """
@@ -210,29 +210,28 @@ class ImodCtfParser:
             lines = f.readlines()
 
             for index, line in enumerate(lines):
-                vector = line.split()
-                [float(i) for i in vector]
+                vector = [float(i) for i in line.split()]
 
                 if index == 0 and len(lines) == 1:
-                    "CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line."
-                    "Remove last element from the first line (it contains the mode of the estimation run). This case "
-                    "considers that the estimation file only has one line. "
+                    # CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line.
+                    # Remove last element from the first line (it contains the mode of the estimation run). This case 
+                    # considers that the estimation file only has one line. 
                     vector.pop()
                     defocusTable.append(vector)
 
                 elif index == 0 and len(lines[1].split()) == 5:
-                    "CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line."
-                    "Remove last element from the first line (it contains the mode of the estimation run). "
+                    # CTF estimation is plain (no astigmatism, no phase shift, no cut-on frequency) and is the first line.
+                    # Remove last element from the first line (it contains the mode of the estimation run). 
                     vector.pop()
                     defocusTable.append(vector)
 
                 elif index == 0 and len(lines[1].split()) != 5:
-                    "CTF estimation is not plain and is the first line."
-                    "Do not add this line to the table. Only contains flag and format info."
+                    # CTF estimation is not plain and is the first line.
+                    # Do not add this line to the table. Only contains flag and format info.
                     pass
 
                 else:
-                    "Any posterior line that is not the first one is added to the table ."
+                    # Any posterior line that is not the first one is added to the table .
                     defocusTable.append(vector)
 
             return defocusTable
@@ -241,7 +240,7 @@ class ImodCtfParser:
     def appendToDict(dictionary: dict,
                      index: int,
                      value: float) -> None:
-        #Python Dictionary setdefault() returns the value of a key (if the key is in dictionary).
+        # Python Dictionary setdefault() returns the value of a key (if the key is in dictionary).
         # Else, it inserts a key with the default value to the dictionary.
         dictionary.setdefault(index, []).append(Float(value))
 
@@ -253,7 +252,7 @@ class ImodCtfParser:
         Scipion. Flag 0. """
 
         if len(ctfInfoIMODTable[0]) != 5:
-            raise RuntimeError("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
+            raise Exception("Misleading file format, CTF estimation with no astigmatism should be 5 columns long")
 
         defocusUDict = {}
 
@@ -274,7 +273,7 @@ class ImodCtfParser:
         format readable for Scipion. Flag 1. """
 
         if len(ctfInfoIMODTable[0]) != 7:
-            raise RuntimeError("Misleading file format, CTF estimation "
+            raise Exception("Misleading file format, CTF estimation "
                                "with astigmatism should be 7 columns long")
         defocusUDict = {}
         defocusVDict = {}
@@ -294,7 +293,6 @@ class ImodCtfParser:
 
         return defocusUDict, defocusVDict, defocusAngleDict
 
-    @staticmethod
     def refactorCTFDefocusPhaseShiftEstimationInfo(self, ctfInfoIMODTable):
         """ This method takes a table containing the information of
         an IMOD-based CTF estimation containing defocus, and phase
@@ -303,7 +301,7 @@ class ImodCtfParser:
         readable for Scipion. Flag 4. """
 
         if len(ctfInfoIMODTable[0]) != 6:
-            raise RuntimeError(
+            raise Exception(
                 "Misleading file format, CTF estimation with defocus and phase shift should be 6 columns long")
 
         defocusUDict = {}
@@ -328,7 +326,7 @@ class ImodCtfParser:
         format readable for Scipion. Flag 5. """
 
         if len(ctfInfoIMODTable[0]) != 8:
-            raise RuntimeError(
+            raise Exception(
                 "Misleading file format, CTF estimation with astigmatism and phase shift should be 8 columns long")
 
         defocusUDict = {}
@@ -359,7 +357,7 @@ class ImodCtfParser:
         format readable for Scipion. Flag 37. """
 
         if len(ctfInfoIMODTable[0]) != 9:
-            raise RuntimeError(
+            raise Exception(
                 "Misleading file format, CTF estimation with astigmatism, phase shift and cut-on frequency should be 9 columns long")
 
         defocusUDict = {}
