@@ -222,8 +222,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         attribList = [attrib] if type(attrib) is str else attrib
         failedOutputList = []
         for attr in attribList:
-            outTsSet = getattr(self, attr, None)
-            if not outTsSet or (outTsSet and len(outTsSet) == 0):
+            output = getattr(self, attr, None)
+            if not output or (output and len(output) == 0):
                 failedOutputList.append(attr)
         if failedOutputList:
             raise Exception(f'No output/s {failedOutputList} were generated. Please check the '
