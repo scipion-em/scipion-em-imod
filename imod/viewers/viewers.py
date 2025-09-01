@@ -115,13 +115,18 @@ class ImodObjectView(pwviewer.CommandView):
                     except Exception as e:
                         raise Exception("Error loading the Imod plugin. Verify it is installed.")
 
-                    paramsNewstack = imodProtBase.ProtImodBase.getBasicNewstackParams(ts, outputFile,
-                                                                     firstItem=obj.getFirstItem(),
-                                                                     xfFile=xfFile,
-                                                                     doSwap=True,
-                                                                     doTaper=True,
-                                                                     tsExcludedIndices=excludedViews,
-                                                                     binning=int(binning))
+                    firstImg = obj.getFirstItem()
+                    inFile = firstImg.getFileName()
+                    rotationAngle = firstImg.getRotationAngle()
+                    swapXY = True if 45 < abs(rotationAngle) < 135 else False
+                    paramsNewstack = imodProtBase.ProtImodBase.getBasicNewstackParams(ts,
+                                                                                      inFile,
+                                                                                      outputFile,
+                                                                                      xfFile=xfFile,
+                                                                                      doSwap=swapXY,
+                                                                                      doTaper=True,
+                                                                                      tsExcludedIndices=excludedViews,
+                                                                                      binning=int(binning))
                     newstackCmd = f"{Plugin.getImodCmd('newstack')} "
                     newstackCmd += ' '.join(['%s %s' % (k, v) for k, v in paramsNewstack.items()])
                     try:
@@ -145,10 +150,10 @@ class ImodObjectView(pwviewer.CommandView):
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 extension = pwutils.getExt(tsFn)
                 outputTSPath = prj.getTmpPath("ts_interpolated_%s_%s_%s%s" % (
-                                                prj.getShortName(),
-                                                protocol.getObjId(),
-                                                obj.getObjId(),
-                                                extension))
+                    prj.getShortName(),
+                    protocol.getObjId(),
+                    obj.getObjId(),
+                    extension))
 
                 if not os.path.exists(outputTSPath):
                     ts.applyTransform(outputTSPath, ignoreExcludedViews=True)
@@ -175,7 +180,7 @@ class ImodObjectView(pwviewer.CommandView):
             cmd += f"{obj.getFileName()}"
 
         logger.info(f"Executing command: {cmd}")
-        pwviewer.CommandView.__init__(self,  cmd)
+        pwviewer.CommandView.__init__(self, cmd)
 
 
 class ImodEtomoViewer(pwviewer.ProtocolViewer):
