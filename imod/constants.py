@@ -31,8 +31,9 @@ IMOD_HOME = 'IMOD_HOME'
 ETOMO_CMD = 'etomo'
 VERSION_4_11_24 = '4.11.24'
 VERSION_4_11_25 = '4.11.25'
-VERSIONS = [VERSION_4_11_24, VERSION_4_11_25]
-DEFAULT_VERSION = VERSION_4_11_25
+VERSION_5_1_3 = '5.1.3'
+VERSIONS = [VERSION_4_11_25, VERSION_5_1_3]
+DEFAULT_VERSION = VERSION_5_1_3
 
 # Batchruntomo (Team Tomo's wrapper)
 BRT = 'teamtomoBRT'
@@ -53,6 +54,29 @@ PATCH_TRACKING = 1
 # Patch tracking layout options
 PT_FRACTIONAL_OVERLAP = 0
 PT_NUM_PATCHES = 1
+
+# Programs
+NEWSTACK_PROGRAM = 'newstack'
+AUTOFIDSEED_PROGRAM = 'autofidseed'
+BEADTRACK_PROGRAM = 'beadtrack'
+MODEL2POINT_PROGRAM = 'model2point'
+POINT2MODEL_PROGRAM = 'point2model'
+IMODCHOPCONTS_PROGRAM = 'imodchopconts'
+CTF_PHASE_FLIP_PROGRAM = 'ctfphaseflip'
+CTFPLOTTER_PROGRAM = 'ctfplotter'
+MTTFILTER_PROGRAM = "mtffilter"
+EXCLUDE_VIEWS_PROGRAM = "excludeviews"
+TILT_ALIGN_PROGRAM = 'tiltalign'
+ALIGNLOG_PROGRAM = 'alignlog'
+BINVOL_PROGRAM = 'binvol'
+TILT_PROGRAM = 'tilt'
+TRIMVOL_PROGRAM = 'trimvol'
+TILT_XCORR_PROGRAM = 'tiltxcorr'
+XFTOXG_PROGRM = 'xftoxg'
+CCDERASER_PROGRAM = 'ccderaser'
+XYZPROJ_PROGRAM = 'xyzproj'
+IMODFINDBEADS_PROGRAM = 'imodfindbeads'
+
 
 OUTPUT_TS_COORDINATES_NAME = "TiltSeriesCoordinates"
 OUTPUT_FIDUCIAL_NO_GAPS_NAME = "FiducialModelNoGaps"

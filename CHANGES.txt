@@ -1,10 +1,26 @@
-3.7.1:
+3.8.0:
   Users:
+   - IMOD binary installed by default was updated to imod_5.1.3_RHEL8-64_CUDA12.0.
+   - Interpolated tilt-series was removed excepting for apply transform protocol.
+   - Add protocol for automatic erasing of gold beads in tilt-series.
+   - More protocols streamified:
+        * CTF estimation (auto).
+        * Dose filter.
+        * Fiducial alignment.
+        * Fiducial eraser.
+        * Generate fiducial model.
+        * Coarse pre-alignment.
+        * X-Rays eraser.
    - IMOD_VIEWER_BINNING removed, by default it is targeting the closest binning to 10A resolution.
    - Imod viewer shows the interpolated tilt series if tilt series has alignment info
    - eTomo protocol fixed
    - xCorr fixed instreaming
    - tomo prejection protocol creates dummy CTF set too
+
+  Development:
+   - Adapted to the updated TiltSeries model from scipion-em-tomo 3.10.1.
+   - Decentralization of the output creation.
+   - Refactor the base protocol and the utils, making them lighter. Create a convert and a data import.
 3.7.0:
   Users:
    - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo. Streamified.
