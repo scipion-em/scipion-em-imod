@@ -113,7 +113,7 @@ class ImodObjectView(pwviewer.CommandView):
             if ts.hasAlignment() and obj.applyTSTransformation():
                 # Input and output extensions must match if we want to apply the transform with Xmipp
                 tsSet = set.getSetOfTiltSeries()
-                outputTSPath = ts.getInterpolated(tsSet.getObjId(), binning, folder=os.path.dirname(tsSet.getFileName()))
+                outputTSPath = ts.getInterpolated(tsSet.getObjId(), binning=1, folder=prj.getTmpPath())
 
             else:
                 outputTSPath = tsFn

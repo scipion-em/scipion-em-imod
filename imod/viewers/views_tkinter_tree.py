@@ -33,7 +33,6 @@ from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 import tomo.objects
 
-from imod import Plugin
 from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT
 from imod.protocols import ProtImodEtomo
 
@@ -326,7 +325,16 @@ class ImodListDialog(ListDialog):
         prot = self.provider.protocol
         item = self.provider.objs[item.getObjId()]  # to load mapper
         set = self.provider.objs
-        ImodObjectView(item, protocol=prot, binning=int(self.binningVar.get()), set=set).show()
+
+        if isinstance(item, tomo.objects.TiltSeries) and item.hasAlignment():
+            self.info("Interpolating tilt series in the project tmp folder and launching imod. Wait!.")
+        else:
+            self.info("Launching Imod directly.")
+
+
+        view = ImodObjectView(item, protocol=prot, binning=int(self.binningVar.get()), set=set)
+        self.master.after(1, lambda :view.show())
+        self.info("Launching imod.")
 
     def runProtocolSteps(self, e=None):
         ts = e

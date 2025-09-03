@@ -26,15 +26,15 @@
 import os
 
 from imod.protocols.protocol_base import IN_TOMO_SET
-from pwem.objects import Transform
+from pwem.objects import Transform, Pointer
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries, CTFTomo
 
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, OUTPUT_CTF_SERIE
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -160,17 +160,33 @@ class ProtImodTomoProjection(ProtImodBase):
                     newTs.setAcquisition(acq)
                     output.append(newTs)
 
+                    # Generate fake CTFs
+                    ctfSet = self.getOutputSetOfCTFTomoSeries(Pointer(self, extended=OUTPUT_TILTSERIES_NAME),
+                                                              OUTPUT_CTF_SERIE)
+                    ctfSerie = CTFTomoSeries()
+                    ctfSerie.copyInfo(newTs)
+                    ctfSerie.setTiltSeries(newTs)
+                    ctfSerie.setTsId(tsId)
+                    ctfSet.append(ctfSerie)
+
                     tiltAngleList = self.getTiltAngleList()
                     sRate = tomo.getSamplingRate()
-                    for index in range(self.getProjectionRange()):
+                    for slice in range(1, self.getProjectionRange()+1):
                         newTi = TiltImage(tsId=tsId,
-                                          tiltAngle=tiltAngleList[index],
-                                          acquisitionOrder=index + 1)
-                        newTi.setLocation(index + 1, outputFn)
+                                          tiltAngle=tiltAngleList[slice-1],
+                                          acquisitionOrder=slice)
+                        newTi.setLocation(slice, outputFn)
                         newTi.setSamplingRate(sRate)
                         newTi.setAcquisition(acq)
                         newTs.append(newTi)
 
+                        # Fake CTF
+                        tiltCTF = CTFTomo(index=slice,acqOrder=slice)
+                        tiltCTF.setDefocusU(0)
+                        tiltCTF.setDefocusV(0)
+                        tiltCTF.setDefocusAngle(0)
+                        tiltCTF.setResolution(1)
+                        ctfSerie.append(tiltCTF)
                     x, y, z, _ = ih.getDimensions(outputFn)
                     newTs.setDim((x, y, z))
                     newTs.setAnglesCount(len(newTs))
@@ -181,7 +197,8 @@ class ProtImodTomoProjection(ProtImodBase):
                     newTs.setOrigin(origin)
 
                     output.update(newTs)
-                    self._store(output)
+                    ctfSet.update(ctfSerie)
+                    self._store(output, ctfSet)
                 else:
                     self.createOutputFailedSet(tomo)
 

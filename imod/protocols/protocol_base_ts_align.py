@@ -29,7 +29,7 @@ from os import stat
 from os.path import exists
 
 import numpy as np
-from imod.constants import XF_EXT, OUTPUT_TS_INTERPOLATED_NAME, TLT_EXT
+from imod.constants import XF_EXT, OUTPUT_TS_INTERPOLATED_NAME
 from imod.protocols import ProtImodBase
 from imod.protocols.protocol_base import BINNING_FACTOR
 from imod.utils import formatAngleList, formatTransformationMatrix

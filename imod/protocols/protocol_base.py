@@ -210,6 +210,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """ So far none of them work in streaming. """
         return False
 
+    def allowsDelete(self, obj):
+        return True
+
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.oddEvenFlag = self.applyToOddEven(self.getInputSet())
@@ -428,6 +431,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             outputSet.setStreamState(Set.STREAM_OPEN)
 
+            # Write set properties, otherwise it may expose the set (sqlite) without properties.
+            outputSet.write()
+
             self._defineOutputs(**{attrName: outputSet})
             self._defineSourceRelation(inputPtr, outputSet)
 
@@ -435,11 +441,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def getOutputFiducialModel(self, inputPtr,
                                attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                               suffix="NoGaps"):
+                               suffix="NoGaps",
+                               forceNew=False):
         """ Method to generate output of set fiducial models.
                 :param inputPtr: input TS set pointer
                 :param attrName: output attr name
                 :param suffix: output set suffix
+                :param forceNew: Forces to have a new output even if exists
         """
         if not inputPtr.isPointer():
             logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
@@ -448,7 +456,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             inputSet = inputPtr.get()
 
         fidModel = getattr(self, attrName, None)
-        if fidModel is not None:
+
+        if fidModel is not None and not forceNew:
             fidModel.enableAppend()
         else:
             fidModel = self._createSetOfLandmarkModels(suffix=suffix)
