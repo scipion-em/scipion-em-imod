@@ -119,3 +119,6 @@ RESID_EXT = 'resid'
 NONE_PROCESSED_MSG = 'Unable to process any of the introduced'
 NO_TS_PROCESSED_MSG = f'{NONE_PROCESSED_MSG} tilt-series.'
 NO_TOMO_PROCESSED_MSG = f'{NONE_PROCESSED_MSG} tomograms.'
+
+# Folder name where IMOD generates the interpolated
+INTERPOLATED_FOLDER = 'interpolated'

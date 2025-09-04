@@ -37,7 +37,7 @@ import pyworkflow.viewer as pwviewer
 import tomo.objects
 
 from imod import Plugin
-from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT
+from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT, INTERPOLATED_FOLDER
 from imod.protocols import ProtImodEtomo
 from tomo.objects import SetOfTiltSeries
 
@@ -453,8 +453,8 @@ class ImodListDialog(ListDialog):
         """Clean tmp folder anc close the viewer"""
         self.info('Cleaning temporal files and closing IMOD viewer...')
         prot = self.provider.protocol
-        tmpFolder = prot._getTmpPath()
-        pwutils.cleanPath(tmpFolder)
+        interpolatedFolder = os.path.join(prot._getExtraPath(), INTERPOLATED_FOLDER)
+        pwutils.cleanPath(interpolatedFolder)
         ListDialog.cancel(self)
 
     def on_close(self, event=None):
