@@ -161,8 +161,8 @@ class ProtImodTomoProjection(ProtImodBase):
                     ctfSet = self.getOutputSetOfCTFTomoSeries(Pointer(self, extended=OUTPUT_TILTSERIES_NAME),
                                                               OUTPUT_CTF_SERIE)
                     ctfSerie = CTFTomoSeries()
-                    ctfSerie.copyInfo(newTs)
-                    ctfSerie.setTiltSeries(newTs)
+                    ctfSerie.copyInfo(outTs)
+                    ctfSerie.setTiltSeries(outTs)
                     ctfSerie.setTsId(tsId)
                     ctfSet.append(ctfSerie)
 

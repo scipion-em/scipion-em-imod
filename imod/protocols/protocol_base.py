@@ -279,6 +279,23 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSet
 
+    def getOutputSetOfCTFTomoSeries(self, inputPtr, outputSetName):
+        inputSet = inputPtr.get()
+
+        outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
+
+        if outputSetOfCTFTomoSeries is not None:
+            outputSetOfCTFTomoSeries.enableAppend()
+        else:
+            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                                 template='CTFmodels%s.sqlite')
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
+            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
+
+        return outputSetOfCTFTomoSeries
+
     def getOutputFiducialModel(self,
                                inputPtr: Pointer,
                                attrName: str = OUTPUT_FIDUCIAL_NO_GAPS_NAME,
