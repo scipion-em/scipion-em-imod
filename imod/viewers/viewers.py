@@ -40,7 +40,7 @@ import tomo.objects as tomoObj
 
 import imod.protocols
 from imod.constants import (OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                            OUTPUT_TS_COORDINATES_NAME)
+                            OUTPUT_TS_COORDINATES_NAME, INTERPOLATED_FOLDER)
 from imod.viewers.views_tkinter_tree import ImodGenericView
 from imod import Plugin
 from imod.utils import generateIMODFidFile
@@ -101,12 +101,12 @@ class ImodObjectView(pwviewer.CommandView):
             inputFn = obj.getFirstItem().getFileName()
 
             if obj.hasAlignment() and displayInterpolated:
-                tmpPath = protocol._getTmpPath()
-                pwutils.makePath(tmpPath)
+                interpolatedPath = os.path.join(protocol._getExtraPath(), INTERPOLATED_FOLDER)
+                pwutils.makePath(interpolatedPath)
                 ts = setOfObjs.getItem('_tsId', tsId)
-                xfFile = os.path.join(tmpPath, '%s.xf' % tsId)
+                xfFile = os.path.join(interpolatedPath, '%s.xf' % tsId)
                 ts.writeXfFile(xfFile)
-                outputFile = os.path.join(tmpPath, '%s_bin_%s.mrc' % (tsId, binningstr))
+                outputFile = os.path.join(interpolatedPath, '%s_bin_%s.mrc' % (tsId, binningstr))
                 if not os.path.exists(outputFile):
                     excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
                     try:
