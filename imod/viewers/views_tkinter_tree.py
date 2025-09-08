@@ -26,8 +26,6 @@
 
 import os.path
 import threading
-import tkinter
-
 from pwem.emlib.image.image_readers import ImageReadersRegistry
 from pwem.viewers.filehandlers import getTkImage
 from pyworkflow.gui import *
@@ -35,8 +33,8 @@ from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 import tomo.objects
-
-from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT
+from imod import Plugin
+from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT, INTERPOLATED_FOLDER
 from imod.protocols import ProtImodEtomo
 from tomo.objects import SetOfTiltSeries
 
@@ -387,7 +385,7 @@ class ImodListDialog(ListDialog):
             print(f"Error loading the image: {e}")
 
     def _addBinningBox(self):
-        self.binningVar = tk.StringVar(value=str(self.provider.objs.getBinning(10))) # Plugin.getViewerBinning()))
+        self.binningVar = tk.StringVar(value=str(Plugin.getViewerBinning()))
         frame = self.searchBoxframe
         label = tk.Label(frame, text="Display options:  Binning")
         label.grid(row=0, column=2, sticky='nw', padx=10)
