@@ -93,6 +93,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """ So far none of them work in streaming. """
         return False
 
+    def allowsDelete(self, obj):
+        return True
+
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
@@ -268,19 +271,41 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             outputSet.setStreamState(Set.STREAM_OPEN)
 
+            # Write set properties, otherwise it may expose the set (sqlite) without properties.
+            outputSet.write()
+
             self._defineOutputs(**{attrName: outputSet})
             self._defineSourceRelation(inputPtr, outputSet)
 
         return outputSet
 
+    def getOutputSetOfCTFTomoSeries(self, inputPtr, outputSetName):
+        inputSet = inputPtr.get()
+
+        outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
+
+        if outputSetOfCTFTomoSeries is not None:
+            outputSetOfCTFTomoSeries.enableAppend()
+        else:
+            outputSetOfCTFTomoSeries = SetOfCTFTomoSeries.create(self._getPath(),
+                                                                 template='CTFmodels%s.sqlite')
+            outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
+            outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
+            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
+
+        return outputSetOfCTFTomoSeries
+
     def getOutputFiducialModel(self,
                                inputPtr: Pointer,
                                attrName: str = OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                               suffix: str = "NoGaps") -> SetOfLandmarkModels:
+                               suffix: str = "NoGaps",
+                               forceNew=False) -> SetOfLandmarkModels:
         """ Method to generate output of set fiducial models.
                 :param inputPtr: input TS set pointer
                 :param attrName: output attr name
                 :param suffix: output set suffix
+                :param forceNew: Forces to have a new output even if exists
         """
         if not inputPtr.isPointer():
             logger.warning("FOR DEVELOPERS: inputSet must be a pointer!")
@@ -289,7 +314,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             inputSet = inputPtr.get()
 
         fidModel = getattr(self, attrName, None)
-        if fidModel is not None:
+
+        if fidModel is not None and not forceNew:
             fidModel.enableAppend()
         else:
             fidModel = self._createSetOfLandmarkModels(suffix=suffix)

@@ -61,12 +61,13 @@ class ImodViewer(pwviewer.Viewer):
     ]
     _name = 'Imod'
 
+
     def _visualize(self, obj, **kwargs):
         env = Plugin.getEnviron()
         cls = type(obj)
 
         if issubclass(cls, (tomoObj.TiltSeries, tomoObj.Tomogram, tomoObj.LandmarkModel)):
-            binning = kwargs.get("binning", 1)
+            binning = kwargs.get("binning", obj.getBinning(10))
             displayInterpolated = kwargs.get("displayInterpolated", False)
             if hasattr(self, 'provider'):  # The data come from IMOD viewer
                 setOfObjs = self.provider.objs
@@ -88,6 +89,8 @@ class ImodObjectView(pwviewer.CommandView):
         """
         :param obj: Object to deal with, a single item of a set
         :param protocol: protocol owner of obj
+        :param binning: binning at which you want to visualize the tilt series
+        :param set: set obj belongs to in case obj is not a string (path to a file)
         :param kwargs: extra kwargs
         """
         # Get default binning level has been defined for 3dmod

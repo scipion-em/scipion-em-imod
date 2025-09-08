@@ -11,6 +11,12 @@
         * Generate fiducial model.
         * Coarse pre-alignment.
         * X-Rays eraser.
+   - IMOD_VIEWER_BINNING removed, by default it is targeting the closest binning to 10A resolution.
+   - Imod viewer shows the interpolated tilt series if tilt series has alignment info
+   - eTomo protocol fixed
+   - xCorr fixed instreaming
+   - tomo prejection protocol creates dummy CTF set too
+
   Development:
    - Adapted to the updated TiltSeries model from scipion-em-tomo 3.10.1.
    - Decentralization of the output creation.

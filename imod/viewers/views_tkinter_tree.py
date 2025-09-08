@@ -26,8 +26,6 @@
 
 import os.path
 import threading
-import tkinter
-
 from pwem.emlib.image.image_readers import ImageReadersRegistry
 from pwem.viewers.filehandlers import getTkImage
 from pyworkflow.gui import *
@@ -35,7 +33,6 @@ from pyworkflow.gui.tree import TreeProvider
 from pyworkflow.gui.dialog import ListDialog
 import pyworkflow.viewer as pwviewer
 import tomo.objects
-
 from imod import Plugin
 from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT, INTERPOLATED_FOLDER
 from imod.protocols import ProtImodEtomo
@@ -453,8 +450,8 @@ class ImodListDialog(ListDialog):
         """Clean tmp folder anc close the viewer"""
         self.info('Cleaning temporal files and closing IMOD viewer...')
         prot = self.provider.protocol
-        interpolatedFolder = os.path.join(prot._getExtraPath(), INTERPOLATED_FOLDER)
-        pwutils.cleanPath(interpolatedFolder)
+        tmpFolder = prot._getTmpPath()
+        pwutils.cleanPath(tmpFolder)
         ListDialog.cancel(self)
 
     def on_close(self, event=None):
