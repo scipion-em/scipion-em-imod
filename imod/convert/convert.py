@@ -45,7 +45,6 @@ def genXfFile(ts: TiltSeries,
     """
     logger.info(cyanStr(f"tsId = {ts.getTsId()} -> Generating the transformation xf file {outXfName}..."))
     if presentAcqOrders:
-        presentAcqOrders = ts.getTsPresentAcqOrders()
         tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts if ti.getAcquisitionOrder() in presentAcqOrders]
     else:
         tsMatrixList = [_tiMatrixToXfFormat(ti) for ti in ts]
