@@ -105,7 +105,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         time.sleep(10)
         if inSet.isStreamOpen():
             with self._lock:
-                inSet.loadAllProperties()
+                inSet.loadAllProperties()  # refresh status for the streaming
 
     def closeOutputsForStreaming(self):
         # Close explicitly the outputs (for streaming)
