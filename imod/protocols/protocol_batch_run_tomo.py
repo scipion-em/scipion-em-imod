@@ -86,7 +86,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def stepsGeneratorStep(self) -> None:

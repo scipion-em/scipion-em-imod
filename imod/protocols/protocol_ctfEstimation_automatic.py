@@ -277,7 +277,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
-            form.addParallelSection(threads=2, mpi=0)
+            form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

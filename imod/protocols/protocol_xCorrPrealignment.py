@@ -115,7 +115,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
         self.filteringParametersForm(form,
                                      condition=True,
                                      levelType=params.LEVEL_ADVANCED)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

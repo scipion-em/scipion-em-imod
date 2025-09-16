@@ -70,7 +70,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
                       important=True,
                       default=12.0,
                       label='Diameter to erase (nm)')
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

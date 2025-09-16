@@ -274,7 +274,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                       condition='distortionSolutionType in [%i, %i]' % (DIST_FULL_SOLUTION, DIST_SKEW_ONLY),
                       label='Skew group size',
                       help='Size of the skew group')
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

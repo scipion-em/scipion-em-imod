@@ -60,7 +60,7 @@ class ProtImodExcludeViews(ProtImodBase):
         form.addSection(Message.LABEL_INPUT)
         super().addInTsSetFormParam(form)
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):

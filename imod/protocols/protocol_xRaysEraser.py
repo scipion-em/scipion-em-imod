@@ -98,7 +98,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                            'may be needed to make extra-large peak removal '
                            'useful.')
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

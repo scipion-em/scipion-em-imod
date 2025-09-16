@@ -222,7 +222,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
         self.addOddEvenParams(form, isTomogram=True)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

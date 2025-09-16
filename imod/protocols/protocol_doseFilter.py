@@ -98,7 +98,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:

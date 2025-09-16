@@ -78,7 +78,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         super().addInTsSetFormParam(form)
         self._patchTrackingForm(form, 'typeOfModel == %i' % PATCH_TRACKING)
         self._fiducialSeedForm(form, 'typeOfModel == %i' % FIDUCIAL_MODEL)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     def _patchTrackingForm(self, form, condition, levelType=params.LEVEL_NORMAL):
         patchtrack = form.addGroup('Patch Tracking',
