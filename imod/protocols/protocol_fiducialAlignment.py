@@ -295,25 +295,26 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
             for fidModel in self.getInputSetOfLandmarks():
                 tsId = fidModel.getTsId()
-                cInId = self._insertFunctionStep(self.convertInStep,
-                                                 tsId,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
-                                                    tsId,
-                                                    prerequisites=cInId,
-                                                    needsGPU=False)
-                p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                                 tsId,
-                                                 prerequisites=fidAliId,
-                                                 needsGPU=False)
-                cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                  tsId,
-                                                  prerequisites=p2mId,
-                                                  needsGPU=False)
-                closeSetStepDeps.append(cOutId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+                if tsId not in self.tsIdReadList:
+                    cInId = self._insertFunctionStep(self.convertInStep,
+                                                     tsId,
+                                                     prerequisites=[],
+                                                     needsGPU=False)
+                    fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                                        tsId,
+                                                        prerequisites=cInId,
+                                                        needsGPU=False)
+                    p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                                     tsId,
+                                                     prerequisites=fidAliId,
+                                                     needsGPU=False)
+                    cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                      tsId,
+                                                      prerequisites=p2mId,
+                                                      needsGPU=False)
+                    closeSetStepDeps.append(cOutId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inSetOfLandmarks)
 

@@ -120,21 +120,22 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                cInId = self._insertFunctionStep(self.linkTsStep,
-                                                 tsId,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                compId = self._insertFunctionStep(self.doseFilterStep,
-                                                  tsId,
-                                                  prerequisites=cInId,
-                                                  needsGPU=False)
-                outId = self._insertFunctionStep(self.createOutputStep,
-                                                 tsId,
-                                                 prerequisites=[compId],
-                                                 needsGPU=False)
-                closeSetStepDeps.append(outId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    cInId = self._insertFunctionStep(self.linkTsStep,
+                                                     tsId,
+                                                     prerequisites=[],
+                                                     needsGPU=False)
+                    compId = self._insertFunctionStep(self.doseFilterStep,
+                                                      tsId,
+                                                      prerequisites=cInId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     prerequisites=[compId],
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
