@@ -25,6 +25,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import Set, Tuple
 from imod.protocols.protocol_base import IN_CTF_TOMO_SET
@@ -217,6 +218,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             self.failedItems.append(tsId)
             logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
             logger.error(redStr(f'{e}'))
+            logger.error(traceback.format_exc())
 
     def ctfCorrection(self, tsId: str):
         if tsId not in self.failedItems:
@@ -260,7 +262,9 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed with the exception -> {e}'))
+                logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed '
+                                    f'with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -294,6 +298,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- UTILS functions -----------------------------
     def _generateDefocusFile(self, ts: TiltSeries,

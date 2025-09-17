@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
@@ -130,6 +131,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} or {BINVOL_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def generateOutputStep(self, tsId: str,
                            runNewstack: bool,
@@ -169,6 +171,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                     logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

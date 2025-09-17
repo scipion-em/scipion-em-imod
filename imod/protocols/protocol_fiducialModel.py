@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List
@@ -283,6 +284,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def generateFiducialModelStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -304,6 +306,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def xcorrStep(self, tsId):
         if tsId not in self.failedItems:
@@ -350,6 +353,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def chopcontsStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -367,6 +371,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {IMODCHOPCONTS_PROGRAM} execution '
                                      f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def translateFiducialPointModelStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -383,6 +388,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def computeOutputModelsStep(self, tsId: str):
         """ Create the output set of landmark models with gaps. """
@@ -432,6 +438,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                     logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

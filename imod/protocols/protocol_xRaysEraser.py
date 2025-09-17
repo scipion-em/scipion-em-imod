@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -167,6 +168,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
                                     f'with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -207,6 +209,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,

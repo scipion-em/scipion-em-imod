@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -209,6 +210,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} or {XFTOXG_PROGRM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createAliTsStep(self, tsId):
         """ Generate tilt-series with the associated transform matrix """
@@ -255,6 +257,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import os
+import traceback
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -342,6 +343,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def computeFiducialAlignmentStep(self, tsId):
         if tsId not in self.failedItems:
@@ -410,6 +412,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def translateFiducialPointModelStep(self, tsId):
         if tsId not in self.failedItems:
@@ -426,6 +429,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId not in self.failedItems:
@@ -439,6 +443,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
                                     f'with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

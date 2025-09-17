@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -179,7 +180,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed '
+                                f'with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         """Generate output filtered tilt series"""
@@ -220,6 +223,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

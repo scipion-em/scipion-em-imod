@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import time
+import traceback
 import typing
 from typing import Union, Tuple, List
 from imod.convert.convert import genXfFile
@@ -140,6 +141,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def convertInputForEvProgram(self, tsId: str) -> None:
         """The input converters of the protocols that use main IMOD programs (excluding newstack,

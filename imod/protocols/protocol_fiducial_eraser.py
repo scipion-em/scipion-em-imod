@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -138,6 +139,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {IMODFINDBEADS_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def ccderaserStep(self, tsId: str):
         """This step erase the gold beads from the fiducial model"""
@@ -178,6 +180,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed'
                                     f' with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -220,6 +223,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
 
