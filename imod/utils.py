@@ -29,13 +29,14 @@ This module contains utils functions for IMOD protocols
 import logging
 import os
 import csv
-from typing import Union
+from typing import Union, Set
 import numpy as np
 
 import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from imod import Plugin
-from tomo.objects import TiltSeries
+from pyworkflow.utils import cyanStr
+from tomo.objects import TiltSeries, CTFTomoSeries
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +103,11 @@ def formatAngleList(tltFilePath):
     return angleList
 
 
-def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
-                                      isRelion=False, inputTiltSeries=None, presentAcqOrders=None):
+def generateDefocusIMODFileFromObject(ctfTomoSeries: CTFTomoSeries,
+                                      defocusFilePath: str,
+                                      isRelion: bool = False,
+                                      inputTiltSeries: TiltSeries = None,
+                                      presentAcqOrders: Set[int] = None) -> None:
     """ This method takes a ctfTomoSeries object a generate a
     defocus information file in IMOD formatting containing
     the same information in the specified location. """
@@ -113,19 +117,19 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
     else:
         tiltSeries = inputTiltSeries
 
-    logger.info("Trying to generate defocus file at %s" % defocusFilePath)
+    logger.info("Generating defocus file at %s..." % defocusFilePath)
 
     # Check if there is CTF estimation information as list
     if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList() and not isRelion:
 
-        logger.debug("Defocus file generated form a list.")
+        logger.debug(cyanStr("Defocus file generated form a list."))
         flag = ctfTomoSeries.getIMODDefocusFileFlag()
         nEstimationsInRange = ctfTomoSeries.getNumberOfEstimationsInRange()
 
         if flag == 0:
             # Plain estimation
 
-            logger.debug("Flag 0: Plain estimation.")
+            logger.debug(cyanStr("Flag 0: Plain estimation."))
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
 
             # Write IMOD defocus file
@@ -159,7 +163,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 1:
             # Astigmatism estimation
-            logger.debug("Flag 1: Astigmatism estimation.")
+            logger.debug(cyanStr("Flag 1: Astigmatism estimation."))
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -196,7 +200,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 4:
             # Phase-shift estimation
-            logger.debug("Flag 4: Phase shift estimation.")
+            logger.debug(cyanStr("Flag 4: Phase shift estimation."))
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             phaseShiftDict = generatePhaseShiftDictionary(ctfTomoSeries)
@@ -231,7 +235,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 5:
             # Astigmatism and phase shift estimation
-            logger.debug("Flag 5: Astigmatism and phase shift.")
+            logger.debug(cyanStr("Flag 5: Astigmatism and phase shift."))
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -270,7 +274,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
         elif flag == 37:
             # Astigmatism, phase shift and cut-on frequency estimation
-            logger.debug("Flag 37: Astigmatism, phase shift and cut-on frequency estimation.")
+            logger.debug(cyanStr("Flag 37: Astigmatism, phase shift and cut-on frequency estimation."))
 
             defocusUDict = generateDefocusUDictionary(ctfTomoSeries)
             defocusVDict = generateDefocusVDictionary(ctfTomoSeries)
@@ -316,32 +320,41 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries, defocusFilePath,
 
     else:
         # There is no information available as list (not an IMOD CTF estimation)
+        genDefocusFileFromScipion(ctfTomoSeries,
+                                  defocusFilePath,
+                                  inputTiltSeries=tiltSeries,
+                                  presentAcqOrders=presentAcqOrders)
+            
 
-        logger.info("Defocus file generated from defocus attributes.")
+def genDefocusFileFromScipion(ctfTomoSeries: CTFTomoSeries,
+                              defocusFilePath: str,
+                              inputTiltSeries: TiltSeries = None,
+                              presentAcqOrders: Set[int] = None) -> None:
+    logger.info(cyanStr("Defocus file generated from defocus attributes."))
 
-        with open(defocusFilePath, 'w') as f:
-            lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
-            ind = 1
-            for ti in tiltSeries:
-                ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
-                if ctfTomo:
-                    if presentAcqOrders and ctfTomo.getAcquisitionOrder() not in presentAcqOrders:
-                        continue
-                    tiltAngle = ti.getTiltAngle()
-                    newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
-                        ind,
-                        ind,
-                        tiltAngle,
-                        tiltAngle,
-                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        ctfTomo.getDefocusU() / 10,
-                        # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
-                        ctfTomo.getDefocusV() / 10,
-                        ctfTomo.getDefocusAngle()))
+    with open(defocusFilePath, 'w') as f:
+        lines = ["1\t0\t0.0\t0.0\t0.0\t3\n"]
+        ind = 1
+        for ti in inputTiltSeries:
+            ctfTomo = ctfTomoSeries.getCtfTomoFromTi(ti)
+            if ctfTomo:
+                if presentAcqOrders and ctfTomo.getAcquisitionOrder() not in presentAcqOrders:
+                    continue
+                tiltAngle = ti.getTiltAngle()
+                newLine = ("%d\t%d\t%.2f\t%.2f\t%.1f\t%.1f\t%.2f\n" % (
+                    ind,
+                    ind,
+                    tiltAngle,
+                    tiltAngle,
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusU() / 10,
+                    # CONVERT DEFOCUS VALUE TO NANOMETERS (IMOD CONVENTION)
+                    ctfTomo.getDefocusV() / 10,
+                    ctfTomo.getDefocusAngle()))
 
-                    lines.append(newLine)
-                    ind += 1
-            f.writelines(lines)
+                lines.append(newLine)
+                ind += 1
+        f.writelines(lines)
 
 
 def generateDefocusUDictionary(ctfTomoSeries):

@@ -209,14 +209,14 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 ctf = self.getCurrentCtf(tsId)
-                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
-                super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
-                # Generate the defocus file
-                self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+            presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+            # Generate the defocus file
+            self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+            # Generate the alignment files
+            super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
             logger.error(redStr(f'{e}'))
             logger.error(traceback.format_exc())
 
@@ -293,7 +293,6 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                     self._store(outTsSet)
                     # Close explicitly the outputs (for streaming)
                     self.closeOutputsForStreaming()
-
             else:
                 logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
         except Exception as e:
@@ -307,7 +306,8 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         tsId = ts.getTsId()
         self.debug(f"tsId = {tsId} -> Generating defocus file...")
         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-        utils.generateDefocusIMODFileFromObject(ctf, defocusFilePath,
+        utils.genDefocusFileFromScipion(ctf,
+                                                defocusFilePath,
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
 
