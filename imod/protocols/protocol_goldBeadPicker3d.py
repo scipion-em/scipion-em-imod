@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import List
 
@@ -157,6 +158,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {FINDBEADS3D_PROGRAM} or {MODEL2POINT_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -188,6 +190,7 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
                     logger.error(redStr(f'tsId = {tsId} -> Output file {coordFilePath} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

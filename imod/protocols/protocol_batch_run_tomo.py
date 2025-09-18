@@ -26,6 +26,7 @@
 # **************************************************************************
 import logging
 import subprocess
+import traceback
 import typing
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
@@ -86,7 +87,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def stepsGeneratorStep(self) -> None:
@@ -147,6 +148,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             except Exception as e:
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -159,7 +161,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
-
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self) -> typing.List[str]:

@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import Tuple
 import pyworkflow.protocol.params as params
@@ -144,6 +145,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -171,6 +173,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

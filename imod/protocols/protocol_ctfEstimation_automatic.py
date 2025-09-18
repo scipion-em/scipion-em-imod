@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -277,7 +278,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                                          'expected defocus and phase shift. '
                                          'To use the default value set box to -1.')
 
-            form.addParallelSection(threads=2, mpi=0)
+            form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -340,7 +341,9 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
             self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {tsId} -> {CTFPLOTTER_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
         if tsId in self.failedItems:
@@ -375,6 +378,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {defocusFilePath} was not generated. Skipping... '))
         except Exception as e:
            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+           logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

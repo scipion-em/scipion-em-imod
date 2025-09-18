@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import List
 from pwem.objects import Transform, Pointer
@@ -135,6 +136,7 @@ class ProtImodTomoProjection(ProtImodBase):
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> {XYZPROJ_PROGRAM} execution '
                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def generateOutputStackStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -203,6 +205,7 @@ class ProtImodTomoProjection(ProtImodBase):
                     logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

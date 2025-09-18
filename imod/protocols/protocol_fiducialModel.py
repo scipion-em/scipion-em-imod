@@ -24,7 +24,8 @@
 # *
 # *****************************************************************************
 import logging
-from os.path import exists
+import traceback
+from os.path import exists, abspath
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
@@ -78,7 +79,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         super().addInTsSetFormParam(form)
         self._patchTrackingForm(form, 'typeOfModel == %i' % PATCH_TRACKING)
         self._fiducialSeedForm(form, 'typeOfModel == %i' % FIDUCIAL_MODEL)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     def _patchTrackingForm(self, form, condition, levelType=params.LEVEL_NORMAL):
         patchtrack = form.addGroup('Patch Tracking',
@@ -255,134 +256,138 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         self.acq = tsSet.getAcquisition()
 
     def generateFiducialSeedStep(self, tsId):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
-                self.generateTrackCom(tsId)
-                trackFile = self.getExtraOutFile(tsId, suffix="track", ext="com")
-                if exists(trackFile):
-                    paramsAutofidseed = {
-                        "-TrackCommandFile": trackFile,
-                        "-MinSpacing": 0.85,
-                        "-AdjustSizes": "",
-                        "-PeakStorageFraction": 1.0,
-                        "-TargetNumberOfBeads": self.numberFiducial.get(),
-                    }
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
+            self.generateTrackCom(tsId)
+            trackFile = f'{tsId}_track.com'
+            if exists(self.getExtraOutFile(tsId, suffix="track", ext="com")):
+                paramsAutofidseed = {
+                    "-TrackCommandFile": trackFile,
+                    "-MinSpacing": 0.85,
+                    "-AdjustSizes": "",
+                    "-PeakStorageFraction": 1.0,
+                    "-TargetNumberOfBeads": self.numberFiducial.get(),
+                }
+                if self.twoSurfaces:
+                    paramsAutofidseed["-TwoSurfaces"] = ""
 
-                    if self.twoSurfaces:
-                        paramsAutofidseed["-TwoSurfaces"] = ""
+                self.runProgram(AUTOFIDSEED_PROGRAM, paramsAutofidseed, cwd=self._getExtraPath(tsId))
 
-                    self.runProgram(AUTOFIDSEED_PROGRAM, paramsAutofidseed)
-
-                    autofidseedDirPath = self._getExtraPath(tsId, "autofidseed.dir")
-                    path.makePath(autofidseedDirPath)
-                    path.moveTree("autofidseed.dir", autofidseedDirPath)
-                    path.moveFile("autofidseed.info", self._getExtraPath(tsId))
-
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {AUTOFIDSEED_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def generateFiducialModelStep(self, tsId: str):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial model...'))
-                paramsBeadtrack = self.genBeadTrackParams(tsId)
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial model...'))
+            paramsBeadtrack = self.genBeadTrackParams(tsId)
+            self.runProgram(BEADTRACK_PROGRAM, paramsBeadtrack)
+
+            if self.doTrackWithModel:
+                # repeat tracking with the current model as seed
+                path.copyFile(paramsBeadtrack['-InputSeedModel'],
+                              self.getExtraOutFile(tsId, suffix="orig", ext=SEED_EXT))
+                path.moveFile(paramsBeadtrack['-OutputModel'],
+                              paramsBeadtrack['-InputSeedModel'])
+
                 self.runProgram(BEADTRACK_PROGRAM, paramsBeadtrack)
 
-                if self.doTrackWithModel:
-                    # repeat tracking with the current model as seed
-                    path.copyFile(paramsBeadtrack['-InputSeedModel'],
-                                  self.getExtraOutFile(tsId, suffix="orig", ext=SEED_EXT))
-                    path.moveFile(paramsBeadtrack['-OutputModel'],
-                                  paramsBeadtrack['-InputSeedModel'])
-
-                    self.runProgram(BEADTRACK_PROGRAM, paramsBeadtrack)
-
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {BEADTRACK_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def xcorrStep(self, tsId):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
-                xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-                borders = self.pxTrim.getListFromValues(caster=str)
-                sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: executing the {TILT_XCORR_PROGRAM}...'))
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+            angleFilePath = self.getExtraOutFile(tsId, ext=TLT_EXT)
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            borders = self.pxTrim.getListFromValues(caster=str)
+            sizePatches = self.sizeOfPatches.getListFromValues(caster=str)
 
-                paramsTiltXCorr = {
-                    "-InputFile": self.getTmpOutFile(tsId),
-                    "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
-                    "-RotationAngle": self.acq.getTiltAxisAngle(),
-                    "-TiltFile": angleFilePath,
-                    "-FilterRadius2": self.filterRadius2.get(),
-                    "-FilterSigma1": self.filterSigma1.get(),
-                    "-FilterSigma2": self.filterSigma2.get(),
-                    "-BordersInXandY": ",".join(borders),
-                    "-IterateCorrelations": self.iterationsSubpixel.get(),
-                    "-SizeOfPatchesXandY": ",".join(sizePatches),
-                    "-PrealignmentTransformFile": xfFile,
-                    "-ImagesAreBinned": 1,
-                }
+            paramsTiltXCorr = {
+                "-InputFile": self.getTmpOutFile(tsId),
+                "-OutputFile": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+                "-RotationAngle": self.acq.getTiltAxisAngle(),
+                "-TiltFile": angleFilePath,
+                "-FilterRadius2": self.filterRadius2.get(),
+                "-FilterSigma1": self.filterSigma1.get(),
+                "-FilterSigma2": self.filterSigma2.get(),
+                "-BordersInXandY": ",".join(borders),
+                "-IterateCorrelations": self.iterationsSubpixel.get(),
+                "-SizeOfPatchesXandY": ",".join(sizePatches),
+                "-PrealignmentTransformFile": xfFile,
+                "-ImagesAreBinned": 1,
+            }
 
-                if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
-                    patchesXY = self.overlapPatches.getListFromValues(caster=str)
-                    paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
-                else:
-                    numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
-                    paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
+            if self.patchLayout.get() == PT_FRACTIONAL_OVERLAP:
+                patchesXY = self.overlapPatches.getListFromValues(caster=str)
+                paramsTiltXCorr["-OverlapOfPatchesXandY"] = ",".join(patchesXY)
+            else:
+                numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
+                paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
 
-                # Excluded views
-                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                if excludedViews:
-                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                    paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
+            # Excluded views
+            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            if excludedViews:
+                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
-                self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
+            self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
 
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {TILT_XCORR_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def chopcontsStep(self, tsId: str):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: executing {IMODCHOPCONTS_PROGRAM}...'))
-                paramschopconts = {
-                    "-InputModel": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
-                    "-OutputModel": self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
-                    "-MinimumOverlap": 4,
-                    "-AssignSurfaces": 1,
-                    "-LengthOfPieces": -1
-                }
-                self.runProgram(IMODCHOPCONTS_PROGRAM, paramschopconts)
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {IMODCHOPCONTS_PROGRAM} execution '
-                                     f'failed with the exception -> {e}'))
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: executing {IMODCHOPCONTS_PROGRAM}...'))
+            paramschopconts = {
+                "-InputModel": self.getExtraOutFile(tsId, suffix="pt", ext=FID_EXT),
+                "-OutputModel": self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
+                "-MinimumOverlap": 4,
+                "-AssignSurfaces": 1,
+                "-LengthOfPieces": -1
+            }
+            self.runProgram(IMODCHOPCONTS_PROGRAM, paramschopconts)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {IMODCHOPCONTS_PROGRAM} execution '
+                                 f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def translateFiducialPointModelStep(self, tsId: str):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: executing {MODEL2POINT_PROGRAM}...'))
-                gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
-                paramsGapModel2Point = {
-                    "-InputFile": gapsFidFile,
-                    "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT),
-                    "-ObjectAndContour": ''
-                }
-                self.runProgram(MODEL2POINT_PROGRAM, paramsGapModel2Point)
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: executing {MODEL2POINT_PROGRAM}...'))
+            gapsFidFile = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
+            paramsGapModel2Point = {
+                "-InputFile": gapsFidFile,
+                "-OutputFile": self.getExtraOutFile(tsId, suffix="gaps_fid", ext=TXT_EXT),
+                "-ObjectAndContour": ''
+            }
+            self.runProgram(MODEL2POINT_PROGRAM, paramsGapModel2Point)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def computeOutputModelsStep(self, tsId: str):
         """ Create the output set of landmark models with gaps. """
@@ -432,6 +437,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                     logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -461,11 +467,14 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         with self._lock:
             ts = self.getCurrentTs(tsId)
         fiducialDiameterPixel, boxSizeXandY, scaling = self.getFiducialParams()
+        # Absolute paths are because the cwd will be self._getExtraPath(tsId) to avoid the generic dir
+        # autofidseed.dir (one for each tilt-series processed, but in the same place and with the same name
+        # unless the cwd is changed) to be generated, deleted or used when processing in parallel
         paramsDict = {
-            'imageFile': self.getTmpOutFile(tsId),
-            'inputSeedModel': self.getExtraOutFile(tsId, ext=SEED_EXT),
-            'outputModel': self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT),
-            'tiltFile': self.getExtraOutFile(tsId, ext=TLT_EXT),
+            'imageFile': abspath(self.getTmpOutFile(tsId)),
+            'inputSeedModel': abspath(self.getExtraOutFile(tsId, ext=SEED_EXT)),
+            'outputModel': abspath(self.getExtraOutFile(tsId, suffix="gaps", ext=FID_EXT)),
+            'tiltFile': abspath(self.getExtraOutFile(tsId, ext=TLT_EXT)),
             'rotationAngle': self.acq.getTiltAxisAngle(),
             'fiducialDiameter': fiducialDiameterPixel,
             'samplingRate': self.sRate / 10,
@@ -558,7 +567,7 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
             template += "\nScalableSigmaForSobel   %(scalableSigmaForSobelFilter)f"
 
         if hasAlignment:
-            XfFileName = self.getExtraOutFile(tsId, ext=XF_EXT)
+            XfFileName = abspath(self.getExtraOutFile(tsId, ext=XF_EXT))
             template += f"\nPrealignTransformFile {XfFileName}"
 
         with open(trackFilePath, 'w') as f:

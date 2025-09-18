@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -222,7 +223,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
         self.addOddEvenParams(form, isTomogram=True)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
@@ -358,6 +359,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_PROGRAM} or {TRIMVOL_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -399,6 +401,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- UTILS functions ---------------------------
 

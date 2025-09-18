@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -98,7 +99,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                       help='Fixed dose for each image of the input file, '
                            'in electrons/square Ångstrom.')
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
@@ -120,21 +121,22 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                cInId = self._insertFunctionStep(self.linkTsStep,
-                                                 tsId,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                compId = self._insertFunctionStep(self.doseFilterStep,
-                                                  tsId,
-                                                  prerequisites=cInId,
-                                                  needsGPU=False)
-                outId = self._insertFunctionStep(self.createOutputStep,
-                                                 tsId,
-                                                 prerequisites=[compId],
-                                                 needsGPU=False)
-                closeSetStepDeps.append(outId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                    cInId = self._insertFunctionStep(self.linkTsStep,
+                                                     tsId,
+                                                     prerequisites=[],
+                                                     needsGPU=False)
+                    compId = self._insertFunctionStep(self.doseFilterStep,
+                                                      tsId,
+                                                      prerequisites=cInId,
+                                                      needsGPU=False)
+                    outId = self._insertFunctionStep(self.createOutputStep,
+                                                     tsId,
+                                                     prerequisites=[compId],
+                                                     needsGPU=False)
+                    closeSetStepDeps.append(outId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
@@ -178,7 +180,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed '
+                                f'with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         """Generate output filtered tilt series"""
@@ -219,6 +223,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

@@ -25,6 +25,8 @@
 # *****************************************************************************
 import csv
 import logging
+import traceback
+
 import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -153,6 +155,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def assignTransformationMatricesStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -180,6 +183,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
             except Exception as e:
                 logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

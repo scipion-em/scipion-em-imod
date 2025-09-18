@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import os
+import traceback
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -274,7 +275,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                       condition='distortionSolutionType in [%i, %i]' % (DIST_FULL_SOLUTION, DIST_SKEW_ONLY),
                       label='Skew group size',
                       help='Size of the skew group')
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
@@ -295,149 +296,158 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
             for fidModel in self.getInputSetOfLandmarks():
                 tsId = fidModel.getTsId()
-                cInId = self._insertFunctionStep(self.convertInStep,
-                                                 tsId,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
-                                                    tsId,
-                                                    prerequisites=cInId,
-                                                    needsGPU=False)
-                p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                                 tsId,
-                                                 prerequisites=fidAliId,
-                                                 needsGPU=False)
-                cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                  tsId,
-                                                  prerequisites=p2mId,
-                                                  needsGPU=False)
-                closeSetStepDeps.append(cOutId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+                if tsId not in self.tsIdReadList and fidModel.getSize() > 0:
+                    cInId = self._insertFunctionStep(self.convertInStep,
+                                                     tsId,
+                                                     prerequisites=[],
+                                                     needsGPU=False)
+                    fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                                        tsId,
+                                                        prerequisites=cInId,
+                                                        needsGPU=False)
+                    p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                                     tsId,
+                                                     prerequisites=fidAliId,
+                                                     needsGPU=False)
+                    cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                      tsId,
+                                                      prerequisites=p2mId,
+                                                      needsGPU=False)
+                    closeSetStepDeps.append(cOutId)
+                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                    self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inSetOfLandmarks)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, tsId: str):
         super().convertInputStep(tsId)
-        if tsId not in self.failedItems:
-            try:
-                # TODO: Check the non-imod fiducials combined with excluded views
-                # If the fiducial model was not computed with imod, it is converted into the expected format here
-                currentModelFn = self.getCurrentFidModel(tsId).getModelName()
-                if not currentModelFn or not exists(currentModelFn):
-                    logger.info(cyanStr(f'tsId = {tsId}: not IMOD fiducial model detected. Generating...'))
-                    fidFn = self._getExtraPath(tsId, tsId + '_imod.fid')
-                    tsFn = self.getTmpOutFile(tsId)
-                    fnTxt = self._getExtraPath(tsId, tsId + '_points.txt')
-                    self._convertTxt2Fid(currentModelFn, fnTxt)
-                    paramsPoint2Model = {
-                        "-InputFile": fnTxt,
-                        "-OutputFile": fidFn,
-                        "-image": tsFn
-                    }
-                    self.runProgram(POINT2MODEL_PROGRAM, paramsPoint2Model)
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        if tsId in self.failedItems:
+            return
+        try:
+            # TODO: Check the non-imod fiducials combined with excluded views
+            # If the fiducial model was not computed with imod, it is converted into the expected format here
+            currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+            if not currentModelFn or not exists(currentModelFn):
+                logger.info(cyanStr(f'tsId = {tsId}: not IMOD fiducial model detected. Generating...'))
+                fidFn = self._getExtraPath(tsId, tsId + '_imod.fid')
+                tsFn = self.getTmpOutFile(tsId)
+                fnTxt = self._getExtraPath(tsId, tsId + '_points.txt')
+                self._convertTxt2Fid(currentModelFn, fnTxt)
+                paramsPoint2Model = {
+                    "-InputFile": fnTxt,
+                    "-OutputFile": fidFn,
+                    "-image": tsFn
+                }
+                self.runProgram(POINT2MODEL_PROGRAM, paramsPoint2Model)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {POINT2MODEL_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def computeFiducialAlignmentStep(self, tsId):
-        if tsId not in self.failedItems:
-            try:
-                logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
+        if tsId in self.failedItems:
+            return
+        try:
+            logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
 
-                currentModelFn = self.getCurrentFidModel(tsId).getModelName()
-                tsFn = self.getTmpOutFile(tsId)
-                paramsTiltAlign = {
-                    "-ModelFile": currentModelFn,
-                    "-ImageFile": tsFn,
-                    "-ImagesAreBinned": 1,
-                    "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
-                    "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
-                    "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
-                    "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
-                    "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
-                    "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
-                    "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
-                    "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                    "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
-                    "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
-                    "-AngleOffset": 0.0,
-                    "-RotOption": self.getRotationType(),
-                    "-RotDefaultGrouping": self.groupRotationSize.get(),
-                    "-TiltOption": self.getTiltAngleType(),
-                    "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
-                    "-MagReferenceView": 1,
-                    "-MagOption": self.getMagnificationType(),
-                    "-MagDefaultGrouping": self.groupMagnificationSize.get(),
-                    "-XStretchOption": self.getStretchType(),
-                    "-SkewOption": self.getSkewType(),
-                    "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
-                    "-SkewDefaultGrouping": self.skewGroupSize.get(),
-                    "-BeamTiltOption": 0,
-                    "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000,
-                    "-ResidualReportCriterion": 3.0,
-                    "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
-                    "-MetroFactor": 0.25,
-                    "-MaximumCycles": 1000,
-                    "-KFactorScaling": 1.0,
-                    "-NoSeparateTiltGroups": 1,
-                    "-AxisZShift": 0.0,
-                    "-ShiftZFromOriginal": 1,
-                    "-TargetPatchSizeXandY": '700,700',
-                    "-MinSizeOrOverlapXandY": '0.5,0.5',
-                    "-MinFidsTotalAndEachSurface": '8,3',
-                    "-FixXYZCoordinates": 0,
-                    "-RobustFitting": ""}
+            currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+            tsFn = self.getTmpOutFile(tsId)
+            paramsTiltAlign = {
+                "-ModelFile": currentModelFn,
+                "-ImageFile": tsFn,
+                "-ImagesAreBinned": 1,
+                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
+                "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
+                "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
+                "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
+                "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
+                "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
+                "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
+                "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+                "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                "-AngleOffset": 0.0,
+                "-RotOption": self.getRotationType(),
+                "-RotDefaultGrouping": self.groupRotationSize.get(),
+                "-TiltOption": self.getTiltAngleType(),
+                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
+                "-MagReferenceView": 1,
+                "-MagOption": self.getMagnificationType(),
+                "-MagDefaultGrouping": self.groupMagnificationSize.get(),
+                "-XStretchOption": self.getStretchType(),
+                "-SkewOption": self.getSkewType(),
+                "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
+                "-SkewDefaultGrouping": self.skewGroupSize.get(),
+                "-BeamTiltOption": 0,
+                "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000,
+                "-ResidualReportCriterion": 3.0,
+                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
+                "-MetroFactor": 0.25,
+                "-MaximumCycles": 1000,
+                "-KFactorScaling": 1.0,
+                "-NoSeparateTiltGroups": 1,
+                "-AxisZShift": 0.0,
+                "-ShiftZFromOriginal": 1,
+                "-TargetPatchSizeXandY": '700,700',
+                "-MinSizeOrOverlapXandY": '0.5,0.5',
+                "-MinFidsTotalAndEachSurface": '8,3',
+                "-FixXYZCoordinates": 0,
+                "-RobustFitting": ""}
 
-                # Excluded views
-                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                if excludedViews:
-                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                    paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
+            # Excluded views
+            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            if excludedViews:
+                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
 
-                paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
+            paramsTiltAlign["2>&1 | tee "] = self._getExtraPath(tsId, "align.log")
 
-                self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
-                self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
-                                cwd=self._getExtraPath())
+            self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
+            self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
+                            cwd=self._getExtraPath(tsId))
 
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} or {ALIGNLOG_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def translateFiducialPointModelStep(self, tsId):
-        if tsId not in self.failedItems:
-            try:
-                # Check that previous steps have been completed satisfactorily
-                noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
-                if exists(noGapsFid):
-                    paramsNoGapModel2Point = {
-                        "-InputFile": noGapsFid,
-                        "-OutputFile": self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
-                    }
-                    self.runProgram(MODEL2POINT_PROGRAM, paramsNoGapModel2Point)
-            except Exception as e:
-                self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
-                                    f'failed with the exception -> {e}'))
+        if tsId in self.failedItems:
+            return
+        try:
+            # Check that previous steps have been completed satisfactorily
+            noGapsFid = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
+            if exists(noGapsFid):
+                paramsNoGapModel2Point = {
+                    "-InputFile": noGapsFid,
+                    "-OutputFile": self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
+                }
+                self.runProgram(MODEL2POINT_PROGRAM, paramsNoGapModel2Point)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {MODEL2POINT_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
-        if tsId not in self.failedItems:
-            try:
-                with self._lock:
-                    # Fiducial model
-                    self.createOutModel(tsId)
-                    # Tilt-series
-                    ts = self.getCurrentTs(tsId)
-                    self.createOutTs(ts, self._getInTsSet(pointer=True))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
-                                    f'with exception {e}. Skipping... '))
+        if tsId in self.failedItems:
+            return
+        try:
+            with self._lock:
+                # Fiducial model
+                self.createOutModel(tsId)
+                # Tilt-series
+                ts = self.getCurrentTs(tsId)
+                self.createOutTs(ts, self._getInTsSet(pointer=True))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
+                                f'with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

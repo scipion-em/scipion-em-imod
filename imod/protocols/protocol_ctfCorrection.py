@@ -25,6 +25,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 from typing import Set, Tuple
 from imod.protocols.protocol_base import IN_CTF_TOMO_SET
@@ -150,7 +151,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                             "For a specific GPU set its number ID "
                             "(starting from 1).")
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
@@ -208,15 +209,16 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 ctf = self.getCurrentCtf(tsId)
-                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
-                super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
-                # Generate the defocus file
-                self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+            presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+            # Generate the defocus file
+            self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
+            # Generate the alignment files
+            super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.warning(yellowStr(f'tsId = {tsId} -> No corresponding CTFTomoSeries found. Skipping...' ))
             logger.error(redStr(f'{e}'))
+            logger.error(traceback.format_exc())
 
     def ctfCorrection(self, tsId: str):
         if tsId not in self.failedItems:
@@ -260,7 +262,9 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
             except Exception as e:
                 self.failedItems.append(tsId)
-                logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed with the exception -> {e}'))
+                logger.error(redStr(f'tsId = {tsId} -> {CTF_PHASE_FLIP_PROGRAM} execution failed '
+                                    f'with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -289,11 +293,11 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                     self._store(outTsSet)
                     # Close explicitly the outputs (for streaming)
                     self.closeOutputsForStreaming()
-
             else:
                 logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- UTILS functions -----------------------------
     def _generateDefocusFile(self, ts: TiltSeries,
@@ -302,7 +306,8 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         tsId = ts.getTsId()
         self.debug(f"tsId = {tsId} -> Generating defocus file...")
         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
-        utils.generateDefocusIMODFileFromObject(ctf, defocusFilePath,
+        utils.genDefocusFileFromScipion(ctf,
+                                                defocusFilePath,
                                                 inputTiltSeries=ts,
                                                 presentAcqOrders=presentAcqOrders)
 

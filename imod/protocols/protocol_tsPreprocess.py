@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
@@ -139,7 +140,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             self.linkTs(firstTi.getFileName(), outTsFn)
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
-
+            logger.error(traceback.format_exc())
 
     def generateOutputStackStep(self, tsId: str, binning: int):
         if tsId not in self.failedItems:
@@ -181,6 +182,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
                                     f'failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str, binning: int):
         if tsId in self.failedItems:
@@ -215,6 +217,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -25,12 +25,14 @@
 # *****************************************************************************
 import logging
 import time
+import traceback
 import typing
+from subprocess import CalledProcessError
 from typing import Union, Tuple, List
 from imod.convert.convert import genXfFile
 from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
-from pyworkflow.utils import path, cyanStr, redStr
+from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
@@ -105,7 +107,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         time.sleep(10)
         if inSet.isStreamOpen():
             with self._lock:
-                inSet.loadAllProperties()
+                inSet.loadAllProperties()  # refresh status for the streaming
 
     def closeOutputsForStreaming(self):
         # Close explicitly the outputs (for streaming)
@@ -140,6 +142,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def convertInputForEvProgram(self, tsId: str) -> None:
         """The input converters of the protocols that use main IMOD programs (excluding newstack,
@@ -201,19 +204,30 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             if hasAlignment:
                 xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all the views to make newstack interpolate and
-                # re-stack using its own excluded views feature
-                genXfFile(ts, xfFile)
-                self.runNewStackBasic(ts,
-                                      xfFile=xfFile,
-                                      presentAcqOrders=presentAcqOrders)
+                try:
+                    # The xf file must contain all the views to make newstack interpolate and
+                    # re-stack using its own excluded views feature
+                    genXfFile(ts, xfFile)
+                    self.runNewStackBasic(ts,
+                                          xfFile=xfFile,
+                                          presentAcqOrders=presentAcqOrders)
+                except Exception as e:
+                    # In some cases, newstack may fail (e.g. the assigning the transformation matrix from one
+                    # tilt-series with smaller number of elements to a bigger one). In that case, newstack fails
+                    # because it is not prepared to manage a tilt-series binary file with more tilt-images than
+                    # lines in the alignment file, but Scipion can manage that case
+                    logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
+                                          f'{e}'))
+                    logger.info(cyanStr(f'Trying with Scipion...'))
+                    outTsFn, _, _ = self.getTmpFileNames(ts)
+                    ts.applyTransform(outTsFn)
+
                 # After that, for the following programs, a new xfFile without the
                 # excluded views must be generated to be used by the protocol main program
                 genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
             else:
                 # Re-stack
-                self.runNewStackBasic(ts,
-                                      presentAcqOrders=presentAcqOrders)
+                self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
 
         # Generate the tlt file without the excluded views must be generated to be
         # used by the protocol main program
@@ -232,7 +246,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             raise Exception(f'No output/s {failedOutputList} were generated. Please check the '
                             f'Output Log > run.stdout and run.stderr')
 
-       # --------------------------- OUTPUT functions ----------------------------
+    # --------------------------- OUTPUT functions ----------------------------
     def getOutputSetOfTS(self,
                          inputPtr,
                          binning=1,
@@ -518,9 +532,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             logger.info(cyanStr(f'\t--> xf file detected. The tilt-series will be interpolated with {xfFile}'))
 
             if doSwap:
-                    dimX, dimY, _ = ts.getFirstItem().getDim()
-                    paramsNs["-size"] = f"{round(dimY / binning)}," \
-                                      f"{round(dimX / binning)}"
+                dimX, dimY, _ = ts.getFirstItem().getDim()
+                paramsNs["-size"] = f"{round(dimY / binning)}," \
+                                    f"{round(dimX / binning)}"
 
         if tsExcludedIndices:
             paramsNs["-exclude"] = ",".join(map(str, tsExcludedIndices))
@@ -552,7 +566,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
-        firstTi = ts.getFirstItem()
+        with self._lock:
+            firstTi = ts.getFirstItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
             tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)

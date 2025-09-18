@@ -25,6 +25,7 @@
 # *
 # **************************************************************************
 import logging
+import traceback
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -60,7 +61,7 @@ class ProtImodExcludeViews(ProtImodBase):
         form.addSection(Message.LABEL_INPUT)
         super().addInTsSetFormParam(form)
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
@@ -109,7 +110,9 @@ class ProtImodExcludeViews(ProtImodBase):
 
         except Exception as e:
             self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {EXCLUDE_VIEWS_PROGRAM} execution failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {tsId} -> {EXCLUDE_VIEWS_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
         if tsId in self.failedItems:
@@ -180,6 +183,7 @@ class ProtImodExcludeViews(ProtImodBase):
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -98,7 +99,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                            'may be needed to make extra-large peak removal '
                            'useful.')
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=2, mpi=0)
+        form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
@@ -153,13 +154,13 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 if self.doOddEven:
                     # Odd
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
-                    inputFile = ts.getOddFileName(),
+                    inputFile = ts.getOddFileName()
                     outputFile = self.getExtraOutFile(tsId, suffix=ODD)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
                     # Even
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
-                    inputFile = ts.getEvenFileName(),
+                    inputFile = ts.getEvenFileName()
                     outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
@@ -167,6 +168,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
                                     f'with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
         if tsId in self.failedItems:
@@ -207,6 +209,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,
