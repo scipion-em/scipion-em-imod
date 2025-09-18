@@ -262,8 +262,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             logger.info(cyanStr(f'tsId = {tsId}: generating the fiducial seeds...'))
             self.generateTrackCom(tsId)
             trackFile = f'{tsId}_track.com'
-            # trackFile = self.getExtraOutFile(tsId, suffix="track", ext="com")
-            # if exists(trackFile):
             if exists(self.getExtraOutFile(tsId, suffix="track", ext="com")):
                 paramsAutofidseed = {
                     "-TrackCommandFile": trackFile,

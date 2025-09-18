@@ -154,13 +154,13 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 if self.doOddEven:
                     # Odd
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
-                    inputFile = ts.getOddFileName(),
+                    inputFile = ts.getOddFileName()
                     outputFile = self.getExtraOutFile(tsId, suffix=ODD)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
                     # Even
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
-                    inputFile = ts.getEvenFileName(),
+                    inputFile = ts.getEvenFileName()
                     outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)

@@ -221,7 +221,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     logger.info(cyanStr(f'Trying with Scipion...'))
                     outTsFn, _, _ = self.getTmpFileNames(ts)
                     ts.applyTransform(outTsFn)
-                    logger.info(cyanStr(f'Done!'))
 
                 # After that, for the following programs, a new xfFile without the
                 # excluded views must be generated to be used by the protocol main program
@@ -567,7 +566,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
-        firstTi = ts.getFirstItem()
+        with self._lock:
+            firstTi = ts.getFirstItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
             tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)

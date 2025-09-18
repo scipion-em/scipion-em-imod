@@ -404,11 +404,11 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
                 paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
 
-            paramsTiltAlign["2>&1 | tee "] = self._getExtraPath("align.log")
+            paramsTiltAlign["2>&1 | tee "] = self._getExtraPath(tsId, "align.log")
 
             self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
             self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
-                            cwd=self._getExtraPath())
+                            cwd=self._getExtraPath(tsId))
 
         except Exception as e:
             self.failedItems.append(tsId)
