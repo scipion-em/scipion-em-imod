@@ -23,14 +23,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+import logging
 from typing import List
 
 from pyworkflow.object import CsvList, Float
 import pyworkflow.utils as pwutils
+from pyworkflow.utils import cyanStr
 
 with pwutils.weakImport('tomo'):
     from tomo.objects import CTFTomo
-
+logger = logging.getLogger(__name__)
 
 class ImodCtfParser:
 
@@ -81,11 +83,11 @@ class ImodCtfParser:
             tiObjId = ti.getObjId()
             newCTFTomo = CTFTomo()
 
-            if ti.isEnabled():
+            # Plain estimation (any defocus flag)
+            newCTFTomo._defocusUList = CsvList(pType=float)
+            newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
 
-                # Plain estimation (any defocus flag)
-                newCTFTomo._defocusUList = CsvList(pType=float)
-                newCTFTomo.setDefocusUList(defocusUDict.get(tiObjId, [0.]))
+            if ti.isEnabled():
 
                 if defocusFileFlag == 1:
                     # Astigmatism estimation
