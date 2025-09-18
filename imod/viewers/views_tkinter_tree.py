@@ -333,6 +333,9 @@ class ImodListDialog(ListDialog):
                 ti = ts.getItem('_index', index)
                 imagePath = ti.getFileName()
 
+            if imagePath is None:
+                return
+
             imgStk = ImageReadersRegistry.open(imagePath)
             originalImg = imgStk.getImage(index=index, pilImage=True)
             imgW, imgH = originalImg.size
