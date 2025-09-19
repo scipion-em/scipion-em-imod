@@ -36,7 +36,7 @@ import tomo.objects
 from imod import Plugin
 from imod.constants import MRC_EXT, XYZ_EXT, FID_EXT, RESID_EXT, DEFOCUS_EXT, INTERPOLATED_FOLDER
 from imod.protocols import ProtImodEtomo
-from tomo.objects import SetOfTiltSeries
+from tomo.objects import SetOfTiltSeries, SetOfLandmarkModels
 
 
 class protClass:
@@ -322,13 +322,21 @@ class ImodListDialog(ListDialog):
         objs = self.provider.objs
         index = 0
         try:
+            objsProvider = self.provider.getObjects()
+            obj = objsProvider[itemId]
+
             if isinstance(objs, tomo.objects.SetOfTomograms):
-                obj = self.provider.getObjects()[itemId]
                 imagePath = obj.getFileName()
                 index = obj.getDim()[2] // 2
-            elif isinstance(objs, tomo.objects.SetOfTiltSeries):
-                tsId = self.provider.getObjects()[itemId].getTsId()
-                ts = objs.getItem('_tsId', tsId)
+
+            elif isinstance(objs, (tomo.objects.SetOfTiltSeries, tomo.objects.SetOfLandmarkModels)):
+                tsId = obj.getTsId()
+                if isinstance(objs, tomo.objects.SetOfTiltSeries):
+                    ts = objs.getItem('_tsId', tsId)
+                else:  # SetOfLandmarkModels
+                    objs = objs.getSetOfTiltSeries()
+                    ts = objs.getItem('_tsId', tsId)
+
                 index = ts.getSize() // 2
                 ti = ts.getItem('_index', index)
                 imagePath = ti.getFileName()
@@ -343,15 +351,14 @@ class ImodListDialog(ListDialog):
             y = (self.canvasHeight - newSize[1]) // 2
 
             if isinstance(objs, tomo.objects.SetOfTiltSeries):
-                THUMBNAIL_SIZE = self.canvasWidth
-                minDim = min(imgW, imgH)
-                ratio = THUMBNAIL_SIZE / minDim
+                ratio = min(self.canvasWidth / imgW, self.canvasHeight / imgH)
                 if ratio > 1:
                     image = imgStk.scaleSlice(np.array(pilImg), ratio)
                 elif ratio < 1:
-                    image = imgStk.thumbnailSlice(np.array(pilImg),
-                                                  int(imgW * ratio),
-                                                  int(imgH * ratio))
+                    image = imgStk.asPilImage(np.array(pilImg), normalize=True)
+                    image.thumbnail((int(imgW * ratio), int(imgH * ratio)))
+                    image = np.array(image)
+
                 if hasattr(self, 'displayInterpolated') and self.displayInterpolated.get():
                     rot = None
                     shifts = None
@@ -367,9 +374,9 @@ class ImodListDialog(ListDialog):
                         shiftX = shifts[0] * ratio
                         shiftY = shifts[1] * ratio
                         image = imgStk.transformSlice(image, (shiftX, shiftY), rot)
-                        image = imgStk.thumbnailSlice(image,
-                                                      THUMBNAIL_SIZE,
-                                                      THUMBNAIL_SIZE)
+                        image = imgStk.asPilImage(image, normalize=True)
+                        image.thumbnail((self.canvasWidth, self.canvasHeight))
+                        image = np.array(image)
                         imgH, imgW = image.shape[:2]
                         x = (self.canvasWidth - imgW) // 2
                         y = (self.canvasHeight - imgH) // 2
