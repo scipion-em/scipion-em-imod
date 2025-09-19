@@ -293,8 +293,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         return outputSet
 
-    def getOutputSetOfCTFTomoSeries(self, inputPtr, outputSetName):
-        inputSet = inputPtr.get()
+    def getOutputSetOfCTFTomoSeries(self,
+                                    inputPtr: Pointer,
+                                    outputSetName: str) -> SetOfCTFTomoSeries:
 
         outputSetOfCTFTomoSeries = getattr(self, outputSetName, None)
 
@@ -306,7 +307,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             outputSetOfCTFTomoSeries.setSetOfTiltSeries(inputPtr)
             outputSetOfCTFTomoSeries.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{outputSetName: outputSetOfCTFTomoSeries})
-            self._defineCtfRelation(inputSet, outputSetOfCTFTomoSeries)
+            self._defineCtfRelation(inputPtr, outputSetOfCTFTomoSeries)
 
         return outputSetOfCTFTomoSeries
 
