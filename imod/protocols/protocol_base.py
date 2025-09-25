@@ -457,10 +457,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def readingOutput(self,
                       outSet: Union[SetOfTiltSeries, SetOfTomograms,
-                      SetOfLandmarkModels, SetOfCTFTomoSeries]) -> None:
+                      SetOfLandmarkModels, SetOfCTFTomoSeries],
+                      tsIdListName: str = None) -> None:
         if outSet:
+            if tsIdListName:
+                tsIdList = getattr(self, tsIdListName)
+            else:
+                tsIdList = self.tsIdReadList
             for item in outSet:
-                self.tsIdReadList.append(item.getTsId())
+                tsIdList.append(item.getTsId())
             self.info(cyanStr(f'Item processed {self.tsIdReadList}'))
         else:
             self.info(cyanStr('No items have been processed yet'))
