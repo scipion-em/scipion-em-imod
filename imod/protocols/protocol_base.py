@@ -102,7 +102,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
-    def refreshStreaming(self, inSet: Union[SetOfTiltSeries, SetOfLandmarkModels]):
+    def refreshStreaming(self,
+                         inSet: Union[SetOfTiltSeries, SetOfLandmarkModels, SetOfCTFTomoSeries]):
         # Refresh status for the streaming
         time.sleep(10)
         if inSet.isStreamOpen():

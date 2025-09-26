@@ -181,13 +181,19 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
+                logger.info(f'Current tsId = {tsId}, current tsIdReadList = {self.tsIdReadList} '
+                            f'with size = ´{ts.getSize()}')
                 if tsId not in self.tsIdReadList and ts.getSize() > 0:
                     try:
                         ctf = self.getCurrentCtf(tsId)
-                    except Exception:
-                        logger.info(cyanStr(f'tsId = {tsId} - no corresponding CTF was found...'))
+                    except Exception as e:
+                        logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
+                        logger.error(f'{e}')
+                        logger.error(traceback.format_exc())
                         continue
 
+                    logger.info(f'Current tsId = {tsId}, current ctfTsIdReadList = {self.ctfTsIdReadList} '
+                                f'with size = ´{ts.getSize()}')
                     if tsId not in self.ctfTsIdReadList and ctf.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
                         pidConvert = self._insertFunctionStep(self.convertInStep,
                                                               tsId,
@@ -207,6 +213,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                         self.ctfTsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
+            self.refreshStreaming(inCtfSet)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
