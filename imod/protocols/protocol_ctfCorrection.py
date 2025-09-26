@@ -85,6 +85,11 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         super().__init__(**kwargs)
         self.ctfTsIdReadList = []
 
+    @classmethod
+    def worksInStreaming(cls):
+        """ So far none of them work in streaming. """
+        return True
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
