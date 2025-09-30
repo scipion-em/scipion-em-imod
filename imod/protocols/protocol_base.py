@@ -102,7 +102,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
 
-    def refreshStreaming(self, inSet: Union[SetOfTiltSeries, SetOfLandmarkModels]):
+    def refreshStreaming(self,
+                         inSet: Union[SetOfTiltSeries, SetOfLandmarkModels, SetOfCTFTomoSeries]):
         # Refresh status for the streaming
         time.sleep(10)
         if inSet.isStreamOpen():
@@ -457,10 +458,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def readingOutput(self,
                       outSet: Union[SetOfTiltSeries, SetOfTomograms,
-                      SetOfLandmarkModels, SetOfCTFTomoSeries]) -> None:
+                      SetOfLandmarkModels, SetOfCTFTomoSeries],
+                      tsIdListName: str = None) -> None:
         if outSet:
+            if tsIdListName:
+                tsIdList = getattr(self, tsIdListName)
+            else:
+                tsIdList = self.tsIdReadList
             for item in outSet:
-                self.tsIdReadList.append(item.getTsId())
+                tsIdList.append(item.getTsId())
             self.info(cyanStr(f'Item processed {self.tsIdReadList}'))
         else:
             self.info(cyanStr('No items have been processed yet'))

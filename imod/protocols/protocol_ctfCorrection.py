@@ -38,7 +38,7 @@ from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
-                            EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM)
+                            EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM, OUTPUT_CTF_SERIE)
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,12 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.tsReadList = []
+        self.ctfTsIdReadList = []
+
+    @classmethod
+    def worksInStreaming(cls):
+        """ So far none of them work in streaming. """
+        return True
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -164,10 +169,14 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         self._initialize()
         inTsSet = self.getInputTsSet()
         self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
+        inCtfSet = self.getInputCtfSet()
+        self.readingOutput(getattr(self, OUTPUT_CTF_SERIE, None), tsIdListName='ctfTsIdList')
 
         while True:
-            listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+            listTsIdInput = inTsSet.getTSIds()
+            listCtfTsIdInput = inCtfSet.getTSIds()
+            if ((not inTsSet.isStreamOpen() and self.tsIdReadList == listTsIdInput) and
+                    (not inCtfSet.isStreamOpen() and self.ctfTsIdReadList == listCtfTsIdInput)):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -177,24 +186,34 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             closeSetStepDeps = []
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
-                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    pidConvert = self._insertFunctionStep(self.convertInStep,
-                                                          tsId,
-                                                          prerequisites=[],
-                                                          needsGPU=False)
-                    pidProcess = self._insertFunctionStep(self.ctfCorrection,
-                                                          tsId,
-                                                          prerequisites=pidConvert,
-                                                          needsGPU=True)
-                    pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                               tsId,
-                                                               prerequisites=pidProcess,
-                                                               needsGPU=False)
-                    closeSetStepDeps.append(pidCreateOutput)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsReadList.append(tsId)
+                if tsId not in self.tsIdReadList and ts.getSize() > 0:
+                    try:
+                        ctf = self.getCurrentCtf(tsId)
+                    except Exception as e:
+                        logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
+                        logger.error(f'{e}')
+                        logger.error(traceback.format_exc())
+                        continue
+                    if tsId not in self.ctfTsIdReadList and ctf.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
+                        pidConvert = self._insertFunctionStep(self.convertInStep,
+                                                              tsId,
+                                                              prerequisites=[],
+                                                              needsGPU=False)
+                        pidProcess = self._insertFunctionStep(self.ctfCorrection,
+                                                              tsId,
+                                                              prerequisites=pidConvert,
+                                                              needsGPU=True)
+                        pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                                   tsId,
+                                                                   prerequisites=pidProcess,
+                                                                   needsGPU=False)
+                        closeSetStepDeps.append(pidCreateOutput)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsIdReadList.append(tsId)
+                        self.ctfTsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
+            self.refreshStreaming(inCtfSet)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
