@@ -28,6 +28,7 @@ import traceback
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
@@ -198,6 +199,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
                     outTs = TiltSeries()
                     outTs.copyInfo(ts)
                     outTsSet.append(outTs)
+                    setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
                     # Tilt-images
                     for ti in ts.iterItems():
                         outTi = TiltImage()

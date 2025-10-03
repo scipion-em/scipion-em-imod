@@ -32,6 +32,7 @@ from imod.protocols.protocol_base import IN_CTF_TOMO_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pwem import ALIGN_NONE
 import pyworkflow.protocol.params as params
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
@@ -305,6 +306,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                     # Tilt-images
                     tiList, angleMin, angleMax = self._processTiltImages(ts, presentAcqOrders, outputFn)
                     self._updateAcquisition(ts, ctf, presentAcqOrders, outTs, tiList, angleMin, angleMax)
+                    setMRCSamplingRate(outputFn, ts.getSamplingRate())  # Update the apix value in file header
                     # Data persistence
                     outTs.write()
                     outTsSet.update(outTs)

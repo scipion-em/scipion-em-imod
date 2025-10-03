@@ -30,6 +30,7 @@ import traceback
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
@@ -123,6 +124,7 @@ class ProtImodExcludeViews(ProtImodBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 outFn = self.getExtraOutFile(tsId)
+                setMRCSamplingRate(outFn, ts.getSamplingRate())  # Update the apix value in file header
                 outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 outTs = TiltSeries()
                 outTs.copyInfo(ts)
