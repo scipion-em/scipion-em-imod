@@ -643,7 +643,8 @@ class TestImodBase(TestBaseCentralizedLayer):
     def _checkTiltSeries(self,
                          inTsSet: SetOfTiltSeries,
                          binningFactor: Optional[int] = 1,
-                         excludedViewsDict: Optional[dict] = None) -> None:
+                         excludedViewsDict: Optional[dict] = None,
+                         checkHeaderApix: bool = True) -> None:
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
                              expectedSRate=self.unbinnedSRate * binningFactor,
@@ -654,7 +655,8 @@ class TestImodBase(TestBaseCentralizedLayer):
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst,
-                             excludedViewsDict=excludedViewsDict)
+                             excludedViewsDict=excludedViewsDict,
+                             checkHeaderApix=checkHeaderApix)
 
     def _checkInterpTiltSeries(self, inTsSet, testAcqObjDict=None, testAnglesCountDict=None, binningFactor=1):
         if not testAcqObjDict:
@@ -869,8 +871,8 @@ class TestImodImportTrMatrix(TestImodBase):
                              testAcqObj=self.testAcqObjDict,
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
-
+                             expectedOrigin=tsOriginAngst,
+                             checkHeaderApix=False)
     def testImportTrMatrix01(self):
         tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
         self._checkTs(tsImportedTrMat)
@@ -900,7 +902,8 @@ class TestImodImportTrMatrixWithPattern(TestImodBase):
                              testAcqObj=testAcqObjDict,
                              anglesCount=anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             checkHeaderApix=False)
 
     def testImportTrMatrixWpat01(self):
         # exclusionWords = '01 43 45'  # Imported CTF should be TS_03 and TS_54
@@ -1010,7 +1013,8 @@ class TestImodXcorrAlignment(TestImodBase):
                              anglesCount=self.anglesCountDict,
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst,
-                             excludedViewsDict=excludedViewsDict)
+                             excludedViewsDict=excludedViewsDict,
+                             checkHeaderApix=False)
 
     def testXcorAli01(self):
         xCorrTs = self._runXcorrAli(self.importedTs)
@@ -1148,7 +1152,7 @@ class TestImodTsAlignment(TestImodBase):
         tsAli, fiducialModels = self._runFiducialAli(self.fiducialModels,
                                                      objLabel='testFiducialAli01')
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1157,7 +1161,7 @@ class TestImodTsAlignment(TestImodBase):
                                                      objLabel='testFiducialAli02',
                                                      bothSurfaces=True)
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1167,7 +1171,7 @@ class TestImodTsAlignment(TestImodBase):
                                                      rotationType=GROUP_ROTATIONS,
                                                      distortionType=DIST_FULL_SOLUTION)
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1178,7 +1182,7 @@ class TestImodTsAlignment(TestImodBase):
                                                      tiltAngleType=ALL_EXCEPT_MIN,
                                                      distortionType=DIST_SKEW_ONLY)
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1192,7 +1196,9 @@ class TestImodTsAlignment(TestImodBase):
                                                      objLabel='testFiducialAli05, eV',
                                                      bothSurfaces=True)
         # Check the generated TS
-        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        self._checkTiltSeries(tsAli,
+                              excludedViewsDict=self.excludedViewsDict,  # Excluded at metadata level
+                              checkHeaderApix=False)
         # Check the fiducial models
         self._checkFiducialModels(fiducialModels)
 
@@ -1205,7 +1211,7 @@ class TestImodTsAlignmentBRT(TestImodBase):
                              alignMode=FIDUCIAL_MODEL,
                              objLabel='testBRT_FiduAli_01')
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
 
     def testBRT_FiduAli_01_eV(self):
         importedTs = self._runImportTs()
@@ -1217,14 +1223,16 @@ class TestImodTsAlignmentBRT(TestImodBase):
                              eV=True,
                              objLabel='testBRT_FiduAli_01, eV')
         # Check the generated TS
-        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        self._checkTiltSeries(tsAli,
+                              excludedViewsDict=self.excludedViewsDict,  # Excluded at metadata level
+                              checkHeaderApix=False)
 
     def testBRT_PTAli_01(self):
         tsAli = self._runBRT(self.importedTs,
                              alignMode=PATCH_TRACKING,
                              objLabel='testBRT_PTAli_01')
         # Check the generated TS
-        self._checkTiltSeries(tsAli)
+        self._checkTiltSeries(tsAli, checkHeaderApix=False)
 
     def testBRT_PTAli_02_eV(self):
         importedTs = self._runImportTs()
@@ -1235,7 +1243,9 @@ class TestImodTsAlignmentBRT(TestImodBase):
                              eV=True,
                              objLabel='testBRT_PTAli_02, eV')
         # Check the generated TS
-        self._checkTiltSeries(tsAli, excludedViewsDict=self.excludedViewsDict)  # Excluded at metadata level
+        self._checkTiltSeries(tsAli,
+                              excludedViewsDict=self.excludedViewsDict,  # Excluded at metadata level
+                              checkHeaderApix=False)
 
 
 class TestImodTomoReconstruction(TestImodBase):
@@ -1495,7 +1505,12 @@ class TestImodExcludeViews(TestImodBase):
     def _runPreviousProtocols(cls):
         pass
 
-    def _checkTs(self, inTsSet, testAcqObjDict, anglesCountDict, binningFactor=1):
+    def _checkTs(self,
+                 inTsSet: SetOfTiltSeries,
+                 testAcqObjDict: dict,
+                 anglesCountDict: dict,
+                 binningFactor: int = 1,
+                 checkHeaderApix: bool = True) -> None:
         expectedDimensions = self._getExpectedDimsDict(nImgsDict=anglesCountDict, binningFactor=binningFactor)
         self.checkTiltSeries(inTsSet,
                              expectedSetSize=self.expectedTsSetSize,
@@ -1505,7 +1520,8 @@ class TestImodExcludeViews(TestImodBase):
                              testAcqObj=testAcqObjDict,
                              anglesCount=anglesCountDict,
                              isHeterogeneousSet=True,
-                             expectedOrigin=tsOriginAngst)
+                             expectedOrigin=tsOriginAngst,
+                             checkHeaderApix=checkHeaderApix)
 
     def testExcludeViews01(self):
         importedTs = self._runImportTs()
@@ -1513,11 +1529,7 @@ class TestImodExcludeViews(TestImodBase):
         # Run the protocol
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
         # Check the results
-        self._checkTs(outTsSet, self.testAcqObjDict, self.anglesCountDict)
-
-    def testExcludeViews02(self):
-        importedTs = self._runImportTs()
-        # Exclude some views at metadata level
+        self._checkTs(outTsSet, self.testAcqObjDict, self.anglesCountDict, checkHeaderApix=False)
         self._excludeSetViews(importedTs)
         # Run the protocol
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews02')
@@ -1526,7 +1538,7 @@ class TestImodExcludeViews(TestImodBase):
                       testAcqObjDict=self._gentestAcqObjDictReStacked(),
                       anglesCountDict=self.anglesCountDictExcluded)
 
-    def testExcludeViews03(self):
+    def testExcludeViews02(self):
         # Other views excluded respecting the previous tests
         excludedViewsDict = {
             TS_03: [0, 1, 38, 39],
@@ -1610,15 +1622,6 @@ class TestImodCtfCorrection(TestImodBase):
         TS_03: 36,
         TS_54: 36,
     }
-
-    # excludedViewsDict = {
-    #     TS_03: [0, 38, 39],
-    #     TS_54: [0, 1, 38, 39, 40]
-    # }
-    # anglesCountDictExcluded = {
-    #     TS_03: 37,
-    #     TS_54: 36,
-    # }
 
     @classmethod
     def _runPrevProts(cls, importCtf=True):

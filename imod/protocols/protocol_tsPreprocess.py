@@ -29,6 +29,7 @@ from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltImage, TiltSeries
@@ -195,6 +196,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                 with self._lock:
                     ts = self.getCurrentTs(tsId)
                     outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
+                    setMRCSamplingRate(outputFn, outTsSet.getSamplingRate())  # Update the apix value in file header
                     outTs = TiltSeries()
                     outTs.copyInfo(ts)
                     outTsSet.append(outTs)

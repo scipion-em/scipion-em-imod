@@ -124,7 +124,8 @@ class ProtImodExcludeViews(ProtImodBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 outFn = self.getExtraOutFile(tsId)
-                setMRCSamplingRate(outFn, ts.getSamplingRate())  # Update the apix value in file header
+                if ts.hasExcludedViews():  # Then a new binary will be generated. If not, the original file remains linked
+                    setMRCSamplingRate(outFn, ts.getSamplingRate())  # Update the apix value in file header
                 outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 outTs = TiltSeries()
                 outTs.copyInfo(ts)
