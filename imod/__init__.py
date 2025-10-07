@@ -36,7 +36,7 @@ from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
                             VERSIONS, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
                             BRT, BRT_PROGRAM_DEFAULT_VERSION, BRT_ENV_NAME, BRT_PROGRAM, IMOD_VIEWER_BINNING)
 
-__version__ = '3.8.1'
+__version__ = '3.8.0'
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
