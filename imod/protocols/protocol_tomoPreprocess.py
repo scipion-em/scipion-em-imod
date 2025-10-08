@@ -28,6 +28,7 @@ import traceback
 from os.path import exists
 from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, moveFile, cyanStr, redStr
 from tomo.objects import Tomogram, SetOfTomograms
@@ -94,7 +95,6 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                                               needsGPU=False)
             outId = self._insertFunctionStep(self.generateOutputStep,
                                              tsId,
-                                             runNewStack,
                                              binning,
                                              prerequisites=compId,
                                              needsGPU=False)
@@ -133,45 +133,46 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def generateOutputStep(self, tsId: str,
-                           runNewstack: bool,
+    def generateOutputStep(self,
+                           tsId: str,
                            binning: int):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId, inputsAreTs=False)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
-                if exists(outputFn):
-                    with self._lock:
-                        tomo = self.getCurrentTomo(tsId)
-                        # Set of tomograms
-                        outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True),
-                                                                  binning=binning)
-                        # Tomogram
-                        outTomo = Tomogram(tsId=tsId)
-                        outTomo.copyInfo(tomo)
-                        outTomo.setFileName(outputFn)
-                        if binning > 1:
-                            outTomo.setSamplingRate(tomo.getSamplingRate() * binning)
-                            # Fix the mrc tomogram
-                            outTomo.fixMRCVolume(setSamplingRate=True)
-                            # Set default tomogram origin
-                            outTomo.setOrigin(newOrigin=None)
-                        if self.doOddEven:
-                            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                            outTomo.setHalfMaps(halfMapsList)
-                        # Data persistence
-                        outTomoSet.append(outTomo)
-                        outTomoSet.updateDim()
-                        outTomoSet.update(outTomo)
-                        outTomoSet.write()
-                        self._store(outTomoSet)
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
-                logger.error(traceback.format_exc())
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
+            if exists(outputFn):
+                with self._lock:
+                    tomo = self.getCurrentTomo(tsId)
+                    # Set of tomograms
+                    outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True),
+                                                              binning=binning)
+                    setMRCSamplingRate(outputFn, outTomoSet.getSamplingRate())  # Update the apix value in file header
+                    # Tomogram
+                    outTomo = Tomogram(tsId=tsId)
+                    outTomo.copyInfo(tomo)
+                    outTomo.setFileName(outputFn)
+                    if binning > 1:
+                        outTomo.setSamplingRate(tomo.getSamplingRate() * binning)
+                        # Fix the mrc tomogram
+                        outTomo.fixMRCVolume(setSamplingRate=True)
+                        # Set default tomogram origin
+                        outTomo.setOrigin(newOrigin=None)
+                    if self.doOddEven:
+                        halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                                        self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+                        outTomo.setHalfMaps(halfMapsList)
+                    # Data persistence
+                    outTomoSet.append(outTomo)
+                    outTomoSet.updateDim()
+                    outTomoSet.update(outTomo)
+                    outTomoSet.write()
+                    self._store(outTomoSet)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

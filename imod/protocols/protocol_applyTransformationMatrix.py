@@ -31,6 +31,7 @@ import pyworkflow.protocol.params as params
 from imod.convert.convert import genXfFile
 from imod.protocols.protocol_base import BINNING_FACTOR, NEWSTACK_PROGRAM
 from pwem import ALIGN_NONE
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
@@ -250,6 +251,9 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         tsId = ts.getTsId()
         angleMin, angleMax = 999, -999
         accumDose, initialDose = 0, 999
+        tiFn = self.getExtraOutFile(tsId)
+        # Update the sampling rate in the file header
+        setMRCSamplingRate(tiFn, ts.getSamplingRate() * self.binning.get())
         tiList = []
 
         for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
@@ -264,7 +268,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
 
             outTi = TiltImage()
             outTi.copyInfo(ti)
-            outTi.setFileName(self.getExtraOutFile(tsId))
+            outTi.setFileName(tiFn)
             outTi.getAcquisition().setTiltAxisAngle(0.)
             outTi.setTransform(None)
 

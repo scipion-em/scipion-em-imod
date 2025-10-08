@@ -27,6 +27,8 @@ import logging
 import traceback
 from os.path import exists
 from typing import List
+
+from pwem.convert.headers import setMRCSamplingRate
 from pwem.objects import Transform, Pointer
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
@@ -141,71 +143,72 @@ class ProtImodTomoProjection(ProtImodBase):
     def generateOutputStackStep(self, tsId: str):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId, inputsAreTs=False)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId)
-                if exists(outputFn):
-                    tomo = self.getCurrentTomo(tsId)
-                    with self._lock:
-                        # Set of tilt-series
-                        outTsSet = self.getOutputSetOfTS(self.getInputTomoSet(pointer=True))
-                        # Tilt-series
-                        outTs = TiltSeries(tsId=tsId)
-                        acq = tomo.getAcquisition()
-                        acq.setAngleMin(self.minAngle.get())
-                        acq.setAngleMax(self.maxAngle.get())
-                        acq.setStep(self.stepAngle.get())
-                        acq.setTiltAxisAngle(0)
-                        outTs.setAcquisition(acq)
-                        outTsSet.append(outTs)
-                        # Tilt-images
-                        # Generate fake CTFs
-                    ctfSet = self.getOutputSetOfCTFTomoSeries(Pointer(self, extended=OUTPUT_TILTSERIES_NAME),
-                                                              OUTPUT_CTF_SERIE)
-                    ctfSerie = CTFTomoSeries()
-                    ctfSerie.copyInfo(outTs)
-                    ctfSerie.setTiltSeries(outTs)
-                    ctfSerie.setTsId(tsId)
-                    ctfSet.append(ctfSerie)
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                tomo = self.getCurrentTomo(tsId)
+                setMRCSamplingRate(outputFn, tomo.getSamplingRate())  # Update the apix value in file header
+                with self._lock:
+                    # Set of tilt-series
+                    outTsSet = self.getOutputSetOfTS(self.getInputTomoSet(pointer=True))
+                    # Tilt-series
+                    outTs = TiltSeries(tsId=tsId)
+                    acq = tomo.getAcquisition()
+                    acq.setAngleMin(self.minAngle.get())
+                    acq.setAngleMax(self.maxAngle.get())
+                    acq.setStep(self.stepAngle.get())
+                    acq.setTiltAxisAngle(0)
+                    outTs.setAcquisition(acq)
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    # Generate fake CTFs
+                ctfSet = self.getOutputSetOfCTFTomoSeries(Pointer(self, extended=OUTPUT_TILTSERIES_NAME),
+                                                          OUTPUT_CTF_SERIE)
+                ctfSerie = CTFTomoSeries()
+                ctfSerie.copyInfo(outTs)
+                ctfSerie.setTiltSeries(outTs)
+                ctfSerie.setTsId(tsId)
+                ctfSet.append(ctfSerie)
 
-                    tiltAngleList = self.getTiltAngleList()
-                    sRate = tomo.getSamplingRate()
-                    for slice in range(1, self.getProjectionRange()+1):
-                        newTi = TiltImage(tsId=tsId,
-                                          tiltAngle=tiltAngleList[slice-1],
-                                          acquisitionOrder=slice)
-                        newTi.setLocation(slice, outputFn)
-                        newTi.setSamplingRate(sRate)
-                        newTi.setAcquisition(acq)
-                        outTs.append(newTi)
+                tiltAngleList = self.getTiltAngleList()
+                sRate = tomo.getSamplingRate()
+                for slice in range(1, self.getProjectionRange()+1):
+                    newTi = TiltImage(tsId=tsId,
+                                      tiltAngle=tiltAngleList[slice-1],
+                                      acquisitionOrder=slice)
+                    newTi.setLocation(slice, outputFn)
+                    newTi.setSamplingRate(sRate)
+                    newTi.setAcquisition(acq)
+                    outTs.append(newTi)
 
-                        # Fake CTF
-                        tiltCTF = CTFTomo(index=slice,acqOrder=slice)
-                        tiltCTF.setDefocusU(0)
-                        tiltCTF.setDefocusV(0)
-                        tiltCTF.setDefocusAngle(0)
-                        tiltCTF.setResolution(1)
-                        ctfSerie.append(tiltCTF)
+                    # Fake CTF
+                    tiltCTF = CTFTomo(index=slice,acqOrder=slice)
+                    tiltCTF.setDefocusU(0)
+                    tiltCTF.setDefocusV(0)
+                    tiltCTF.setDefocusAngle(0)
+                    tiltCTF.setResolution(1)
+                    ctfSerie.append(tiltCTF)
 
-                    x, y, z, _ = ih.getDimensions(outputFn)
-                    outTs.setDim((x, y, z))
-                    outTs.setAnglesCount(len(outTs))
+                x, y, z, _ = ih.getDimensions(outputFn)
+                outTs.setDim((x, y, z))
+                outTs.setAnglesCount(len(outTs))
 
-                    # Set origin to output tilt-series
-                    origin = Transform()
-                    origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
-                    outTs.setOrigin(origin)
+                # Set origin to output tilt-series
+                origin = Transform()
+                origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
+                outTs.setOrigin(origin)
 
-                    # Data persistence
-                    outTsSet.update(outTs)
-                    self._store(outTsSet)
-                    ctfSet.update(ctfSerie)
-                    self._store(outTsSet, ctfSet)
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
-                logger.error(traceback.format_exc())
+                # Data persistence
+                outTsSet.update(outTs)
+                self._store(outTsSet)
+                ctfSet.update(ctfSerie)
+                self._store(outTsSet, ctfSet)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

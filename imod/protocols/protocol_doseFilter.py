@@ -29,6 +29,7 @@ from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
@@ -203,7 +204,8 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                     for ti in ts.iterItems():
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
-                        outTi.setFileName(self.getExtraOutFile(tsId))
+                        setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
+                        outTi.setFileName(outTsFile)
                         self.updateTiAcquisition(outTi)
                         if self.doOddEven:
                             outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
