@@ -139,6 +139,11 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                 # Make the link using the tsId instead of the original name prevent IMOD from
                 # failing in case of strange characters or even numeric names
             self.linkTs(firstTi.getFileName(), outTsFn)
+            if self.doOddEven:
+                outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+                self.linkTs(firstTi.getFileName(), outTsFnOdd)
+                outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
+                self.linkTs(firstTi.getFileName(), outTsFnEven)
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
