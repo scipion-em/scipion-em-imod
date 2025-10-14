@@ -335,8 +335,11 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
                 oddEvenTmp = [[], []]
                 if self.doOddEven:
+                    with self._lock:
+                        ts = self.getCurrentTs(tsId)
+                        firstTi = ts.getFirstItem()
                     # Odd
-                    paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=ODD)
+                    paramsTilt['-InputProjections'] = firstTi.getOdd()
                     oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                     paramsTilt['-OutputFile'] = oddEvenTmp[0]
                     self.runProgram(TILT_PROGRAM, paramsTilt)
@@ -346,7 +349,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
 
                     # Even
-                    paramsTilt['-InputProjections'] = self.getTmpOutFile(tsId, suffix=EVEN)
+                    paramsTilt['-InputProjections'] = firstTi.getEven()
                     oddEvenTmp[1] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                     paramsTilt['-OutputFile'] = oddEvenTmp[1]
                     self.runProgram(TILT_PROGRAM, paramsTilt)
