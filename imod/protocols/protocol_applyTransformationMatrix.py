@@ -271,14 +271,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             outTi.setFileName(tiFn)
             outTi.getAcquisition().setTiltAxisAngle(0.)
             outTi.setTransform(None)
-
-            if self.doOddEven:
-                outTi.setOddEven([
-                    self.getExtraOutFile(tsId, suffix=ODD),
-                    self.getExtraOutFile(tsId, suffix=EVEN)
-                ])
-            else:
-                outTi.setOddEven([])
+            self.setTsOddEven(tsId, outTi, binGenerated=True)
 
             tiList.append(outTi)
 
