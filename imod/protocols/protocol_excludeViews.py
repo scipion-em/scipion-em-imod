@@ -26,6 +26,7 @@
 # **************************************************************************
 import logging
 import traceback
+from typing import Union
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -70,13 +71,9 @@ class ProtImodExcludeViews(ProtImodBase):
         closeSetStepDeps = []
         for ts in self.getInputTsSet():
             tsId = ts.getTsId()
-            convId = self._insertFunctionStep(self.linkTsStep,
-                                              tsId,
-                                              prerequisites=[],
-                                              needsGPU=False)
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
-                                                  prerequisites=convId,
+                                                  prerequisites=[],
                                                   needsGPU=False)
             outStepId = self._insertFunctionStep(self.createOutputStep,
                                                  tsId,
@@ -100,13 +97,13 @@ class ProtImodExcludeViews(ProtImodBase):
             self._runExcludeViews(ts, tsFileName, outTsFn)
             if self.doOddEven:
                 # ODD
-                logger.info(cyanStr(f'tsId = {tsId} ODD:'))
-                tsFnOdd = self.getExtraOutFile(tsId, suffix=ODD)
-                self._runExcludeViews(ts, tsFnOdd, outTsOddFn)
+                logger.info(cyanStr(f'tsId = {tsId} {ODD}:'))
+                tsFnOdd = firstTi.getOdd()
+                self._runExcludeViews(ts, tsFnOdd, outTsOddFn, suffix=ODD)
                 # EVEN
-                logger.info(cyanStr(f'tsId = {tsId} ODD:'))
-                tsFnEven = self.getExtraOutFile(tsId, suffix=EVEN)
-                self._runExcludeViews(ts, tsFnEven, outTsEvenFn)
+                logger.info(cyanStr(f'tsId = {tsId} {EVEN}:'))
+                tsFnEven = firstTi.getEven()
+                self._runExcludeViews(ts, tsFnEven, outTsEvenFn, suffix=EVEN)
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -199,10 +196,16 @@ class ProtImodExcludeViews(ProtImodBase):
         return summary
 
     # --------------------------- UTILS functions -----------------------------
-    def _runExcludeViews(self, ts: TiltSeries, inTsFn: str, outTsFn: str) -> None:
+    def _runExcludeViews(self,
+                         ts: TiltSeries,
+                         inTsFn: str,
+                         outTsFn: str,
+                         suffix: Union[str, None] = None) -> None:
         tsId = ts.getTsId()
+        finalLocation = self.getExtraOutFile(tsId, suffix=suffix)
         if ts.hasExcludedViews():
             logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
+            # The original file is moved to tmp
             path.copyFile(inTsFn, outTsFn)
             excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
             eVParams = {
@@ -210,8 +213,10 @@ class ProtImodExcludeViews(ProtImodBase):
                 '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
             }
             self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
+            # The generated file overrides the original one in tmp and it is moved to extra
+            path.moveFile(outTsFn, finalLocation)
         else:
             # Just create the link
             logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
-            path.createLink(inTsFn, outTsFn)
+            path.createLink(inTsFn, finalLocation)
 
