@@ -429,6 +429,24 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the failed output with '
                                 f'exception {e}. Skipping... '))
 
+    def setTsOddEven(self, tsId: str, outTi: TiltImage, binGenerated: bool = False) -> None:
+        if self.doOddEven:
+            if binGenerated:
+                outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
+                                  self.getExtraOutFile(tsId, suffix=EVEN)])
+        else:
+            outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
+            # to consider them in the current execution, so they should be set to empty to avoid
+            # next protocols be confused about having them.
+
+    def setTomoOddEven(self, tsId: str, outTomo: Tomogram) -> None:
+        if self.doOddEven:
+            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
+            outTomo.setHalfMaps(halfMapsList)
+        else:
+            outTomo.setHalfMaps([])
+
     # --------------------------- UTILS functions -----------------------------
     def getInputTsSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
         tsSetPointer = getattr(self, IN_TS_SET)

@@ -358,14 +358,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 acq.setTiltAxisAngle(0.)  # Is interpolated
                 outTi.setAcquisition(acq)
                 outTi.setFileName(outputFn)
-                if self.doOddEven:
-                    outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                      self.getExtraOutFile(tsId, suffix=EVEN)])
-                else:
-                    outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
-                # to consider them in the current execution, so they should be set to empty to avoid
-                # next protocols be confused about having them.
-
+                self.setTsOddEven(tsId, outTi)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = outTi.getTiltAngle()

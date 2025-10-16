@@ -245,6 +245,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                             stackIndex += 1
                         else:
                             self.updateDisabledTi(outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=False)
                         outTs.append(outTi)
                     # Data persistence
                     outTs.write()

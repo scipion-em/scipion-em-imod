@@ -287,9 +287,12 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'===> tsId = {tsId}: reconstructing the tomogram...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
                 # run tilt
                 paramsTilt = {
-                    "-InputProjections": self.getTmpOutFile(tsId),
+                    "-InputProjections": outTsFn,
                     "-OutputFile": self.getTmpOutFile(tsId, ext=MRC_EXT),
                     "-TILTFILE": self.getExtraOutFile(tsId, ext=TLT_EXT),
                     "-THICKNESS": self.tomoThickness.get(),
@@ -335,11 +338,8 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
                 oddEvenTmp = [[], []]
                 if self.doOddEven:
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        firstTi = ts.getFirstItem()
                     # Odd
-                    paramsTilt['-InputProjections'] = firstTi.getOdd()
+                    paramsTilt['-InputProjections'] = outTsOddFn
                     oddEvenTmp[0] = self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT)
                     paramsTilt['-OutputFile'] = oddEvenTmp[0]
                     self.runProgram(TILT_PROGRAM, paramsTilt)
@@ -349,7 +349,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                     Plugin.runImod(self, TRIMVOL_PROGRAM, argsTrimvol % paramsTrimVol)
 
                     # Even
-                    paramsTilt['-InputProjections'] = firstTi.getEven()
+                    paramsTilt['-InputProjections'] = outTsEvenFn
                     oddEvenTmp[1] = self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
                     paramsTilt['-OutputFile'] = oddEvenTmp[1]
                     self.runProgram(TILT_PROGRAM, paramsTilt)
@@ -379,10 +379,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                         outTomo = Tomogram(tsId=tsId)
                         outTomo.copyInfo(ts)
                         outTomo.setFileName(outputFn)
-                        if self.doOddEven:
-                            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                            outTomo.setHalfMaps(halfMapsList)
+                        self.setTomoOddEven(tsId, outTomo)
                         # Set default tomogram origin
                         outTomo.setOrigin(newOrigin=None)
                         shiftX = self.tomoShiftX.get()

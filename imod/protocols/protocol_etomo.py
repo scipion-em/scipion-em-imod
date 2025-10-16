@@ -247,7 +247,7 @@ class ProtImodEtomo(ProtImodBase):
                     newTi = tiltImage.clone()
                     newTi.copyInfo(tiltImage, copyId=True, copyTM=False)
                     newTi.setAcquisition(tiltImage.getAcquisition())
-                    newTi.setOddEven([])
+                    newTi.setTsOddEven([])
                     sliceIndex = newTi.getIndex()
                     newTi.setLocation(sliceIndex, prealiFilePath)
                     if sliceIndex in excludedViewList:
@@ -299,7 +299,7 @@ class ProtImodEtomo(ProtImodBase):
                     acq.setTiltAxisAngle(0.)
                     newTi.setAcquisition(acq)
 
-                    newTi.setOddEven([])
+                    newTi.setTsOddEven([])
                     sliceIndex = newTi.getIndex()
                     newTi.setLocation(sliceIndex, aligFilePath)
                     if tltList is not None:
