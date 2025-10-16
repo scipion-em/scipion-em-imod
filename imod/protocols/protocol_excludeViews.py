@@ -145,7 +145,7 @@ class ProtImodExcludeViews(ProtImodBase):
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
                         outTi.setFileName(outFn)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         tiList.append(outTi)
 
                 if ts.hasExcludedViews():
