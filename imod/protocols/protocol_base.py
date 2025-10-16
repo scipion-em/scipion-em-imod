@@ -118,17 +118,26 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 output.close()
 
     def linkTsStep(self, tsId: str):
-        # Link the tils-series to tmp using the tsId as basename, preventing problematic
-        # filenames, such as the ones starting by a number or containing special characters. That
-        # won't happen with the tsId as it is normalized
         try:
-            self.genTsPaths(tsId)
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            self.linkTs(ts.getFirstItem().getFileName(), self.getTmpOutFile(tsId))
+            self._linkTs(tsId)
         except Exception as e:
-            self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
+
+    def _linkTs(self, tsId: str):
+        self.genTsPaths(tsId)
+        outTsFn = self.getTmpOutFile(tsId)
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+            firstTi = ts.getFirstItem()
+            # Make the link using the tsId instead of the original name prevent IMOD from
+            # failing in case of strange characters or even numeric names
+        self.linkTs(firstTi.getFileName(), outTsFn)
+        if self.doOddEven:
+            outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+            self.linkTs(firstTi.getFileName(), outTsFnOdd)
+            outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
+            self.linkTs(firstTi.getFileName(), outTsFnEven)
 
     def convertInputStep(self,
                          tsId: str,
@@ -168,8 +177,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self.runNewStackBasic(ts, xfFile=xfFile)
         else:
             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
+            self._linkTs(tsId)
 
         # Generate the tlt file
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
@@ -200,8 +208,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         hasAlignment = firstTi.hasTransform()
         if not hasAlignment and not hasExcludedViews:
             # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
+            self._linkTs(tsId)
         else:
             if hasAlignment:
                 xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)

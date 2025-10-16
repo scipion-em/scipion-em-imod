@@ -107,7 +107,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    convId = self._insertFunctionStep(self.convertInStep,
+                    convId = self._insertFunctionStep(self.linkTsStep,
                                                       tsId,
                                                       prerequisites=[],
                                                       needsGPU=False)
@@ -129,25 +129,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId: str):
-        try:
-            self.genTsPaths(tsId)
-            outTsFn = self.getTmpOutFile(tsId)
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                firstTi = ts.getFirstItem()
-                # Make the link using the tsId instead of the original name prevent IMOD from
-                # failing in case of strange characters or even numeric names
-            self.linkTs(firstTi.getFileName(), outTsFn)
-            if self.doOddEven:
-                outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
-                self.linkTs(firstTi.getFileName(), outTsFnOdd)
-                outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
-                self.linkTs(firstTi.getFileName(), outTsFnEven)
-        except Exception as e:
-            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
-            logger.error(traceback.format_exc())
-
     def generateOutputStackStep(self, tsId: str, binning: int):
         if tsId not in self.failedItems:
             try:

@@ -70,9 +70,13 @@ class ProtImodExcludeViews(ProtImodBase):
         closeSetStepDeps = []
         for ts in self.getInputTsSet():
             tsId = ts.getTsId()
+            convId = self._insertFunctionStep(self.linkTsStep,
+                                              tsId,
+                                              prerequisites=[],
+                                              needsGPU=False)
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
-                                                  prerequisites=[],
+                                                  prerequisites=convId,
                                                   needsGPU=False)
             outStepId = self._insertFunctionStep(self.createOutputStep,
                                                  tsId,
@@ -91,23 +95,18 @@ class ProtImodExcludeViews(ProtImodBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 firstTi = ts.getFirstItem()
-
             tsFileName = firstTi.getFileName()
-            outputFileName = self.getExtraOutFile(tsId)
-
-            if ts.hasExcludedViews():
-                logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
-                path.copyFile(tsFileName, outputFileName)
-                excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                eVParams = {
-                    '-StackName': outputFileName,
-                    '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
-                }
-                self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
-            else:
-                # Just create the link
-                logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
-                path.createLink(tsFileName, outputFileName)
+            outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+            self._runExcludeViews(ts, tsFileName, outTsFn)
+            if self.doOddEven:
+                # ODD
+                logger.info(cyanStr(f'tsId = {tsId} ODD:'))
+                tsFnOdd = self.getExtraOutFile(tsId, suffix=ODD)
+                self._runExcludeViews(ts, tsFnOdd, outTsOddFn)
+                # EVEN
+                logger.info(cyanStr(f'tsId = {tsId} ODD:'))
+                tsFnEven = self.getExtraOutFile(tsId, suffix=EVEN)
+                self._runExcludeViews(ts, tsFnEven, outTsEvenFn)
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -200,4 +199,19 @@ class ProtImodExcludeViews(ProtImodBase):
         return summary
 
     # --------------------------- UTILS functions -----------------------------
+    def _runExcludeViews(self, ts: TiltSeries, inTsFn: str, outTsFn: str) -> None:
+        tsId = ts.getTsId()
+        if ts.hasExcludedViews():
+            logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
+            path.copyFile(inTsFn, outTsFn)
+            excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            eVParams = {
+                '-StackName': outTsFn,
+                '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
+            }
+            self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
+        else:
+            # Just create the link
+            logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
+            path.createLink(inTsFn, outTsFn)
 
