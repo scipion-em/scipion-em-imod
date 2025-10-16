@@ -158,10 +158,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                         outTomo.fixMRCVolume(setSamplingRate=True)
                         # Set default tomogram origin
                         outTomo.setOrigin(newOrigin=None)
-                    if self.doOddEven:
-                        halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                        self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                        outTomo.setHalfMaps(halfMapsList)
+                    self.setTomoOddEven(tsId, outTomo)
                     # Data persistence
                     outTomoSet.append(outTomo)
                     outTomoSet.updateDim()

@@ -379,10 +379,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                         outTomo = Tomogram(tsId=tsId)
                         outTomo.copyInfo(ts)
                         outTomo.setFileName(outputFn)
-                        if self.doOddEven:
-                            halfMapsList = [self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT),
-                                            self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)]
-                            outTomo.setHalfMaps(halfMapsList)
+                        self.setTomoOddEven(tsId, outTomo)
                         # Set default tomogram origin
                         outTomo.setOrigin(newOrigin=None)
                         shiftX = self.tomoShiftX.get()

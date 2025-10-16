@@ -84,6 +84,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
                 else:
                     tiltAngle, newTransformArray = self._getTrDataDisabled(ti)
                 self._updateTiltImage(ti, outTi, newTransformArray, tiltAngle)
+                self.setTsOddEven(tsId, outTi, binGenerated=False)
                 outTs.append(outTi)
             # Data persistence
             outTs.write()

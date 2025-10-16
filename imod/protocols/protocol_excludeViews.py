@@ -149,13 +149,7 @@ class ProtImodExcludeViews(ProtImodBase):
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
                         outTi.setFileName(outFn)
-                        if self.doOddEven:
-                            outTi.setOddEven([self.getExtraOutFile(tsId, suffix=ODD),
-                                              self.getExtraOutFile(tsId, suffix=EVEN)])
-                        else:
-                            outTi.setOddEven([])  # the input may have odd/even but the user may have decided not
-                            # to consider them in the current execution, so they should be set to empty to avoid
-                            # next protocols be confused about having them.
+                        self.setTsOddEven(tsId, outTi)
                         tiList.append(outTi)
 
                 if ts.hasExcludedViews():
