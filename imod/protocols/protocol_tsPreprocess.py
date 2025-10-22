@@ -191,7 +191,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                         outTi.copyInfo(ti)
                         outTi.setFileName(outputFn)
                         self.updateTransformMatrix(outTi, binning=binning)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     outTs.write()
                     outTsSet.update(outTs)
