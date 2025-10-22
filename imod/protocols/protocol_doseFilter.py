@@ -210,7 +210,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                         setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
                         outTi.setFileName(outTsFile)
                         self.updateTiAcquisition(outTi)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     outTs.write()
                     outTsSet.update(outTs)

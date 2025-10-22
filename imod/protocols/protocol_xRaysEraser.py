@@ -191,7 +191,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
                         outTi.setFileName(outTsFile)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     # Data persistence
                     outTs.write()

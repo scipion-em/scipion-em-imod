@@ -358,7 +358,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 acq.setTiltAxisAngle(0.)  # Is interpolated
                 outTi.setAcquisition(acq)
                 outTi.setFileName(outputFn)
-                self.setTsOddEven(tsId, outTi)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = outTi.getTiltAngle()
