@@ -118,6 +118,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     # --------------------------- STEPS functions ------------------------------
     def computeAlignmentStep(self, tsId):
         try:
+            logger.info(f"tsId = {tsId}: computing the alignment...")
             with self._lock:
                 ts = self.getCurrentTs(tsId)
             firstItem = ts.getFirstItem()
@@ -134,10 +135,12 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
             if self.doOddEven:
                 # Odd
+                logger.info(f"tsId = {tsId} ODD: computing the alignment...")
                 inputFile = ts.getOddFileName()
                 outputFile = self.getExtraOutFile(tsId, suffix=ODD)
                 self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
                 # Even
+                logger.info(f"tsId = {tsId} EVEN: computing the alignment...")
                 inputFile = ts.getEvenFileName()
                 outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
                 self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)

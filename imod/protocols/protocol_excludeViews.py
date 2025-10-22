@@ -200,11 +200,11 @@ class ProtImodExcludeViews(ProtImodBase):
                          ts: TiltSeries,
                          inTsFn: str,
                          outTsFn: str,
-                         suffix: Union[str, None] = None) -> None:
+                         suffix: str = "") -> None:
         tsId = ts.getTsId()
         finalLocation = self.getExtraOutFile(tsId, suffix=suffix)
         if ts.hasExcludedViews():
-            logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
+            logger.info(cyanStr(f'tsId = {tsId} {suffix}: excluding the disabled views...'))
             # The original file is moved to tmp
             path.copyFile(inTsFn, outTsFn)
             excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
@@ -213,7 +213,7 @@ class ProtImodExcludeViews(ProtImodBase):
                 '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
             }
             self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
-            # The generated file overrides the original one in tmp and it is moved to extra
+            # The generated file overrides the original one in tmp, and it is moved to extra
             path.moveFile(outTsFn, finalLocation)
         else:
             # Just create the link

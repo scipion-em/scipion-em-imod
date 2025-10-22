@@ -34,6 +34,7 @@ from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
+from reliontomo.constants import tsStarFields
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           TiltSeries, TiltImage, CTFTomoSeries,
@@ -132,12 +133,20 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             firstTi = ts.getFirstItem()
             # Make the link using the tsId instead of the original name prevent IMOD from
             # failing in case of strange characters or even numeric names
-        self.linkTs(firstTi.getFileName(), outTsFn)
+        tsStarFieldsFn = firstTi.getFileName()
+        logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsStarFieldsFn}"))
+        self.linkTs(tsStarFieldsFn, outTsFn)
         if self.doOddEven:
+            # ODD
+            inTsOddFn = ts.getOddFileName()
             outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+            logger.info(cyanStr(f"tsId = {tsId}: link TS ODD: {outTsFnOdd} -> {inTsOddFn}"))
             self.linkTs(firstTi.getFileName(), outTsFnOdd)
+            # Even
+            inTsEvenFn = ts.getEvenFileName()
             outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
             self.linkTs(firstTi.getFileName(), outTsFnEven)
+            logger.info(cyanStr(f"tsId = {tsId}: link TS EVEN: {outTsFnEven} -> {inTsEvenFn}"))
 
     def convertInputStep(self,
                          tsId: str,
@@ -171,6 +180,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         hasAlignment = firstTi.hasTransform()
         if hasAlignment:
+            logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
             xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
             # The xf file must contain all thw views to interpolate and re-stack
             genXfFile(ts, xfFile)
@@ -213,6 +223,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             if hasAlignment:
                 xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
                 try:
+                    logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
                     # The xf file must contain all the views to make newstack interpolate and
                     # re-stack using its own excluded views feature
                     genXfFile(ts, xfFile)
@@ -235,6 +246,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
             else:
                 # Re-stack
+                logger.info(f"tsId = {tsId}: tilt-series re-stacking will be carried out with {NEWSTACK_PROGRAM}")
                 self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
 
         # Generate the tlt file without the excluded views must be generated to be
@@ -598,12 +610,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+        tsId = ts.getTsId()
         with self._lock:
             firstTi = ts.getFirstItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
             tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
 
+        logger.info(cyanStr(f'tsId = {tsId}: running {NEWSTACK_PROGRAM}...'))
         param = self.getBasicNewstackParams(ts,
                                             firstTi.getFileName(),
                                             outTsFn,
@@ -614,7 +628,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.runProgram(NEWSTACK_PROGRAM, param)
 
         if self.doOddEven:
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the ODD tilt-series'))
+            # ODD
+            logger.info(cyanStr(f'tsId = {tsId} ODD: running {NEWSTACK_PROGRAM}...'))
             param = self.getBasicNewstackParams(ts,
                                                 ts.getOddFileName(),
                                                 outTsOddFn,
@@ -623,8 +638,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                 tsExcludedIndices=tsExcludedIndices,
                                                 binning=binning)
             self.runProgram(NEWSTACK_PROGRAM, param)
-
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the EVEN tilt-series'))
+            # EVEN
+            logger.info(cyanStr(f'tsId = {tsId} EVEN: running {NEWSTACK_PROGRAM}...'))
             param = self.getBasicNewstackParams(ts,
                                                 ts.getEvenFileName(),
                                                 outTsEvenFn,
