@@ -171,10 +171,13 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
             self.runProgram(MTTFILTER_PROGRAM, progParams)
 
             if self.doOddEven:
+                # Odd
+                logger.info(cyanStr(f'tsId = {tsId} ODD -> Dose filtering...'))
                 progParams['-input'] = ts.getOddFileName()
                 progParams['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(MTTFILTER_PROGRAM, progParams)
-
+                # Even
+                logger.info(cyanStr(f'tsId = {tsId} EVEN -> Dose filtering...'))
                 progParams['-input'] = ts.getEvenFileName()
                 progParams['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram(MTTFILTER_PROGRAM, progParams)
