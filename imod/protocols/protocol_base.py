@@ -133,19 +133,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             firstTi = ts.getFirstItem()
             # Make the link using the tsId instead of the original name prevent IMOD from
             # failing in case of strange characters or even numeric names
-        tsStarFieldsFn = firstTi.getFileName()
-        logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsStarFieldsFn}"))
-        self.linkTs(tsStarFieldsFn, outTsFn)
+        tsFn = firstTi.getFileName()
+        logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsFn}"))
+        self.linkTs(tsFn, outTsFn)
         if self.doOddEven:
             # ODD
             inTsOddFn = ts.getOddFileName()
             outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
             logger.info(cyanStr(f"tsId = {tsId}: link TS ODD: {outTsFnOdd} -> {inTsOddFn}"))
-            self.linkTs(firstTi.getFileName(), outTsFnOdd)
+            self.linkTs(inTsOddFn, outTsFnOdd)
             # Even
             inTsEvenFn = ts.getEvenFileName()
             outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
-            self.linkTs(firstTi.getFileName(), outTsFnEven)
+            self.linkTs(inTsEvenFn, outTsFnEven)
             logger.info(cyanStr(f"tsId = {tsId}: link TS EVEN: {outTsFnEven} -> {inTsEvenFn}"))
 
     def convertInputStep(self,
