@@ -243,6 +243,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
                 # After that, for the following programs, a new xfFile without the
                 # excluded views must be generated to be used by the protocol main program
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
                 genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
             else:
                 # Re-stack
