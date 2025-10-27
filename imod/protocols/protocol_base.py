@@ -221,7 +221,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self._linkTs(tsId)
         else:
             if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                xfFile = self.getTmpOutFile(ts.getTsId(), ext=XF_EXT)
                 try:
                     logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
                     # The xf file must contain all the views to make newstack interpolate and
