@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -242,7 +243,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
         while True:
             listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TOMOGRAMS_NAME,

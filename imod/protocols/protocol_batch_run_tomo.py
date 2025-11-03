@@ -28,6 +28,8 @@ import logging
 import subprocess
 import traceback
 import typing
+from collections import Counter
+
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
     BRT_ENV_NAME
@@ -102,7 +104,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
         while True:
             listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,

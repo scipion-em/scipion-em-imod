@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -291,7 +292,7 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
 
         while True:
             listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_CTF_SERIE,
