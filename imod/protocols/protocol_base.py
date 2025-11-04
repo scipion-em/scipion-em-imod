@@ -176,10 +176,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """
         with self._lock:
             ts = self.getCurrentTs(tsId)
-            firstTi = ts.getFirstItem()
-
-            hasAlignment = firstTi.hasTransform()
-            if hasAlignment:
+            if ts.hasAlignment():
                 logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
                 xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
                 # The xf file must contain all thw views to interpolate and re-stack
@@ -212,10 +209,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
           """
         with self._lock:
             ts = self.getCurrentTs(tsId)
-
-            firstTi = ts.getFirstItem()
             hasExcludedViews = ts.hasExcludedViews()
-            hasAlignment = firstTi.hasTransform()
+            hasAlignment = ts.hasAlignment()
             if not hasAlignment and not hasExcludedViews:
                 # Link it, so the input file expected is in the same place in both sides of the "if"
                 self._linkTs(tsId)
