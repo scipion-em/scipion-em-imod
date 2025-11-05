@@ -286,7 +286,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = self._getInTsSet().getTSIds()
+            with self._lock:
+                listInTsIds = self._getInTsSet().getTSIds()
             if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,

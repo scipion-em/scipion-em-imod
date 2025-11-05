@@ -175,8 +175,9 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         self.readingOutput(getattr(self, OUTPUT_CTF_SERIE, None), tsIdListName='ctfTsIdList')
 
         while True:
-            listTsIdInput = inTsSet.getTSIds()
-            listCtfTsIdInput = inCtfSet.getTSIds()
+            with self._lock:
+                listTsIdInput = inTsSet.getTSIds()
+                listCtfTsIdInput = inCtfSet.getTSIds()
             # In the if statement below, Counter is used because in the tsId comparison the order doesn’t matter
             # but duplicates do. With a direct comparison, the closing step may not be inserted because of the order:
             # ['ts_a', 'ts_b'] != ['ts_b', 'ts_a'], but they are the same with Counter.

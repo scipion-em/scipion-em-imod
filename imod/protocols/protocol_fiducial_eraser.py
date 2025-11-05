@@ -84,7 +84,8 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = inTsSet.getTSIds()
+            with self._lock:
+                listInTsIds = inTsSet.getTSIds()
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,

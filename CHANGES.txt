@@ -1,6 +1,6 @@
 3.8.0:
   Users:
-   - IMOD binary installed by default was updated to imod_5.1.9_RHEL8-64_CUDA12.0.
+   - IMOD binary installed by default was updated to imod_5.1.3_RHEL8-64_CUDA12.0.
    - Interpolated tilt-series was removed excepting for apply transform protocol.
    - Add protocol for automatic erasing of gold beads in tilt-series.
    - More protocols streamified:
