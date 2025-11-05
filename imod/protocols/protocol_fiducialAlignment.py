@@ -542,7 +542,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         return self.getInputSetOfLandmarks().getSetOfTiltSeries(pointer=pointer)
 
     def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
-        return self.getInputSetOfLandmarks().getItem(TiltSeries.TS_ID_FIELD, tsId)
+        with self._lock:
+            return self.getInputSetOfLandmarks().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def getCurrentTs(self, tsId: str) -> TiltSeries:
         return self.getCurrentFidModel(tsId).getTiltSeries()

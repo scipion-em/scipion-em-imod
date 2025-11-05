@@ -266,7 +266,8 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 }
 
                 if self.usesGpu():
-                    paramsCtfPhaseFlip["-UseGPU"] = self.getGpuList()[0]
+                    gpuId = self._stepsExecutor.getGpuList()
+                    paramsCtfPhaseFlip["-UseGPU"] = gpuId[0]
                     paramsCtfPhaseFlip["-ActionIfGPUFails"] = "2,2"
 
                 if ts.hasAlignment():
