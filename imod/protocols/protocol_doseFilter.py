@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
@@ -111,8 +112,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+            with self._lock:
+                listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -171,10 +173,13 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
             self.runProgram(MTTFILTER_PROGRAM, progParams)
 
             if self.doOddEven:
+                # Odd
+                logger.info(cyanStr(f'tsId = {tsId} ODD -> Dose filtering...'))
                 progParams['-input'] = ts.getOddFileName()
                 progParams['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
                 self.runProgram(MTTFILTER_PROGRAM, progParams)
-
+                # Even
+                logger.info(cyanStr(f'tsId = {tsId} EVEN -> Dose filtering...'))
                 progParams['-input'] = ts.getEvenFileName()
                 progParams['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram(MTTFILTER_PROGRAM, progParams)
@@ -207,7 +212,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                         setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
                         outTi.setFileName(outTsFile)
                         self.updateTiAcquisition(outTi)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     outTs.write()
                     outTsSet.update(outTs)

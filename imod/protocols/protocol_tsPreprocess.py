@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
@@ -95,8 +96,9 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         closeSetStepDeps = []
 
         while True:
-            listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+            with self._lock:
+                listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -107,7 +109,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    convId = self._insertFunctionStep(self.convertInStep,
+                    convId = self._insertFunctionStep(self.linkTsStep,
                                                       tsId,
                                                       prerequisites=[],
                                                       needsGPU=False)
@@ -129,25 +131,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId: str):
-        try:
-            self.genTsPaths(tsId)
-            outTsFn = self.getTmpOutFile(tsId)
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                firstTi = ts.getFirstItem()
-                # Make the link using the tsId instead of the original name prevent IMOD from
-                # failing in case of strange characters or even numeric names
-            self.linkTs(firstTi.getFileName(), outTsFn)
-            if self.doOddEven:
-                outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
-                self.linkTs(firstTi.getFileName(), outTsFnOdd)
-                outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
-                self.linkTs(firstTi.getFileName(), outTsFnEven)
-        except Exception as e:
-            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
-            logger.error(traceback.format_exc())
-
     def generateOutputStackStep(self, tsId: str, binning: int):
         if tsId not in self.failedItems:
             try:
@@ -210,7 +193,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                         outTi.copyInfo(ti)
                         outTi.setFileName(outputFn)
                         self.updateTransformMatrix(outTi, binning=binning)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     outTs.write()
                     outTsSet.update(outTs)

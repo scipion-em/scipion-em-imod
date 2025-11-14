@@ -1530,6 +1530,7 @@ class TestImodExcludeViews(TestImodBase):
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews01')
         # Check the results
         self._checkTs(outTsSet, self.testAcqObjDict, self.anglesCountDict, checkHeaderApix=False)
+        # Exclude some views at metadata level
         self._excludeSetViews(importedTs)
         # Run the protocol
         outTsSet = self._runExcludeViewsProt(importedTs, objLabel='testExcludeViews02')

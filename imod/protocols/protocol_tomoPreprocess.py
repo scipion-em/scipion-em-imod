@@ -113,7 +113,6 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                        runNewstack: bool,
                        binning: int):
         try:
-            logger.info(cyanStr(f'tsId = {tsId} -> Preprocessing...'))
             self.genTsPaths(tsId)
             with self._lock:
                 tomo = self.getCurrentTomo(tsId)
@@ -216,6 +215,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                      outputFile: str) -> None:
         tsId = tomo.getTsId()
         oddEvenOutput = [[], []]
+        logger.info(cyanStr(f'tsId = {tsId}: Preprocessing...'))
 
         norm = self.floatDensities.get()
         # Important not to bin at this step
@@ -238,13 +238,15 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         self.runProgram(NEWSTACK_PROGRAM, paramsNewstack)
 
         if self.doOddEven:
-            oddFn, evenFn = tomo.getHalfMaps().split(',')
+            evenFn, oddFn = sorted(tomo.getHalfMaps(asList=True))
             # Odd
+            logger.info(cyanStr(f'tsId = {tsId} ODD: Preprocessing...'))
             paramsNewstack['-input'] = oddFn
             oddEvenOutput[0] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             paramsNewstack['-output'] = oddEvenOutput[0]
             self.runProgram(NEWSTACK_PROGRAM, paramsNewstack)
             # Even
+            logger.info(cyanStr(f'tsId = {tsId} EVEN: Preprocessing...'))
             paramsNewstack['-input'] = evenFn
             oddEvenOutput[1] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             paramsNewstack['-output'] = oddEvenOutput[1]
@@ -256,26 +258,21 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                    binning: int,
                    runNewstack: bool) -> None:
         tsId = tomo.getTsId()
+        logger.info(cyanStr(f'tsId = {tsId}: Executing {BINVOL_PROGRAM}:.'))
         oddEvenOutput = [[], []]
-        logger.info(cyanStr(f'tsId = {tsId}. Executing {BINVOL_PROGRAM}:.'))
+        inputEven, inputOdd = sorted(tomo.getHalfMaps(asList=True)) if self.doOddEven else None, None
+        inputTomoPath = tomo.getFileName()
 
         if runNewstack:
             # Move previous outputs to tmp as intermediate results and use them as inputs for binvol
             tmpPath = self.getTmpOutFile(tsId, ext=MRC_EXT)
             moveFile(outputFile, tmpPath)
             inputTomoPath = tmpPath
-
             if self.doOddEven:
                 inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                        self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
                 moveFile(oddEvenOutput[0], inputOdd)
                 moveFile(oddEvenOutput[1], inputEven)
-
-        else:
-            tomoFn = tomo.getFileName()
-            inputTomoPath = tomoFn
-            if self.doOddEven:
-                inputOdd, inputEven = tomo.getHalfMaps().split(',')
 
         paramsBinvol = {
             '-input': inputTomoPath,
@@ -288,10 +285,12 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
         if self.doOddEven:
             # Odd
+            logger.info(cyanStr(f'tsId = {tsId} ODD: Executing {BINVOL_PROGRAM}:.'))
             paramsBinvol['-input'] = inputOdd
             paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             self.runProgram(BINVOL_PROGRAM, paramsBinvol)
             # Even
+            logger.info(cyanStr(f'tsId = {tsId} EVEN: Executing {BINVOL_PROGRAM}:.'))
             paramsBinvol['-input'] = inputEven
             paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             self.runProgram(BINVOL_PROGRAM, paramsBinvol)

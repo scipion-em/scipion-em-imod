@@ -34,6 +34,7 @@ from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
+from reliontomo.constants import tsStarFields
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
                           TiltSeries, TiltImage, CTFTomoSeries,
@@ -118,17 +119,34 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 output.close()
 
     def linkTsStep(self, tsId: str):
-        # Link the tils-series to tmp using the tsId as basename, preventing problematic
-        # filenames, such as the ones starting by a number or containing special characters. That
-        # won't happen with the tsId as it is normalized
         try:
-            self.genTsPaths(tsId)
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-            self.linkTs(ts.getFirstItem().getFileName(), self.getTmpOutFile(tsId))
+            self._linkTs(tsId)
         except Exception as e:
-            self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
+
+    def _linkTs(self, tsId: str):
+        self.genTsPaths(tsId)
+        outTsFn = self.getTmpOutFile(tsId)
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+            firstTi = ts.getFirstItem()
+            # Make the link using the tsId instead of the original name prevent IMOD from
+            # failing in case of strange characters or even numeric names
+        tsFn = firstTi.getFileName()
+        logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsFn}"))
+        self.linkTs(tsFn, outTsFn)
+        if self.doOddEven:
+            # ODD
+            inTsOddFn = ts.getOddFileName()
+            outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
+            logger.info(cyanStr(f"tsId = {tsId}: link TS ODD: {outTsFnOdd} -> {inTsOddFn}"))
+            self.linkTs(inTsOddFn, outTsFnOdd)
+            # Even
+            inTsEvenFn = ts.getEvenFileName()
+            outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
+            self.linkTs(inTsEvenFn, outTsFnEven)
+            logger.info(cyanStr(f"tsId = {tsId}: link TS EVEN: {outTsFnEven} -> {inTsEvenFn}"))
 
     def convertInputStep(self,
                          tsId: str,
@@ -158,22 +176,19 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         """
         with self._lock:
             ts = self.getCurrentTs(tsId)
-            firstTi = ts.getFirstItem()
+            if ts.hasAlignment():
+                logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                # The xf file must contain all thw views to interpolate and re-stack
+                genXfFile(ts, xfFile)
+                self.runNewStackBasic(ts, xfFile=xfFile)
+            else:
+                # Link it, so the input file expected is in the same place in both sides of the "if"
+                self._linkTs(tsId)
 
-        hasAlignment = firstTi.hasTransform()
-        if hasAlignment:
-            xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-            # The xf file must contain all thw views to interpolate and re-stack
-            genXfFile(ts, xfFile)
-            self.runNewStackBasic(ts, xfFile=xfFile)
-        else:
-            # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-
-        # Generate the tlt file
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        ts.generateTltFile(tltFile)
+            # Generate the tlt file
+            tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+            ts.generateTltFile(tltFile)
 
     def convertInputForNonEvProgram(self,
                                     tsId: str,
@@ -194,46 +209,46 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
           """
         with self._lock:
             ts = self.getCurrentTs(tsId)
-
-        firstTi = ts.getFirstItem()
-        hasExcludedViews = ts.hasExcludedViews()
-        hasAlignment = firstTi.hasTransform()
-        if not hasAlignment and not hasExcludedViews:
-            # Link it, so the input file expected is in the same place in both sides of the "if"
-            outTsFn, _, _ = self.getTmpFileNames(ts)
-            self.linkTs(firstTi.getFileName(), outTsFn)
-        else:
-            if hasAlignment:
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                try:
-                    # The xf file must contain all the views to make newstack interpolate and
-                    # re-stack using its own excluded views feature
-                    genXfFile(ts, xfFile)
-                    self.runNewStackBasic(ts,
-                                          xfFile=xfFile,
-                                          presentAcqOrders=presentAcqOrders)
-                except Exception as e:
-                    # In some cases, newstack may fail (e.g. the assigning the transformation matrix from one
-                    # tilt-series with smaller number of elements to a bigger one). In that case, newstack fails
-                    # because it is not prepared to manage a tilt-series binary file with more tilt-images than
-                    # lines in the alignment file, but Scipion can manage that case
-                    logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
-                                          f'{e}'))
-                    logger.info(cyanStr(f'Trying with Scipion...'))
-                    outTsFn, _, _ = self.getTmpFileNames(ts)
-                    ts.applyTransform(outTsFn)
-
-                # After that, for the following programs, a new xfFile without the
-                # excluded views must be generated to be used by the protocol main program
-                genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+            hasExcludedViews = ts.hasExcludedViews()
+            hasAlignment = ts.hasAlignment()
+            if not hasAlignment and not hasExcludedViews:
+                # Link it, so the input file expected is in the same place in both sides of the "if"
+                self._linkTs(tsId)
             else:
-                # Re-stack
-                self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
+                if hasAlignment:
+                    xfFile = self.getTmpOutFile(ts.getTsId(), ext=XF_EXT)
+                    try:
+                        logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
+                        # The xf file must contain all the views to make newstack interpolate and
+                        # re-stack using its own excluded views feature
+                        genXfFile(ts, xfFile)
+                        self.runNewStackBasic(ts,
+                                              xfFile=xfFile,
+                                              presentAcqOrders=presentAcqOrders)
+                    except Exception as e:
+                        # In some cases, newstack may fail (e.g. the assigning the transformation matrix from one
+                        # tilt-series with smaller number of elements to a bigger one). In that case, newstack fails
+                        # because it is not prepared to manage a tilt-series binary file with more tilt-images than
+                        # lines in the alignment file, but Scipion can manage that case
+                        logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
+                                              f'{e}'))
+                        logger.info(cyanStr(f'Trying with Scipion...'))
+                        outTsFn, _, _ = self.getTmpFileNames(ts)
+                        ts.applyTransform(outTsFn)
 
-        # Generate the tlt file without the excluded views must be generated to be
-        # used by the protocol main program
-        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-        ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
+                    # After that, for the following programs, a new xfFile without the
+                    # excluded views must be generated to be used by the protocol main program
+                    xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                    genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
+                else:
+                    # Re-stack
+                    logger.info(f"tsId = {tsId}: tilt-series re-stacking will be carried out with {NEWSTACK_PROGRAM}")
+                    self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
+
+            # Generate the tlt file without the excluded views must be generated to be
+            # used by the protocol main program
+            tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+            ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
 
     def closeOutputSetsStep(self, attrib: Union[List[str], str]):
         self._closeOutputSet()
@@ -591,12 +606,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+        tsId = ts.getTsId()
         with self._lock:
             firstTi = ts.getFirstItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
             tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
 
+        logger.info(cyanStr(f'tsId = {tsId}: running {NEWSTACK_PROGRAM}...'))
         param = self.getBasicNewstackParams(ts,
                                             firstTi.getFileName(),
                                             outTsFn,
@@ -607,7 +624,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.runProgram(NEWSTACK_PROGRAM, param)
 
         if self.doOddEven:
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the ODD tilt-series'))
+            # ODD
+            logger.info(cyanStr(f'tsId = {tsId} ODD: running {NEWSTACK_PROGRAM}...'))
             param = self.getBasicNewstackParams(ts,
                                                 ts.getOddFileName(),
                                                 outTsOddFn,
@@ -616,8 +634,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                 tsExcludedIndices=tsExcludedIndices,
                                                 binning=binning)
             self.runProgram(NEWSTACK_PROGRAM, param)
-
-            logger.info(cyanStr(f'\t--> running {NEWSTACK_PROGRAM} with the EVEN tilt-series'))
+            # EVEN
+            logger.info(cyanStr(f'tsId = {tsId} EVEN: running {NEWSTACK_PROGRAM}...'))
             param = self.getBasicNewstackParams(ts,
                                                 ts.getEvenFileName(),
                                                 outTsEvenFn,

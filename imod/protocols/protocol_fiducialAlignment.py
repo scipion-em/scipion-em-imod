@@ -26,6 +26,7 @@
 import logging
 import os
 import traceback
+from collections import Counter
 from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
@@ -285,8 +286,9 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = self._getInTsSet().getTSIds()
-            if not inSetOfLandmarks.isStreamOpen() and self.tsIdReadList == listInTsIds:
+            with self._lock:
+                listInTsIds = self._getInTsSet().getTSIds()
+            if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME],
@@ -540,7 +542,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         return self.getInputSetOfLandmarks().getSetOfTiltSeries(pointer=pointer)
 
     def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
-        return self.getInputSetOfLandmarks().getItem(TiltSeries.TS_ID_FIELD, tsId)
+        with self._lock:
+            return self.getInputSetOfLandmarks().getItem(TiltSeries.TS_ID_FIELD, tsId)
 
     def getCurrentTs(self, tsId: str) -> TiltSeries:
         return self.getCurrentFidModel(tsId).getTiltSeries()

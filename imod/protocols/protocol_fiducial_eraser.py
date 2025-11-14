@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 import pyworkflow.protocol.params as params
 from imod.protocols.protocol_base import IN_TS_SET
@@ -83,8 +84,9 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsIdReadList == listInTsIds:
+            with self._lock:
+                listInTsIds = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -205,7 +207,7 @@ class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
                         outTi.setFileName(outTsFile)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         outTs.append(outTi)
                     # Data persistence
                     outTs.write()

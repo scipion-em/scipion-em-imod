@@ -26,6 +26,7 @@
 # *****************************************************************************
 import logging
 import traceback
+from collections import Counter
 from os.path import exists
 from typing import Set, Tuple
 from imod.protocols.protocol_base import IN_CTF_TOMO_SET
@@ -174,10 +175,14 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         self.readingOutput(getattr(self, OUTPUT_CTF_SERIE, None), tsIdListName='ctfTsIdList')
 
         while True:
-            listTsIdInput = inTsSet.getTSIds()
-            listCtfTsIdInput = inCtfSet.getTSIds()
-            if ((not inTsSet.isStreamOpen() and self.tsIdReadList == listTsIdInput) and
-                    (not inCtfSet.isStreamOpen() and self.ctfTsIdReadList == listCtfTsIdInput)):
+            with self._lock:
+                listTsIdInput = inTsSet.getTSIds()
+                listCtfTsIdInput = inCtfSet.getTSIds()
+            # In the if statement below, Counter is used because in the tsId comparison the order doesn’t matter
+            # but duplicates do. With a direct comparison, the closing step may not be inserted because of the order:
+            # ['ts_a', 'ts_b'] != ['ts_b', 'ts_a'], but they are the same with Counter.
+            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listTsIdInput)) and
+                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(listCtfTsIdInput))):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -261,7 +266,8 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 }
 
                 if self.usesGpu():
-                    paramsCtfPhaseFlip["-UseGPU"] = self.getGpuList()[0]
+                    gpuId = self._stepsExecutor.getGpuList()
+                    paramsCtfPhaseFlip["-UseGPU"] = gpuId[0]
                     paramsCtfPhaseFlip["-ActionIfGPUFails"] = "2,2"
 
                 if ts.hasAlignment():
@@ -358,7 +364,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 acq.setTiltAxisAngle(0.)  # Is interpolated
                 outTi.setAcquisition(acq)
                 outTi.setFileName(outputFn)
-                self.setTsOddEven(tsId, outTi)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
                 # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
                 # these values may change if the removed tilt-images are the first or the last, for example.
                 tiAngle = outTi.getTiltAngle()

@@ -26,6 +26,7 @@
 # **************************************************************************
 import logging
 import traceback
+from typing import Union
 
 import pyworkflow.protocol.params as params
 import pyworkflow.utils.path as path
@@ -91,23 +92,18 @@ class ProtImodExcludeViews(ProtImodBase):
             with self._lock:
                 ts = self.getCurrentTs(tsId)
                 firstTi = ts.getFirstItem()
-
             tsFileName = firstTi.getFileName()
-            outputFileName = self.getExtraOutFile(tsId)
-
-            if ts.hasExcludedViews():
-                logger.info(cyanStr(f'tsId = {tsId}: excluding the disabled views...'))
-                path.copyFile(tsFileName, outputFileName)
-                excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                eVParams = {
-                    '-StackName': outputFileName,
-                    '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
-                }
-                self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
-            else:
-                # Just create the link
-                logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
-                path.createLink(tsFileName, outputFileName)
+            outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+            self._runExcludeViews(ts, tsFileName, outTsFn)
+            if self.doOddEven:
+                # ODD
+                logger.info(cyanStr(f'tsId = {tsId} {ODD}:'))
+                tsFnOdd = firstTi.getOdd()
+                self._runExcludeViews(ts, tsFnOdd, outTsOddFn, suffix=ODD)
+                # EVEN
+                logger.info(cyanStr(f'tsId = {tsId} {EVEN}:'))
+                tsFnEven = firstTi.getEven()
+                self._runExcludeViews(ts, tsFnEven, outTsEvenFn, suffix=EVEN)
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -149,7 +145,7 @@ class ProtImodExcludeViews(ProtImodBase):
                         outTi = TiltImage()
                         outTi.copyInfo(ti)
                         outTi.setFileName(outFn)
-                        self.setTsOddEven(tsId, outTi)
+                        self.setTsOddEven(tsId, outTi, binGenerated=True)
                         tiList.append(outTi)
 
                 if ts.hasExcludedViews():
@@ -200,4 +196,27 @@ class ProtImodExcludeViews(ProtImodBase):
         return summary
 
     # --------------------------- UTILS functions -----------------------------
+    def _runExcludeViews(self,
+                         ts: TiltSeries,
+                         inTsFn: str,
+                         outTsFn: str,
+                         suffix: str = "") -> None:
+        tsId = ts.getTsId()
+        finalLocation = self.getExtraOutFile(tsId, suffix=suffix)
+        if ts.hasExcludedViews():
+            logger.info(cyanStr(f'tsId = {tsId} {suffix}: excluding the disabled views...'))
+            # The original file is moved to tmp
+            path.copyFile(inTsFn, outTsFn)
+            excludeViewsInd = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            eVParams = {
+                '-StackName': outTsFn,
+                '-ViewsToExclude': ",".join(map(str, excludeViewsInd)),
+            }
+            self.runProgram(EXCLUDE_VIEWS_PROGRAM, eVParams)
+            # The generated file overrides the original one in tmp, and it is moved to extra
+            path.moveFile(outTsFn, finalLocation)
+        else:
+            # Just create the link
+            logger.info(cyanStr(f"tsId = {tsId} -> No views to exclude."))
+            path.createLink(inTsFn, finalLocation)
 
