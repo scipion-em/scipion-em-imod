@@ -213,7 +213,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsIdReadList and ts.getSize() > 0:
-                    pId = self._insertFunctionStep(self.convertInputStep,
+                    pId = self._insertFunctionStep(self.convertInStep,
                                                    tsId,
                                                    prerequisites=[],
                                                    needsGPU=False)
@@ -256,6 +256,11 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         tsSet = self.getInputTsSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
+
+    def convertInStep(self, tsId):
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+        self.convertInputStep(tsId, ts.getTsPresentAcqOrders())
 
     def generateFiducialSeedStep(self, tsId):
         if tsId in self.failedItems:
@@ -340,11 +345,11 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                 numberPatchesXY = self.numberOfPatches.getListFromValues(caster=str)
                 paramsTiltXCorr["-NumberOfPatchesXandY"] = ",".join(numberPatchesXY)
 
-            # Excluded views
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            if excludedViews:
-                logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
+            # # Excluded views
+            # excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            # if excludedViews:
+            #     logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+            #     paramsTiltXCorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
             self.runProgram(TILT_XCORR_PROGRAM, paramsTiltXCorr)
 
@@ -647,10 +652,10 @@ MinDiamForParamScaling %(minDiamForParamScaling).1f
             paramsBeadtrack["-SobelFilterCentering"] = ""
             paramsBeadtrack["-ScalableSigmaForSobel"] = self.scalableSigmaForSobelFilter.get()
 
-        # Excluded views
-        if ts.hasExcludedViews():
-            excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            paramsBeadtrack["-SkipViews"] = ','.join(map(str, excludedViews))
+        # # Excluded views
+        # if ts.hasExcludedViews():
+        #     excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+        #     paramsBeadtrack["-SkipViews"] = ','.join(map(str, excludedViews))
 
         if ts.hasAlignment():
             paramsBeadtrack["-prexf"] = self.getExtraOutFile(tsId, ext=XF_EXT)

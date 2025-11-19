@@ -101,7 +101,7 @@ class ImodObjectView(pwviewer.CommandView):
 
         if isinstance(obj, tomoObj.TiltSeries):
             tsId = obj.getTsId()
-            inputFn = obj.getFirstItem().getFileName()
+            inputFn = obj._getFirstEnabledTi().getFileName()
 
             if obj.hasAlignment() and displayInterpolated:
                 interpolatedPath = os.path.join(protocol._getExtraPath(), INTERPOLATED_FOLDER)
@@ -118,7 +118,7 @@ class ImodObjectView(pwviewer.CommandView):
                     except Exception as e:
                         raise Exception("Error loading the Imod plugin. Verify it is installed.")
 
-                    firstImg = obj.getFirstItem()
+                    firstImg = obj._getFirstEnabledTi()
                     inFile = firstImg.getFileName()
                     rotationAngle = firstImg.getRotationAngle()
                     swapXY = True if 45 < abs(rotationAngle) < 135 else False
