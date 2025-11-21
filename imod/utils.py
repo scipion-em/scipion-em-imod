@@ -120,7 +120,7 @@ def generateDefocusIMODFileFromObject(ctfTomoSeries: CTFTomoSeries,
     logger.info("Generating defocus file at %s..." % defocusFilePath)
 
     # Check if there is CTF estimation information as list
-    if ctfTomoSeries.getFirstItem().hasEstimationInfoAsList() and not isRelion:
+    if ctfTomoSeries.getFirstEnabledItem().hasEstimationInfoAsList() and not isRelion:
 
         logger.debug(cyanStr("Defocus file generated form a list."))
         flag = ctfTomoSeries.getIMODDefocusFileFlag()

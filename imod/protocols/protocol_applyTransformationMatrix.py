@@ -121,7 +121,7 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
             logger.info(f"tsId = {tsId}: computing the alignment...")
             with self._lock:
                 ts = self.getCurrentTs(tsId)
-            firstItem = ts.getFirstItem()
+            firstItem = ts.getFirstEnabledItem()
             self.genTsPaths(tsId)
             inputFile = firstItem.getFileName()
             outputFile = self.getExtraOutFile(tsId)

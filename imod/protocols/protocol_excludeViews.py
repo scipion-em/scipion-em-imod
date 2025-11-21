@@ -91,7 +91,7 @@ class ProtImodExcludeViews(ProtImodBase):
         try:
             with self._lock:
                 ts = self.getCurrentTs(tsId)
-                firstTi = ts.getFirstItem()
+                firstTi = ts.getFirstEnabledItem()
             tsFileName = firstTi.getFileName()
             outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
             self._runExcludeViews(ts, tsFileName, outTsFn)
