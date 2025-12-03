@@ -141,7 +141,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsIdReadList and ts.getSize() > 0:
-                    convId = self._insertFunctionStep(self.convertInputStep,
+                    convId = self._insertFunctionStep(self.convertInStep,
                                                       tsId,
                                                       prerequisites=[],
                                                       needsGPU=False)
@@ -160,6 +160,11 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
             self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInStep(self, tsId):
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+        self.convertInputStep(tsId, ts.getTsPresentAcqOrders())
+
     def computeXcorrStep(self, tsId):
         """Compute transformation matrix for each tilt series. """
         if tsId not in self.failedItems:
@@ -193,11 +198,11 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                     paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
                     paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
 
-                # Excluded views
-                excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                if excludedViews:
-                    logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                    paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
+                # # Excluded views
+                # excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+                # if excludedViews:
+                #     logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
+                #     paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
 
                 self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)
 

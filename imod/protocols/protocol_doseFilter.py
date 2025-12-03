@@ -232,7 +232,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
 
         if self.inputDoseType.get() == SCIPION_IMPORT:
             for ts in self.getInputTsSet():
-                if ts.getFirstItem().getAcquisition().getDosePerFrame() is None:
+                if ts.getFirstEnabledItem().getAcquisition().getDosePerFrame() is None:
                     validateMsgs.append(f"{ts.getTsId()} has no dose information stored "
                                         "in Scipion Metadata. To solve this, re-import "
                                         "tilt-series using the mdoc option.")

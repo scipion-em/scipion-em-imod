@@ -130,7 +130,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         outTsFn = self.getTmpOutFile(tsId)
         with self._lock:
             ts = self.getCurrentTs(tsId)
-            firstTi = ts.getFirstItem()
+            firstTi = ts.getFirstEnabledItem()
             # Make the link using the tsId instead of the original name prevent IMOD from
             # failing in case of strange characters or even numeric names
         tsFn = firstTi.getFileName()
@@ -572,7 +572,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             logger.info(cyanStr(f'\t--> xf file detected. The tilt-series will be interpolated with {xfFile}'))
 
             if doSwap:
-                dimX, dimY, _ = ts.getFirstItem().getDim()
+                dimX, dimY, _ = ts.getFirstEnabledItem().getDim()
                 paramsNs["-size"] = f"{round(dimY / binning)}," \
                                     f"{round(dimX / binning)}"
 
@@ -607,8 +607,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         tsExcludedIndices = None
         outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
         tsId = ts.getTsId()
-        with self._lock:
-            firstTi = ts.getFirstItem()
+        firstTi = ts.getFirstEnabledItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
             tsExcludedIndices = ts.getTsExcludedViewsIndices(presentAcqOrders)
