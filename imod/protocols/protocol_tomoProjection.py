@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,18 +23,22 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-import os
+import logging
+import traceback
+from os.path import exists
+from typing import List
 
-from imod.protocols.protocol_base import IN_TOMO_SET
-from pwem.objects import Transform
+from pwem.convert.headers import setMRCSamplingRate
+from pwem.objects import Transform, Pointer
 import pyworkflow.protocol.params as params
 from pwem.emlib.image import ImageHandler as ih
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries
-
+from pyworkflow.utils import Message, redStr, cyanStr
+from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries, CTFTomo
 from imod.protocols import ProtImodBase
-from imod.constants import OUTPUT_TILTSERIES_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, OUTPUT_CTF_SERIE, XYZPROJ_PROGRAM
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodTomoProjection(ProtImodBase):
@@ -63,32 +67,23 @@ class ProtImodTomoProjection(ProtImodBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TOMO_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTomograms',
-                      important=True,
-                      label='Input set of tomograms to be projected')
-
+        super().addInTomoSetFormParam(form)
         line = form.addLine('Tilt angles  (deg)',
                             help='Starting, ending, and increment tilt angle. '
                                  'Enter the same value for starting and '
                                  'ending angle to get only one image.')
-
         line.addParam('minAngle',
                       params.FloatParam,
                       default=-60.0,
                       label='Minimum rotation')
-
         line.addParam('maxAngle',
                       params.FloatParam,
                       default=60.0,
                       label='Maximum rotation')
-
         line.addParam('stepAngle',
                       params.FloatParam,
                       default=2.0,
                       label='Step angle')
-
         form.addParam('rotationAxis',
                       params.EnumParam,
                       choices=['X', 'Y', 'Z'],
@@ -98,13 +93,12 @@ class ProtImodTomoProjection(ProtImodBase):
                       help='Axis to tilt around (X, Y, or Z). Y axis usually '
                            'corresponds to the typical rotation axis '
                            'acquisition.')
-
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=1, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         closeSetStepDeps = []
-        for tomo in self.getInputSet():
+        for tomo in self.getInputTomoSet():
             tsId = tomo.getTsId()
             compId = self._insertFunctionStep(self.projectTomogram,
                                               tsId,
@@ -117,15 +111,17 @@ class ProtImodTomoProjection(ProtImodBase):
             closeSetStepDeps.append(outId)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def projectTomogram(self, tsId):
+    def projectTomogram(self, tsId: str):
         try:
+            logger.info(cyanStr(f'tsId = {tsId} -> Projecting the tomogram...'))
             self.genTsPaths(tsId)
             with self._lock:
-                tomo = self.getCurrentItem(tsId)
+                tomo = self.getCurrentTomo(tsId)
 
             paramsXYZproj = {
                 '-input': tomo.getFileName(),
@@ -136,54 +132,83 @@ class ProtImodTomoProjection(ProtImodBase):
                                               self.stepAngle.get()]))
             }
 
-            self.runProgram('xyzproj', paramsXYZproj)
+            self.runProgram(XYZPROJ_PROGRAM, paramsXYZproj)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'xyzproj execution failed for tsId {tsId} -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {XYZPROJ_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
-    def generateOutputStackStep(self, tsId):
-        with self._lock:
-            tomo = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(tomo)
-            else:
-                outputFn = self.getExtraOutFile(tsId)
-                if os.path.exists(outputFn):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-                    newTs = TiltSeries(tsId=tsId)
+    def generateOutputStackStep(self, tsId: str):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId, inputsAreTs=False)
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                tomo = self.getCurrentTomo(tsId)
+                setMRCSamplingRate(outputFn, tomo.getSamplingRate())  # Update the apix value in file header
+                with self._lock:
+                    # Set of tilt-series
+                    outTsSet = self.getOutputSetOfTS(self.getInputTomoSet(pointer=True))
+                    # Tilt-series
+                    outTs = TiltSeries(tsId=tsId)
                     acq = tomo.getAcquisition()
                     acq.setAngleMin(self.minAngle.get())
                     acq.setAngleMax(self.maxAngle.get())
                     acq.setStep(self.stepAngle.get())
                     acq.setTiltAxisAngle(0)
-                    newTs.setAcquisition(acq)
-                    output.append(newTs)
+                    outTs.setAcquisition(acq)
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    # Generate fake CTFs
+                ctfSet = self.getOutputSetOfCTFTomoSeries(Pointer(self, extended=OUTPUT_TILTSERIES_NAME),
+                                                          OUTPUT_CTF_SERIE)
+                ctfSerie = CTFTomoSeries()
+                ctfSerie.copyInfo(outTs)
+                ctfSerie.setTiltSeries(outTs)
+                ctfSerie.setTsId(tsId)
+                ctfSet.append(ctfSerie)
 
-                    tiltAngleList = self.getTiltAngleList()
-                    sRate = tomo.getSamplingRate()
-                    for index in range(self.getProjectionRange()):
-                        newTi = TiltImage(tsId=tsId,
-                                          tiltAngle=tiltAngleList[index],
-                                          acquisitionOrder=index + 1)
-                        newTi.setLocation(index + 1, outputFn)
-                        newTi.setSamplingRate(sRate)
-                        newTi.setAcquisition(acq)
-                        newTs.append(newTi)
+                tiltAngleList = self.getTiltAngleList()
+                sRate = tomo.getSamplingRate()
+                for slice in range(1, self.getProjectionRange()+1):
+                    newTi = TiltImage(tsId=tsId,
+                                      tiltAngle=tiltAngleList[slice-1],
+                                      acquisitionOrder=slice)
+                    newTi.setLocation(slice, outputFn)
+                    newTi.setSamplingRate(sRate)
+                    newTi.setAcquisition(acq)
+                    outTs.append(newTi)
 
-                    x, y, z, _ = ih.getDimensions(outputFn)
-                    newTs.setDim((x, y, z))
-                    newTs.setAnglesCount(len(newTs))
+                    # Fake CTF
+                    tiltCTF = CTFTomo(index=slice,acqOrder=slice)
+                    tiltCTF.setDefocusU(0)
+                    tiltCTF.setDefocusV(0)
+                    tiltCTF.setDefocusAngle(0)
+                    tiltCTF.setResolution(1)
+                    ctfSerie.append(tiltCTF)
 
-                    # Set origin to output tilt-series
-                    origin = Transform()
-                    origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
-                    newTs.setOrigin(origin)
+                x, y, z, _ = ih.getDimensions(outputFn)
+                outTs.setDim((x, y, z))
+                outTs.setAnglesCount(len(outTs))
 
-                    output.update(newTs)
-                    self._store(output)
-                else:
-                    self.createOutputFailedSet(tomo)
+                # Set origin to output tilt-series
+                origin = Transform()
+                origin.setShifts(x / -2. * sRate, y / -2. * sRate, 0)
+                outTs.setOrigin(origin)
+
+                # Data persistence
+                outTsSet.update(outTs)
+                self._store(outTsSet)
+                ctfSet.update(ctfSerie)
+                self._store(outTsSet, ctfSet)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -206,7 +231,7 @@ class ProtImodTomoProjection(ProtImodBase):
         summary = []
         output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         if output is not None:
-            summary.append(f"Input tomograms: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tomograms: {self.getInputTsSet().getSize()}\n"
                            f"Tilt-series generated: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -222,10 +247,7 @@ class ProtImodTomoProjection(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer=False):
-        return self.inputSetOfTomograms if pointer else self.inputSetOfTomograms.get()
-
-    def getRotationAxis(self):
+    def getRotationAxis(self) -> str:
         parseParamsRotationAxis = {
             self.AXIS_X: 'X',
             self.AXIS_Y: 'Y',
@@ -236,7 +258,7 @@ class ProtImodTomoProjection(ProtImodBase):
     def getProjectionRange(self):
         return int((self.maxAngle.get() - self.minAngle.get()) / self.stepAngle.get()) + 1
 
-    def getTiltAngleList(self):
+    def getTiltAngleList(self) -> List[float]:
         tiltAngleList = []
 
         angle = self.minAngle.get()

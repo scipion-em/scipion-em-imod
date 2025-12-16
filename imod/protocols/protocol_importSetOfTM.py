@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,20 +23,21 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
+import csv
 import logging
+import traceback
 
 import numpy as np
-
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from imod.convert.convert import readXfFile
 from imod.protocols.protocol_base import IN_TS_SET
+from pwem.objects import Transform
 from pyworkflow.protocol.constants import STEPS_SERIAL
-import pwem.objects as data
-from tomo.objects import SetOfTiltSeries
+from pyworkflow.utils import cyanStr, redStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from tomo.protocols.protocol_base import ProtTomoImportFiles
 from tomo.convert.mdoc import normalizeTSId
-
-from imod import utils
 from imod.constants import XF_EXT, OUTPUT_TILTSERIES_NAME
 from imod.protocols import ProtImodBase
 
@@ -52,8 +53,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     stepsExecutionMode = STEPS_SERIAL
 
     def __init__(self, **kwargs):
-        ProtImodBase().__init__(**kwargs)
-        ProtTomoImportFiles.__init__(self, **kwargs)
+        super().__init__(**kwargs)
         self.matchingTsIds = None
         self.iterFilesDict = None
 
@@ -61,19 +61,13 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
     def _defineParams(self, form):
         ProtTomoImportFiles._defineImportParams(self, form)
         ProtTomoImportFiles.addExclusionWordsParam(form)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      help='Set of tilt-series on which transformation matrices '
-                           'will be assigned.',
-                      label='Input set of tilt-series')
-
+        super().addInTsSetFormParam(form)
         form.addParam("override",
                       params.BooleanParam,
                       default=True,
-                      help='If True, the imported transformations will override the previous alignmnets, otherwise, the alignmnets will be combined (alignment matrices multiplied)',
-                      label='Override aligmnents')
+                      help='If True, the imported transformations will override the previous alignments, '
+                           'otherwise, the alignments will be combined (alignment matrices multiplied.',
+                      label='Override alignments')
 
         groupMatchBinning = form.addGroup('Match binning')
 
@@ -105,14 +99,15 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                                      needsGPU=False)
 
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TILTSERIES_NAME,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.initializeParsing()
         if self.regEx:
-            logger.info("Using regex pattern: '%s'" % self.regExPattern)
-            logger.info("Generated glob pattern: '%s'" % self.globPattern)
+            logger.info(cyanStr("Using regex pattern: '%s'" % self.regExPattern))
+            logger.info(cyanStr("Generated glob pattern: '%s'" % self.globPattern))
             self.iterFilesDict = self.getMatchingFilesFromRegEx()
         else:
             dictBaseNames = {}
@@ -124,61 +119,71 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
                 dictBaseNames[fBaseName] = iFname
                 dictBaseNames[normalizeTSId(fBaseName)] = iFname
             self.iterFilesDict = dictBaseNames
-        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputSet() if ts.getTsId()
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.getInputTsSet() if ts.getTsId()
                        in self.iterFilesDict.keys()}  # Use only the ones that are not excluded with the excluded words
+        logger.info(cyanStr(f"Matching tsIds: {self.matchingTsIds}"))
 
-    def generateTransformFileStep(self, tsId, matchBinningFactor):
-        self.genTsPaths(tsId)
-        ts = self.tsDict[tsId]
-        tiNum = ts.getSize()
-        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        self.debug(f"Matching tsIds: {self.matchingTsIds}")
+    def generateTransformFileStep(self,
+                                  tsId: str,
+                                  matchBinningFactor: int):
+        try:
+            self.genTsPaths(tsId)
+            ts = self.tsDict[tsId]
+            tiNum = ts.getSize()
+            outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            tmFilePath = self.iterFilesDict.get(tsId, None)
+            if tmFilePath:
+                if matchBinningFactor != 1:
+                    inputTransformMatrixList = readXfFile(tmFilePath)
+                    # Update shifts from the transformation matrix considering
+                    # the matching binning between the input tilt
+                    # series and the transformation matrix. We create an empty
+                    # tilt-series containing only tilt-images
+                    # with transform information.
+                    transformMatrixList = []
 
-        tmFilePath = self.iterFilesDict.get(tsId, None)
-        if tmFilePath:
-            if matchBinningFactor != 1:
-                inputTransformMatrixList = utils.formatTransformationMatrix(tmFilePath)
-                # Update shifts from the transformation matrix considering
-                # the matching binning between the input tilt
-                # series and the transformation matrix. We create an empty
-                # tilt-series containing only tilt-images
-                # with transform information.
-                transformMatrixList = []
+                    for index in range(tiNum):
+                        outputTransformMatrix = inputTransformMatrixList[:, :, index]
+                        outputTransformMatrix[0][2] *= matchBinningFactor
+                        outputTransformMatrix[1][2] *= matchBinningFactor
+                        transformMatrixList.append(outputTransformMatrix)
 
-                for index in range(tiNum):
-                    inputTransformMatrix = inputTransformMatrixList[:, :, index]
+                    self.writeXfFileFromTrList(transformMatrixList, outputTransformFile)
 
-                    outputTransformMatrix = inputTransformMatrix
-                    outputTransformMatrix[0][0] = inputTransformMatrix[0][0]
-                    outputTransformMatrix[0][1] = inputTransformMatrix[0][1]
-                    outputTransformMatrix[0][2] = inputTransformMatrix[0][2] * matchBinningFactor
-                    outputTransformMatrix[1][0] = inputTransformMatrix[1][0]
-                    outputTransformMatrix[1][1] = inputTransformMatrix[1][1]
-                    outputTransformMatrix[1][2] = inputTransformMatrix[1][2] * matchBinningFactor
-                    outputTransformMatrix[2][0] = inputTransformMatrix[2][0]
-                    outputTransformMatrix[2][1] = inputTransformMatrix[2][1]
-                    outputTransformMatrix[2][2] = inputTransformMatrix[2][2]
+                else:
+                    pwutils.createLink(tmFilePath, outputTransformFile)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
-                    transformMatrixList.append(outputTransformMatrix)
+    def assignTransformationMatricesStep(self, tsId: str):
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+        else:
+            try:
+                ts = self.tsDict[tsId]
+                outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                alignmentMatrix = readXfFile(outputTransformFile)
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                outTs.setAlignment2D()
+                outTsSet.append(outTs)
+                enabledInd = 0
+                for ti in ts.iterItems():
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    if ti.isEnabled():
+                        newTransform = alignmentMatrix[:, :, enabledInd]
+                        self.updateTiltImage(ti, outTi, newTransform)
+                        enabledInd += 1
+                    outTs.append(outTi)
+                outTsSet.update(outTs)
 
-                utils.formatTransformFileFromTransformList(transformMatrixList, outputTransformFile)
-
-            else:
-                pwutils.createLink(tmFilePath, outputTransformFile)
-
-    def assignTransformationMatricesStep(self, tsId):
-        ts = self.tsDict[tsId]
-        outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
-        output = self.getOutputSetOfTS(self.getInputSet(pointer=True))
-        alignmentMatrix = utils.formatTransformationMatrix(outputTransformFile)
-
-        self.copyTsItems(output, ts, tsId,
-                         updateTsCallback=self.updateTs,
-                         updateTiCallback=self.updateTi,
-                         copyId=True,
-                         copyTM=False,
-                         alignmentMatrix=alignmentMatrix,
-                         isSemiStreamified=False)
+            except Exception as e:
+                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+                logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -191,7 +196,7 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
         else:
             matchingFiles = self.getMatchFiles()
             if matchingFiles:
-                tsIdList = self.getInputSet().getTSIds()
+                tsIdList = self.getInputTsSet().getTSIds()
                 tmFileList = [normalizeTSId(fn) for fn, _ in self.iterFiles()]
                 self.matchingTsIds = list(set(tsIdList) & set(tmFileList))
                 if not self.matchingTsIds:
@@ -208,10 +213,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
     def _summary(self):
         summary = []
-        if self.TiltSeries:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+        output = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        if output is not None:
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            "Transformation matrices assigned: "
-                           f"{self.TiltSeries.getSize()}")
+                           f"{output.getSize()}")
         return summary
 
     # --------------------------- UTILS functions -----------------------------
@@ -253,23 +259,42 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
 
         return allowedFiles
 
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        transform = data.Transform()
-        alignmentMatrix = kwargs.get("alignmentMatrix")
+    @staticmethod
+    def writeXfFileFromTrList(transformMatrixList, transformFilePath):
+        """ This method takes a list of Transform matrices and the output
+        transformation file path and creates an
+        IMOD-based transform file in the location indicated.
+        :param transformMatrixList: list of transformation matrices to be written
+        :param transformFilePath: output location of the file. """
 
+        tsMatrixTransformList = []
+
+        for tm in transformMatrixList:
+            tmFlat = tm.flatten()
+            transformIMOD = [tmFlat[0],
+                             tmFlat[1],
+                             tmFlat[3],
+                             tmFlat[4],
+                             tmFlat[2],
+                             tmFlat[5]]
+            tsMatrixTransformList.append(transformIMOD)
+
+        with open(transformFilePath, 'w') as f:
+            csvW = csv.writer(f, delimiter='\t')
+            csvW.writerows(tsMatrixTransformList)
+
+    def updateTiltImage(self,
+                        ti: TiltImage,
+                        tiOut: TiltImage,
+                        newTransform: np.array) -> None:
+        transform = Transform()
         if ti.hasTransform() and not self.override.get():
             previousTransform = ti.getTransform().getMatrix()
-            newTransform = alignmentMatrix[:, :, index]
             previousTransformArray = np.array(previousTransform)
             newTransformArray = np.array(newTransform)
             outputTransformMatrix = np.matmul(previousTransformArray, newTransformArray)
             transform.setMatrix(outputTransformMatrix)
         else:
-            transform.setMatrix(alignmentMatrix[:, :, index])
-
+            transform.setMatrix(newTransform)
         tiOut.setTransform(transform)
-
-    @staticmethod
-    def updateTs(tsId, ts, tsOut, **kwargs):
-        tsOut.setAlignment2D()
 

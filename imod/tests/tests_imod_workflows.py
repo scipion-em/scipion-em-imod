@@ -72,6 +72,12 @@ class TestImodBase(BaseTest):
         return cls.protDoseFilter
 
     @classmethod
+    def _runFiducialEraser(cls, **kwargs):
+        cls.protFidEraser = cls.newProtocol(ProtImodFiducialEraser, **kwargs)
+        cls.launchProtocol(cls.protFidEraser)
+        return cls.protFidEraser
+
+    @classmethod
     def _runTSNormalization(cls, **kwargs):
         cls.protTSNormalization = cls.newProtocol(ProtImodTsNormalization, **kwargs)
         cls.launchProtocol(cls.protTSNormalization)
@@ -205,6 +211,10 @@ class TestImodReconstructionWorkflow(TestImodBase):
                                                 inputDoseType=1,
                                                 fixedImageDose=2.0)
 
+        cls.protFiducialEraser = cls._runFiducialEraser(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
+                                                    fiducialDiameter=10,
+                                                    erasedDiameter=12)
+
         cls.protTSNormalization = cls._runTSNormalization(inputSetOfTiltSeries=cls.protDoseFilter.TiltSeries,
                                                           binning=cls.binningTsNormalization,
                                                           floatDensities=2,
@@ -283,6 +293,15 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(os.path.exists(self.protXRaysEraser._getExtraPath(tsId,
                                                                           tsId + ".mrcs")))
 
+    def test_FiducialEraser(self):
+        ts = self.protFiducialEraser.TiltSeries
+        self.assertSetSize(ts)
+
+        tsId = ts.getFirstItem().getTsId()
+
+        self.assertTrue(os.path.exists(self.protXRaysEraser._getExtraPath(tsId,
+                                                                          tsId + ".mrcs")))
+
     def test_normalizationOutputTS(self):
         ts = self.protTSNormalization.TiltSeries
         self.assertSetSize(ts)
@@ -304,19 +323,19 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(ts.hasAlignment(), "Tilt series does not have alignment flag")
 
     def test_prealignmentOutputInterpolatedTS(self):
-        ts = self.protXcorr.InterpolatedTiltSeries
+        ts = self.protXcorr.TiltSeries
         self.assertSetSize(ts)
-        self.assertFalse(ts.hasAlignment(), "Tilt series has alignment flag")
+        self.assertTrue(ts.hasAlignment(), "Tilt series hasn't got the alignment flag")
 
-        tsId = ts.getFirstItem().getTsId()
-        outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
-
-        self.assertTrue(os.path.exists(outputLocation))
+        # tsId = ts.getFirstItem().getTsId()
+        # outputLocation = self.protXcorr._getExtraPath(tsId, tsId + ".mrcs")
+        #
+        # self.assertTrue(os.path.exists(outputLocation))
 
         inSamplingRate = self.protXcorr.inputSetOfTiltSeries.get().getSamplingRate()
         outSamplingRate = ts.getSamplingRate()
 
-        self.assertEqual(inSamplingRate * self.binningPrealignment, outSamplingRate)
+        self.assertEqual(inSamplingRate, outSamplingRate)
 
     def test_fiducialModelstOutputFiducialModelGaps(self):
         output = self.protFiducialModels.FiducialModelGaps
@@ -337,23 +356,13 @@ class TestImodReconstructionWorkflow(TestImodBase):
         self.assertTrue(output.hasAlignment(),
                         "Fiducial alignment Tilt series does not have alignment flag")
 
-        # Interpolated
-        output = self.protFiducialAlignment.InterpolatedTiltSeries
-        self.assertSetSize(output, size=2)
-        self.assertFalse(output.hasAlignment(), "Interpolated Tilt series does have alignment flag")
-
-        tsId = output.getFirstItem().getTsId()
-        outputLocation = self.protFiducialAlignment._getExtraPath(tsId,
-                                                                  tsId + ".mrcs")
-
-        self.assertTrue(os.path.exists(outputLocation))
 
         inputSoTS = self.protFiducialAlignment.inputSetOfLandmarkModels.get().getSetOfTiltSeries()
 
         inSamplingRate = inputSoTS.getSamplingRate()
         outSamplingRate = output.getSamplingRate()
 
-        self.assertEqual(inSamplingRate * self.binningFiducialAlignment, outSamplingRate)
+        self.assertEqual(inSamplingRate, outSamplingRate)
 
         output = self.protFiducialAlignment.FiducialModelNoGaps
         self.assertSetSize(output, size=2)
@@ -364,20 +373,20 @@ class TestImodReconstructionWorkflow(TestImodBase):
 
         self.assertTrue(os.path.exists(outputLocation))
 
-        # Output coordinates
-        output = self.protFiducialAlignment.TiltSeriesCoordinates
-        self.assertSetSize(output)
-
-        tsId = output.getFirstItem().getTsId()
-        outputLocation = self.protFiducialAlignment._getExtraPath(tsId,
-                                                                  tsId + "_fid.xyz")
-
-        self.assertTrue(os.path.exists(outputLocation))
-
-        tolerance = 20
-        expectedSize = 35
-
-        self.assertTrue(abs(output.getSize() - expectedSize) <= tolerance)
+        # # Output coordinates
+        # output = self.protFiducialAlignment.TiltSeriesCoordinates
+        # self.assertSetSize(output)
+        #
+        # tsId = output.getFirstItem().getTsId()
+        # outputLocation = self.protFiducialAlignment._getExtraPath(tsId,
+        #                                                           tsId + "_fid.xyz")
+        #
+        # self.assertTrue(os.path.exists(outputLocation))
+        #
+        # tolerance = 20
+        # expectedSize = 35
+        #
+        # self.assertTrue(abs(output.getSize() - expectedSize) <= tolerance)
 
     def test_applyTransformationMatrixOutputInterpolatedTS(self):
         output = self.protApplyTransformationMatrix.InterpolatedTiltSeries

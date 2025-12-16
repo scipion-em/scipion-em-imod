@@ -1,6 +1,6 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [1]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
 # * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
@@ -23,20 +23,22 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # *****************************************************************************
-
-import os
-
+import logging
+import traceback
+from os.path import exists
+from typing import Tuple
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, BINNING_FACTOR
+from imod.convert.convert import genXfFile
+from imod.protocols.protocol_base import BINNING_FACTOR, NEWSTACK_PROGRAM
 from pwem import ALIGN_NONE
+from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.utils import Message
-from tomo.objects import SetOfTiltSeries
-
-from imod import utils
+from pyworkflow.utils import Message, redStr
+from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
-from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TILTSERIES_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME)
+from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TS_INTERPOLATED_NAME)
+
+logger = logging.getLogger(__name__)
 
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
@@ -52,20 +54,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     errors during the image processing. This protocol allows to apply
     the transformation matrix to the tilt series
     """
-
     _label = 'Apply transformation'
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
+    _possibleOutputs = {OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET,
-                      params.PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series to apply the transformation matrix')
-
+        super().addInTsSetFormParam(form)
         form.addParam(BINNING_FACTOR, params.IntParam,
                       default=1,
                       label='Binning for the interpolated',
@@ -77,7 +73,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is the average of pixel values in each block of pixels '
                            'being binned. Binning is applied before all other image '
                            'transformations.')
-
         form.addParam('taperInside',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -87,7 +82,6 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'are filled in (e.g. because of rotation). '
                            'Decide whether tapering is done inwards or outwards '
                            'from the edge.')
-
         form.addParam('linear',
                       params.BooleanParam,
                       expertLevel=params.LEVEL_ADVANCED,
@@ -98,16 +92,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'is more suitable when images are very noisy, but cubic '
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
-
         self.addOddEvenParams(form)
-
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             tsId = ts.getTsId()
             compId = self._insertFunctionStep(self.computeAlignmentStep,
                                               tsId,
@@ -119,85 +111,89 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                              needsGPU=False)
             closeSetStepDeps.append(outId)
         self._insertFunctionStep(self.closeOutputSetsStep,
+                                 OUTPUT_TS_INTERPOLATED_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
     # --------------------------- STEPS functions ------------------------------
     def computeAlignmentStep(self, tsId):
         try:
+            logger.info(f"tsId = {tsId}: computing the alignment...")
             with self._lock:
-                ts = self.getCurrentItem(tsId)
-            firstItem = ts.getFirstItem()
+                ts = self.getCurrentTs(tsId)
+            firstItem = ts.getFirstEnabledItem()
             self.genTsPaths(tsId)
-            utils.genXfFile(ts, self.getExtraOutFile(tsId, ext=XF_EXT))
-
-            paramsDict = self.getBasicNewstackParams(ts,
-                                                     self.getExtraOutFile(tsId),
-                                                     firstItem=firstItem,
-                                                     xfFile=self.getExtraOutFile(tsId, ext=XF_EXT),
-                                                     binning=self.binning.get(),
-                                                     doSwap=True,
-                                                     tsExcludedIndices=ts.getExcludedViewsIndex(),
-                                                     doTaper=True)
-            paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
-
-            if self.linear:
-                paramsDict["-linear"] = ""
-
-            self.runProgram("newstack", paramsDict)
-
-            if self.oddEvenFlag:
-                paramsDict['-input'] = ts.getOddFileName()
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram("newstack", paramsDict)
-
-                paramsDict['-input'] = ts.getEvenFileName()
-                paramsDict['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
-                self.runProgram("newstack", paramsDict)
+            inputFile = firstItem.getFileName()
+            outputFile = self.getExtraOutFile(tsId)
+            # Gen the xf alignment file
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            genXfFile(ts, xfFile)
+            # Get the excluded views indices
+            tsExcludedIndices = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
+            # Get the doSwap argument value
+            doSwap = self.getNewstackDoSwap(firstItem, xfFile)
+            self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
+            if self.doOddEven:
+                # Odd
+                logger.info(f"tsId = {tsId} ODD: computing the alignment...")
+                inputFile = ts.getOddFileName()
+                outputFile = self.getExtraOutFile(tsId, suffix=ODD)
+                self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
+                # Even
+                logger.info(f"tsId = {tsId} EVEN: computing the alignment...")
+                inputFile = ts.getEvenFileName()
+                outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
+                self._runNewstack(ts, inputFile, outputFile, xfFile, doSwap, tsExcludedIndices)
 
         except Exception as e:
             self.failedItems.append(tsId)
-            self.error(f'Newstack execution failed for tsId {tsId} -> {e}')
+            logger.error(redStr(f'tsId = {tsId} -> {NEWSTACK_PROGRAM} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+            return
+        try:
+            outputFn = self.getExtraOutFile(tsId)
+            if exists(outputFn):
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                    # Set of tilt-series
+                    outTsSet = self._prepareOutputSet()
+                    # Tilt-series
+                    outTs = self._createOutputTiltSeries(ts)
+                    outTsSet.append(outTs)
+                    # Tilt-images
+                    tiList, angleMin, angleMax, accumDose, initialDose = self._processTiltImages(ts)
+                    self._updateAcquisition(ts, outTs, tiList, angleMin, angleMax, accumDose, initialDose)
+                    # Data persistence
+                    outTs.write()
+                    outTsSet.update(outTs)
+                    outTsSet.write()
+                    self._store(outTsSet)
             else:
-                outputLocation = self.getExtraOutFile(tsId)
-                if os.path.exists(outputLocation):
-                    output = self.getOutputSetOfTS(self.getInputSet(pointer=True),
-                                                   binning=self.binning.get(),
-                                                   attrName=OUTPUT_TS_INTERPOLATED_NAME,
-                                                   suffix="Interpolated",)
-
-                    self.copyTsItems(output, ts, tsId,
-                                     updateTsCallback=self.updateTs,
-                                     updateTiCallback=self.updateTi,
-                                     copyId=False,
-                                     copyTM=False,
-                                     excludedViews=ts.getExcludedViewsIndex())
-                else:
-                    self.createOutputFailedSet(ts)
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
         validateMsgs = []
-
-        for ts in self.getInputSet():
+        for ts in self.getInputTsSet():
             if not ts.hasAlignment():
                 validateMsgs.append("Some tilt-series from the input set "
                                     "are missing a transformation matrix.")
                 break
-
         return validateMsgs
 
     def _summary(self):
         summary = []
         output = getattr(self, OUTPUT_TS_INTERPOLATED_NAME, None)
         if output is not None:
-            summary.append(f"Input tilt-series: {self.getInputSet().getSize()}\n"
+            summary.append(f"Input tilt-series: {self.getInputTsSet().getSize()}\n"
                            f"Interpolations applied: {output.getSize()}")
         else:
             summary.append("Outputs are not ready yet.")
@@ -213,12 +209,105 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
         return methods
 
     # --------------------------- UTILS functions -----------------------------
+    def _runNewstack(self,
+                    ts: TiltSeries,
+                    inputFile: str,
+                    outputFile: str,
+                    xfFile: str,
+                    doSwap: bool,
+                    tsExcludedIndices: set) -> None:
+
+        # Generate the command file for newstack
+        paramsDict = self.getBasicNewstackParams(ts,
+                                                 inputFile,
+                                                 outputFile,
+                                                 xfFile=xfFile,
+                                                 tsExcludedIndices=tsExcludedIndices,
+                                                 binning=self.binning.get(),
+                                                 doSwap=doSwap,
+                                                 doTaper=True)
+        paramsDict["-taper"] = "1,1" if self.taperInside else "1,0"
+        if self.linear:
+            paramsDict["-linear"] = ""
+        self.runProgram(NEWSTACK_PROGRAM, paramsDict)
+
     @staticmethod
-    def updateTs(tsId, ts, tsOut, **kwargs):
+    def updateTiltSeries(tsOut: TiltSeries) -> None:
         tsOut.setInterpolated(True)
         tsOut.setAlignment(ALIGN_NONE)
         tsOut.getAcquisition().setTiltAxisAngle(0.)  # 0 because TS is aligned
 
-    def updateTi(self, origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs):
-        super().updateTi(origIndex, index, tsId, ts, ti, tsOut, tiOut, **kwargs)
-        tiOut.getAcquisition().setTiltAxisAngle(0.)
+    def _prepareOutputSet(self) -> SetOfTiltSeries:
+            return self.getOutputSetOfTS(
+                self.getInputTsSet(pointer=True),
+                binning=self.binning.get(),
+                attrName=OUTPUT_TS_INTERPOLATED_NAME,
+                suffix="Interpolated")
+
+    def _createOutputTiltSeries(self, ts: TiltSeries) -> TiltSeries:
+        outTs = TiltSeries()
+        outTs.copyInfo(ts)
+        self.updateTiltSeries(outTs)
+        return outTs
+
+    def _processTiltImages(self, ts: TiltSeries) -> Tuple[list, float, float, float, float]:
+        tsId = ts.getTsId()
+        angleMin, angleMax = 999, -999
+        accumDose, initialDose = 0, 999
+        tiFn = self.getExtraOutFile(tsId)
+        # Update the sampling rate in the file header
+        setMRCSamplingRate(tiFn, ts.getSamplingRate() * self.binning.get())
+        tiList = []
+
+        for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+            if not ti.isEnabled():
+                continue
+
+            tiAngle = ti.getTiltAngle()
+            angleMin = min(tiAngle, angleMin)
+            angleMax = max(tiAngle, angleMax)
+            accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+            initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+
+            outTi = TiltImage()
+            outTi.copyInfo(ti)
+            outTi.setFileName(tiFn)
+            outTi.getAcquisition().setTiltAxisAngle(0.)
+            outTi.setTransform(None)
+            self.setTsOddEven(tsId, outTi, binGenerated=True)
+
+            tiList.append(outTi)
+
+        return tiList, angleMin, angleMax, accumDose, initialDose
+
+
+    @staticmethod
+    def _updateAcquisition(ts: TiltSeries,
+                           outTs: TiltSeries,
+                           tiList: list,
+                           angleMin: float,
+                           angleMax: float,
+                           accumDose: float,
+                           initialDose: float) -> None:
+        # Update the acquisition minAngle and maxAngle values of the tilt-series
+        if ts.hasExcludedViews():
+            acq = outTs.getAcquisition()
+            acq.setAngleMin(angleMin)
+            acq.setAngleMax(angleMax)
+            acq.setAccumDose(accumDose)
+            acq.setDoseInitial(initialDose)
+            outTs.setAcquisition(acq)
+            # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+            # specific accum and initial dose values
+            for tiOut in tiList:
+                tiAcq = tiOut.getAcquisition()
+                tiAcq.setAngleMin(angleMin)
+                tiAcq.setAngleMax(angleMax)
+                tiOut.setAcquisition(tiAcq)
+                outTs.append(tiOut)
+
+            outTs.setAnglesCount(len(outTs))
+        else:
+            for tiOut in tiList:
+                outTs.append(tiOut)
+

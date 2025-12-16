@@ -26,16 +26,18 @@
 # **************************************************************************
 import logging
 import subprocess
-import time
+import traceback
 import typing
+from collections import Counter
+
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    OUTPUT_TS_INTERPOLATED_NAME, BRT_ENV_NAME, NO_TS_PROCESSED_MSG, OUTPUT_TS_FAILED_NAME
+    BRT_ENV_NAME
 from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
-from pyworkflow.object import Pointer
-from pyworkflow.protocol import PointerParam, STEPS_PARALLEL, EnumParam, IntParam, GT, ProtStreamingBase
+from pyworkflow.protocol import PointerParam, EnumParam, IntParam, GT, STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
@@ -49,17 +51,13 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     """
 
     _label = "teamtomo/batchruntomo"
-    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
-                        OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
-    _devStatus = BETA
+    _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.inTsSetPointer = None
         self.tsReadList = []
-        self.isStreamified = True
-        self.isSemiStreamified = False
 
     @classmethod
     def worksInStreaming(cls):
@@ -68,10 +66,7 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
-        form.addParam(IN_TS_SET, PointerParam,
-                      pointerClass='SetOfTiltSeries',
-                      important=True,
-                      label='Tilt-series')
+        super().addInTsSetFormParam(form)
         form.addParam('alignMode', EnumParam,
                       important=True,
                       choices=['Fiducial alignment', 'Patch tracking'],
@@ -94,7 +89,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                       validators=[GT(0)],
                       label='Patch overlap percent',
                       help='Percentage of tile-length to overlap on each side.')
-        self._insertInterpTsParams(form)
         form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -105,15 +99,16 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         closeSetStepDeps = []
-        inTsSet = self.getInputSet()
-        self.inTsSetPointer = self.getInputSet(pointer=True)  # Required in some super class methods
-        self.readingOutput()
+        inTsSet = self.getInputTsSet()
+        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
 
         while True:
-            listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and self.tsReadList == listTSInput:
+            with self._lock:
+                listTSInput = inTsSet.getTSIds()
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
+                                         OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
@@ -121,64 +116,55 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             for ts in inTsSet.iterItems():
                 tsId = ts.getTsId()
                 if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                        cInputId = self._insertFunctionStep(self.convertInputStep, tsId,
+                        cInputId = self._insertFunctionStep(self.convertInStep, tsId,
                                                             prerequisites=[],
                                                             needsGPU=False)
                         predFidId = self._insertFunctionStep(self.runBRT, tsId,
                                                              prerequisites=cInputId,
                                                              needsGPU=False)
-                        interpId = self._insertFunctionStep(self.computeInterpTsStep,
-                                                            tsId,
-                                                            prerequisites=predFidId,
-                                                            needsGPU=False)
                         cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                          prerequisites=interpId,
+                                                          prerequisites=predFidId,
                                                           needsGPU=False)
                         closeSetStepDeps.append(cOutId)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsReadList.append(tsId)
-            time.sleep(10)
-            if inTsSet.isStreamOpen():
-                with self._lock:
-                    inTsSet.loadAllProperties()  # refresh status for the streaming
+
+            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInStep(self, tsId: str):
+        with self._lock:
+            ts = self.getCurrentTs(tsId)
+        presentAcqOrders = ts.getTsPresentAcqOrders()
+        super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
+
     def runBRT(self, tsId: str):
-        logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-        try:
-            with self._lock:
-                ts = self.getCurrentItem(tsId)
-            self.genTsPaths(tsId)
-            args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
-                else self._getPatchTrackingCmd(ts)
-            Plugin.runBRT(self, args)
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tiltalign execution failed for tsId {tsId} -> {e}'))
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
+                with self._lock:
+                    ts = self.getCurrentTs(tsId)
+                self.genTsPaths(tsId)
+                args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
+                    else self._getPatchTrackingCmd(ts)
+                Plugin.runBRT(self, args)
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
+                logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId: str):
-        with self._lock:
-            ts = self.getCurrentItem(tsId)
-            if tsId in self.failedItems:
-                self.createOutputFailedSet(ts)
-                failedTs = getattr(self, OUTPUT_TS_FAILED_NAME, None)
-                if failedTs:
-                    failedTs.close()
-            else:
-                self.createOutTs(tsId, self.isSemiStreamified, self.isStreamified)
-                self.createOutInterpTs(tsId, self.isSemiStreamified, self.isStreamified)
-                for outputName in self._possibleOutputs.keys():
-                    output = getattr(self, outputName, None)
-                    if output:
-                        output.close()
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tsId)
+            return
+        try:
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                self.createOutTs(ts, self.getInputTsSet(pointer=True))
 
-    def closeOutputSetsStep(self):
-        if not getattr(self, OUTPUT_TILTSERIES_NAME, None):
-            raise Exception(f'{NO_TS_PROCESSED_MSG}. One possible cause may be '
-                            'the lack of the batchruntomo required conda environment '
-                            '(teamtomoBRT-VERSION). If that is the case, please consider to '
-                            'reínstall the plugin scipion-em-imod.')
-        self._closeOutputSet()
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self) -> typing.List[str]:
@@ -197,19 +183,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         return errorMsg
 
     # --------------------------- UTILS functions -----------------------------
-    def getInputSet(self, pointer: bool = False) -> typing.Union[Pointer, SetOfTiltSeries]:
-        tsPointer = getattr(self, IN_TS_SET)
-        return tsPointer if pointer else tsPointer.get()
-
-    def readingOutput(self) -> None:
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        if outTsSet:
-            for ts in outTsSet:
-                self.tsReadList.append(ts.getTsId())
-            self.info(cyanStr(f'Tilt-series processed {self.tsReadList}'))
-        else:
-            self.info(cyanStr('No tilt-series have been processed yet'))
-
     def _getCommonCmd(self, ts: TiltSeries):
         tsId = ts.getTsId()
         cmd = [

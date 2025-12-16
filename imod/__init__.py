@@ -1,10 +1,8 @@
-# *****************************************************************************
+# **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Federico P. de Isidro Gomez (fp.deisidro@cnb.csic.es) [2]
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
-# * [1] SciLifeLab, Stockholm University
-# * [2] Centro Nacional de Biotecnologia, CSIC, Spain
+# * [1] Centro Nacional de Biotecnologia, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -35,13 +33,10 @@ from pyworkflow.gui.project.utils import OS
 import pwem
 
 from imod.constants import (IMOD_HOME, ETOMO_CMD, DEFAULT_VERSION,
-                            VERSIONS, IMOD_VIEWER_BINNING, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
-                            BRT, BRT_PROGRAM_DEFAULT_VERSION, BRT_ENV_NAME, BRT_PROGRAM)
+                            VERSIONS, BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD, BRT_CUDA_LIB,
+                            BRT, BRT_PROGRAM_DEFAULT_VERSION, BRT_ENV_NAME, BRT_PROGRAM, IMOD_VIEWER_BINNING)
 
-__version__ = '3.7.0'
-
-from pyworkflow.utils import Environ
-
+__version__ = '3.8.0'
 _logo = "icon.png"
 _references = ['Kremer1996', 'Mastronarde2017']
 
@@ -59,9 +54,9 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(IMOD_HOME, cls._getIMODFolder(DEFAULT_VERSION))
-        cls._defineVar(IMOD_VIEWER_BINNING, 1)
         cls._defineVar(BRT_ENV_ACTIVATION, BRT_DEFAULT_ACTIVATION_CMD)
         cls._defineVar(BRT_CUDA_LIB, pwem.Config.CUDA_LIB)
+        cls._defineVar(IMOD_VIEWER_BINNING, 1)
 
     @classmethod
     def getBRTEnvActivation(cls):
@@ -145,11 +140,12 @@ class Plugin(pwem.Plugin):
                 jpeg = env.getTarget(JPEG_NAME)
 
             # Download .sh
-            installationCmd = 'wget --continue https://bio3d.colorado.edu/imod/AMD64-RHEL5/' \
-                              'imod_%s_RHEL7-64_CUDA10.1.sh --no-check-certificate && ' % version
+            shFileName = f'imod_{version}_RHEL8-64_CUDA12.0.sh'
+            installationCmd = (f'wget --continue https://bio3d.colorado.edu/imod/AMD64-RHEL5/{shFileName} '
+                               f'--no-check-certificate && ')
 
             # Run .sh skipping copying startup scripts (avoid sudo permissions to write to /etc/profile.d)
-            installationCmd += 'sh imod_%s_RHEL7-64_CUDA10.1.sh -dir . -yes -skip && ' % version
+            installationCmd += f'sh {shFileName} -dir . -yes -skip && '
 
             # Create installation finished flag file
             installationCmd += 'touch %s' % IMOD_INSTALLED
