@@ -114,6 +114,10 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         while True:
             with self._lock:
                 listInTsIds = inTsSet.getTSIds()
+                tsIdsToProcess = [ts.getTsId() for ts in inTsSet.iterItems()
+                                  if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
+                                  and ts.getSize() > 0]  # Avoid processing empty TS
+
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
@@ -122,24 +126,22 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    cInId = self._insertFunctionStep(self.linkTsStep,
-                                                     tsId,
-                                                     prerequisites=[],
-                                                     needsGPU=False)
-                    compId = self._insertFunctionStep(self.doseFilterStep,
-                                                      tsId,
-                                                      prerequisites=cInId,
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createOutputStep,
-                                                     tsId,
-                                                     prerequisites=[compId],
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsIdReadList.append(tsId)
+            for tsId in tsIdsToProcess:
+                cInId = self._insertFunctionStep(self.linkTsStep,
+                                                 tsId,
+                                                 prerequisites=[],
+                                                 needsGPU=False)
+                compId = self._insertFunctionStep(self.doseFilterStep,
+                                                  tsId,
+                                                  prerequisites=cInId,
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 tsId,
+                                                 prerequisites=[compId],
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
