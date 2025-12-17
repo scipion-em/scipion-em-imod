@@ -228,9 +228,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 outTs.write()
                 outTsSet.update(outTs)
                 outTsSet.write()
-            self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
+                self._store(outTsSet)
+                # Close explicitly the outputs (for streaming)
+                self.closeOutputsForStreaming()
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))

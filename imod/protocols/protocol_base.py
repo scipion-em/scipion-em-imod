@@ -113,11 +113,10 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def closeOutputsForStreaming(self):
         # Close explicitly the outputs (for streaming)
-        with self._lock:
-            for outputName in self._possibleOutputs.keys():
-                output = getattr(self, outputName, None)
-                if output:
-                    output.close()
+        for outputName in self._possibleOutputs.keys():
+            output = getattr(self, outputName, None)
+            if output:
+                output.close()
 
     def linkTsStep(self, ts: TiltSeries) -> None:
         try:
