@@ -113,9 +113,9 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         while True:
             with self._lock:
                 listInTsIds = inTsSet.getTSIds()
-                tsIdsToProcess = [ts.getTsId() for ts in inTsSet.iterItems()
-                                  if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
-                                  and ts.getSize() > 0]  # Avoid processing empty TS
+                tsToProcessDict = {ts.getTsId(): ts.clone() for ts in inTsSet.iterItems()
+                                   if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
 
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
@@ -125,32 +125,33 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for tsId in tsIdsToProcess:
-                    cInId = self._insertFunctionStep(self.linkTsStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                    compId = self._insertFunctionStep(self.eraseXraysStep,
-                                                      tsId,
-                                                      prerequisites=cInId,
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createOutputStep,
-                                                     tsId,
-                                                     prerequisites=compId,
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsIdReadList.append(tsId)
+            for tsId, ts in tsToProcessDict.items():
+                cInId = self._insertFunctionStep(self.linkTsStep,
+                                                 ts,
+                                                 prerequisites=[],
+                                                 needsGPU=False)
+                compId = self._insertFunctionStep(self.eraseXraysStep,
+                                                  ts,
+                                                  prerequisites=cInId,
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 ts,
+                                                 prerequisites=compId,
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
     # -------------------------- STEPS functions ------------------------------
-    def eraseXraysStep(self, tsId: str):
+    def eraseXraysStep(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
                 with self._lock:
-                    ts = self.getCurrentTs(tsId)
+                    firstItem = ts.getFirstEnabledItem()
                 inputFile = self.getTmpOutFile(tsId)
                 outputFile = self.getExtraOutFile(tsId)
                 paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
@@ -158,13 +159,13 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 if self.doOddEven:
                     # Odd
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
-                    inputFile = ts.getOddFileName()
+                    inputFile = firstItem.getOdd()
                     outputFile = self.getExtraOutFile(tsId, suffix=ODD)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
                     # Even
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (EVEN Tilt-series) ...'))
-                    inputFile = ts.getEvenFileName()
+                    inputFile = firstItem.getEven()
                     outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
@@ -174,38 +175,40 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str):
+    def createOutputStep(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
             return
         try:
             outTsFile = self.getExtraOutFile(tsId)
-            if exists(outTsFile):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    # Set of tilt-series
-                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                    # Tilt-series
-                    outTs = TiltSeries()
-                    outTs.copyInfo(ts)
-                    outTsSet.append(outTs)
-                    setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-                    # Tilt-images
-                    for ti in ts.iterItems():
-                        outTi = TiltImage()
-                        outTi.copyInfo(ti)
-                        outTi.setFileName(outTsFile)
-                        self.setTsOddEven(tsId, outTi, binGenerated=True)
-                        outTs.append(outTi)
-                    # Data persistence
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
-            else:
+            if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+
+            setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                # Set of tilt-series
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                # Tilt-series
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                outTsSet.append(outTs)
+                # Tilt-images
+                for ti in ts.iterItems():
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    outTi.setFileName(outTsFile)
+                    self.setTsOddEven(tsId, outTi, binGenerated=True)
+                    outTs.append(outTi)
+                # Data persistence
+                outTs.write()
+                outTsSet.update(outTs)
+                outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
@@ -214,7 +217,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
     def getCcdEraserParamsDict(self,
                                tsId: str,
                                inputFile: str,
-                               outputFile = str) -> dict:
+                               outputFile=str) -> dict:
         return {
             "-InputFile": inputFile,
             "-OutputFile": outputFile,
@@ -234,6 +237,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             "-BorderSize": 2,
             "-PolynomialOrder": 2,
         }
+
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []

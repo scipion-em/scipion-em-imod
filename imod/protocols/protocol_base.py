@@ -113,10 +113,11 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def closeOutputsForStreaming(self):
         # Close explicitly the outputs (for streaming)
-        for outputName in self._possibleOutputs.keys():
-            output = getattr(self, outputName, None)
-            if output:
-                output.close()
+        with self._lock:
+            for outputName in self._possibleOutputs.keys():
+                output = getattr(self, outputName, None)
+                if output:
+                    output.close()
 
     def linkTsStep(self, tsId: str):
         try:
@@ -138,12 +139,12 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.linkTs(tsFn, outTsFn)
         if self.doOddEven:
             # ODD
-            inTsOddFn = ts.getOddFileName()
+            inTsOddFn = firstTi.getOdd()
             outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
             logger.info(cyanStr(f"tsId = {tsId}: link TS ODD: {outTsFnOdd} -> {inTsOddFn}"))
             self.linkTs(inTsOddFn, outTsFnOdd)
             # Even
-            inTsEvenFn = ts.getEvenFileName()
+            inTsEvenFn = firstTi.getEven()
             outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
             self.linkTs(inTsEvenFn, outTsFnEven)
             logger.info(cyanStr(f"tsId = {tsId}: link TS EVEN: {outTsFnEven} -> {inTsEvenFn}"))
