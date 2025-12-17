@@ -113,6 +113,10 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         while True:
             with self._lock:
                 listInTsIds = inTsSet.getTSIds()
+                tsIdsToProcess = [ts.getTsId() for ts in inTsSet.iterItems()
+                                  if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
+                                  and ts.getSize() > 0]  # Avoid processing empty TS
+
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
@@ -121,9 +125,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
+            for tsId in tsIdsToProcess:
                     cInId = self._insertFunctionStep(self.linkTsStep,
                                                       tsId,
                                                       prerequisites=[],
