@@ -119,18 +119,18 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 if output:
                     output.close()
 
-    def linkTsStep(self, tsId: str):
+    def linkTsStep(self, ts: TiltSeries) -> None:
         try:
             self._linkTs(tsId)
         except Exception as e:
-            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {ts.getTsId()} -> input conversion failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def _linkTs(self, tsId: str):
+    def _linkTs(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         self.genTsPaths(tsId)
         outTsFn = self.getTmpOutFile(tsId)
         with self._lock:
-            ts = self.getCurrentTs(tsId)
             firstTi = ts.getFirstEnabledItem()
             # Make the link using the tsId instead of the original name prevent IMOD from
             # failing in case of strange characters or even numeric names
