@@ -114,9 +114,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         while True:
             with self._lock:
                 listInTsIds = inTsSet.getTSIds()
-                tsIdsToProcess = [ts.getTsId() for ts in inTsSet.iterItems()
-                                  if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
-                                  and ts.getSize() > 0]  # Avoid processing empty TS
+                tsToProcessDict = {ts.getTsId(): ts.clone() for ts in inTsSet.iterItems()
+                                   if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
 
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
@@ -126,17 +126,17 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for tsId in tsIdsToProcess:
+            for tsId, ts in tsToProcessDict.items():
                 cInId = self._insertFunctionStep(self.linkTsStep,
-                                                 tsId,
+                                                 ts,
                                                  prerequisites=[],
                                                  needsGPU=False)
                 compId = self._insertFunctionStep(self.doseFilterStep,
-                                                  tsId,
+                                                  ts,
                                                   prerequisites=cInId,
                                                   needsGPU=False)
                 outId = self._insertFunctionStep(self.createOutputStep,
-                                                 tsId,
+                                                 ts,
                                                  prerequisites=[compId],
                                                  needsGPU=False)
                 closeSetStepDeps.append(outId)
@@ -146,84 +146,92 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
             self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
-    def doseFilterStep(self, tsId: str):
+    def doseFilterStep(self, ts: TiltSeries):
         """Apply the dose filter to every tilt series"""
-        try:
-            logger.info(cyanStr(f'tsId = {tsId} -> Dose filtering...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
+        tsId = ts.getTsId()
+        if tsId not in self.failedItems:
+            try:
+                logger.info(cyanStr(f'tsId = {tsId} -> Dose filtering...'))
+                with self._lock:
+                    firstItem = ts.getFirstEnabledItem()
+                    outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
+                    self.generateDoseFile(ts, outputDoseFilePath)
 
-            progParams = {
-                '-input': self.getTmpOutFile(tsId),
-                '-output': self.getExtraOutFile(tsId),
-                '-PixelSize': ts.getSamplingRate(),
-                '-Voltage': int(ts.getAcquisition().getVoltage()),
-            }
+                progParams = {
+                    '-input': self.getTmpOutFile(tsId),
+                    '-output': self.getExtraOutFile(tsId),
+                    '-PixelSize': ts.getSamplingRate(),
+                    '-Voltage': int(ts.getAcquisition().getVoltage()),
+                }
 
-            if self.initialDose.get() != 0.0:
-                progParams["-InitialDose"] = self.initialDose.get()
+                if self.initialDose.get() != 0.0:
+                    progParams["-InitialDose"] = self.initialDose.get()
 
-            if self.inputDoseType.get() == SCIPION_IMPORT:
-                outputDoseFilePath = self.getExtraOutFile(tsId, ext="dose")
-                self.generateDoseFile(ts, outputDoseFilePath)
-                progParams["-TypeOfDoseFile"] = 2
-                progParams["-DoseWeightingFile"] = outputDoseFilePath
+                if self.inputDoseType.get() == SCIPION_IMPORT:
+                    progParams["-TypeOfDoseFile"] = 2
+                    progParams["-DoseWeightingFile"] = outputDoseFilePath
 
-            elif self.inputDoseType.get() == FIXED_DOSE:
-                progParams["-FixedImageDose"] = self.fixedImageDose.get()
+                elif self.inputDoseType.get() == FIXED_DOSE:
+                    progParams["-FixedImageDose"] = self.fixedImageDose.get()
 
-            self.runProgram(MTTFILTER_PROGRAM, progParams)
-
-            if self.doOddEven:
-                # Odd
-                logger.info(cyanStr(f'tsId = {tsId} ODD -> Dose filtering...'))
-                progParams['-input'] = ts.getOddFileName()
-                progParams['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
-                self.runProgram(MTTFILTER_PROGRAM, progParams)
-                # Even
-                logger.info(cyanStr(f'tsId = {tsId} EVEN -> Dose filtering...'))
-                progParams['-input'] = ts.getEvenFileName()
-                progParams['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
                 self.runProgram(MTTFILTER_PROGRAM, progParams)
 
-        except Exception as e:
-            self.failedItems.append(tsId)
-            logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed '
-                                f'with the exception -> {e}'))
-            logger.error(traceback.format_exc())
+                if self.doOddEven:
+                    # Odd
+                    logger.info(cyanStr(f'tsId = {tsId} ODD -> Dose filtering...'))
+                    progParams['-input'] = firstItem.getEven()
+                    progParams['-output'] = self.getExtraOutFile(tsId, suffix=ODD)
+                    self.runProgram(MTTFILTER_PROGRAM, progParams)
+                    # Even
+                    logger.info(cyanStr(f'tsId = {tsId} EVEN -> Dose filtering...'))
+                    progParams['-input'] = firstItem.getOdd()
+                    progParams['-output'] = self.getExtraOutFile(tsId, suffix=EVEN)
+                    self.runProgram(MTTFILTER_PROGRAM, progParams)
 
-    def createOutputStep(self, tsId: str):
+            except Exception as e:
+                self.failedItems.append(tsId)
+                logger.error(redStr(f'tsId = {tsId} -> {MTTFILTER_PROGRAM} execution failed '
+                                    f'with the exception -> {e}'))
+                logger.error(traceback.format_exc())
+
+    def createOutputStep(self, ts: TiltSeries):
         """Generate output filtered tilt series"""
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
             return
 
         try:
             outTsFile = self.getExtraOutFile(tsId)
-            if exists(outTsFile):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                    outTs = TiltSeries()
-                    outTs.copyInfo(ts)
-                    self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
-                    outTsSet.append(outTs)
-                    for ti in ts.iterItems():
-                        outTi = TiltImage()
-                        outTi.copyInfo(ti)
-                        setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-                        outTi.setFileName(outTsFile)
-                        self.updateTiAcquisition(outTi)
-                        self.setTsOddEven(tsId, outTi, binGenerated=True)
-                        outTs.append(outTi)
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
-            else:
+            if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+                return
+
+            setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
+            with self._lock:
+                ts = self.getCurrentTs(tsId)
+                # Set of tilt-series
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
+                outTsSet.append(outTs)
+                # Tilt-images
+                for ti in ts.iterItems():
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    outTi.setFileName(outTsFile)
+                    self.updateTiAcquisition(outTi)
+                    self.setTsOddEven(tsId, outTi, binGenerated=True)
+                    outTs.append(outTi)
+                # Data persistence
+                outTs.write()
+                outTsSet.update(outTs)
+                outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())

@@ -121,7 +121,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
     def linkTsStep(self, ts: TiltSeries) -> None:
         try:
-            self._linkTs(tsId)
+            self._linkTs(ts)
         except Exception as e:
             logger.error(redStr(f'tsId = {ts.getTsId()} -> input conversion failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
