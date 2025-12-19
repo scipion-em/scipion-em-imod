@@ -91,7 +91,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         self._initialize()
         binning = self.binning.get()
         inTsSet = self.getInputTsSet()
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, set())
         closeSetStepDeps = []
 
         while True:

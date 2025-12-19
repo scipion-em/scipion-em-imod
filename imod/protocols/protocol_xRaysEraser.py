@@ -107,7 +107,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, set())
 
         while True:
             with self._lock:
