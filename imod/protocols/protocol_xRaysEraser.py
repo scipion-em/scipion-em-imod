@@ -150,8 +150,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays...'))
-                with self._lock:
-                    firstItem = ts.getFirstEnabledItem()
+                firstItem = ts.getFirstEnabledItem()
                 inputFile = self.getTmpOutFile(tsId)
                 outputFile = self.getExtraOutFile(tsId)
                 paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
@@ -180,28 +179,29 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
             return
+
         try:
             outTsFile = self.getExtraOutFile(tsId)
             if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
-
-            setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
+                return
+            # Update the apix value in file header
+            setMRCSamplingRate(outTsFile, ts.getSamplingRate())
+            # Tilt-series
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            # Tilt-images
+            for ti in ts.iterItems():
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                outTi.setFileName(outTsFile)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                outTs.append(outTi)
+            # Data persistence
             with self._lock:
-                ts = self.getCurrentTs(tsId)
                 # Set of tilt-series
                 outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                # Tilt-series
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
                 outTsSet.append(outTs)
-                # Tilt-images
-                for ti in ts.iterItems():
-                    outTi = TiltImage()
-                    outTi.copyInfo(ti)
-                    outTi.setFileName(outTsFile)
-                    self.setTsOddEven(tsId, outTi, binGenerated=True)
-                    outTs.append(outTi)
-                # Data persistence
                 outTs.write()
                 outTsSet.update(outTs)
                 outTsSet.write()
