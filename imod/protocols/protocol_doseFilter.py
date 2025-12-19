@@ -205,12 +205,15 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
             if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
                 return
+
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-            outTs = TiltSeries()
-            outTs.copyInfo(ts)
-            self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
-            # Data persistence
             with self._lock:
+                # Set of tilt-series
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
+                outTsSet.append(outTs)
                 # Tilt-images
                 for ti in ts.iterItems():
                     outTi = TiltImage()
@@ -219,9 +222,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                     self.updateTiAcquisition(outTi)
                     self.setTsOddEven(tsId, outTi, binGenerated=True)
                     outTs.append(outTi)
-                # Set of tilt-series
-                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                outTsSet.append(outTs)
+                # Data persistence
                 outTs.write()
                 outTsSet.update(outTs)
                 outTsSet.write()
