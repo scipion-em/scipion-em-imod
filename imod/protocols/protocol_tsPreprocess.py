@@ -70,7 +70,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.tsReadList = []
 
     @classmethod
     def worksInStreaming(cls):
@@ -102,7 +101,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                    if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
                                    and ts.getSize() > 0}  # Avoid processing empty TS
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listInTsIds):
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -128,7 +127,7 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                                  needsGPU=False)
                 closeSetStepDeps.append(outId)
                 logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsReadList.append(tsId)
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
