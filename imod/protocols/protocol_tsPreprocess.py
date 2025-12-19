@@ -97,46 +97,48 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
         while True:
             with self._lock:
-                listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
+                listInTsIds = inTsSet.getTSIds()
+                tsToProcessDict = {ts.getTsId(): ts.clone() for ts in inTsSet.iterItems()
+                                   if ts.getTsId() not in self.tsIdReadList  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listInTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
+
             closeSetStepDeps = []
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    convId = self._insertFunctionStep(self.linkTsStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                    compId = self._insertFunctionStep(self.generateOutputStackStep,
-                                                      tsId,
-                                                      binning,
-                                                      prerequisites=convId,
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createOutputStep,
-                                                     tsId,
-                                                     binning,
-                                                     prerequisites=compId,
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsReadList.append(tsId)
+            for tsId, ts in tsToProcessDict.items():
+                convId = self._insertFunctionStep(self.linkTsStep,
+                                                  ts,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+                compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                  ts,
+                                                  binning,
+                                                  prerequisites=convId,
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 ts,
+                                                 binning,
+                                                 prerequisites=compId,
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
 
     # --------------------------- STEPS functions -----------------------------
-    def generateOutputStackStep(self, tsId: str, binning: int):
+    def generateOutputStackStep(self, ts: TiltSeries, binning: int):
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
                 norm = self.floatDensities.get()
                 paramsDict = self.getBasicNewstackParams(ts,
                                                          self.getTmpOutFile(tsId),
@@ -173,7 +175,8 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str, binning: int):
+    def createOutputStep(self, ts: TiltSeries, binning: int):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
             return
@@ -181,10 +184,12 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         try:
             outputFn = self.getExtraOutFile(tsId)
             if exists(outputFn):
+                samplingRate = self.getInputTsSet().getSamplingRate()
+                if binning > 1:
+                    samplingRate *= binning
+                setMRCSamplingRate(outputFn, samplingRate)  # Update the apix value in file header
                 with self._lock:
-                    ts = self.getCurrentTs(tsId)
                     outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
-                    setMRCSamplingRate(outputFn, outTsSet.getSamplingRate())  # Update the apix value in file header
                     outTs = TiltSeries()
                     outTs.copyInfo(ts)
                     outTsSet.append(outTs)

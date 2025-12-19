@@ -129,10 +129,9 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         tsId = ts.getTsId()
         self.genTsPaths(tsId)
         outTsFn = self.getTmpOutFile(tsId)
-        with self._lock:
-            firstTi = ts.getFirstEnabledItem()
-            # Make the link using the tsId instead of the original name prevent IMOD from
-            # failing in case of strange characters or even numeric names
+        firstTi = ts.getFirstEnabledItem()
+        # Make the link using the tsId instead of the original name prevent IMOD from
+        # failing in case of strange characters or even numeric names
         tsFn = firstTi.getFileName()
         logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsFn}"))
         self.linkTs(tsFn, outTsFn)
