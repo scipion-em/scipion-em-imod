@@ -108,17 +108,17 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        readTsIds = set(outTsSet.getTsIds()) if outTsSet else set()
+        self.readingOutput(outTsSet)
 
         while True:
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
-                nonProcessedTsIds = inTsIds - readTsIds
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
                 tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
                                    if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
                                    and ts.getSize() > 0}  # Avoid processing empty TS
 
-            if not inTsSet.isStreamOpen() and Counter(readTsIds) == Counter(inTsIds):
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
