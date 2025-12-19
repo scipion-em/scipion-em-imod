@@ -190,15 +190,15 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             # Tilt-series
             outTs = TiltSeries()
             outTs.copyInfo(ts)
-            # Tilt-images
-            for ti in ts.iterItems():
-                outTi = TiltImage()
-                outTi.copyInfo(ti)
-                outTi.setFileName(outTsFile)
-                self.setTsOddEven(tsId, outTi, binGenerated=True)
-                outTs.append(outTi)
             # Data persistence
             with self._lock:
+                # Tilt-images
+                for ti in ts.iterItems():
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    outTi.setFileName(outTsFile)
+                    self.setTsOddEven(tsId, outTi, binGenerated=True)
+                    outTs.append(outTi)
                 # Set of tilt-series
                 outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 outTsSet.append(outTs)
