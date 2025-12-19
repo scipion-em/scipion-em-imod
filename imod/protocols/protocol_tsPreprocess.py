@@ -91,13 +91,13 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         self._initialize()
         binning = self.binning.get()
         inTsSet = self.getInputTsSet()
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, set())
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         closeSetStepDeps = []
 
         while True:
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
-                readTsIds = set(outTsSet.getTsIds())
+                readTsIds = set(outTsSet.getTsIds()) if outTsSet else set()
                 nonProcessedTsIds = inTsIds - readTsIds
                 tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
                                    if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
