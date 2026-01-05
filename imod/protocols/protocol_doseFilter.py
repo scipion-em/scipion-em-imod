@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
 from collections import Counter
 from os.path import exists
@@ -33,6 +34,7 @@ from imod.protocols.protocol_base import IN_TS_SET
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
@@ -194,6 +196,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
+    @retry_on_sqlite_lock(log=logger)
     def createOutputStep(self, ts: TiltSeries):
         """Generate output filtered tilt series"""
         tsId = ts.getTsId()
@@ -230,6 +233,10 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 self._store(outTsSet)
                 # Close explicitly the outputs (for streaming)
                 self.closeOutputsForStreaming()
+
+        except sqlite3.OperationalError:
+            # Let the decorator retry
+            raise
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
