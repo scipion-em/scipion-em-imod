@@ -231,7 +231,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                     logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
                                           f'{e}'))
                     logger.info(cyanStr(f'Trying with Scipion...'))
-                    outTsFn, _, _ = self.getTmpFileNames(ts)
+                    outTsFn, _, _ = self.getTmpFileNames(tsId)
                     ts.applyTransform(outTsFn)
 
                 # After that, for the following programs, a new xfFile without the
@@ -465,22 +465,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         tsSetPointer = getattr(self, IN_TS_SET)
         return tsSetPointer if pointer else tsSetPointer.get()
 
-    def getCurrentTs(self, tsId: str) -> TiltSeries:
-        return self.getInputTsSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
-
     def getInputTomoSet(self, pointer: bool = False) -> Union[Pointer, SetOfTomograms]:
         tomoSetPointer = getattr(self, IN_TOMO_SET)
         return tomoSetPointer if pointer else tomoSetPointer.get()
 
-    def getCurrentTomo(self, tsId: str) -> Tomogram:
-        return self.getInputTomoSet().getItem(Tomogram.TS_ID_FIELD, tsId)
-
     def getInputCtfSet(self, pointer: bool = False) -> Union[Pointer, SetOfCTFTomoSeries]:
         tomoSetPointer = getattr(self, IN_CTF_TOMO_SET)
         return tomoSetPointer if pointer else tomoSetPointer.get()
-
-    def getCurrentCtf(self, tsId: str) -> CTFTomoSeries:
-        return self.getInputCtfSet().getItem(CTFTomoSeries.TS_ID_FIELD, tsId)
 
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
@@ -603,8 +594,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                          presentAcqOrders: typing.Set[int] = None) -> None:
 
         tsExcludedIndices = None
-        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
         tsId = ts.getTsId()
+        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(tsId)
         firstTi = ts.getFirstEnabledItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
@@ -642,8 +633,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                 binning=binning)
             self.runProgram(NEWSTACK_PROGRAM, param)
 
-    def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
-        tsId = ts.getTsId()
+    def getTmpFileNames(self, tsId: str) -> Tuple:
         tsFn = self.getTmpOutFile(tsId)
         if self.doOddEven:
             tsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)

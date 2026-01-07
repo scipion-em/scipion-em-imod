@@ -36,6 +36,7 @@ import pyworkflow.protocol.params as params
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
 from tomo.utils import getCommonTsAndCtfElements
 from imod import utils
@@ -162,11 +163,6 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
     # -------------------------- INSERT steps functions -----------------------
     def stepsGeneratorStep(self) -> None:
-        """
-        This step should be implemented by any streaming protocol.
-        It should check its input and when ready conditions are met
-        call the self._insertFunctionStep method.
-        """
         closeSetStepDeps = []
         self._initialize()
         inTsSet = self.getInputTsSet()
@@ -176,47 +172,55 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
         while True:
             with self._lock:
-                listTsIdInput = inTsSet.getTSIds()
-                listCtfTsIdInput = inCtfSet.getTSIds()
+                inTsIds = set(inTsSet.getTSIds())
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                inCtfTsIds = set(inCtfSet.getTSIds())
+                nonProcessedCtfTsIds = inCtfTsIds - set(self.ctfTsIdReadList)
+                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
+                ctfToProcessDict = {tsId: ctf.clone(ignoreAttrs=[]) for ctf in inCtfSet.iterItems()
+                                    if (tsId := ctf.getTsId()) in nonProcessedCtfTsIds  # Only not processed tsIds
+                                    and ctf.getSize() > 0}  # Avoid processing empty CTFs
+
             # In the if statement below, Counter is used because in the tsId comparison the order doesn’t matter
             # but duplicates do. With a direct comparison, the closing step may not be inserted because of the order:
             # ['ts_a', 'ts_b'] != ['ts_b', 'ts_a'], but they are the same with Counter.
-            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listTsIdInput)) and
-                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(listCtfTsIdInput))):
+            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds)) and
+                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(inCtfTsIds))):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
-            closeSetStepDeps = []
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsIdReadList and ts.getSize() > 0:
-                    try:
-                        ctf = self.getCurrentCtf(tsId)
-                    except Exception as e:
-                        logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
-                        logger.error(f'{e}')
-                        logger.error(traceback.format_exc())
-                        continue
-                    if tsId not in self.ctfTsIdReadList and ctf.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                        pidConvert = self._insertFunctionStep(self.convertInStep,
-                                                              tsId,
-                                                              prerequisites=[],
-                                                              needsGPU=False)
-                        pidProcess = self._insertFunctionStep(self.ctfCorrection,
-                                                              tsId,
-                                                              prerequisites=pidConvert,
-                                                              needsGPU=True)
-                        pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                                   tsId,
-                                                                   prerequisites=pidProcess,
-                                                                   needsGPU=False)
-                        closeSetStepDeps.append(pidCreateOutput)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsIdReadList.append(tsId)
-                        self.ctfTsIdReadList.append(tsId)
+
+            for tsId, ts in tsToProcessDict.items():
+                ctf = ctfToProcessDict.get(tsId, None)
+                if not ctf:
+                    logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
+                    continue
+                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+                pidConvert = self._insertFunctionStep(self.convertInStep,
+                                                      ts,
+                                                      ctf,
+                                                      presentAcqOrders,
+                                                      prerequisites=[],
+                                                      needsGPU=False)
+                pidProcess = self._insertFunctionStep(self.ctfCorrection,
+                                                      ts,
+                                                      prerequisites=pidConvert,
+                                                      needsGPU=True)
+                pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                           ts,
+                                                           ctf,
+                                                           presentAcqOrders,
+                                                           prerequisites=pidProcess,
+                                                           needsGPU=False)
+                closeSetStepDeps.append(pidCreateOutput)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
+                self.ctfTsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
             self.refreshStreaming(inCtfSet)
@@ -228,30 +232,28 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
 
-    def convertInStep(self, tsId: str):
+    def convertInStep(self,
+                      ts: TiltSeries,
+                      ctf: CTFTomoSeries,
+                      presentAcqOrders: Set[int]):
+        tsId = ts.getTsId()
         try:
             self.genTsPaths(tsId)
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                ctf = self.getCurrentCtf(tsId)
-            presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
             # Generate the defocus file
             self._generateDefocusFile(ts, ctf, presentAcqOrders=presentAcqOrders)
             # Generate the alignment files
-            super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
+            super().convertInputStep(ts, presentAcqOrders=presentAcqOrders)
 
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'{e}'))
             logger.error(traceback.format_exc())
 
-    def ctfCorrection(self, tsId: str):
+    def ctfCorrection(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId}: correcting the CTF...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-
                 paramsCtfPhaseFlip = {
                     "-InputStack": self.getTmpOutFile(tsId),
                     "-AngleFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
@@ -292,54 +294,66 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str):
+    def createOutputStep(self,
+                         ts: TiltSeries,
+                         ctf: CTFTomoSeries,
+                         presentAcqOrders: Set[int]):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
             self.addToOutFailedSet(tsId)
             return
+
         try:
             outputFn = self.getExtraOutFile(tsId)
             if exists(outputFn):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    ctf = self.getCurrentCtf(tsId)
-                    presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
-                    # Set of tilt-series
-                    inTsSetPointer = self.getInputTsSet(pointer=True)
-                    outTsSet = self.getOutputSetOfTS(inTsSetPointer)
-                    # Tilt-series
-                    outTs = self._createOutputTiltSeries(ts, presentAcqOrders)
-                    outTsSet.append(outTs)
-                    # Tilt-images
-                    tiList, angleMin, angleMax = self._processTiltImages(ts, presentAcqOrders, outputFn)
-                    self._updateAcquisition(ts, ctf, presentAcqOrders, outTs, tiList, angleMin, angleMax)
-                    setMRCSamplingRate(outputFn, ts.getSamplingRate())  # Update the apix value in file header
-                    # Data persistence
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
+                setMRCSamplingRate(outputFn, ts.getSamplingRate())  # Update the apix value in file header
+                self._registerOutput(ts, ctf, presentAcqOrders, outputFn)
+
             else:
                 logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self,
+                        ts: TiltSeries,
+                        ctf: CTFTomoSeries,
+                        presentAcqOrders: Set[int],
+                        outputFn: str):
+        with self._lock:
+            # Set of tilt-series
+            inTsSetPointer = self.getInputTsSet(pointer=True)
+            outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+            # Tilt-series
+            outTs = self._createOutputTiltSeries(ts, presentAcqOrders)
+            outTsSet.append(outTs)
+            # Tilt-images
+            tiList, angleMin, angleMax = self._processTiltImages(ts, presentAcqOrders, outputFn)
+            self._updateAcquisition(ts, ctf, presentAcqOrders, outTs, tiList, angleMin, angleMax)  # Data persistence
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
+
     # --------------------------- UTILS functions -----------------------------
-    def _generateDefocusFile(self, ts: TiltSeries,
+    def _generateDefocusFile(self,
+                             ts: TiltSeries,
                              ctf: CTFTomoSeries,
                              presentAcqOrders: Set[int]) -> None:
         tsId = ts.getTsId()
         self.debug(f"tsId = {tsId} -> Generating defocus file...")
         defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
         utils.genDefocusFileFromScipion(ctf,
-                                                defocusFilePath,
-                                                inputTiltSeries=ts,
-                                                presentAcqOrders=presentAcqOrders)
+                                        defocusFilePath,
+                                        inputTiltSeries=ts,
+                                        presentAcqOrders=presentAcqOrders)
 
     @staticmethod
-    def _createOutputTiltSeries(ts: TiltSeries, presentAcqOrders: Set[int]) ->TiltSeries:
+    def _createOutputTiltSeries(ts: TiltSeries, presentAcqOrders: Set[int]) -> TiltSeries:
         outTs = TiltSeries()
         outTs.copyInfo(ts)
         outTs.setAlignment(ALIGN_NONE)
