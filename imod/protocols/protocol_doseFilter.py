@@ -24,13 +24,11 @@
 # *
 # *****************************************************************************
 import logging
-import sqlite3
 import traceback
 from collections import Counter
 from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
@@ -52,11 +50,11 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
     A specialized filter can be applied to perform dose weight-filtering of
     cryoEM images, particularly ones from tilt series.  The filter is as
     described in Grant and Grigorieff, 2015 (DOI: 10.7554/eLife.06980) and
-    the implementation follows that in their "unblur" program.  At any fre-
-    quency, the filter follows an exponential decay with dose, where the
+    the implementation follows that in their "unblur" program.  At any
+    frequency, the filter follows an exponential decay with dose, where the
     exponential is of the dose divided by 2 times a "critical dose" for
-    that frequency.  This critical dose was empirically found to be approx-
-    imated by a * k^b + c, where k is frequency; the values of a, b, c in
+    that frequency.  This critical dose was empirically found to be
+    approximated by a * k^b + c, where k is frequency; the values of a, b, c in
     that paper are used by default.
     """
 
@@ -196,7 +194,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    @retry_on_sqlite_lock(log=logger)
     def createOutputStep(self, ts: TiltSeries):
         """Generate output filtered tilt series"""
         tsId = ts.getTsId()
@@ -211,36 +208,37 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
                 return
 
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-            with self._lock:
-                # Set of tilt-series
-                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
-                self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
-                outTsSet.append(outTs)
-                # Tilt-images
-                for ti in ts.iterItems():
-                    outTi = TiltImage()
-                    outTi.copyInfo(ti)
-                    outTi.setFileName(outTsFile)
-                    self.updateTiAcquisition(outTi)
-                    self.setTsOddEven(tsId, outTi, binGenerated=True)
-                    outTs.append(outTi)
-                # Data persistence
-                outTs.write()
-                outTsSet.update(outTs)
-                outTsSet.write()
-                self._store(outTsSet)
-                # Close explicitly the outputs (for streaming)
-                self.closeOutputsForStreaming()
-
-        except sqlite3.OperationalError:
-            # Let the decorator retry
-            raise
+            self._registerOutput(ts, outTsFile)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, outTsFile: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            # Set of tilt-series
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
+            outTsSet.append(outTs)
+            # Tilt-images
+            for ti in ts.iterItems():
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                outTi.setFileName(outTsFile)
+                self.updateTiAcquisition(outTi)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                outTs.append(outTi)
+            # Data persistence
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

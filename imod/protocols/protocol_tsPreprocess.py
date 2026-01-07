@@ -24,12 +24,10 @@
 # *
 # *****************************************************************************
 import logging
-import sqlite3
 import traceback
 from collections import Counter
 from os.path import exists
-import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
+from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
@@ -178,7 +176,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    @retry_on_sqlite_lock(log=logger)
     def createOutputStep(self, ts: TiltSeries, binning: int):
         tsId = ts.getTsId()
         if tsId in self.failedItems:
@@ -195,32 +192,33 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
             if binning > 1:
                 samplingRate *= binning
             setMRCSamplingRate(outputFn, samplingRate)  # Update the apix value in file header
-            with self._lock:
-                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
-                outTsSet.append(outTs)
-                for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                    outTi = TiltImage()
-                    outTi.copyInfo(ti)
-                    outTi.setFileName(outputFn)
-                    self.updateTransformMatrix(outTi, binning=binning)
-                    self.setTsOddEven(tsId, outTi, binGenerated=True)
-                    outTs.append(outTi)
-                outTs.write()
-                outTsSet.update(outTs)
-                outTsSet.write()
-                self._store(outTsSet)
-                # Close explicitly the outputs (for streaming)
-                self.closeOutputsForStreaming()
-
-        except sqlite3.OperationalError:
-            # Let the decorator retry
-            raise
+            self._registerOutput(ts, binning, outputFn)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, binning: int, outputFn: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            outTsSet.append(outTs)
+            for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                outTi.setFileName(outputFn)
+                self.updateTransformMatrix(outTi, binning=binning)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                outTs.append(outTi)
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

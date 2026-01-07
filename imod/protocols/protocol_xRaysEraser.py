@@ -24,7 +24,6 @@
 # *
 # *****************************************************************************
 import logging
-import sqlite3
 import traceback
 from collections import Counter
 from os.path import exists
@@ -177,7 +176,6 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    @retry_on_sqlite_lock(log=logger)
     def createOutputStep(self, ts: TiltSeries):
         tsId = ts.getTsId()
         if tsId in self.failedItems:
@@ -189,35 +187,37 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
 
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-            with self._lock:
-                # Set of tilt-series
-                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                # Tilt-series
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
-                outTsSet.append(outTs)
-                # Tilt-images
-                for ti in ts.iterItems():
-                    outTi = TiltImage()
-                    outTi.copyInfo(ti)
-                    outTi.setFileName(outTsFile)
-                    self.setTsOddEven(tsId, outTi, binGenerated=True)
-                    outTs.append(outTi)
-                # Data persistence
-                outTs.write()
-                outTsSet.update(outTs)
-                outTsSet.write()
-                self._store(outTsSet)
-                # Close explicitly the outputs (for streaming)
-                self.closeOutputsForStreaming()
-
-        except sqlite3.OperationalError:
-            # Let the decorator retry
-            raise
+            self._registerOutput(ts, outTsFile)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self,ts: TiltSeries, outTsFile: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            # Set of tilt-series
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+            # Tilt-series
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            outTsSet.append(outTs)
+            # Tilt-images
+            for ti in ts.iterItems():
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                outTi.setFileName(outTsFile)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                outTs.append(outTi)
+            # Data persistence
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
+
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,
