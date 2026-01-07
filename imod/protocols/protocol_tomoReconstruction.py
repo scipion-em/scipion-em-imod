@@ -360,7 +360,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     def createOutputStep(self, ts: TiltSeries):
         tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
 
         try:

@@ -30,9 +30,9 @@ from os.path import exists
 from typing import Union
 import pyworkflow.protocol.params as params
 from imod.convert.dataimport import ImodCtfParser
-from pyworkflow.object import Pointer, Set
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import CTFTomoSeries, SetOfCTFTomoSeries, TiltSeries
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_CTF_SERIE, TLT_EXT, DEFOCUS_EXT, CTFPLOTTER_PROGRAM
@@ -292,8 +292,13 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
 
         while True:
             with self._lock:
-                listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
+                inTsIds = set(inTsSet.getTSIds())
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_CTF_SERIE,
@@ -301,25 +306,23 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsIdReadList and ts.getSize() > 0:  # Avoid processing empty TS
-                    convId = self._insertFunctionStep(self.convertInputStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                    compId = self._insertFunctionStep(self.ctfEstimation,
-                                                      tsId,
-                                                      expDefoci,
-                                                      prerequisites=convId,
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createOutputStep,
-                                                     tsId,
-                                                     prerequisites=compId,
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsIdReadList.append(tsId)
+            for tsId, ts in tsToProcessDict.items():
+                convId = self._insertFunctionStep(self.convertInputStep,
+                                                  ts,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+                compId = self._insertFunctionStep(self.ctfEstimation,
+                                                  ts,
+                                                  expDefoci,
+                                                  prerequisites=convId,
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 ts,
+                                                 prerequisites=compId,
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
@@ -330,16 +333,15 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
         self.acq = tsSet.getAcquisition()
 
     def ctfEstimation(self,
-                      tsId: str,
+                      ts: TiltSeries,
                       expDefoci: dict = None):
         """Run ctfplotter IMOD program"""
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
             return
         try:
             logger.info(cyanStr(f'tsId = {tsId} -> Estimating the CTF...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                paramsCtfPlotter = self._genCtfPlotterParams(ts, expDefoci)
+            paramsCtfPlotter = self._genCtfPlotterParams(ts, expDefoci)
             self.runProgram(CTFPLOTTER_PROGRAM, paramsCtfPlotter)
         except Exception as e:
             self.failedItems.append(tsId)
@@ -347,40 +349,49 @@ class ProtImodAutomaticCtfEstimation(ProtImodBase, ProtStreamingBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId, outputSetName=OUTPUT_CTF_SERIE):
+    def createOutputStep(self, ts: TiltSeries, outputSetName=OUTPUT_CTF_SERIE):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
 
         try:
             defocusFilePath = self.getExtraOutFile(tsId, ext=DEFOCUS_EXT)
             if exists(defocusFilePath):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    outputCtfSet = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
-                                                              outputSetName)
-                    outCtfSeries = CTFTomoSeries(tsId=tsId)
-                    outCtfSeries.copyInfo(ts)
-                    outCtfSeries.setTiltSeries(ts)
-
-                    # flags below will be updated in parseTSDefocusFile
-                    outCtfSeries.setIMODDefocusFileFlag(1)
-                    outCtfSeries.setNumberOfEstimationsInRange(0)
-                    outputCtfSet.append(outCtfSeries)
-                    ctfParser = ImodCtfParser(self)
-                    ctfParser.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
-
-                    outCtfSeries.write()
-                    outputCtfSet.update(outCtfSeries)
-                    outputCtfSet.write()
-                    self._store(outputCtfSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
+                self._registerOutput(ts, defocusFilePath, outputSetName=outputSetName)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {defocusFilePath} was not generated. Skipping... '))
+
         except Exception as e:
            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
            logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self,
+                        ts: TiltSeries,
+                        defocusFilePath: str,
+                        outputSetName: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            outputCtfSet = self.getOutputSetOfCTFTomoSeries(self.getInputTsSet(pointer=True),
+                                                            outputSetName)
+            outCtfSeries = CTFTomoSeries(tsId=tsId)
+            outCtfSeries.copyInfo(ts)
+            outCtfSeries.setTiltSeries(ts)
+
+            # flags below will be updated in parseTSDefocusFile
+            outCtfSeries.setIMODDefocusFileFlag(1)
+            outCtfSeries.setNumberOfEstimationsInRange(0)
+            outputCtfSet.append(outCtfSeries)
+            ctfParser = ImodCtfParser(self)
+            ctfParser.parseTSDefocusFile(ts, defocusFilePath, outCtfSeries)
+
+            outCtfSeries.write()
+            outputCtfSet.update(outCtfSeries)
+            outputCtfSet.write()
+            self._store(outputCtfSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

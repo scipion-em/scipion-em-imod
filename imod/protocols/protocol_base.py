@@ -34,6 +34,7 @@ from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from reliontomo.constants import tsStarFields
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
@@ -183,7 +184,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self.runNewStackBasic(ts, xfFile=xfFile)
         else:
             # Link it, so the input file expected is in the same place in both sides of the "if"
-            self._linkTs(tsId)
+            self._linkTs(ts)
 
         # Generate the tlt file
         tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
@@ -415,21 +416,22 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             return failedTomos
 
+    @retry_on_sqlite_lock(log=logger)
     def addToOutFailedSet(self,
-                          tsId: str,
-                          inputsAreTs: bool = True) -> None:
+                          item: Union[TiltSeries, Tomogram]) -> None:
         """ Just copy input item to the failed output set. """
+        tsId = item.getTsId()
         logger.info(cyanStr(f'Failed TS ---> {tsId}'))
         try:
+            inputsAreTs = True if isinstance(item, TiltSeries) else False
             with self._lock:
                 inputSet = self.getInputTsSet(pointer=True) if inputsAreTs else self.getInputTomoSet(pointer=True)
                 output = self.getOutputFailedSet(inputSet, inputsAreTs=inputsAreTs)
-                item = self.getCurrentTs(tsId) if inputsAreTs else self.getCurrentTomo(tsId)
                 newItem = item.clone()
                 newItem.copyInfo(item)
                 output.append(newItem)
 
-                if isinstance(item, TiltSeries):
+                if inputsAreTs:
                     newItem.copyItems(item)
                     newItem.write()
 

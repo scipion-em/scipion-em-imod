@@ -25,6 +25,7 @@
 # *****************************************************************************
 import logging
 import os
+import sqlite3
 import traceback
 from collections import Counter
 from os.path import exists
@@ -34,7 +35,8 @@ from imod.convert.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
                           TiltSeries)
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
@@ -282,13 +284,22 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     def stepsGeneratorStep(self) -> None:
         closeSetStepDeps = []
         inSetOfLandmarks = self.getInputSetOfLandmarks()
+        inTsSet = self._getInTsSet()
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
         while True:
             with self._lock:
-                listInTsIds = self._getInTsSet().getTSIds()
-            if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
+                inTsIds = set(inTsSet.getTSIds())
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                landmarkModelToProcessDict = {tsId: lMk.clone() for lMk in inSetOfLandmarks.iterItems()
+                                              if (tsId := lMk.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                                              and lMk.getSize() > 0}  # Avoid processing empty landmark models
+                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                                   and ts.getSize() > 0}  # Avoid processing empty TS
+
+            if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME],
@@ -296,42 +307,46 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
-            for fidModel in self.getInputSetOfLandmarks():
-                tsId = fidModel.getTsId()
-                if tsId not in self.tsIdReadList and fidModel.getSize() > 0:
-                    cInId = self._insertFunctionStep(self.convertInStep,
-                                                     tsId,
-                                                     prerequisites=[],
-                                                     needsGPU=False)
-                    fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
-                                                        tsId,
-                                                        prerequisites=cInId,
-                                                        needsGPU=False)
-                    p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                                     tsId,
-                                                     prerequisites=fidAliId,
-                                                     needsGPU=False)
-                    cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                      tsId,
-                                                      prerequisites=p2mId,
-                                                      needsGPU=False)
-                    closeSetStepDeps.append(cOutId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsIdReadList.append(tsId)
+            for tsId, lMk in landmarkModelToProcessDict.items():
+                ts = tsToProcessDict.get(tsId, None)
+                if not ts:
+                    logger.info(yellowStr(f'tsId = {tsId} - no corresponding TS to the landmark model was found...'))
+                    continue
+                cInId = self._insertFunctionStep(self.convertInStep,
+                                                 lMk,
+                                                 ts,
+                                                 prerequisites=[],
+                                                 needsGPU=False)
+                fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                                    lMk,
+                                                    ts,
+                                                    prerequisites=cInId,
+                                                    needsGPU=False)
+                p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                                 tsId,
+                                                 prerequisites=fidAliId,
+                                                 needsGPU=False)
+                cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                  lMk,
+                                                  ts,
+                                                  prerequisites=p2mId,
+                                                  needsGPU=False)
+                closeSetStepDeps.append(cOutId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inSetOfLandmarks)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId: str):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-        self.convertInputStep(tsId, ts.getTsPresentAcqOrders())
+    def convertInStep(self, lMk: LandmarkModel, ts: TiltSeries):
+        tsId = lMk.getTsId()
+        self.convertInputStep(ts, ts.getTsPresentAcqOrders())
         if tsId in self.failedItems:
             return
         try:
             # TODO: Check the non-imod fiducials combined with excluded views
             # If the fiducial model was not computed with imod, it is converted into the expected format here
-            currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+            currentModelFn = lMk.getModelName()
             if not currentModelFn or not exists(currentModelFn):
                 logger.info(cyanStr(f'tsId = {tsId}: not IMOD fiducial model detected. Generating...'))
                 fidFn = self._getExtraPath(tsId, tsId + '_imod.fid')
@@ -350,15 +365,13 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def computeFiducialAlignmentStep(self, tsId):
+    def computeFiducialAlignmentStep(self, lMk: LandmarkModel, ts: TiltSeries):
+        tsId = lMk.getTsId()
         if tsId in self.failedItems:
             return
         try:
             logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-
-            currentModelFn = self.getCurrentFidModel(tsId).getModelName()
+            currentModelFn = lMk.getModelName()
             tsFn = self.getTmpOutFile(tsId)
             paramsTiltAlign = {"-ModelFile": currentModelFn, "-ImageFile": tsFn, "-ImagesAreBinned": 1,
                                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
@@ -388,12 +401,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                "-FixXYZCoordinates": 0, "-RobustFitting": "",
                                "2>&1 | tee ": self._getExtraPath(tsId, "align.log")}
 
-            # Excluded views
-            # excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-            # if excludedViews:
-            #     logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-            #     paramsTiltAlign["-ExcludeList"] = ",".join(map(str, excludedViews))
-
             self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
             self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
                             cwd=self._getExtraPath(tsId))
@@ -404,7 +411,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def translateFiducialPointModelStep(self, tsId):
+    def translateFiducialPointModelStep(self, tsId: str):
         if tsId in self.failedItems:
             return
         try:
@@ -422,16 +429,21 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str):
+    def createOutputStep(self, lMk: LandmarkModel, ts: TiltSeries):
+        tsId = lMk.getTsId()
         if tsId in self.failedItems:
             return
         try:
             with self._lock:
                 # Fiducial model
-                self.createOutModel(tsId)
+                self.createOutModel(lMk)
                 # Tilt-series
-                ts = self.getCurrentTs(tsId)
                 self.createOutTs(ts, self._getInTsSet(pointer=True))
+
+        except sqlite3.OperationalError:
+            # Let the decorator retry
+            raise
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
                                 f'with exception {e}. Skipping... '))
@@ -527,22 +539,16 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     def _getInTsSet(self, pointer: bool = False) -> Union[Pointer, SetOfTiltSeries]:
         return self.getInputSetOfLandmarks().getSetOfTiltSeries(pointer=pointer)
 
-    def getCurrentFidModel(self, tsId: str) -> LandmarkModel:
-        with self._lock:
-            return self.getInputSetOfLandmarks().getItem(TiltSeries.TS_ID_FIELD, tsId)
-
-    def getCurrentTs(self, tsId: str) -> TiltSeries:
-        return self.getCurrentFidModel(tsId).getTiltSeries()
-
     def getTltFilePath(self, tsId) -> str:
         return self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
 
-    def createOutModel(self, tsId: str) -> None:
+    @retry_on_sqlite_lock(log=logger)
+    def createOutModel(self, lMk: LandmarkModel) -> None:
+        tsId = lMk.getTsId()
         outputFn = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
-        if exists(outputFn):
-            # Create the output set of landmark models with no gaps
-            fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
-            if os.path.exists(fiducialNoGapFilePath):
+        fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
+        if exists(outputFn) and exists(fiducialNoGapFilePath):
+            with self._lock:
                 output = self.getOutputFiducialModel(self._getInTsSet(pointer=True),
                                                      attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
                                                      suffix="NoGaps")
@@ -559,7 +565,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 landmarkModelNoGaps = LandmarkModel(tsId=tsId,
                                                     fileName=landmarkModelNoGapsFilePath,
                                                     modelName=fiducialModelNoGapPath,
-                                                    size=self.getCurrentFidModel(tsId).getSize(),
+                                                    size=lMk.getSize(),
                                                     hasResidualInfo=True)
 
                 fiducialNoGapList = fiducialModel2List(fiducialNoGapFilePath)
@@ -597,6 +603,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                 output.update(landmarkModelNoGaps)
                 output.write(output)
                 self._store(output)
+                self.closeOutputsForStreaming()
         else:
             logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
 
