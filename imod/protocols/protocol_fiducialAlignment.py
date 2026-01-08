@@ -291,13 +291,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         while True:
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
-                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-                landmarkModelToProcessDict = {tsId: lMk.clone() for lMk in inSetOfLandmarks.iterItems()
-                                              if (tsId := lMk.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                                              and lMk.getSize() > 0}  # Avoid processing empty landmark models
-                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                                   and ts.getSize() > 0}  # Avoid processing empty TS
 
             if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
@@ -307,6 +300,13 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            landmarkModelToProcessDict = {tsId: lMk.clone() for lMk in inSetOfLandmarks.iterItems()
+                                          if (tsId := lMk.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                                          and lMk.getSize() > 0}  # Avoid processing empty landmark models
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
             for tsId, lMk in landmarkModelToProcessDict.items():
                 ts = tsToProcessDict.get(tsId, None)
                 if not ts:

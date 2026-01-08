@@ -102,10 +102,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         while True:
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
-                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                                   and ts.getSize() > 0}  # Avoid processing empty TS
 
             if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
@@ -115,6 +111,10 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
             for tsId, ts in tsToProcessDict.items():
                 cInputId = self._insertFunctionStep(self.convertInStep, ts,
                                                     prerequisites=[],
