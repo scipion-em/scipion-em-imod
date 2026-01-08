@@ -173,15 +173,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         while True:
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
-                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
                 inCtfTsIds = set(inCtfSet.getTSIds())
-                nonProcessedCtfTsIds = inCtfTsIds - set(self.ctfTsIdReadList)
-                tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                                   if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                                   and ts.getSize() > 0}  # Avoid processing empty TS
-                ctfToProcessDict = {tsId: ctf.clone(ignoreAttrs=[]) for ctf in inCtfSet.iterItems()
-                                    if (tsId := ctf.getTsId()) in nonProcessedCtfTsIds  # Only not processed tsIds
-                                    and ctf.getSize() > 0}  # Avoid processing empty CTFs
 
             # In the if statement below, Counter is used because in the tsId comparison the order doesn’t matter
             # but duplicates do. With a direct comparison, the closing step may not be inserted because of the order:
@@ -195,6 +187,14 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            nonProcessedCtfTsIds = inCtfTsIds - set(self.ctfTsIdReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
+            ctfToProcessDict = {tsId: ctf.clone(ignoreAttrs=[]) for ctf in inCtfSet.iterItems()
+                                if (tsId := ctf.getTsId()) in nonProcessedCtfTsIds  # Only not processed tsIds
+                                and ctf.getSize() > 0}  # Avoid processing empty CTFs
             for tsId, ts in tsToProcessDict.items():
                 ctf = ctfToProcessDict.get(tsId, None)
                 if not ctf:
