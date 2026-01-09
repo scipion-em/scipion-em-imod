@@ -31,6 +31,7 @@ from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, moveFile, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import Tomogram, SetOfTomograms
 from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT, ODD, EVEN, BINVOL_PROGRAM
 
@@ -69,6 +70,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.tomoDict = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form, *args):
@@ -85,8 +87,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         runNewStack = norm != 0 or (self.getModeToOutput() is not None)
         closeSetStepDeps = []
 
-        for tomo in self.getInputTomoSet():
-            tsId = tomo.getTsId()
+        for tsId in self.tomoDict.keys():
             compId = self._insertFunctionStep(self.preprocessStep,
                                               tsId,
                                               runNewStack,
@@ -107,15 +108,16 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
-        self.doOddEven = self.applyToOddEven(self.getInputTomoSet())
+        inTomosSet = self.getInputTomoSet()
+        self.doOddEven = self.applyToOddEven(inTomosSet)
+        self.tomoDict = {tomo.getTsId(): tomo.clone() for tomo in inTomosSet.iterItems()}
 
     def preprocessStep(self, tsId: str,
                        runNewstack: bool,
                        binning: int):
         try:
             self.genTsPaths(tsId)
-            with self._lock:
-                tomo = self.getCurrentTomo(tsId)
+            tomo = self.tomoDict[tsId]
             outputFile = self.getExtraOutFile(tsId, ext=MRC_EXT)
 
             # Operations that don't concern the 3D binning
@@ -135,40 +137,47 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
     def generateOutputStep(self,
                            tsId: str,
                            binning: int):
+        tomo = self.tomoDict[tsId]
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId, inputsAreTs=False)
+            self.addToOutFailedSet(tomo)
             return
+
         try:
             outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
             if exists(outputFn):
-                with self._lock:
-                    tomo = self.getCurrentTomo(tsId)
-                    # Set of tomograms
-                    outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True),
-                                                              binning=binning)
-                    setMRCSamplingRate(outputFn, outTomoSet.getSamplingRate())  # Update the apix value in file header
-                    # Tomogram
-                    outTomo = Tomogram(tsId=tsId)
-                    outTomo.copyInfo(tomo)
-                    outTomo.setFileName(outputFn)
-                    if binning > 1:
-                        outTomo.setSamplingRate(tomo.getSamplingRate() * binning)
-                        # Fix the mrc tomogram
-                        outTomo.fixMRCVolume(setSamplingRate=True)
-                        # Set default tomogram origin
-                        outTomo.setOrigin(newOrigin=None)
-                    self.setTomoOddEven(tsId, outTomo)
-                    # Data persistence
-                    outTomoSet.append(outTomo)
-                    outTomoSet.updateDim()
-                    outTomoSet.update(outTomo)
-                    outTomoSet.write()
-                    self._store(outTomoSet)
+                self._registerOutput(tomo, binning, outputFn)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, tomo: Tomogram, binning: int, outputFn: str):
+        tsId = tomo.getTsId()
+        with self._lock:
+            # Set of tomograms
+            outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True),
+                                                      binning=binning)
+            setMRCSamplingRate(outputFn, outTomoSet.getSamplingRate())  # Update the apix value in file header
+            # Tomogram
+            outTomo = Tomogram(tsId=tsId)
+            outTomo.copyInfo(tomo)
+            outTomo.setFileName(outputFn)
+            if binning > 1:
+                outTomo.setSamplingRate(tomo.getSamplingRate() * binning)
+                # Fix the mrc tomogram
+                outTomo.fixMRCVolume(setSamplingRate=True)
+                # Set default tomogram origin
+                outTomo.setOrigin(newOrigin=None)
+            self.setTomoOddEven(tsId, outTomo)
+            # Data persistence
+            outTomoSet.append(outTomo)
+            outTomoSet.updateDim()
+            outTomoSet.update(outTomo)
+            outTomoSet.write()
+            self._store(outTomoSet)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

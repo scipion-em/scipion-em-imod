@@ -28,11 +28,11 @@ import traceback
 from collections import Counter
 from os.path import exists
 import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET
 from pyworkflow.protocol import ProtStreamingBase
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
-from tomo.objects import Tomogram, SetOfTomograms
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
+from tomo.objects import Tomogram, SetOfTomograms, TiltSeries
 from imod import Plugin
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
@@ -243,55 +243,53 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
         while True:
             with self._lock:
-                listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
+                inTsIds = set(inTsSet.getTSIds())
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TOMOGRAMS_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
-            closeSetStepDeps = []
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    xDim = ts.getXDim()
-                    if tomoWidth > xDim:
-                        tomoWidth = 0
-                        widthWarnTsIds.append(tsId)
-                    cId = self._insertFunctionStep(self.convertInStep,
-                                                   tsId,
-                                                   prerequisites=[],
-                                                   needsGPU=False)
-                    recId = self._insertFunctionStep(self.computeReconstructionStep,
-                                                     tsId,
-                                                     tomoWidth,
-                                                     prerequisites=cId,
-                                                     needsGPU=True)
-                    cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                      tsId,
-                                                      prerequisites=recId,
-                                                      needsGPU=False)
-                    closeSetStepDeps.append(cOutId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsReadList.append(tsId)
+
+            nonProcessedTsIds = inTsIds - set(self.tsReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
+            for tsId, ts in tsToProcessDict.items():
+                xDim = ts.getXDim()
+                if tomoWidth > xDim:
+                    tomoWidth = 0
+                    widthWarnTsIds.append(tsId)
+                cId = self._insertFunctionStep(self.convertInStep,
+                                               ts,
+                                               prerequisites=[],
+                                               needsGPU=False)
+                recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                                 tsId,
+                                                 tomoWidth,
+                                                 prerequisites=cId,
+                                                 needsGPU=True)
+                cOutId = self._insertFunctionStep(self.createOutputStep,
+                                                  ts,
+                                                  prerequisites=recId,
+                                                  needsGPU=False)
+                closeSetStepDeps.append(cOutId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId, **kwargs):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-        presentAcqOrders = ts.getTsPresentAcqOrders()
-        super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
+    def convertInStep(self, ts: TiltSeries):
+        super().convertInputStep(ts, presentAcqOrders=ts.getTsPresentAcqOrders())
 
-    def computeReconstructionStep(self, tsId, tomoWidth):
+    def computeReconstructionStep(self, tsId: str, tomoWidth: int):
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'===> tsId = {tsId}: reconstructing the tomogram...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+                outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(tsId)
                 # run tilt
                 paramsTilt = {
                     "-InputProjections": outTsFn,
@@ -310,13 +308,6 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
 
                 if self.fakeInteractionsSIRT.get() != 0:
                     paramsTilt["-FakeSIRTiterations"] = self.fakeInteractionsSIRT.get()
-
-                # NOTE: the excluded views were  before at newstack level (this is why the lines below are commented)
-                # # Excluded views
-                # ts = self.getCurrentItem(tsId)
-                # excludedViews = ts.getExcludedViewsIndex(caster=str)
-                # if len(excludedViews):
-                #     paramsTilt["-EXCLUDELIST2"] = ",".join(excludedViews)
 
                 if self.usesGpu():
                     paramsTilt["-UseGPU"] = self.getGpuList()[0]
@@ -366,44 +357,51 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId):
+    def createOutputStep(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
-        else:
-            try:
-                outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
-                if exists(outputFn):
-                    with self._lock:
-                        ts = self.getCurrentTs(tsId)
-                        # Set of tomograms
-                        outTomoSet = self.getOutputSetOfTomograms(self.getInputTsSet(pointer=True))
-                        # Tomogram
-                        outTomo = Tomogram(tsId=tsId)
-                        outTomo.copyInfo(ts)
-                        outTomo.setFileName(outputFn)
-                        self.setTomoOddEven(tsId, outTomo)
-                        # Set default tomogram origin
-                        outTomo.setOrigin(newOrigin=None)
-                        shiftX = self.tomoShiftX.get()
-                        shiftZ = self.tomoShiftZ.get()
-                        if shiftX or shiftZ:
-                            sRate = outTomo.getSamplingRate()
-                            x, y, z = outTomo.getShiftsFromOrigin()
-                            shiftXang = shiftX * sRate
-                            shiftZang = shiftZ * sRate
-                            outTomo.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
-                        # Data persistence
-                        outTomoSet.append(outTomo)
-                        outTomoSet.update(outTomo)
-                        outTomoSet.write()
-                        self._store(outTomoSet)
-                        # Close explicitly the outputs (for streaming)
-                        self.closeOutputsForStreaming()
-                else:
-                    logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
-            except Exception as e:
-                logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
-                logger.error(traceback.format_exc())
+            self.addToOutFailedSet(ts)
+            return
+
+        try:
+            outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
+            if exists(outputFn):
+                self._registerOutput(ts, outputFn)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, outputFn: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            # Set of tomograms
+            outTomoSet = self.getOutputSetOfTomograms(self.getInputTsSet(pointer=True))
+            # Tomogram
+            outTomo = Tomogram(tsId=tsId)
+            outTomo.copyInfo(ts)
+            outTomo.setFileName(outputFn)
+            self.setTomoOddEven(tsId, outTomo)
+            # Set default tomogram origin
+            outTomo.setOrigin(newOrigin=None)
+            shiftX = self.tomoShiftX.get()
+            shiftZ = self.tomoShiftZ.get()
+            if shiftX or shiftZ:
+                sRate = outTomo.getSamplingRate()
+                x, y, z = outTomo.getShiftsFromOrigin()
+                shiftXang = shiftX * sRate
+                shiftZang = shiftZ * sRate
+                outTomo.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
+            # Data persistence
+            outTomoSet.append(outTomo)
+            outTomoSet.update(outTomo)
+            outTomoSet.write()
+            self._store(outTomoSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- UTILS functions ---------------------------
 

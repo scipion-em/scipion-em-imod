@@ -34,6 +34,7 @@ from pwem import ALIGN_NONE
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import (XF_EXT, ODD, EVEN, OUTPUT_TS_INTERPOLATED_NAME)
@@ -57,6 +58,10 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tsDict = None
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
@@ -93,14 +98,13 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                            'interpolation will preserve fine detail better when '
                            'noise is not an issue.')
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputTsSet():
-            tsId = ts.getTsId()
+        for tsId in self.tsDict.keys():
             compId = self._insertFunctionStep(self.computeAlignmentStep,
                                               tsId,
                                               prerequisites=[],
@@ -116,11 +120,14 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                  needsGPU=False)
 
     # --------------------------- STEPS functions ------------------------------
-    def computeAlignmentStep(self, tsId):
+    def _initialize(self):
+        super()._initialize()
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputTsSet().iterItems()}
+
+    def computeAlignmentStep(self, tsId: str):
         try:
             logger.info(f"tsId = {tsId}: computing the alignment...")
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
+            ts = self.tsDict[tsId]
             firstItem = ts.getFirstEnabledItem()
             self.genTsPaths(tsId)
             inputFile = firstItem.getFileName()
@@ -151,33 +158,39 @@ class ProtImodApplyTransformationMatrix(ProtImodBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId):
+    def createOutputStep(self, tsId: str):
+        ts = self.tsDict[tsId]
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
+
         try:
             outputFn = self.getExtraOutFile(tsId)
             if exists(outputFn):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    # Set of tilt-series
-                    outTsSet = self._prepareOutputSet()
-                    # Tilt-series
-                    outTs = self._createOutputTiltSeries(ts)
-                    outTsSet.append(outTs)
-                    # Tilt-images
-                    tiList, angleMin, angleMax, accumDose, initialDose = self._processTiltImages(ts)
-                    self._updateAcquisition(ts, outTs, tiList, angleMin, angleMax, accumDose, initialDose)
-                    # Data persistence
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
+                self._registerOutput(ts)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries):
+        with self._lock:
+            # Set of tilt-series
+            outTsSet = self._prepareOutputSet()
+            # Tilt-series
+            outTs = self._createOutputTiltSeries(ts)
+            outTsSet.append(outTs)
+            # Tilt-images
+            tiList, angleMin, angleMax, accumDose, initialDose = self._processTiltImages(ts)
+            self._updateAcquisition(ts, outTs, tiList, angleMin, angleMax, accumDose, initialDose)
+            # Data persistence
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

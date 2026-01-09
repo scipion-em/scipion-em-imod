@@ -29,15 +29,13 @@ import subprocess
 import traceback
 import typing
 from collections import Counter
-
 from imod import Plugin
 from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
     BRT_ENV_NAME
-from imod.protocols.protocol_base import IN_TS_SET
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
-from pyworkflow.protocol import PointerParam, EnumParam, IntParam, GT, STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.protocol import EnumParam, IntParam, GT, STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
@@ -57,7 +55,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.tsReadList = []
 
     @classmethod
     def worksInStreaming(cls):
@@ -104,46 +101,46 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
 
         while True:
             with self._lock:
-                listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
+                inTsIds = set(inTsSet.getTSIds())
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
-            closeSetStepDeps = []
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                        cInputId = self._insertFunctionStep(self.convertInStep, tsId,
-                                                            prerequisites=[],
-                                                            needsGPU=False)
-                        predFidId = self._insertFunctionStep(self.runBRT, tsId,
-                                                             prerequisites=cInputId,
-                                                             needsGPU=False)
-                        cOutId = self._insertFunctionStep(self.createOutputStep, tsId,
-                                                          prerequisites=predFidId,
-                                                          needsGPU=False)
-                        closeSetStepDeps.append(cOutId)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsReadList.append(tsId)
+
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
+            for tsId, ts in tsToProcessDict.items():
+                cInputId = self._insertFunctionStep(self.convertInStep, ts,
+                                                    prerequisites=[],
+                                                    needsGPU=False)
+                predFidId = self._insertFunctionStep(self.runBRT, ts,
+                                                     prerequisites=cInputId,
+                                                     needsGPU=False)
+                cOutId = self._insertFunctionStep(self.createOutputStep, ts,
+                                                  prerequisites=predFidId,
+                                                  needsGPU=False)
+                closeSetStepDeps.append(cOutId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId: str):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
+    def convertInStep(self, ts: TiltSeries):
         presentAcqOrders = ts.getTsPresentAcqOrders()
-        super().convertInputStep(tsId, presentAcqOrders=presentAcqOrders)
+        super().convertInputStep(ts, presentAcqOrders=presentAcqOrders)
 
-    def runBRT(self, tsId: str):
+    def runBRT(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
                 self.genTsPaths(tsId)
                 args = self._getFiducialAliCmd(ts) if self.alignMode.get() == FIDUCIAL_MODEL \
                     else self._getPatchTrackingCmd(ts)
@@ -153,14 +150,13 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
                 logger.error(redStr(f'tsId = {tsId} -> {TILT_ALIGN_PROGRAM} execution failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str):
+    def createOutputStep(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
         try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                self.createOutTs(ts, self.getInputTsSet(pointer=True))
+            self.createOutTs(ts, self.getInputTsSet(pointer=True))
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))

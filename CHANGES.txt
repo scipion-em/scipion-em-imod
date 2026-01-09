@@ -22,6 +22,7 @@
    - Refactor the base protocol and the utils, making them lighter. Create a convert and a data import.
    - Fix streaming condition to insert the closing step. Now it uses collections.Counter when comparing
      the tsId lists instead of direct comparison, which is order-sensitive.
+   - Streaming: add a decorator to manage the possible db locks.
 3.7.0:
   Users:
    - Add protocol for automatic tilt-series alignment using IMOD's batchruntomo wrapper made by Team Tomo. Streamified.
