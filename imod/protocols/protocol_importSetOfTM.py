@@ -158,11 +158,11 @@ class ProtImodImportTransformationMatrix(ProtImodBase, ProtTomoImportFiles):
             logger.error(traceback.format_exc())
 
     def assignTransformationMatricesStep(self, tsId: str):
+        ts = self.tsDict[tsId]
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
         else:
             try:
-                ts = self.tsDict[tsId]
                 outputTransformFile = self.getExtraOutFile(tsId, ext=XF_EXT)
                 outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 alignmentMatrix = readXfFile(outputTransformFile)

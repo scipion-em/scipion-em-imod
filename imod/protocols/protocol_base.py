@@ -34,6 +34,7 @@ from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from reliontomo.constants import tsStarFields
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
@@ -118,52 +119,52 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             if output:
                 output.close()
 
-    def linkTsStep(self, tsId: str):
+    def linkTsStep(self, ts: TiltSeries) -> None:
         try:
-            self._linkTs(tsId)
+            self._linkTs(ts)
         except Exception as e:
-            logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
+            logger.error(redStr(f'tsId = {ts.getTsId()} -> input conversion failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def _linkTs(self, tsId: str):
+    def _linkTs(self, ts: TiltSeries):
+        tsId = ts.getTsId()
         self.genTsPaths(tsId)
         outTsFn = self.getTmpOutFile(tsId)
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            firstTi = ts.getFirstEnabledItem()
-            # Make the link using the tsId instead of the original name prevent IMOD from
-            # failing in case of strange characters or even numeric names
+        firstTi = ts.getFirstEnabledItem()
+        # Make the link using the tsId instead of the original name prevent IMOD from
+        # failing in case of strange characters or even numeric names
         tsFn = firstTi.getFileName()
         logger.info(cyanStr(f"tsId = {tsId}: link TS: {outTsFn} -> {tsFn}"))
         self.linkTs(tsFn, outTsFn)
         if self.doOddEven:
             # ODD
-            inTsOddFn = ts.getOddFileName()
+            inTsOddFn = firstTi.getOdd()
             outTsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)
             logger.info(cyanStr(f"tsId = {tsId}: link TS ODD: {outTsFnOdd} -> {inTsOddFn}"))
             self.linkTs(inTsOddFn, outTsFnOdd)
             # Even
-            inTsEvenFn = ts.getEvenFileName()
+            inTsEvenFn = firstTi.getEven()
             outTsFnEven = self.getTmpOutFile(tsId, suffix=EVEN)
             self.linkTs(inTsEvenFn, outTsFnEven)
             logger.info(cyanStr(f"tsId = {tsId}: link TS EVEN: {outTsFnEven} -> {inTsEvenFn}"))
 
     def convertInputStep(self,
-                         tsId: str,
+                         ts: TiltSeries,
                          presentAcqOrders: typing.Optional[typing.Set[int]] = None):
+        tsId = ts.getTsId()
         try:
             self.genTsPaths(tsId)
             if presentAcqOrders:
-                self.convertInputForNonEvProgram(tsId, presentAcqOrders)
+                self.convertInputForNonEvProgram(ts, presentAcqOrders)
             else:
-                self.convertInputForEvProgram(tsId)
+                self.convertInputForEvProgram(ts)
 
         except Exception as e:
             self.failedItems.append(tsId)
             logger.error(redStr(f'tsId = {tsId} -> input conversion failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def convertInputForEvProgram(self, tsId: str) -> None:
+    def convertInputForEvProgram(self, ts: TiltSeries) -> None:
         """The input converters of the protocols that use main IMOD programs (excluding newstack,
         considered here as an auxiliary program) that can manage the excluded views must behave as
         described below to work as expected:
@@ -174,24 +175,23 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
         These programs are the ones used in the coarse pre-alignment, fiducial model and fiducial alignment.
         """
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            if ts.hasAlignment():
-                logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
-                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                # The xf file must contain all thw views to interpolate and re-stack
-                genXfFile(ts, xfFile)
-                self.runNewStackBasic(ts, xfFile=xfFile)
-            else:
-                # Link it, so the input file expected is in the same place in both sides of the "if"
-                self._linkTs(tsId)
+        tsId = ts.getTsId()
+        if ts.hasAlignment():
+            logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
+            xfFile = self.getExtraOutFile(tsId, ext=XF_EXT)
+            # The xf file must contain all thw views to interpolate and re-stack
+            genXfFile(ts, xfFile)
+            self.runNewStackBasic(ts, xfFile=xfFile)
+        else:
+            # Link it, so the input file expected is in the same place in both sides of the "if"
+            self._linkTs(ts)
 
-            # Generate the tlt file
-            tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.generateTltFile(tltFile)
+        # Generate the tlt file
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        ts.generateTltFile(tltFile)
 
     def convertInputForNonEvProgram(self,
-                                    tsId: str,
+                                    ts: TiltSeries,
                                     presentAcqOrders: typing.Set[int]) -> None:
         """The input converters of the protocols that use main IMOD programs (excluding newstack,
           considered here as an auxiliary program) that can manage the excluded views must behave as
@@ -207,48 +207,47 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
               -> If the tilt-series does not have alignment, the acquisition orders will be used for
                  re-stacking the tilt-series.
           """
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-            hasExcludedViews = ts.hasExcludedViews()
-            hasAlignment = ts.hasAlignment()
-            if not hasAlignment and not hasExcludedViews:
-                # Link it, so the input file expected is in the same place in both sides of the "if"
-                self._linkTs(tsId)
+        tsId = ts.getTsId()
+        hasExcludedViews = ts.hasExcludedViews()
+        hasAlignment = ts.hasAlignment()
+        if not hasAlignment and not hasExcludedViews:
+            # Link it, so the input file expected is in the same place in both sides of the "if"
+            self._linkTs(ts)
+        else:
+            if hasAlignment:
+                xfFile = self.getTmpOutFile(ts.getTsId(), ext=XF_EXT)
+                try:
+                    logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
+                    # The xf file must contain all the views to make newstack interpolate and
+                    # re-stack using its own excluded views feature
+                    genXfFile(ts, xfFile)
+                    self.runNewStackBasic(ts,
+                                          xfFile=xfFile,
+                                          presentAcqOrders=presentAcqOrders)
+                except Exception as e:
+                    # In some cases, newstack may fail (e.g. the assigning the transformation matrix from one
+                    # tilt-series with smaller number of elements to a bigger one). In that case, newstack fails
+                    # because it is not prepared to manage a tilt-series binary file with more tilt-images than
+                    # lines in the alignment file, but Scipion can manage that case
+                    logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
+                                          f'{e}'))
+                    logger.info(cyanStr(f'Trying with Scipion...'))
+                    outTsFn, _, _ = self.getTmpFileNames(tsId)
+                    ts.applyTransform(outTsFn)
+
+                # After that, for the following programs, a new xfFile without the
+                # excluded views must be generated to be used by the protocol main program
+                xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
+                genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
             else:
-                if hasAlignment:
-                    xfFile = self.getTmpOutFile(ts.getTsId(), ext=XF_EXT)
-                    try:
-                        logger.info(f"tsId = {tsId}: alignment will be applied with {NEWSTACK_PROGRAM}")
-                        # The xf file must contain all the views to make newstack interpolate and
-                        # re-stack using its own excluded views feature
-                        genXfFile(ts, xfFile)
-                        self.runNewStackBasic(ts,
-                                              xfFile=xfFile,
-                                              presentAcqOrders=presentAcqOrders)
-                    except Exception as e:
-                        # In some cases, newstack may fail (e.g. the assigning the transformation matrix from one
-                        # tilt-series with smaller number of elements to a bigger one). In that case, newstack fails
-                        # because it is not prepared to manage a tilt-series binary file with more tilt-images than
-                        # lines in the alignment file, but Scipion can manage that case
-                        logger.info(yellowStr(f'tsId = {tsId} - program {NEWSTACK_PROGRAM} failed with the exception '
-                                              f'{e}'))
-                        logger.info(cyanStr(f'Trying with Scipion...'))
-                        outTsFn, _, _ = self.getTmpFileNames(ts)
-                        ts.applyTransform(outTsFn)
+                # Re-stack
+                logger.info(f"tsId = {tsId}: tilt-series re-stacking will be carried out with {NEWSTACK_PROGRAM}")
+                self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
 
-                    # After that, for the following programs, a new xfFile without the
-                    # excluded views must be generated to be used by the protocol main program
-                    xfFile = self.getExtraOutFile(ts.getTsId(), ext=XF_EXT)
-                    genXfFile(ts, xfFile, presentAcqOrders=presentAcqOrders)
-                else:
-                    # Re-stack
-                    logger.info(f"tsId = {tsId}: tilt-series re-stacking will be carried out with {NEWSTACK_PROGRAM}")
-                    self.runNewStackBasic(ts, presentAcqOrders=presentAcqOrders)
-
-            # Generate the tlt file without the excluded views must be generated to be
-            # used by the protocol main program
-            tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
-            ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
+        # Generate the tlt file without the excluded views must be generated to be
+        # used by the protocol main program
+        tltFile = self.getExtraOutFile(tsId, ext=TLT_EXT)
+        ts.generateTltFile(tltFile, presentAcqOrders=presentAcqOrders)
 
     def closeOutputSetsStep(self, attrib: Union[List[str], str]):
         self._closeOutputSet()
@@ -417,21 +416,22 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
 
             return failedTomos
 
+    @retry_on_sqlite_lock(log=logger)
     def addToOutFailedSet(self,
-                          tsId: str,
-                          inputsAreTs: bool = True) -> None:
+                          item: Union[TiltSeries, Tomogram]) -> None:
         """ Just copy input item to the failed output set. """
+        tsId = item.getTsId()
         logger.info(cyanStr(f'Failed TS ---> {tsId}'))
         try:
+            inputsAreTs = True if isinstance(item, TiltSeries) else False
             with self._lock:
                 inputSet = self.getInputTsSet(pointer=True) if inputsAreTs else self.getInputTomoSet(pointer=True)
                 output = self.getOutputFailedSet(inputSet, inputsAreTs=inputsAreTs)
-                item = self.getCurrentTs(tsId) if inputsAreTs else self.getCurrentTomo(tsId)
                 newItem = item.clone()
                 newItem.copyInfo(item)
                 output.append(newItem)
 
-                if isinstance(item, TiltSeries):
+                if inputsAreTs:
                     newItem.copyItems(item)
                     newItem.write()
 
@@ -467,22 +467,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         tsSetPointer = getattr(self, IN_TS_SET)
         return tsSetPointer if pointer else tsSetPointer.get()
 
-    def getCurrentTs(self, tsId: str) -> TiltSeries:
-        return self.getInputTsSet().getItem(TiltSeries.TS_ID_FIELD, tsId)
-
     def getInputTomoSet(self, pointer: bool = False) -> Union[Pointer, SetOfTomograms]:
         tomoSetPointer = getattr(self, IN_TOMO_SET)
         return tomoSetPointer if pointer else tomoSetPointer.get()
 
-    def getCurrentTomo(self, tsId: str) -> Tomogram:
-        return self.getInputTomoSet().getItem(Tomogram.TS_ID_FIELD, tsId)
-
     def getInputCtfSet(self, pointer: bool = False) -> Union[Pointer, SetOfCTFTomoSeries]:
         tomoSetPointer = getattr(self, IN_CTF_TOMO_SET)
         return tomoSetPointer if pointer else tomoSetPointer.get()
-
-    def getCurrentCtf(self, tsId: str) -> CTFTomoSeries:
-        return self.getInputCtfSet().getItem(CTFTomoSeries.TS_ID_FIELD, tsId)
 
     def genTsPaths(self, tsId):
         """Generate the subdirectories corresponding to the
@@ -605,8 +596,8 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                          presentAcqOrders: typing.Set[int] = None) -> None:
 
         tsExcludedIndices = None
-        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
         tsId = ts.getTsId()
+        outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(tsId)
         firstTi = ts.getFirstEnabledItem()
         doSwap = self.getNewstackDoSwap(firstTi, xfFile)
         if presentAcqOrders:
@@ -644,8 +635,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                                                 binning=binning)
             self.runProgram(NEWSTACK_PROGRAM, param)
 
-    def getTmpFileNames(self, ts: TiltSeries) -> Tuple:
-        tsId = ts.getTsId()
+    def getTmpFileNames(self, tsId: str) -> Tuple:
         tsFn = self.getTmpOutFile(tsId)
         if self.doOddEven:
             tsFnOdd = self.getTmpOutFile(tsId, suffix=ODD)

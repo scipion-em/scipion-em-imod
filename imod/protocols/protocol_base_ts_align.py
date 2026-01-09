@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     Scipion Team
+# * Authors:     Scipion Team (scipion@cnb.csic.es) [1]
 # *
-# * National Center of Biotechnology, CSIC, Spain
+# * [1] National Center of Biotechnology, CSIC, Spain
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ from imod.protocols import ProtImodBase
 from imod.utils import formatAngleList
 from pwem.objects import Transform
 from pyworkflow.object import Pointer
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, TiltImage
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ class ProtImodBaseTsAlign(ProtImodBase):
         # To be defined by the child classes
         pass
 
+    @retry_on_sqlite_lock(log=logger)
     def createOutTs(self,
                     ts: TiltSeries,
                     inTsSetPointer: Pointer) -> None:
@@ -65,34 +67,35 @@ class ProtImodBaseTsAlign(ProtImodBase):
             aliMatrix = readXfFile(xfFile)
             tiltAngles = formatAngleList(tltFile)
             # Set of tilt-series
-            outTsSet = self.getOutputSetOfTS(inTsSetPointer)
-            # Tilt-series
-            outTs = TiltSeries()
-            outTs.copyInfo(ts)
-            outTs.setAlignment2D()
-            outTsSet.append(outTs)
-            # Tilt-images
-            stackIndex = 0
-            for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                outTi = TiltImage()
-                outTi.copyInfo(ti)
-                if ti.isEnabled():
-                    tiltAngle, newTransformArray = self._getTrDataEnabled(stackIndex,
-                                                                          aliMatrix,
-                                                                          tiltAngles)
-                    stackIndex += 1
-                else:
-                    tiltAngle, newTransformArray = self._getTrDataDisabled(ti)
-                self._updateTiltImage(ti, outTi, newTransformArray, tiltAngle)
-                self.setTsOddEven(tsId, outTi, binGenerated=False)
-                outTs.append(outTi)
-            # Data persistence
-            outTs.write()
-            outTsSet.update(outTs)
-            outTsSet.write()
-            self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
+            with self._lock:
+                outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+                # Tilt-series
+                outTs = TiltSeries()
+                outTs.copyInfo(ts)
+                outTs.setAlignment2D()
+                outTsSet.append(outTs)
+                # Tilt-images
+                stackIndex = 0
+                for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    if ti.isEnabled():
+                        tiltAngle, newTransformArray = self._getTrDataEnabled(stackIndex,
+                                                                              aliMatrix,
+                                                                              tiltAngles)
+                        stackIndex += 1
+                    else:
+                        tiltAngle, newTransformArray = self._getTrDataDisabled(ti)
+                    self._updateTiltImage(ti, outTi, newTransformArray, tiltAngle)
+                    self.setTsOddEven(tsId, outTi, binGenerated=False)
+                    outTs.append(outTi)
+                # Data persistence
+                outTs.write()
+                outTsSet.update(outTs)
+                outTsSet.write()
+                self._store(outTsSet)
+                # Close explicitly the outputs (for streaming)
+                self.closeOutputsForStreaming()
         else:
             logger.error(f'tsId = {tsId} -> Output file {xfFile} was not generated or is empty. Skipping... ')
 

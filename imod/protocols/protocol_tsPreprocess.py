@@ -27,12 +27,12 @@ import logging
 import traceback
 from collections import Counter
 from os.path import exists
-import pyworkflow.protocol.params as params
-from imod.protocols.protocol_base import IN_TS_SET, NEWSTACK_PROGRAM
+from imod.protocols.protocol_base import NEWSTACK_PROGRAM
 from imod.protocols.protocol_base_preprocess import ProtImodBasePreprocess
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltImage, TiltSeries
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN
 
@@ -70,7 +70,6 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.tsReadList = []
 
     @classmethod
     def worksInStreaming(cls):
@@ -90,53 +89,56 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
+        closeSetStepDeps = []
         binning = self.binning.get()
         inTsSet = self.getInputTsSet()
-        self.readingOutput(inTsSet)
-        closeSetStepDeps = []
+        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
+        self.readingOutput(outTsSet)
 
         while True:
             with self._lock:
-                listTSInput = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(listTSInput):
+                inTsIds = set(inTsSet.getTSIds())
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
                                          prerequisites=closeSetStepDeps,
                                          needsGPU=False)
                 break
-            closeSetStepDeps = []
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsReadList and ts.getSize() > 0:  # Avoid processing empty TS (before the Tis are added)
-                    convId = self._insertFunctionStep(self.linkTsStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                    compId = self._insertFunctionStep(self.generateOutputStackStep,
-                                                      tsId,
-                                                      binning,
-                                                      prerequisites=convId,
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createOutputStep,
-                                                     tsId,
-                                                     binning,
-                                                     prerequisites=compId,
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsReadList.append(tsId)
+
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
+            for tsId, ts in tsToProcessDict.items():
+                convId = self._insertFunctionStep(self.linkTsStep,
+                                                  ts,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+                compId = self._insertFunctionStep(self.generateOutputStackStep,
+                                                  ts,
+                                                  binning,
+                                                  prerequisites=convId,
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createOutputStep,
+                                                 ts,
+                                                 binning,
+                                                 prerequisites=compId,
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
 
     # --------------------------- STEPS functions -----------------------------
-    def generateOutputStackStep(self, tsId: str, binning: int):
+    def generateOutputStackStep(self, ts: TiltSeries, binning: int):
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'===> tsId = {tsId}: preprocessing...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
                 norm = self.floatDensities.get()
                 paramsDict = self.getBasicNewstackParams(ts,
                                                          self.getTmpOutFile(tsId),
@@ -173,39 +175,49 @@ class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId: str, binning: int):
+    def createOutputStep(self, ts: TiltSeries, binning: int):
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
 
         try:
             outputFn = self.getExtraOutFile(tsId)
-            if exists(outputFn):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
-                    setMRCSamplingRate(outputFn, outTsSet.getSamplingRate())  # Update the apix value in file header
-                    outTs = TiltSeries()
-                    outTs.copyInfo(ts)
-                    outTsSet.append(outTs)
-                    for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                        outTi = TiltImage()
-                        outTi.copyInfo(ti)
-                        outTi.setFileName(outputFn)
-                        self.updateTransformMatrix(outTi, binning=binning)
-                        self.setTsOddEven(tsId, outTi, binGenerated=True)
-                        outTs.append(outTi)
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
-            else:
+            if not exists(outputFn):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+                return
+
+            samplingRate = self.getInputTsSet().getSamplingRate()
+            if binning > 1:
+                samplingRate *= binning
+            setMRCSamplingRate(outputFn, samplingRate)  # Update the apix value in file header
+            self._registerOutput(ts, binning, outputFn)
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, binning: int, outputFn: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True), binning)
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            outTsSet.append(outTs)
+            for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                outTi.setFileName(outputFn)
+                self.updateTransformMatrix(outTi, binning=binning)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                outTs.append(outTi)
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

@@ -34,6 +34,7 @@ from imod.protocols.protocol_base import IN_TS_SET
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, EXCLUDE_VIEWS_PROGRAM
@@ -58,19 +59,22 @@ class ProtImodExcludeViews(ProtImodBase):
     _possibleOutputs = {OUTPUT_TILTSERIES_NAME: SetOfTiltSeries}
     stepsExecutionMode = STEPS_PARALLEL
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.tsDict = None
+
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
         form.addSection(Message.LABEL_INPUT)
         super().addInTsSetFormParam(form)
         self.addOddEvenParams(form)
-        form.addParallelSection(threads=3, mpi=0)
+        form.addParallelSection(threads=2, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
     def _insertAllSteps(self):
         self._initialize()
         closeSetStepDeps = []
-        for ts in self.getInputTsSet():
-            tsId = ts.getTsId()
+        for tsId in self.tsDict.keys():
             exclStepId = self._insertFunctionStep(self.excludeViewsStep,
                                                   tsId,
                                                   prerequisites=[],
@@ -86,14 +90,17 @@ class ProtImodExcludeViews(ProtImodBase):
                                  needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
+        super()._initialize()
+        self.tsDict = {ts.getTsId(): ts.clone() for ts in self.getInputTsSet().iterItems()}
+
     def excludeViewsStep(self, tsId: str):
         self.genTsPaths(tsId)
         try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                firstTi = ts.getFirstEnabledItem()
+            ts = self.tsDict[tsId]
+            firstTi = ts.getFirstEnabledItem()
             tsFileName = firstTi.getFileName()
-            outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(ts)
+            outTsFn, outTsOddFn, outTsEvenFn = self.getTmpFileNames(tsId)
             self._runExcludeViews(ts, tsFileName, outTsFn)
             if self.doOddEven:
                 # ODD
@@ -111,72 +118,77 @@ class ProtImodExcludeViews(ProtImodBase):
                                 f'failed with the exception -> {e}'))
             logger.error(traceback.format_exc())
 
-    def createOutputStep(self, tsId):
+    def createOutputStep(self, tsId: str):
+        ts = self.tsDict[tsId]
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
 
         try:
-            with self._lock:
-                ts = self.getCurrentTs(tsId)
-                outFn = self.getExtraOutFile(tsId)
-                if ts.hasExcludedViews():  # Then a new binary will be generated. If not, the original file remains linked
-                    setMRCSamplingRate(outFn, ts.getSamplingRate())  # Update the apix value in file header
-                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
-                outTsSet.append(outTs)
-
-                angleMin = 999
-                angleMax = -999
-                accumDose = 0
-                initialDose = 999
-                tiList = []
-                for ti in ts.iterItems():
-                    if ti.isEnabled():
-                        # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
-                        # these values may change if the removed tilt-images are the first or the last, for example.
-                        tiAngle = ti.getTiltAngle()
-                        angleMin = min(tiAngle, angleMin)
-                        angleMax = max(tiAngle, angleMax)
-                        accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
-                        initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
-
-                        outTi = TiltImage()
-                        outTi.copyInfo(ti)
-                        outTi.setFileName(outFn)
-                        self.setTsOddEven(tsId, outTi, binGenerated=True)
-                        tiList.append(outTi)
-
-                if ts.hasExcludedViews():
-                    # Update the acquisition minAngle and maxAngle values of the tilt-series
-                    acq = outTs.getAcquisition()
-                    acq.setAngleMin(angleMin)
-                    acq.setAngleMax(angleMax)
-                    acq.setAccumDose(accumDose)
-                    acq.setDoseInitial(initialDose)
-                    outTs.setAcquisition(acq)
-                    # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
-                    # specific accum and initial dose values
-                    for tiOut in tiList:
-                        tiAcq = tiOut.getAcquisition()
-                        tiAcq.setAngleMin(angleMin)
-                        tiAcq.setAngleMax(angleMax)
-                        tiOut.setAcquisition(tiAcq)
-                        outTs.append(tiOut)
-                    outTs.setAnglesCount(len(outTs))
-                else:
-                    for tiOut in tiList:
-                        outTs.append(tiOut)
-
-                outTs.write()
-                outTsSet.update(outTs)
-                outTsSet.write()
-                self._store(outTsSet)
+            outFn = self.getExtraOutFile(tsId)
+            if ts.hasExcludedViews():  # Then a new binary will be generated. If not, the original file remains linked
+                setMRCSamplingRate(outFn, ts.getSamplingRate())  # Update the apix value in file header
+            self._registerOutput(ts, outFn)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, outFn: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            outTsSet.append(outTs)
+
+            angleMin = 999
+            angleMax = -999
+            accumDose = 0
+            initialDose = 999
+            tiList = []
+            for ti in ts.iterItems():
+                if ti.isEnabled():
+                    # Update the acquisition of the TS. The accumDose, angle min and angle max for the re-stacked TS, as
+                    # these values may change if the removed tilt-images are the first or the last, for example.
+                    tiAngle = ti.getTiltAngle()
+                    angleMin = min(tiAngle, angleMin)
+                    angleMax = max(tiAngle, angleMax)
+                    accumDose = max(ti.getAcquisition().getAccumDose(), accumDose)
+                    initialDose = min(ti.getAcquisition().getDoseInitial(), initialDose)
+
+                    outTi = TiltImage()
+                    outTi.copyInfo(ti)
+                    outTi.setFileName(outFn)
+                    self.setTsOddEven(tsId, outTi, binGenerated=True)
+                    tiList.append(outTi)
+
+            if ts.hasExcludedViews():
+                # Update the acquisition minAngle and maxAngle values of the tilt-series
+                acq = outTs.getAcquisition()
+                acq.setAngleMin(angleMin)
+                acq.setAngleMax(angleMax)
+                acq.setAccumDose(accumDose)
+                acq.setDoseInitial(initialDose)
+                outTs.setAcquisition(acq)
+                # Update the acquisition minAngle and maxAngle values of each tilt-image acq while preserving their
+                # specific accum and initial dose values
+                for tiOut in tiList:
+                    tiAcq = tiOut.getAcquisition()
+                    tiAcq.setAngleMin(angleMin)
+                    tiAcq.setAngleMax(angleMax)
+                    tiOut.setAcquisition(tiAcq)
+                    outTs.append(tiOut)
+                outTs.setAnglesCount(len(outTs))
+            else:
+                for tiOut in tiList:
+                    outTs.append(tiOut)
+
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

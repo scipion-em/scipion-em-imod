@@ -161,13 +161,13 @@ class ProtImodGoldBeadPicker3d(ProtImodBase):
             logger.error(traceback.format_exc())
 
     def createOutputStep(self, tsId):
+        tomo = self.tomoDict[tsId]
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId, inputsAreTs=False)
+            self.addToOutFailedSet(tomo)
         else:
             try:
                 coordFilePath = self.getExtraOutFile(tsId, ext=XYZ_EXT)
                 if exists(coordFilePath):
-                    tomo = self.tomoDict[tsId]
                     beadDiam = self.beadDiameter.get()
                     coordList = self.formatGoldBead3DCoordinatesList(coordFilePath)
                     output = self.getOutputSetOfCoordinates3Ds(self.getInputTomoSet(pointer=True))

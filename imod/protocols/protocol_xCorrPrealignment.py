@@ -30,11 +30,12 @@ from os.path import exists
 import numpy as np
 import pyworkflow.protocol.params as params
 from imod.convert.convert import readXfFile
-from imod.protocols.protocol_base import IN_TS_SET, ProtImodBase
+from imod.protocols.protocol_base import ProtImodBase
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem.objects import Transform
 from pyworkflow.protocol import ProtStreamingBase, STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
@@ -129,8 +130,9 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
 
         while True:
             with self._lock:
-                listInTsIds = inTsSet.getTSIds()
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(listInTsIds):
+                inTsIds = set(inTsSet.getTSIds())
+
+            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -138,40 +140,39 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                                          needsGPU=False)
                 break
 
-            for ts in inTsSet.iterItems():
-                tsId = ts.getTsId()
-                if tsId not in self.tsIdReadList and ts.getSize() > 0:
-                    convId = self._insertFunctionStep(self.convertInStep,
-                                                      tsId,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                    compId = self._insertFunctionStep(self.computeXcorrStep,
-                                                      tsId,
-                                                      prerequisites=[convId],
-                                                      needsGPU=False)
-                    outId = self._insertFunctionStep(self.createAliTsStep,
-                                                     tsId,
-                                                     prerequisites=[compId],
-                                                     needsGPU=False)
-                    closeSetStepDeps.append(outId)
-                    logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                    self.tsIdReadList.append(tsId)
+            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
+                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
+                               and ts.getSize() > 0}  # Avoid processing empty TS
+            for tsId, ts in tsToProcessDict.items():
+                convId = self._insertFunctionStep(self.convertInStep,
+                                                  ts,
+                                                  prerequisites=[],
+                                                  needsGPU=False)
+                compId = self._insertFunctionStep(self.computeXcorrStep,
+                                                  ts,
+                                                  prerequisites=[convId],
+                                                  needsGPU=False)
+                outId = self._insertFunctionStep(self.createAliTsStep,
+                                                 ts,
+                                                 prerequisites=[compId],
+                                                 needsGPU=False)
+                closeSetStepDeps.append(outId)
+                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                self.tsIdReadList.append(tsId)
 
             self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInStep(self, tsId):
-        with self._lock:
-            ts = self.getCurrentTs(tsId)
-        self.convertInputStep(tsId, ts.getTsPresentAcqOrders())
+    def convertInStep(self, ts: TiltSeries):
+        self.convertInputStep(ts, ts.getTsPresentAcqOrders())
 
-    def computeXcorrStep(self, tsId):
+    def computeXcorrStep(self, ts: TiltSeries):
         """Compute transformation matrix for each tilt series. """
+        tsId = ts.getTsId()
         if tsId not in self.failedItems:
             try:
                 logger.info(cyanStr(f'tsId = {tsId} -> Correcting the translations with {TILT_XCORR_PROGRAM}...'))
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
                 tiltAxisAngle = self.getTiltAxisOrientation(ts)
 
                 paramsXcorr = {
@@ -198,12 +199,6 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                     paramsXcorr["-xminmax"] = f"{xmin},{xmax}"
                     paramsXcorr["-yminmax"] = f"{ymin},{ymax}"
 
-                # # Excluded views
-                # excludedViews = ts.getTsExcludedViewsIndices(ts.getTsPresentAcqOrders())
-                # if excludedViews:
-                #     logger.info(cyanStr(f'tsId = {tsId} -> Excluded views detected {excludedViews}'))
-                #     paramsXcorr["-SkipViews"] = ",".join(map(str, excludedViews))
-
                 self.runProgram(TILT_XCORR_PROGRAM, paramsXcorr)
 
                 paramsXftoxg = {
@@ -219,53 +214,59 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createAliTsStep(self, tsId):
+    def createAliTsStep(self, ts: TiltSeries):
         """ Generate tilt-series with the associated transform matrix """
+        tsId = ts.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(tsId)
+            self.addToOutFailedSet(ts)
             return
 
         try:
             outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
             if exists(outputFn):
-                with self._lock:
-                    ts = self.getCurrentTs(tsId)
-                    tAx = self.getTiltAxisOrientation(ts)
-                    aliMatrixStack = readXfFile(outputFn)
-                    inTsSetPointer = self.getInputTsSet(pointer=True)
-                    # Set of tilt-series
-                    outTsSet = self.getOutputSetOfTS(inTsSetPointer,
-                                                     tiltAxisAngle=tAx)
-                    # Tilt-series
-                    outTs = TiltSeries()
-                    outTs.copyInfo(ts)
-                    outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-                    outTs.setAlignment2D()
-                    outTsSet.append(outTs)
-                    # Tilt-images
-                    stackIndex = 0
-                    for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                        outTi = TiltImage()
-                        outTi.copyInfo(ti)
-                        if ti.isEnabled():
-                            self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
-                            stackIndex += 1
-                        else:
-                            self.updateDisabledTi(outTi)
-                        self.setTsOddEven(tsId, outTi, binGenerated=False)
-                        outTs.append(outTi)
-                    # Data persistence
-                    outTs.write()
-                    outTsSet.update(outTs)
-                    outTsSet.write()
-                    self._store(outTsSet)
-                    # Close explicitly the outputs (for streaming)
-                    self.closeOutputsForStreaming()
+                self._registerOutput(ts, outputFn)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, ts: TiltSeries, outputFn: str):
+        tsId = ts.getTsId()
+        with self._lock:
+            tAx = self.getTiltAxisOrientation(ts)
+            aliMatrixStack = readXfFile(outputFn)
+            inTsSetPointer = self.getInputTsSet(pointer=True)
+            # Set of tilt-series
+            outTsSet = self.getOutputSetOfTS(inTsSetPointer,
+                                             tiltAxisAngle=tAx)
+            # Tilt-series
+            outTs = TiltSeries()
+            outTs.copyInfo(ts)
+            outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
+            outTs.setAlignment2D()
+            outTsSet.append(outTs)
+            # Tilt-images
+            stackIndex = 0
+            for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
+                outTi = TiltImage()
+                outTi.copyInfo(ti)
+                if ti.isEnabled():
+                    self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
+                    stackIndex += 1
+                else:
+                    self.updateDisabledTi(outTi)
+                self.setTsOddEven(tsId, outTi, binGenerated=False)
+                outTs.append(outTi)
+            # Data persistence
+            outTs.write()
+            outTsSet.update(outTs)
+            outTsSet.write()
+            self._store(outTsSet)
+            # Close explicitly the outputs (for streaming)
+            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
