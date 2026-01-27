@@ -1,3 +1,4 @@
+3.8.1: deploy test.
 3.8.0:
   Users:
    - IMOD binary installed by default was updated to imod_5.1.3_RHEL8-64_CUDA12.0.
