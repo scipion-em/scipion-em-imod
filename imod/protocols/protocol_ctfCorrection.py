@@ -174,12 +174,10 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             with self._lock:
                 inTsIds = set(inTsSet.getTSIds())
                 inCtfTsIds = set(inCtfSet.getTSIds())
+                presentTsIds = inTsIds & inCtfTsIds
 
-            # In the if statement below, Counter is used because in the tsId comparison the order doesn’t matter
-            # but duplicates do. With a direct comparison, the closing step may not be inserted because of the order:
-            # ['ts_a', 'ts_b'] != ['ts_b', 'ts_a'], but they are the same with Counter.
-            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds)) and
-                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(inCtfTsIds))):
+            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(presentTsIds)) and
+                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(presentTsIds))):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
