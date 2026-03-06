@@ -163,20 +163,6 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             logger.error(traceback.format_exc())
 
     # --------------------------- INFO functions ------------------------------
-    def _validate(self) -> typing.List[str]:
-        # Check if the environment required by the BRT is installed (for git pulls in
-        # devel mode mainly)
-        errorMsg = []
-        result = subprocess.run(['conda', 'env', 'list'],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                text=True)
-        if BRT_ENV_NAME not in result.stdout:
-            errorMsg.append('Unable to run the program batchruntomo. Please check if the '
-                            'configuration variable BRT_ENV_ACTIVATION is pointing to an '
-                            'existing conda environment. Otherwise, reinstall the latest '
-                            'version of the plugin scipion-em-imod.')
-        return errorMsg
 
     # --------------------------- UTILS functions -----------------------------
     def _getCommonCmd(self, ts: TiltSeries):
