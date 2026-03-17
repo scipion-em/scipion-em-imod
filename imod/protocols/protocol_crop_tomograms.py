@@ -67,6 +67,12 @@ class ProtImodCropTomograms(ProtImodBase):
         self.addInTomoSetFormParam(form)
         self.addOddEvenParams(form, isTomogram=True)
         g = form.addGroup('Crop values (px)')
+        l = g.addLine('Final dim = (p1 - p0) + 1',
+                      help='Example:\n\n'
+                           'With x0 = 270 and x1 = 500 -> X axis: (500 - 270) + 1 = 231 px.\n\n'
+                           'This is because of the cut coordinates are inclusive. To get even '
+                           'dimensions, consider to add or subtract 1 to the upper limit of each '
+                           'pair of coordinates.')
         l = g.addLine('Crop X',
                       help='Starting and ending X coordinate of region to cut out. '
                            'Numbers lower than 0 means to ignore the crop in that axis.')
@@ -224,7 +230,7 @@ class ProtImodCropTomograms(ProtImodBase):
         sxPrev, syPrev, szPrev = prevOriginShifts
         sr = tomo.getSamplingRate()
         x0, x1 = self._getAxisCoords(X_AXIS)
-        newSx = - sr * (x0 + (x1 - x0) / 2)  if self._doCropInAxis(X_AXIS) else sxPrev
+        newSx = - sr * (x0 + (x1 - x0) / 2) if self._doCropInAxis(X_AXIS) else sxPrev
         y0, y1 = self._getAxisCoords(Y_AXIS)
         newSy = - sr * (y0 + (y1 - y0) / 2) if self._doCropInAxis(Y_AXIS) else syPrev
         z0, z1 = self._getAxisCoords(Z_AXIS)
@@ -232,5 +238,3 @@ class ProtImodCropTomograms(ProtImodBase):
         newOrigin = Transform()
         newOrigin.setShifts(newSx, newSy, newSz)
         tomo.setOrigin(newOrigin)
-
-
