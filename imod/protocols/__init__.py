@@ -27,6 +27,7 @@
 # *****************************************************************************
 from .protocol_base import ProtImodBase
 from .protocol_applyTransformationMatrix import ProtImodApplyTransformationMatrix
+from .protocol_crop_tomograms import ProtImodCropTomograms
 from .protocol_ctfCorrection import ProtImodCtfCorrection
 from .protocol_ctfEstimation_automatic import ProtImodAutomaticCtfEstimation
 from .protocol_ctfEstimation_manual import ProtImodManualCtfEstimation

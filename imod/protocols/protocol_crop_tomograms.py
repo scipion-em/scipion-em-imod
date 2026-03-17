@@ -24,14 +24,21 @@
 # *
 # *****************************************************************************
 import logging
+import traceback
+from os.path import exists
 from typing import List, Tuple
 
-from imod.constants import OUTPUT_TOMOGRAMS_NAME
+from imod import Plugin
+from imod.constants import OUTPUT_TOMOGRAMS_NAME, MRC_EXT
 from imod.protocols import ProtImodBase
+from pwem.convert.headers import setMRCSamplingRate
+from pwem.objects import Transform
 from pyworkflow import BETA
+from pyworkflow.object import Integer
 from pyworkflow.protocol import IntParam, STEPS_PARALLEL
-from pyworkflow.utils import Message, cyanStr
-from tomo.objects import SetOfTomograms
+from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
+from tomo.objects import SetOfTomograms, Tomogram
 
 logger = logging.getLogger(__name__)
 X_AXIS = 'x'
@@ -44,7 +51,7 @@ ODD_SUFFIX = '_odd'
 class ProtImodCropTomograms(ProtImodBase):
     """Trimming out a selected portion of a tomogram."""
 
-    _label = 'tomo preprocess'
+    _label = 'crop tomograms'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}
     stepsExecutionMode = STEPS_PARALLEL
     _devStatus = BETA
@@ -59,21 +66,22 @@ class ProtImodCropTomograms(ProtImodBase):
         form.addSection(Message.LABEL_INPUT)
         self.addInTomoSetFormParam(form)
         self.addOddEvenParams(form, isTomogram=True)
-        l = form.addLine('x start and end (px)',
-                         help='Starting and ending X coordinate of region to cut out. '
-                              'Numbers lower than 0 means to ignore the crop in that axis.')
-        l.addParam(f'{X_AXIS}0', IntParam, default=-1)
-        l.addParam(f'{X_AXIS}1', IntParam, default=-1)
-        l = form.addLine('y start and end (px)',
-                         help='Starting and ending Y coordinate of region to cut out. '
-                              'Numbers lower than 0 means to ignore the crop in that axis.')
-        l.addParam(f'{Y_AXIS}0', IntParam, default=-1)
-        l.addParam(f'{Y_AXIS}1', IntParam, default=-1)
-        l = form.addLine('z start and end (px)',
-                         help='Starting and ending Z coordinate of region to cut out. '
-                              'Numbers lower than 0 means to ignore the crop in that axis.')
-        l.addParam(f'{Z_AXIS}0', IntParam, default=-1)
-        l.addParam(f'{Z_AXIS}1', IntParam, default=-1)
+        g = form.addGroup('Crop values (px)')
+        l = g.addLine('Crop X',
+                      help='Starting and ending X coordinate of region to cut out. '
+                           'Numbers lower than 0 means to ignore the crop in that axis.')
+        l.addParam(f'{X_AXIS}0', IntParam, label='x start', default=-1)
+        l.addParam(f'{X_AXIS}1', IntParam, label='x end', default=-1)
+        l = g.addLine('Crop Y',
+                      help='Starting and ending Y coordinate of region to cut out. '
+                           'Numbers lower than 0 means to ignore the crop in that axis.')
+        l.addParam(f'{Y_AXIS}0', IntParam, label='y start', default=-1)
+        l.addParam(f'{Y_AXIS}1', IntParam, label='y end', default=-1)
+        l = g.addLine('Crop Z',
+                      help='Starting and ending Z coordinate of region to cut out. '
+                           'Numbers lower than 0 means to ignore the crop in that axis.')
+        l.addParam(f'{Z_AXIS}0', IntParam, label='z start', default=-1)
+        l.addParam(f'{Z_AXIS}1', IntParam, label='z end', default=-1)
         form.addParallelSection(threads=1, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -104,23 +112,65 @@ class ProtImodCropTomograms(ProtImodBase):
         params = ''
         if self._doCropInAxis(X_AXIS):
             x0, x1 = self._getAxisCoords(X_AXIS)
-            params += f'{X_AXIS} {x0},{x1} '
+            params += f'-{X_AXIS} {x0},{x1} '
         if self._doCropInAxis(Y_AXIS):
             y0, y1 = self._getAxisCoords(Y_AXIS)
-            params += f'{Y_AXIS} {y0},{y1} '
+            params += f'-{Y_AXIS} {y0},{y1} '
         if self._doCropInAxis(Z_AXIS):
             z0, z1 = self._getAxisCoords(Z_AXIS)
-            params += f'{Z_AXIS} {z0},{z1} '
+            params += f'-{Z_AXIS} {z0},{z1} '
         self.xyzParams = params
 
     def cropTomogramStep(self, tsId: str):
-        self._runCropTomo(tsId)
-        if self.doOddEven:
-            self._runCropTomo(tsId, suffix=EVEN_SUFFIX)
-            self._runCropTomo(tsId, suffix=ODD_SUFFIX)
+        try:
+            self._runCropTomo(tsId)
+            if self.doOddEven:
+                self._runCropTomo(tsId, suffix=EVEN_SUFFIX)
+                self._runCropTomo(tsId, suffix=ODD_SUFFIX)
+        except Exception as e:
+            self.failedItems.append(tsId)
+            logger.error(redStr(f'tsId = {tsId} -> {self.program} execution '
+                                f'failed with the exception -> {e}'))
+            logger.error(traceback.format_exc())
 
     def generateOutputStep(self, tsId: str):
-        pass
+        tomo = self.tomoDict[tsId]
+        if tsId in self.failedItems:
+            self.addToOutFailedSet(tomo)
+            return
+
+        try:
+            outputFn = self._getCroppedTomoFn(tsId)
+            if exists(outputFn):
+                self._registerOutput(tomo, outputFn)
+            else:
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} '
+                                    f'was not generated. Skipping... '))
+
+        except Exception as e:
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
+                                f'with exception {e}. Skipping... '))
+            logger.error(traceback.format_exc())
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, tomo: Tomogram, outputFn: str):
+        tsId = tomo.getTsId()
+        with self._lock:
+            # Set of tomograms
+            outTomoSet = self.getOutputSetOfTomograms(self.getInputTomoSet(pointer=True))
+            setMRCSamplingRate(outputFn, outTomoSet.getSamplingRate())  # Update the apix value in file header
+            # Tomogram
+            outTomo = Tomogram(tsId=tsId)
+            outTomo.copyInfo(tomo)
+            outTomo.setFileName(outputFn)
+            self._manageTomoOrigin(outTomo)
+            self.setTomoOddEven(tsId, outTomo)
+            # Data persistence
+            outTomoSet.append(outTomo)
+            outTomoSet.updateDim()
+            outTomoSet.update(outTomo)
+            outTomoSet.write()
+            self._store(outTomoSet)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self) -> List[str]:
@@ -150,9 +200,9 @@ class ProtImodCropTomograms(ProtImodBase):
         return errorMsg
 
     # --------------------------- UTILS functions -----------------------------
-    def _getAxisCoords(self, axisName: str)->Tuple[int, int]:
-        val0 = getattr(self, f'{axisName}0', -1)
-        val1 = getattr(self, f'{axisName}1', -1)
+    def _getAxisCoords(self, axisName: str) -> Tuple[int, int]:
+        val0 = getattr(self, f'{axisName}0', Integer(-1)).get()
+        val1 = getattr(self, f'{axisName}1', Integer(-1)).get()
         return val0, val1
 
     def _doCropInAxis(self, axisName: str) -> bool:
@@ -165,6 +215,22 @@ class ProtImodCropTomograms(ProtImodBase):
     def _runCropTomo(self, tsId: str, suffix: str = '') -> None:
         logger.info(cyanStr(f'tsId = {tsId}: Cropping the tomogram {suffix}...'))
         params = self.xyzParams
-        params += f'{self.tomoDict[tsId]} '  # input file
+        params += f'{self.tomoDict[tsId].getFileName()} '  # input file
         params += f'{self._getCroppedTomoFn(tsId, suffix=suffix)} '  # output file
-        self.runProgram(self.program, params)
+        Plugin.runImod(self, self.program, params)
+
+    def _manageTomoOrigin(self, tomo: Tomogram) -> None:
+        prevOriginShifts = tomo.getShiftsFromOrigin()
+        sxPrev, syPrev, szPrev = prevOriginShifts
+        sr = tomo.getSamplingRate()
+        x0, x1 = self._getAxisCoords(X_AXIS)
+        newSx = - sr * (x0 + (x1 - x0) / 2)  if self._doCropInAxis(X_AXIS) else sxPrev
+        y0, y1 = self._getAxisCoords(Y_AXIS)
+        newSy = - sr * (y0 + (y1 - y0) / 2) if self._doCropInAxis(Y_AXIS) else syPrev
+        z0, z1 = self._getAxisCoords(Z_AXIS)
+        newSz = - sr * (z0 + (z1 - z0) / 2) if self._doCropInAxis(Z_AXIS) else szPrev
+        newOrigin = Transform()
+        newOrigin.setShifts(newSx, newSy, newSz)
+        tomo.setOrigin(newOrigin)
+
+
