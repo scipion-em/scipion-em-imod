@@ -67,12 +67,12 @@ class ProtImodCropTomograms(ProtImodBase):
         self.addInTomoSetFormParam(form)
         self.addOddEvenParams(form, isTomogram=True)
         g = form.addGroup('Crop values (px)')
-        l = g.addLine('Final dim = (p1 - p0) + 1',
-                      help='Example:\n\n'
-                           'With x0 = 270 and x1 = 500 -> X axis: (500 - 270) + 1 = 231 px.\n\n'
-                           'This is because of the cut coordinates are inclusive. To get even '
-                           'dimensions, consider to add or subtract 1 to the upper limit of each '
-                           'pair of coordinates.')
+        g.addLine('Final dim = (p1 - p0) + 1',
+                  help='Example:\n\n'
+                       'With x0 = 270 and x1 = 500 -> X axis: (500 - 270) + 1 = 231 px.\n\n'
+                       'This is because of the cut coordinates are inclusive. To get even '
+                       'dimensions, consider to add or subtract 1 to the upper limit of each '
+                       'pair of coordinates.')
         l = g.addLine('Crop X',
                       help='Starting and ending X coordinate of region to cut out. '
                            'Numbers lower than 0 means to ignore the crop in that axis.')
