@@ -1,3 +1,5 @@
+3.9.0:
+  Users: Add new protocol for cropping tomograms.
 3.8.1: deploy test.
 3.8.0:
   Users:

@@ -492,7 +492,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 tsIdList = self.tsIdReadList
             for item in outSet:
                 tsIdList.append(item.getTsId())
-            self.info(cyanStr(f'Item processed {self.tsIdReadList}'))
+            self.info(cyanStr(f'Item processed {tsIdList}'))
         else:
             self.info(cyanStr('No items have been processed yet'))
 
