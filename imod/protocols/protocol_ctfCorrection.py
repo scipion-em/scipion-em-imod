@@ -168,7 +168,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         inTsSet = self.getInputTsSet()
         self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
         inCtfSet = self.getInputCtfSet()
-        self.readingOutput(getattr(self, OUTPUT_CTF_SERIE, None), tsIdListName='ctfTsIdList')
+        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None), tsIdListName='ctfTsIdList')
 
         while True:
             with self._lock:
