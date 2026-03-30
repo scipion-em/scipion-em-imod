@@ -185,7 +185,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             outTsFile = self.getExtraOutFile(tsId)
             if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
-
+                return
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
             self._registerOutput(ts, outTsFile)
 
@@ -194,7 +194,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             logger.error(traceback.format_exc())
 
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self,ts: TiltSeries, outTsFile: str):
+    def _registerOutput(self, ts: TiltSeries, outTsFile: str):
         tsId = ts.getTsId()
         with self._lock:
             # Set of tilt-series
@@ -217,7 +217,6 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             self._store(outTsSet)
             # Close explicitly the outputs (for streaming)
             self.closeOutputsForStreaming()
-
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,

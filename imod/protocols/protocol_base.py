@@ -27,21 +27,22 @@ import logging
 import time
 import traceback
 import typing
-from subprocess import CalledProcessError
 from typing import Union, Tuple, List
+from imod.constants import NEWSTACK_PROGRAM, ODD, EVEN, XF_EXT, TLT_EXT, OUTPUT_TILTSERIES_NAME, \
+    OUTPUT_FIDUCIAL_NO_GAPS_NAME, OUTPUT_TOMOGRAMS_NAME, OUTPUT_TS_FAILED_NAME, OUTPUT_TOMOS_FAILED_NAME, MRC_EXT, \
+    MRCS_EXT
 from imod.convert.convert import genXfFile
 from pyworkflow.object import Set, Boolean, Pointer
 from pyworkflow.protocol import params
 from pyworkflow.utils import path, cyanStr, redStr, yellowStr
 from pwem.protocols import EMProtocol
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
-from reliontomo.constants import tsStarFields
 from tomo.protocols.protocol_base import ProtTomoBase
 from tomo.objects import (SetOfTiltSeries, SetOfTomograms, SetOfCTFTomoSeries,
-                          TiltSeries, TiltImage, CTFTomoSeries,
-                          SetOfLandmarkModels, Tomogram)
+                          TiltSeries, TiltImage, SetOfLandmarkModels, Tomogram)
 from imod import Plugin
-from imod.constants import *
+
+
 
 logger = logging.getLogger(__name__)
 IN_TS_SET = 'inputSetOfTiltSeries'
@@ -491,7 +492,7 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
                 tsIdList = self.tsIdReadList
             for item in outSet:
                 tsIdList.append(item.getTsId())
-            self.info(cyanStr(f'Item processed {self.tsIdReadList}'))
+            self.info(cyanStr(f'Item processed {tsIdList}'))
         else:
             self.info(cyanStr('No items have been processed yet'))
 

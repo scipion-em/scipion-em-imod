@@ -27,9 +27,11 @@ import math
 from os.path import exists
 from typing import Union, Tuple, Optional, List, Set
 import numpy as np
+from numpy.ma.bench import ys
+
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
-from pyworkflow.utils import magentaStr, cyanStr
+from pyworkflow.utils import magentaStr, cyanStr, weakImport
 from tomo.objects import TomoAcquisition, SetOfTiltSeries, SetOfCTFTomoSeries, SetOfLandmarkModels, SetOfTomograms
 from tomo.protocols import ProtImportTs, ProtImportTomograms, ProtImportTsCTF
 from tomo.protocols.protocol_base import ProtTomoImportAcquisition
@@ -37,8 +39,6 @@ from tomo.protocols.protocol_import_ctf import ImportChoice
 from tomo.protocols.protocol_import_tomograms import OUTPUT_NAME
 from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto, TS_03, TS_54, TS_01, TS_43, TS_45
 from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
-
-from cistem.protocols import CistemProtTsCtffind
 from imod.constants import *
 from imod.protocols import *
 from imod.protocols.protocol_base_preprocess import FLOAT_DENSITIES_CHOICES
@@ -195,12 +195,14 @@ class TestImodBase(TestBaseCentralizedLayer):
 
     @classmethod
     def _runImportTomograms(cls,
-                            filesPattern: str = DataSetRe4STATuto.tomosPattern.value) -> SetOfTomograms:
+                            filesPattern: str = DataSetRe4STATuto.tomosPattern.value,
+                            exclusionWords: str = '') -> SetOfTomograms:
 
         print(magentaStr("\n==> Importing the tomograms:"))
         protImportTomos = cls.newProtocol(ProtImportTomograms,
                                           filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
                                           filesPattern=filesPattern,
+                                          exclusionWords=exclusionWords,
                                           samplingRate=DataSetRe4STATuto.sRateBin4.value,  # Bin 4
                                           importAcquisitionFrom=ProtTomoImportAcquisition.MANUAL_IMPORT,
                                           oltage=DataSetRe4STATuto.voltage.value,
@@ -873,6 +875,7 @@ class TestImodImportTrMatrix(TestImodBase):
                              isHeterogeneousSet=True,
                              expectedOrigin=tsOriginAngst,
                              checkHeaderApix=False)
+
     def testImportTrMatrix01(self):
         tsImportedTrMat = self._runImportTrMatrix(self.importedTs)
         self._checkTs(tsImportedTrMat)
@@ -1352,23 +1355,7 @@ class TestImodTomogramPreprocess(TestImodBase):
                     binningFactor: int = 1) -> None:
         # The input tomograms are at binning 4, so it will be the reference binning
         binnedSRate = self.unbinnedSRate * self.binningFactor * binningFactor
-        testAcqObjDict = {
-            TS_01: DataSetRe4STATuto.testAcq01.value,
-            TS_03: DataSetRe4STATuto.testAcq03.value,
-            TS_43: DataSetRe4STATuto.testAcq43.value,
-            TS_45: DataSetRe4STATuto.testAcq45.value,
-            TS_54: DataSetRe4STATuto.testAcq54.value,
-        }
-        tomoDimsThk280b = [round(iDim / binningFactor) for iDim in tomoDimsThk280]
-        tomoDimsThk300b = [round(iDim / binningFactor) for iDim in tomoDimsThk300]
-        tomoDimsThk340b = [round(iDim / binningFactor) for iDim in tomoDimsThk340]
-        expectedDimensionsDict = {
-            TS_01: tomoDimsThk340b,
-            TS_03: tomoDimsThk280b,
-            TS_43: tomoDimsThk300b,
-            TS_45: tomoDimsThk300b,
-            TS_54: tomoDimsThk280b,
-        }
+        testAcqObjDict, expectedDimensionsDict = DataSetRe4STATuto.genTestTomoDicts(binning=binningFactor)
         self.checkTomograms(inTomos,
                             expectedSetSize=len(testAcqObjDict),
                             expectedSRate=binnedSRate,
@@ -1411,6 +1398,103 @@ class TestImodTomogramPreprocess(TestImodBase):
                                                          scaleMax=200,
                                                          scaleMin=20)
         self._checkTomos(tomosPreprocessed)
+
+
+class TestImodCropTomograms(TestImodBase):
+
+    sRate = DataSetRe4STATuto.sRateBin4.value
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTomos = cls._runImportTomograms(exclusionWords=f'{TS_01} {TS_43} {TS_45}')
+
+    @classmethod
+    def _runCropTomograms(cls,
+                          xVals: Tuple[int, int],
+                          yVals: Tuple[int, int],
+                          zVals: Tuple[int, int]) -> SetOfTomograms:
+        print(magentaStr(f"\n==> Running the tomograms cropping:"
+                         f"\n\t- [x0, x1] = [{xVals[0]}, {xVals[1]}]"
+                         f"\n\t- [y0, y1] = [{yVals[0]}, {yVals[1]}]"
+                         f"\n\t- [z0, z1] = [{zVals[0]}, {zVals[1]}]"))
+        protCropTomos = cls.newProtocol(ProtImodCropTomograms,
+                                        inputSetOfTomograms=cls.importedTomos,
+                                        x0=xVals[0],
+                                        x1=xVals[1],
+                                        y0=yVals[0],
+                                        y1=yVals[1],
+                                        z0=zVals[0],
+                                        z1=zVals[1])
+
+        cls.launchProtocol(protCropTomos)
+        croppedTomos = getattr(protCropTomos, OUTPUT_TOMOGRAMS_NAME, None)
+        return croppedTomos
+
+    def _checkTomos(self,
+                    inTomos: SetOfTomograms,
+                    xVals: Tuple[int, int],
+                    yVals: Tuple[int, int],
+                    zVals: Tuple[int, int],
+                    xShift: Optional[float] = None,
+                    yShift: Optional[float] = None,
+                    zShift: Optional[float] = None) -> None:
+        x0, x1 = xVals[0], xVals[1]
+        y0, y1 = yVals[0], yVals[1]
+        z0, z1 = zVals[0], zVals[1]
+        testDims = [
+            x1 - x0 + 1,
+            y1 - y0 + 1,
+            z1 - z0 + 1
+        ]
+        expectedDimensionsDict = {
+            TS_03: testDims,
+            TS_54: testDims
+        }
+        expectedOriginShifts = [
+            xShift if xShift else - self.sRate * (x0 + (x1 - x0) / 2),
+            yShift if yShift else - self.sRate * (y0 + (y1 - y0) / 2),
+            zShift if zShift else - self.sRate * (z0 + (z1 - z0) / 2),
+        ]
+        testAcqObjDict, _ = DataSetRe4STATuto.genTestTomoDicts(tsIdList=(TS_03, TS_54))
+        self.checkTomograms(inTomos,
+                            expectedSetSize=len(testAcqObjDict),
+                            expectedSRate=self.sRate,
+                            expectedDimensions=expectedDimensionsDict,
+                            expectedOriginShifts=expectedOriginShifts,
+                            isHeterogeneousSet=False,
+                            testAcqObj=testAcqObjDict)
+
+    def testCropTomos01(self):
+        # Crop in X, Y and Z
+        xVals = (270, 500)
+        yVals = (170, 400)
+        zVals = (41, 261)
+        tomosPreprocessed = self._runCropTomograms(xVals, yVals, zVals)
+        self._checkTomos(tomosPreprocessed, xVals, yVals, zVals)
+
+    def testCropTomos02(self):
+        # Only crop in Z
+        xVals = (-1, -1)
+        yVals = (-1, -1)
+        zVals = (41, 261)
+        tomosPreprocessed = self._runCropTomograms(xVals, yVals, zVals)
+        xValsTest = (1, 928)
+        yValsTest = (1, 928)
+        xShift = - 928 * self.sRate / 2
+        yShift = - 928 * self.sRate / 2
+        self._checkTomos(tomosPreprocessed, xValsTest, yValsTest, zVals,
+                         xShift=xShift,
+                         yShift=yShift)
+
+    def testCropTomos03(self):
+        # Crop in Y and Z
+        xVals = (-1, -1)
+        yVals = (100, 551)
+        zVals = (41, 262)
+        tomosPreprocessed = self._runCropTomograms(xVals, yVals, zVals)
+        xValsTest = (1, 928)
+        xShift = - 928 * self.sRate / 2
+        self._checkTomos(tomosPreprocessed, xValsTest, yVals, zVals, xShift=xShift)
 
 
 class TestImodTomoProjection(TestImodBase):
@@ -1658,6 +1742,8 @@ class TestImodCtfCorrection(TestImodBase):
 
     @classmethod
     def _runCistemEstimateCtf(cls, inTsSet):
+        with weakImport('cistem'):
+            from cistem.protocols import CistemProtTsCtffind
         print(magentaStr("\n==> Estimating the CTF with Cistem:"))
         protEstimateCtf = cls.newProtocol(CistemProtTsCtffind,
                                           inputTiltSeries=inTsSet,
