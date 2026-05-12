@@ -41,11 +41,162 @@ from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
 
-
 class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
-    """Automatic tilt-series alignment using IMOD's batchruntomo
-    (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
-    (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
+    """
+    Performs automatic alignment of tilt-series datasets using the IMOD
+    batchruntomo (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made
+    by Team Tomo (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/)
+    workflow and TeamTomo integration utilities.
+
+    AI Generated:
+
+    BatchRunTomo Alignment (ProtImodBRT) — User Manual
+        Overview
+
+        The BatchRunTomo Alignment protocol performs automatic alignment of
+        cryo-electron tomography tilt-series using the IMOD batchruntomo
+        framework integrated through TeamTomo utilities. Its main objective is
+        to generate geometrically aligned tilt-series suitable for tomographic
+        reconstruction and downstream structural analysis.
+
+        In cryo-electron tomography workflows, tilt-series alignment is one of
+        the most critical preprocessing stages because the quality of the final
+        tomogram depends strongly on the accuracy of the geometric corrections.
+        Misalignment between projection images introduces blurring, artifacts,
+        and loss of structural detail that can compromise biological
+        interpretation. This protocol automates the alignment process while
+        remaining compatible with high-throughput and streaming acquisition
+        environments.
+
+        The protocol is designed for both routine facility processing and more
+        demanding biological studies involving cellular tomography, in situ
+        structural biology, membrane systems, or macromolecular complexes.
+
+        Inputs and General Workflow
+
+        The protocol requires one or more tilt-series datasets together with
+        their associated tilt geometry information. Each tilt-series is
+        processed independently and produces an aligned version that can later
+        be reconstructed into a tomogram.
+
+        The alignment procedure is intended to compensate for shifts,
+        distortions, and geometric inconsistencies introduced during data
+        acquisition. Correct alignment ensures that corresponding structural
+        features remain spatially consistent across projection views, allowing
+        reliable three-dimensional reconstruction.
+
+        Because the protocol supports streaming operation, it is especially
+        suitable for modern automated microscopy pipelines where datasets are
+        processed progressively as they become available. This capability is
+        highly valuable in large cryo-electron tomography facilities and
+        high-throughput screening workflows.
+
+        Alignment Strategies
+
+        The protocol provides two biologically relevant alignment strategies:
+        fiducial-based alignment and patch-tracking alignment. The appropriate
+        choice depends primarily on sample preparation quality and the presence
+        of fiducial markers.
+
+        Fiducial alignment is generally considered the preferred approach when
+        fiducial gold beads are present and clearly visible throughout the
+        tilt-series. In this strategy, the alignment relies on the stable
+        tracking of fiducial markers across projection angles. This often
+        yields highly accurate geometric correction and is commonly used in
+        high-resolution tomography workflows.
+
+        From a biological perspective, fiducial alignment is especially useful
+        for purified complexes, lamellae, and cellular preparations where
+        fiducials are evenly distributed and remain visible across the full
+        angular range. Choosing an appropriate fiducial diameter is important
+        because it should approximately reflect the physical size of the gold
+        markers used during specimen preparation.
+
+        Patch tracking provides an alternative strategy for datasets lacking
+        fiducials or containing poorly visible markers. Instead of relying on
+        external reference particles, the alignment is derived from intrinsic
+        image features distributed throughout the specimen.
+
+        This method is often advantageous for dense cellular samples, crowded
+        intracellular environments, or specimens where fiducials interfere with
+        biological interpretation. Patch tracking can also simplify workflows
+        by eliminating the need for fiducial deposition during sample
+        preparation.
+
+        Patch Size and Overlap Considerations
+
+        When patch tracking is selected, the protocol allows control over the
+        patch size and overlap between neighboring regions. These parameters
+        influence both alignment robustness and computational cost.
+
+        Larger patches generally provide more stable tracking in noisy datasets
+        because they contain more structural information. However, excessively
+        large patches may average together regions with different local motion
+        or deformation. Smaller patches can better capture local image
+        behavior, although they may become unstable in low-contrast regions.
+
+        The overlap percentage determines how strongly neighboring tracking
+        regions interact spatially. Higher overlap values usually improve
+        continuity and robustness at the expense of increased computational
+        effort. In challenging biological datasets containing heterogeneous
+        cellular structures, moderate to high overlap often produces more
+        reliable alignment behavior.
+
+        Streaming and High-Throughput Processing
+
+        One of the major strengths of this protocol is its compatibility with
+        streaming data acquisition. New tilt-series can be aligned
+        automatically as they are produced, enabling near real-time processing
+        during microscope operation.
+
+        This capability is particularly valuable in modern cryo-electron
+        tomography facilities, where immediate feedback can help identify
+        acquisition problems early in an experiment. Researchers can therefore
+        evaluate alignment quality, specimen behavior, or imaging conditions
+        without waiting for the completion of an entire data collection
+        session.
+
+        Outputs and Their Interpretation
+
+        The protocol produces aligned tilt-series datasets that preserve the
+        original acquisition identity while incorporating the computed
+        geometric corrections. These aligned datasets are intended for direct
+        use in tomographic reconstruction workflows and downstream structural
+        analysis.
+
+        Accurate alignment improves tomogram quality by reducing reconstruction
+        artifacts and preserving structural consistency across projection
+        angles. This directly affects the interpretability of biological
+        features such as membranes, cytoskeletal assemblies, ribosomes, viral
+        particles, or macromolecular complexes embedded within cells.
+
+        Practical Recommendations
+
+        In routine biological workflows, fiducial alignment is generally the
+        preferred starting point whenever high-quality fiducial markers are
+        available. Proper fiducial distribution across the field of view often
+        provides the most robust and accurate geometric correction.
+
+        Patch tracking is highly valuable for fiducial-free workflows or
+        difficult cellular specimens where fiducials are sparse, obscured, or
+        absent. In these cases, adjusting patch size and overlap can
+        significantly improve alignment stability.
+
+        Researchers should visually inspect alignment quality before proceeding
+        to tomographic reconstruction, particularly in datasets with strong
+        specimen deformation, low contrast, or limited angular coverage.
+
+        Final Perspective
+
+        For most cryo-electron tomography studies, tilt-series alignment is a
+        foundational step that strongly influences the quality and biological
+        reliability of the final reconstruction. Careful selection between
+        fiducial-based and patch-based alignment strategies allows researchers
+        to adapt the workflow to the characteristics of the specimen, imaging
+        conditions, and experimental objectives while maintaining compatibility
+        with modern automated tomography pipelines.
+    """
+    """Automatic tilt-series alignment using IMOD's batchruntomo.
     """
 
     _label = "teamtomo/batchruntomo"

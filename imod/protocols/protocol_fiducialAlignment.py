@@ -85,74 +85,187 @@ DISTORTION_SOLUTION_CHOICES = ['Disabled',
 
 class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     """
-    Construction of a fiducial model and alignment of tilt-series based
-    on the IMOD procedure.
-    More info:
-        https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
+    Constructs fiducial models and aligns electron tomography tilt-series
+    using the IMOD fiducial alignment workflow. The protocol estimates
+    geometric transformations between tilted projections so that all views
+    are brought into a consistent tomographic coordinate system suitable
+    for high-quality 3D reconstruction and downstream structural analysis.
+    More info: https://bio3d.colorado.edu/imod/doc/man/tiltalign.html
 
-    This program will solve for the displacements, rotations, tilts, and
-    magnification differences relating a set of tilted views of an object.
-    It uses a set of fiducial points that have been identified in a series
-    of views. These input data are read from a model in which each fiducial
-    point is a separate contour.
+    AI Generated:
 
-    This program has several notable features:
+    Fiducial Alignment (ProtImodFiducialAlignment) - User Manual
+        Overview
 
-    1) Any given fiducial point need not be present in every view. Thus,
-    one can track each fiducial point only through the set of views in
-    which it can be reliably identified, and one can even skip views in the
-    middle of that set.
+        The Fiducial Alignment protocol performs alignment of tilt-series
+        using fiducial markers detected across multiple projection images.
+        In electron tomography workflows, this step is essential because it
+        determines the geometric relationship between all tilted views before
+        tomographic reconstruction. Accurate alignment directly influences the
+        quality, interpretability, and resolution of the final 3D volume.
 
-    2) The program can solve for distortion (stretching) in the plane of
-    the section.
+        The protocol is based on the IMOD tiltalign procedure, a widely used
+        approach in cryo-electron tomography and cellular electron microscopy.
+        It estimates rotations, translations, tilt geometry, magnification
+        variations, and optional distortions affecting the acquisition process.
+        The resulting alignment model provides a mathematically consistent
+        description of how each projection image relates to the specimen and
+        microscope geometry.
 
-    3) It is possible to constrain several views to have the same unknown
-    value of rotation, tilt angle, magnification, compression, or distor-
-    tion.  This can reduce the number of unknowns and can give more accu-
-    rate overall solutions.
+        Biological and Experimental Context
 
-    4) If the fiducial points are supposed to lie in one or two planes,
-    then after the minimization procedure is complete, the program can ana-
-    lyze the solved point positions and determine the slope of this plane.
-    It uses this slope to estimate how to adjust tilt angles so as to make
-    the planes be horizontal in a reconstruction.
+        Fiducial markers are typically gold beads or similar high-contrast
+        particles distributed across the sample before data acquisition.
+        Because these markers remain visible through multiple tilt angles,
+        they provide reliable reference points for estimating specimen motion
+        and imaging distortions during tomography acquisition.
 
-    5) The program can use a robust fitting method to give different
-    weights to different modeled points based on their individual fitting
-    errors.  Points with the most extreme errors are eliminated from the
-    fit, and ones with high but less extreme errors are down-weighted.
-    This fitting provides a substitute for fixing many modeled point posi-
-    tions based on their errors.
+        In practical biological applications, fiducial alignment is required
+        before reconstructing cellular environments, organelles, membrane
+        systems, macromolecular complexes, or in situ structures. The protocol
+        is particularly valuable in cryo-electron tomography workflows where
+        accurate geometric correction is necessary to preserve structural
+        detail and avoid reconstruction artifacts.
 
-    _On the alignment model_:\n
-    The program implements the following model for the imaging of the spec-
-    imen in each individual view:
-       1) The specimen itself changes by
-         a) an isotropic size change (magnification variable);
-         b) additional thinning in the Z dimension (compression variable); and
-         c) linear stretch along one axis in the specimen plane, implemented by
-            variables representing stretch along the X axis and skew between
-            the X and Y axes;
-       2) The specimen is tilted slightly around the X axis (X tilt variable)
-       3) The specimen is tilted around the X axis by the negative of the beam
-          tilt, if any (one variable for all views)
-       4) The specimen is tilted around the Y axis (tilt variable)
-       5) The specimen is tilted back around the X axis by the beam tilt, if any
-       6) The projected image rotates in the plane of the camera (rotation
-          variable)
-       7) The projected image may stretch along an axis midway between the
-          original X and Y axes (one variable for all views)
-       8) The image shifts on the camera
+        The protocol supports datasets where fiducial markers are not visible
+        in every projection. This flexibility is biologically important because
+        fiducials may disappear at high tilts, become occluded by dense sample
+        regions, or lose contrast under challenging imaging conditions.
 
-    The complete model is summarized in:
-       Mastronarde, D. N. 2008.  Correction for non-perpendicularity of beam
-       and tilt axis in tomographic reconstructions with the IMOD package. J.
-       Microsc.  230: 212-217.
-    The version of the model prior to the addition of beam tilt is described
-    in more detail in:
-       Mastronarde, D. N.  2007.  Fiducial marker and hybrid alignment methods
-       for single- and double-axis tomography.  In: Electron Tomography, Ed.
-       J. Frank, 2nd edition, pp 163-185. Springer, New York.
+        Inputs and Workflow
+
+        The protocol requires a set of fiducial landmark models associated
+        with one or more tilt-series. Each fiducial corresponds to a tracked
+        marker observed across several projection images. The alignment process
+        uses these trajectories to estimate the global imaging geometry and
+        correct positional inconsistencies between views.
+
+        In streaming workflows, tilt-series can be processed progressively as
+        new data become available. This is especially useful in automated
+        microscopy facilities or high-throughput tomography pipelines where
+        acquisition and processing occur simultaneously.
+
+        The protocol automatically prepares fiducial information for IMOD
+        processing, computes alignment solutions, and generates updated
+        landmark models together with transformed tilt-series geometry. The
+        outputs are suitable for subsequent tomographic reconstruction and
+        visualization workflows.
+
+        Fiducial Geometry and Surface Modeling
+
+        The protocol supports both single-surface and dual-surface fiducial
+        configurations. In many tomography experiments, fiducial beads may be
+        deposited on one side of the specimen support film, while in other
+        preparations they may exist on both surfaces. Correctly specifying
+        this configuration improves geometric stability and alignment accuracy.
+
+        For thicker biological samples or lamella preparations, dual-surface
+        configurations can substantially improve robustness because fiducials
+        distributed at different depths provide stronger geometric constraints.
+        However, the selected option should remain consistent with the original
+        fiducial detection strategy to avoid inconsistencies in the alignment
+        model.
+
+        Rotation, Tilt, and Magnification Modeling
+
+        The protocol provides several strategies for solving rotational,
+        tilt-angle, and magnification parameters. Users may completely fix
+        these variables, solve them independently for every projection, or
+        group neighboring views together to stabilize the estimation process.
+
+        Grouped solutions are often biologically advantageous because nearby
+        tilt images usually share similar acquisition geometry. Reducing the
+        number of free variables can improve robustness, particularly in noisy
+        datasets or when fiducial coverage is incomplete.
+
+        Solving all parameters independently provides maximum flexibility and
+        may be useful for difficult datasets with strong geometric variability.
+        However, unconstrained solutions may also become unstable if the number
+        of fiducials is limited or unevenly distributed.
+
+        Distortion and Stretch Correction
+
+        In addition to rigid alignment, the protocol can estimate image
+        distortions such as stretching and skew. These corrections compensate
+        for imperfections in the imaging system, specimen deformation, or
+        projection geometry.
+
+        Distortion correction becomes especially important in large fields of
+        view, thick cellular specimens, or datasets collected under demanding
+        acquisition conditions. Correcting these effects can significantly
+        improve reconstruction fidelity and reduce systematic geometric errors.
+
+        Depending on the dataset quality and microscope stability, users may
+        choose to disable distortion correction entirely or estimate grouped
+        distortion parameters to balance flexibility and robustness.
+
+        Robust Fitting and Error Handling
+
+        The protocol incorporates robust fitting strategies that reduce the
+        influence of unreliable fiducial measurements. Fiducials with unusually
+        large residual errors may be down-weighted or excluded from the final
+        alignment solution.
+
+        This behavior is particularly valuable in biological datasets where
+        fiducials can occasionally be misidentified, partially obscured, or
+        affected by contamination and radiation damage. Robust fitting improves
+        overall stability and helps prevent isolated tracking errors from
+        degrading the complete alignment.
+
+        Residual information generated during processing can also help users
+        identify problematic regions of the dataset, evaluate alignment quality,
+        and decide whether additional fiducial curation is necessary.
+
+        Outputs and Interpretation
+
+        The protocol produces aligned tilt-series geometry together with updated
+        fiducial models containing refined landmark positions and residual
+        information. These outputs define the corrected spatial relationship
+        between all projections and are directly usable for tomographic
+        reconstruction procedures.
+
+        Gap-filled fiducial models may also be generated. These models provide
+        continuous fiducial trajectories even when some markers are absent in
+        particular views, improving compatibility with downstream tomography
+        software and reconstruction algorithms.
+
+        From a biological perspective, high-quality alignment is essential for
+        preserving fine structural details in reconstructed tomograms. Poor
+        alignment can lead to blurred membranes, distorted macromolecular
+        assemblies, and loss of interpretability in cellular environments.
+
+        Practical Recommendations
+
+        For most cryo-electron tomography experiments, reliable fiducial
+        detection and careful marker distribution are the most important
+        prerequisites for successful alignment. Fiducials should ideally be
+        well distributed across the field of view and visible through a broad
+        tilt range.
+
+        Grouped parameter estimation is often a good starting point because it
+        balances robustness and flexibility. More aggressive parameter solving
+        strategies should generally be reserved for datasets with strong
+        geometric variability or known acquisition inconsistencies.
+
+        When processing thick specimens or dual-surface fiducial preparations,
+        enabling the two-surface option can substantially improve alignment
+        quality. Users should also inspect residual statistics carefully, since
+        unusually high residuals may indicate tracking problems or distorted
+        acquisition geometry.
+
+        Final Perspective
+
+        Fiducial alignment is one of the central stages of electron tomography
+        processing because it establishes the geometric foundation for all
+        downstream reconstruction and interpretation. Accurate alignment not
+        only improves visual reconstruction quality but also enhances the
+        reliability of quantitative biological conclusions derived from
+        tomographic data.
+
+        Careful fiducial tracking, appropriate geometric modeling, and
+        thoughtful parameter selection are therefore essential for obtaining
+        biologically meaningful tomograms suitable for structural and cellular
+        analysis.
     """
 
     _label = 'Fiducial alignment'

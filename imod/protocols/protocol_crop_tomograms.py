@@ -49,7 +49,135 @@ ODD_SUFFIX = '_odd'
 
 
 class ProtImodCropTomograms(ProtImodBase):
-    """Trimming out a selected portion of a tomogram."""
+    """
+    Trims and crops tomographic volumes to isolate a selected region of
+interest within a larger tomogram.
+
+    AI Generated:
+
+    Crop Tomograms (ProtImodCropTomograms) — User Manual
+        Overview
+
+        The Crop Tomograms protocol extracts a defined subvolume from one or
+        more tomograms in order to focus subsequent analysis on a biologically
+        relevant region. This operation is commonly used in cryo-electron
+        tomography workflows to reduce dataset size, improve visualization,
+        isolate structures of interest, or prepare data for downstream tasks
+        such as segmentation, subtomogram averaging, particle picking, or
+        manual interpretation.
+
+        In practical biological workflows, tomograms frequently contain large
+        regions that are not relevant for the current study. These may include
+        empty solvent regions, support film, fiducial markers, neighboring
+        cells, or peripheral areas outside the target structure. Cropping
+        allows researchers to retain only the meaningful portion of the volume,
+        simplifying data handling and reducing computational demands in later
+        processing stages.
+
+        Inputs and Biological Context
+
+        The protocol operates on reconstructed tomograms that already exist as
+        volumetric datasets. These tomograms may correspond to cellular
+        environments, macromolecular assemblies, membrane regions, organelles,
+        or purified complexes reconstructed through cryo-electron tomography.
+
+        The selected crop region is defined independently along the X, Y, and Z
+        axes. Users can therefore isolate compact structures, elongated
+        assemblies, membrane slabs, or localized intracellular regions
+        depending on the biological question. The resulting cropped tomograms
+        preserve the original voxel sampling and remain compatible with
+        downstream tomography workflows.
+
+        In many biological studies, cropping is not merely a convenience step
+        but an important strategy for improving interpretability. Removing large
+        irrelevant regions often improves visualization clarity and reduces the
+        influence of unrelated densities during later analyses.
+
+        Coordinate Selection and Volume Definition
+
+        The protocol defines the cropped region through start and end
+        coordinates along each spatial axis. These coordinates determine the
+        final dimensions of the extracted volume. Because the selected limits
+        are inclusive, users should carefully choose the upper boundaries when
+        exact output dimensions are required.
+
+        From a biological perspective, it is usually preferable to include a
+        small safety margin around the target structure instead of cropping too
+        tightly. Excessively restrictive cropping may truncate flexible domains,
+        membrane extensions, or neighboring contextual features that later
+        become biologically important.
+
+        Cropping only selected axes is also possible. This flexibility is
+        particularly useful when the structure occupies the full extent of one
+        dimension but only a restricted region in others, such as membrane
+        sheets or filamentous assemblies.
+
+        Tomogram Geometry and Spatial Interpretation
+
+        An important aspect of tomogram cropping is the preservation of spatial
+        consistency. The protocol updates the tomogram spatial origin after
+        cropping so that downstream visualization and analysis tools continue
+        to interpret the coordinates correctly.
+
+        This behavior is biologically important because cryo-electron tomography
+        studies often rely on positional interpretation. Examples include
+        measuring distances to membranes, locating macromolecular complexes
+        inside cells, or correlating tomograms with fluorescence microscopy or
+        segmentation data. Maintaining accurate geometric information helps
+        preserve biological meaning after trimming the volume.
+
+        Odd and Even Tomogram Support
+
+        The protocol can also operate on odd and even tomogram variants when
+        these datasets are available. Such datasets are commonly used in
+        resolution estimation procedures or validation workflows. By applying
+        the same cropping operation consistently to all related tomograms, the
+        protocol preserves compatibility between the different data partitions.
+
+        This is especially useful in workflows involving subtomogram averaging,
+        local resolution estimation, or independent half-map validation, where
+        maintaining strict spatial correspondence between datasets is essential.
+
+        Outputs and Their Interpretation
+
+        The protocol produces a new set of cropped tomograms corresponding to
+        the selected spatial region. The resulting tomograms preserve the
+        original biological information within the retained area while reducing
+        unnecessary volume outside the region of interest.
+
+        These cropped tomograms are typically easier to visualize, transfer,
+        archive, and process computationally. Smaller datasets can
+        substantially accelerate downstream analyses, particularly in workflows
+        involving iterative refinement, segmentation, denoising, or machine
+        learning approaches.
+
+        Practical Recommendations
+
+        In routine cryo-electron tomography workflows, it is generally advisable
+        to inspect the tomogram carefully before defining crop coordinates.
+        Including sufficient contextual information around the target structure
+        often improves interpretation and prevents accidental exclusion of
+        biologically relevant features.
+
+        When preparing tomograms for subtomogram averaging or segmentation,
+        moderate cropping is usually preferable to extremely tight trimming.
+        Preserving nearby membrane boundaries, neighboring complexes, or local
+        cellular context can remain valuable even if these features are not the
+        primary target of the analysis.
+
+        Cropping is also highly beneficial when handling very large cellular
+        tomograms, where reducing the volume size can dramatically decrease
+        storage requirements and processing time.
+
+        Final Perspective
+
+        For many cryo-electron tomography projects, tomogram cropping is a
+        fundamental preparation step that improves both computational efficiency
+        and biological focus. Careful selection of the cropped region allows
+        researchers to concentrate analyses on the most informative part of the
+        dataset while preserving the spatial and structural context necessary
+        for meaningful biological interpretation.
+    """
 
     _label = 'crop tomograms'
     _possibleOutputs = {OUTPUT_TOMOGRAMS_NAME: SetOfTomograms}

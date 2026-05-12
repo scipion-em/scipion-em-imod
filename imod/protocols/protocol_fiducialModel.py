@@ -48,13 +48,240 @@ logger = logging.getLogger(__name__)
 
 class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
-    Construction of a fiducial model and alignment of tilt-series based
-    on the IMOD procedure.
+    Constructs fiducial tracking models and performs tilt-series alignment
+    using IMOD-based workflows for electron tomography applications.
+    The protocol is designed to identify, track, and organize fiducial
+    markers across tilt-series images so they can later support accurate
+    tomographic reconstruction, geometric correction, and alignment
+    refinement. It supports both traditional fiducial bead tracking and
+    correlation-based patch tracking approaches, allowing the protocol to
+    adapt to datasets with visible fiducials as well as datasets where
+    alignment must rely on intrinsic image features. More info:
+    https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
+    https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
+    https://bio3d.colorado.edu/imod/doc/man/model2point.html
 
-    More info:
-        https://bio3d.colorado.edu/imod/doc/man/autofidseed.html
-        https://bio3d.colorado.edu/imod/doc/man/beadtrack.html
-        https://bio3d.colorado.edu/imod/doc/man/model2point.html
+    AI Generated:
+
+    Generate Fiducial Model (ProtImodFiducialModel) - User Manual
+        Overview
+
+        The Generate Fiducial Model protocol creates fiducial tracking
+        models for electron tomography tilt-series using IMOD alignment
+        procedures. Its primary purpose is to establish reliable
+        correspondences between projections acquired at different tilt
+        angles so that the geometry of the acquisition can be accurately
+        reconstructed during tomographic processing.
+
+        In electron tomography, fiducial markers such as gold beads are
+        frequently deposited on the specimen before data collection.
+        These markers act as stable reference points that remain visible
+        across the entire tilt-series. By tracking their positions
+        through the projections, the protocol determines how images must
+        be shifted, rotated, and aligned relative to one another. This
+        alignment stage is one of the most critical steps in tomographic
+        reconstruction because even small tracking errors can propagate
+        into severe reconstruction artifacts.
+
+        The protocol supports two complementary alignment strategies.
+        The first strategy is fiducial-based alignment, where discrete
+        fiducial markers are automatically detected and tracked through
+        the tilt-series. The second strategy is patch tracking, where
+        local image regions are correlated between views in order to
+        estimate motion and alignment without relying on visible beads.
+        This flexibility makes the protocol suitable for a broad range
+        of biological specimens and acquisition conditions.
+
+        Fiducial-Based Tracking
+
+        The fiducial-based workflow is intended for datasets containing
+        visible fiducial markers, most commonly colloidal gold beads.
+        The protocol first generates an initial seed model and then
+        iteratively tracks the fiducials through the tilt-series to
+        build a consistent landmark model.
+
+        From a biological perspective, fiducial quality strongly
+        influences the final tomographic reconstruction. Fiducials
+        should ideally be well distributed throughout the field of
+        view, clearly separated from one another, and visible across a
+        large tilt range. Poorly distributed fiducials often produce
+        local distortions or unstable alignments.
+
+        The fiducial diameter parameter should approximately match the
+        physical size of the beads used during specimen preparation.
+        Accurate bead size estimation improves particle localization and
+        tracking robustness, particularly in noisy cryo-electron
+        tomography datasets.
+
+        The protocol also allows tracking fiducials on two specimen
+        surfaces independently. This option is especially relevant for
+        thicker samples where fiducials may exist on both sides of the
+        support film. Distinguishing between surfaces can improve
+        geometric consistency and reduce alignment ambiguity.
+
+        Automatic Seed Generation
+
+        Automatic seed generation simplifies the creation of initial
+        fiducial models by identifying candidate fiducials before the
+        tracking stage begins. This approach is particularly useful for
+        large datasets where manual fiducial picking would be
+        impractical.
+
+        The number of fiducials selected should balance coverage and
+        stability. Too few fiducials may provide insufficient geometric
+        information, while too many weak or poorly defined fiducials may
+        introduce unstable trajectories. In practice, users generally
+        benefit from selecting a moderate number of high-quality beads
+        distributed across the specimen.
+
+        Once the initial seed model is generated, the protocol can
+        optionally reuse the tracked model as a refined seed and repeat
+        the tracking stage. This iterative refinement often improves
+        alignment quality because the updated model contains more
+        accurate fiducial positions than the original seed estimate.
+
+        Sobel Refinement and Fiducial Centering
+
+        The protocol includes optional Sobel-based refinement for
+        improving fiducial centering accuracy. This strategy is
+        particularly beneficial for noisy cryo-electron tomography data,
+        where fiducials may appear blurred or exhibit low contrast.
+
+        In practical biological workflows, enhanced fiducial centering
+        improves trajectory smoothness and reduces local alignment
+        residuals. This can significantly improve downstream
+        reconstruction quality, especially in datasets collected under
+        low-dose conditions.
+
+        The sigma parameter associated with Sobel filtering controls the
+        scale of the refinement relative to fiducial size. Larger values
+        emphasize broader structures, whereas smaller values preserve
+        fine localization accuracy. Cryo datasets with substantial noise
+        often require stronger smoothing to stabilize detection.
+
+        Patch Tracking Workflow
+
+        Patch tracking provides an alternative alignment strategy when
+        fiducials are absent, sparse, or unreliable. Instead of tracking
+        beads, the protocol tracks local image patches using
+        cross-correlation methods.
+
+        This approach is particularly important for biological samples
+        where fiducials cannot be introduced efficiently or where the
+        specimen itself contains sufficient structural signal for
+        alignment. Examples include large cellular tomograms or thick
+        cryo-focused ion beam lamellae.
+
+        The size of the tracking patches determines the balance between
+        local sensitivity and robustness. Larger patches improve signal
+        stability but may fail to capture local deformations or
+        heterogeneous motions. Smaller patches are more sensitive to
+        local features but can become unstable in noisy regions.
+
+        Users may define patch overlap or specify the total number of
+        patches across the image. Overlapping patches generally improve
+        continuity and robustness, especially in datasets with uneven
+        signal distribution. However, increasing overlap also increases
+        computational cost.
+
+        Subpixel Correlation Refinement
+
+        The protocol supports iterative refinement to achieve subpixel
+        alignment accuracy. This refinement is especially important in
+        high-resolution tomography workflows where small geometric
+        inaccuracies can significantly degrade the reconstruction.
+
+        In biological practice, subpixel refinement is most valuable
+        when reconstructing macromolecular complexes or cellular
+        structures requiring precise spatial interpretation. Accurate
+        alignment contributes directly to improved contrast, sharper
+        structural features, and more reliable downstream subtomogram
+        analysis.
+
+        Filtering and Correlation Parameters
+
+        Several advanced filtering parameters allow users to optimize
+        alignment stability for challenging datasets. Frequency filtering
+        can suppress high-frequency noise while preserving the broader
+        structural information needed for reliable correlation.
+
+        In cryo-electron tomography, filtering becomes particularly
+        important because low-dose imaging conditions produce inherently
+        noisy projections. Proper filtering often improves tracking
+        consistency and reduces false correlations.
+
+        Trimming and border exclusion parameters help avoid unstable
+        image regions near the detector edges or acquisition artifacts.
+        Restricting the analysis to well-behaved image areas can
+        significantly improve alignment robustness.
+
+        Streaming and High-Throughput Processing
+
+        The protocol is designed to operate in streaming mode, allowing
+        incoming tilt-series to be processed continuously as they become
+        available. This capability is especially valuable in automated
+        acquisition pipelines and facility-scale cryo-electron
+        tomography environments.
+
+        Streaming execution allows users to monitor alignment quality
+        during data collection instead of waiting until the end of the
+        acquisition session. Early detection of problematic datasets can
+        save substantial microscope time and improve experimental
+        efficiency.
+
+        Outputs and Their Interpretation
+
+        The primary output of the protocol is a set of fiducial landmark
+        models containing the tracked fiducial trajectories and
+        associated gap information. These landmark models are intended
+        for downstream tilt-series alignment and tomographic
+        reconstruction workflows.
+
+        Gap-containing trajectories indicate fiducials that were not
+        successfully tracked in all projections. Small gaps are common
+        and often acceptable, especially at high tilt angles where
+        fiducials may become obscured or distorted. However, excessive
+        gaps may indicate poor fiducial visibility, low signal quality,
+        or unstable tracking conditions.
+
+        Biologically meaningful alignment requires trajectories that are
+        spatially consistent across the tilt-series and well distributed
+        throughout the specimen area. Users are encouraged to visually
+        inspect the tracking quality before reconstruction.
+
+        Practical Recommendations
+
+        For most fiducial-based workflows, users should begin with bead
+        diameters closely matching the experimental fiducials and a
+        moderate number of tracking points. Well-distributed fiducials
+        generally produce more reliable alignments than densely clustered
+        fiducials concentrated in a small region.
+
+        Sobel refinement is particularly beneficial for cryogenic
+        datasets with weak contrast, whereas conventional resin-embedded
+        tomography data may often perform well with default settings.
+
+        Patch tracking should be considered when fiducials are absent or
+        unreliable, but users should verify that the specimen contains
+        sufficient structural texture to support stable correlations.
+
+        When alignment quality appears unstable, adjusting patch sizes,
+        overlap parameters, or filtering settings frequently provides
+        substantial improvements.
+
+        Final Perspective
+
+        Fiducial modeling and tilt-series alignment are foundational
+        steps in electron tomography because they determine the geometric
+        consistency of the final reconstruction. Accurate tracking of
+        fiducials or image features directly influences reconstruction
+        quality, structural interpretability, and downstream biological
+        conclusions.
+
+        Careful parameter selection, proper fiducial distribution, and
+        thoughtful validation of tracking results are essential for
+        obtaining reliable tomographic reconstructions suitable for
+        biological analysis.
     """
 
     _label = 'Generate fiducial model'
