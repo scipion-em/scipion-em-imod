@@ -46,26 +46,214 @@ logger = logging.getLogger(__name__)
 
 class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStreamingBase):
     """
-    Tilt-series cross correlation alignment based on the IMOD procedure.
-    More info:
+    Performs coarse prealignment of electron tomography tilt-series using
+    cross-correlation methods from the IMOD package. The protocol estimates
+    translational relationships between successive tilt images in order to
+    establish an initial geometric alignment before more refined alignment
+    or tomographic reconstruction procedures are applied. More info:
         https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
-
-    Tiltxcorr uses cross-correlation to find an initial translational
-    alignment between successive images of a tilt series.  For a given pair
-    of images, it stretches the image with the larger tilt angle perpendic-
-    ular to the tilt axis, by an amount equal to the ratio of the cosines
-    of the two tilt angles (cosine stretch).  The stretched image is corre-
-    lated with the other image, and the position of the peak of the corre-
-    lation indicates the relative shift between the images.
-
-    xftoxg program is used after tiltxcorr:
-    More info:
         https://bio3d.colorado.edu/imod/doc/man/xftoxg.html
 
-   Xftoxg takes a list of transformations (f) from each section to the
-   previous one, and computes a list of xforms (g) to apply to each sec-
-   tion to obtain a single consistent set of alignments.  Transforms can
-   be simple 6-component linear transforms or warping transformations.
+    AI Generated:
+
+    Coarse Prealignment (ProtImodXcorrPrealignment) - User Manual
+        Overview
+
+        The Coarse Prealignment protocol provides an initial alignment of
+        tilt-series images using IMOD cross-correlation procedures. Its
+        primary objective is to estimate the relative translational shifts
+        between neighboring tilt views so that the complete tilt-series can
+        be brought into a consistent coordinate system before refinement and
+        reconstruction. This stage is one of the fundamental early steps in
+        electron tomography workflows because inaccurate initial alignment
+        can negatively affect all downstream processing steps.
+
+        In practical cryo-electron tomography workflows, images acquired at
+        different tilt angles are affected by shifts introduced during data
+        collection. These shifts arise from mechanical stage motion,
+        specimen drift, beam-induced movement, or imperfections in tracking
+        during acquisition. The protocol compensates for these effects by
+        determining how consecutive tilt images relate spatially to one
+        another.
+
+        The alignment strategy is based on cross-correlation between
+        neighboring tilt images. Because images acquired at different tilt
+        angles are geometrically distorted relative to one another, the
+        protocol accounts for angular stretching effects before estimating
+        image displacements. This improves the robustness of the alignment,
+        especially for high tilt angles where geometric distortions become
+        more severe. More information:
+        https://bio3d.colorado.edu/imod/doc/man/tiltxcorr.html
+
+        Biological Context and Importance
+
+        In electron tomography, the quality of the final tomogram strongly
+        depends on the accuracy of the tilt-series alignment. Coarse
+        prealignment serves as the first global correction stage and is
+        typically followed by fiducial-based refinement or patch tracking
+        refinement. Without a reliable initial alignment, later refinement
+        stages may converge poorly or produce distorted reconstructions.
+
+        For biological samples containing large cellular structures,
+        membranes, organelles, or macromolecular assemblies, this protocol
+        provides a robust starting point even when fiducial markers are not
+        yet fully optimized. It is especially useful in workflows where
+        large datasets must be processed efficiently before detailed local
+        refinement.
+
+        The protocol is also important for datasets acquired under low-dose
+        conditions. In these situations, images often contain substantial
+        noise, and establishing reliable image correspondence becomes more
+        difficult. Cross-correlation prealignment improves image coherence
+        and stabilizes subsequent processing steps.
+
+        General Workflow
+
+        The protocol receives one or more tilt-series as input and computes
+        a consistent set of translational alignments across all tilt views.
+        The resulting aligned geometry is stored as transformation matrices
+        associated with each image in the tilt-series.
+
+        The workflow is designed to support streaming acquisition
+        environments. As new tilt-series become available during data
+        collection, they can be processed progressively without waiting for
+        the complete dataset to finish acquisition. This behavior is
+        particularly useful in automated microscopy facilities and
+        high-throughput cryo-electron tomography pipelines.
+
+        The protocol preserves the original identity and metadata of the
+        tilt-series while adding alignment information required for later
+        tomographic reconstruction and refinement stages.
+
+        Cumulative Correlation Strategy
+
+        An optional cumulative correlation strategy can be used to improve
+        alignment stability in challenging datasets. Instead of correlating
+        each image only with its direct neighbor, the protocol progressively
+        builds a reference from already aligned images. This approach can
+        improve robustness when neighboring tilt images differ strongly due
+        to large angular changes or low signal-to-noise ratios.
+
+        From a biological perspective, cumulative correlation is especially
+        useful for thick specimens, crowded cellular environments, or noisy
+        cryo-focused ion beam lamellae where direct neighboring image
+        correlation may become unstable. However, users should be aware that
+        cumulative strategies may also propagate early alignment errors if
+        the initial correlations are inaccurate.
+
+        Tilt Axis Orientation
+
+        Accurate tilt axis orientation is one of the most important physical
+        parameters in electron tomography alignment. The protocol allows the
+        tilt axis angle to be inherited from acquisition metadata or
+        manually adjusted when necessary.
+
+        Incorrect tilt axis orientation can introduce systematic alignment
+        artifacts that become increasingly visible at high tilt angles.
+        Biologically, such errors may distort membrane geometries, elongate
+        macromolecular structures, or reduce interpretability of cellular
+        organization in reconstructed tomograms.
+
+        When acquisition metadata is uncertain or inconsistent, users should
+        carefully verify the tilt axis orientation before proceeding to
+        reconstruction. Even small angular inaccuracies may reduce the
+        quality of the final tomogram.
+
+        Filtering and Correlation Optimization
+
+        The protocol provides filtering parameters that help optimize the
+        cross-correlation procedure. These controls influence how image
+        frequencies contribute to alignment estimation and can significantly
+        affect robustness under different experimental conditions.
+
+        For noisy datasets, stronger filtering may improve stability by
+        suppressing high-frequency noise. For high-quality datasets,
+        preserving more image detail may produce more precise alignment.
+        Biological specimens with weak contrast, such as vitrified cellular
+        material, often benefit from careful tuning of these filtering
+        parameters.
+
+        Excessive filtering, however, may remove biologically meaningful
+        structural information and reduce alignment precision. In practice,
+        moderate filtering combined with visual inspection usually provides
+        the best balance.
+
+        Trimming and Region Selection
+
+        The protocol allows alignment to focus on selected image regions.
+        This is particularly useful when portions of the image contain
+        artifacts, contamination, empty ice, grid bars, or strongly varying
+        background intensity.
+
+        Restricting the correlation to biologically relevant regions can
+        substantially improve alignment quality. For example, in cellular
+        tomography it is often advantageous to exclude carbon edges or empty
+        regions while focusing on the specimen-containing area.
+
+        Proper region selection becomes especially important for large field
+        of view acquisitions where only a subset of the image contains
+        meaningful biological signal.
+
+        Outputs and Interpretation
+
+        The protocol produces tilt-series associated with transformation
+        matrices representing the estimated translational alignment for each
+        tilt image. These transformations establish a coherent geometric
+        framework that can be used directly in subsequent reconstruction and
+        refinement workflows.
+
+        The aligned outputs remain linked to the original acquisition
+        information while incorporating the newly estimated geometric
+        corrections. This allows downstream protocols to interpret the data
+        consistently throughout the tomography processing pipeline.
+
+        Disabled or excluded images are preserved within the dataset to
+        maintain acquisition consistency, although they are not used for the
+        active alignment estimation.
+
+        Streaming and High-Throughput Processing
+
+        The protocol is designed for modern automated tomography pipelines
+        where data may arrive continuously during acquisition. Streaming
+        execution allows processing to begin immediately as tilt-series are
+        collected, reducing delays between acquisition and reconstruction.
+
+        This capability is especially valuable in facility environments,
+        overnight automated collection sessions, or large screening
+        experiments where rapid feedback on alignment quality is important.
+
+        Practical Recommendations
+
+        For most biological datasets, the default alignment settings provide
+        a reliable starting point. Users should first evaluate the resulting
+        image coherence visually before attempting more advanced refinement
+        stages.
+
+        If alignment appears unstable at high tilt angles, cumulative
+        correlation and moderate filtering often improve robustness.
+        Likewise, carefully restricting the correlation region to specimen
+        areas may significantly improve results for heterogeneous or noisy
+        datasets.
+
+        When processing fiducial-based tomography experiments, this protocol
+        is commonly used as a preparatory stage before bead tracking and
+        fine alignment refinement. For fiducial-free workflows, the quality
+        of the coarse alignment becomes even more important because later
+        refinement relies heavily on the consistency established at this
+        stage.
+
+        Final Perspective
+
+        Coarse prealignment is a foundational stage in electron tomography
+        processing because it establishes the first coherent geometric model
+        of the tilt-series. Although it is considered an initial alignment
+        step, its quality strongly influences the success of later
+        refinement, reconstruction, segmentation, and biological
+        interpretation.
+
+        Careful attention to tilt axis orientation, filtering behavior,
+        image quality, and correlation regions is essential for obtaining
+        reliable alignments that support accurate biological conclusions.
     """
 
     _label = 'Coarse prealignment'

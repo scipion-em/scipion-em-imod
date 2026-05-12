@@ -49,9 +49,136 @@ LIGHT_BEADS = 1
 
 class ProtImodGoldBeadPicker3d(ProtImodBase):
     """
-    3-dimensional gold bead picker using the IMOD procedure.
-    More info:
-        https://bio3d.colorado.edu/imod/doc/man/findbeads3d.html
+    Detects and extracts three-dimensional fiducial gold bead coordinates
+    from tomograms using the IMOD fiducial detection workflow. More info:
+    https://bio3d.colorado.edu/imod/doc/man/findbeads3d.html
+
+    AI Generated:
+
+    Gold Bead Picker 3D (ProtImodGoldBeadPicker3d) — User Manual
+
+        Overview
+
+        The Gold Bead Picker 3D protocol identifies fiducial gold beads
+        within reconstructed tomograms and generates a set of
+        three-dimensional coordinates representing their spatial
+        positions. Fiducial markers are commonly used in cryo-electron
+        tomography experiments to provide stable reference points for
+        tilt-series alignment and geometric calibration. Accurate bead
+        detection is therefore essential for reliable tomographic
+        reconstruction and downstream structural interpretation.
+
+        In practical cryo-ET workflows, gold beads act as artificial
+        landmarks embedded within the specimen support. Because these
+        particles produce strong and easily recognizable contrast, they
+        can be tracked consistently across tilt images and reconstructed
+        volumes. The protocol is designed to automate this detection
+        process in reconstructed tomograms, reducing manual annotation
+        effort and improving reproducibility in large datasets.
+
+        Biological Context and Fiducial Markers
+
+        Fiducial gold particles are not part of the biological sample
+        itself but serve as geometric references during image alignment.
+        Their proper identification directly influences the quality of
+        tilt-series registration, tomogram reconstruction, and spatial
+        consistency across the dataset. Inaccurate fiducial detection
+        may propagate into reconstruction artifacts, distorted cellular
+        structures, or reduced resolution in subtomogram averaging
+        workflows.
+
+        In many biological experiments, fiducials are distributed on
+        both sides of the specimen support film to improve geometric
+        stability during alignment. Ideally, beads should be well
+        separated, clearly visible, and evenly distributed across the
+        field of view. Aggregated or overlapping fiducials can reduce
+        alignment accuracy and complicate automatic detection.
+
+        Inputs and Detection Strategy
+
+        The protocol requires reconstructed tomograms as input together
+        with an approximate fiducial diameter expressed in pixels. This
+        parameter is biologically important because it determines the
+        expected scale of the fiducial particles inside the tomographic
+        volume. Selecting a value close to the true bead diameter
+        improves robustness and reduces the likelihood of detecting
+        contaminants or structural noise.
+
+        The protocol also allows users to define whether fiducials
+        appear as dark particles on a bright background or as bright
+        particles on a darker environment. Correct contrast selection
+        is essential because tomographic datasets may differ depending
+        on acquisition conditions, reconstruction procedures, or image
+        inversion conventions.
+
+        Detection Sensitivity and Peak Selection
+
+        The fiducial detection process relies on identifying local
+        density features consistent with spherical gold particles. Users
+        can control the sensitivity of this process through parameters
+        that regulate the minimum accepted signal strength and the
+        minimum spacing between detected particles.
+
+        Lower detection thresholds may recover weak or partially
+        obscured fiducials but can also increase false positives caused
+        by contamination, ice artifacts, or dense biological material.
+        Higher thresholds generally improve specificity but may miss
+        faint beads in low-contrast regions of the tomogram.
+
+        The spacing parameter is especially relevant in crowded
+        fiducial environments. Closely spaced detections may correspond
+        either to neighboring beads or to duplicate detections of the
+        same particle. Appropriate spacing constraints help maintain
+        biologically meaningful fiducial distributions while avoiding
+        redundant coordinate assignments.
+
+        Outputs and Workflow Integration
+
+        After execution, the protocol generates a set of three-
+        dimensional fiducial coordinates associated with the input
+        tomograms. These coordinates can be used for visualization,
+        alignment validation, geometric inspection, or integration into
+        additional tomography processing workflows.
+
+        The resulting coordinate sets preserve the spatial relationship
+        between fiducials and their corresponding tomograms, allowing
+        direct interpretation within reconstruction and visualization
+        environments. In iterative alignment workflows, the detected
+        coordinates may also support refinement procedures or quality
+        control analyses.
+
+        Practical Recommendations
+
+        In routine cryo-electron tomography processing, users should
+        begin with fiducial diameter values that closely reflect the
+        nominal bead size used during sample preparation. Visual
+        inspection of the detected coordinates is strongly recommended
+        to confirm that fiducials are correctly identified and that
+        contaminants or biological structures are not mistakenly
+        selected.
+
+        Datasets containing highly crowded fiducials, strong ice
+        contamination, or low contrast may require adjustment of
+        sensitivity parameters to achieve stable results. In some
+        challenging biological specimens, balancing detection
+        sensitivity and specificity becomes essential for maintaining
+        reconstruction quality.
+
+        It is also advisable to verify that fiducials are spatially
+        distributed throughout the tomogram volume rather than
+        concentrated in a limited region. Well-distributed fiducials
+        generally provide more reliable geometric support for alignment
+        and reconstruction procedures.
+
+        Final Perspective
+
+        Automatic fiducial detection is a foundational step in many
+        cryo-electron tomography workflows because it establishes the
+        geometric reference framework used throughout tomographic
+        reconstruction. Reliable gold bead identification improves
+        alignment precision, enhances reconstruction consistency, and
+        supports accurate biological interpretation of three-
+        dimensional cellular and molecular structures.
     """
 
     _label = 'Gold bead picker 3D'

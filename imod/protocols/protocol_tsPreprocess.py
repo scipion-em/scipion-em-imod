@@ -41,27 +41,207 @@ logger = logging.getLogger(__name__)
 
 class ProtImodTsNormalization(ProtImodBasePreprocess, ProtStreamingBase):
     """
-    Normalize input tilt-series and change its storing formatting.
-    More info:
+    Preprocesses cryo-electron tomography tilt-series by applying
+    normalization, binning, and storage format conversion using IMOD
+    utilities. The protocol is intended to standardize tilt-series
+    before downstream reconstruction, alignment, denoising, or
+    subtomogram analysis workflows. More info:
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
 
-    IMOD tilt series preprocess makes use of the Newstack command.
-    In particular, three functionalities are possible:\n
+    AI Generated:
 
-    _1 Binning_: The protocol also allows to bin tilt series. This
-    means to reduce the dimensions of the tilt series keeping but
-    keeping most of the information. The binning factor or simply
-    binning is an integer number and represent the scaling factor
-    of the images. Binning 2 means that the original images will
-    be twice the binned ones.
-    _2 Normalization_: This protocol allows to scale the gray values
-    of the images, also called normalization, to a common range or
-    mean of density. The most used normalization consists in zero
-    mean and standard deviation one.\n
+    Tilt-Series Preprocess (ProtImodTsNormalization) - User Manual
+        Overview
 
-    _3 storage format_: IMOD is able to modify the number of bit of
-    the stored data in order to reduce the disc occupancy.
+        The Tilt-Series Preprocess protocol provides a unified
+        environment for preparing aligned or partially processed
+        tilt-series before subsequent tomographic analysis. Its main
+        objective is to improve dataset consistency, reduce storage
+        requirements, and optimize image quality for later stages of
+        cryo-electron tomography workflows. In practice, this protocol
+        is commonly used immediately after motion correction or tilt
+        alignment and before reconstruction, CTF correction, particle
+        picking, or subtomogram averaging.
 
+        The protocol combines three major preprocessing operations:
+        binning, normalization of image intensities, and modification
+        of storage precision. These operations are frequently required
+        in facility pipelines and large-scale tomography projects
+        where datasets may originate from different acquisition
+        sessions, microscopes, or processing conditions.
+
+        Inputs and General Workflow
+
+        The protocol operates on a set of tilt-series and produces a
+        new processed tilt-series dataset suitable for downstream
+        tomographic procedures. The resulting data preserve the
+        geometric and acquisition relationships of the original
+        dataset while adapting the sampling, intensity scaling, and
+        storage representation to the desired processing conditions.
+
+        In biological practice, preprocessing is often one of the most
+        influential stages for determining reconstruction quality.
+        Properly normalized and appropriately binned tilt-series
+        generally improve stability in later alignment and
+        reconstruction steps, particularly when handling noisy
+        cryo-electron tomography data acquired under low-dose
+        conditions.
+
+        Binning and Sampling Considerations
+
+        Binning reduces the dimensions of the tilt-series images while
+        preserving the dominant structural information. This operation
+        is especially important in cryo-electron tomography because
+        raw datasets are frequently very large and computationally
+        demanding. Reducing image size decreases memory usage,
+        accelerates reconstruction, and simplifies exploratory
+        analysis.
+
+        From a biological perspective, binning represents a compromise
+        between resolution and computational efficiency. Low binning
+        factors preserve more structural detail and are generally
+        preferred for high-resolution subtomogram averaging or
+        structural interpretation. Higher binning factors reduce noise
+        and improve computational speed, making them useful during
+        early exploratory processing, rapid alignment procedures, or
+        large screening projects.
+
+        In many workflows, users first reconstruct heavily binned
+        tomograms for quick inspection and later return to minimally
+        binned data for final refinement and interpretation.
+
+        Image Normalization
+
+        The normalization functionality adjusts image intensity
+        distributions to achieve more homogeneous density statistics
+        across the tilt-series. This step is biologically important
+        because cryo-electron tomography datasets often contain
+        substantial variations in illumination, detector response,
+        exposure conditions, or ice thickness.
+
+        Standard normalization strategies commonly aim to produce
+        images with zero-centered densities and controlled variance.
+        Such normalization improves numerical stability during
+        alignment, reconstruction, and machine learning applications.
+        It also facilitates visual interpretation by reducing strong
+        intensity disparities between projections.
+
+        Different normalization modes may be appropriate depending on
+        the biological objective. Conservative normalization is often
+        sufficient for standard reconstruction workflows, whereas more
+        carefully controlled scaling may be beneficial when datasets
+        are intended for quantitative analysis, denoising pipelines,
+        or neural-network-based segmentation approaches.
+
+        Biological users should remember that normalization changes
+        image intensity statistics but does not recover missing
+        structural information. Excessive scaling or inappropriate
+        normalization ranges may amplify artifacts or suppress weak
+        biological signal.
+
+        Storage Format Optimization
+
+        The protocol also allows modification of the numerical storage
+        format used for the processed tilt-series. This capability is
+        particularly useful for reducing disk usage and improving data
+        management efficiency in large tomography facilities or
+        high-throughput projects.
+
+        Lower-precision storage formats may significantly decrease
+        storage requirements while maintaining sufficient information
+        for many intermediate processing tasks. However, aggressive
+        reduction of numerical precision can limit downstream
+        quantitative analyses or reduce the ability to recover weak
+        high-resolution features.
+
+        In practice, reduced storage precision is commonly acceptable
+        for exploratory visualization, rapid alignment, or temporary
+        intermediate datasets, whereas high-precision formats are
+        generally preferred for final reconstruction and
+        publication-quality analyses.
+
+        Interpolation and Geometric Consistency
+
+        During preprocessing, geometric consistency between tilt
+        images is preserved so that the processed tilt-series remain
+        compatible with downstream alignment and reconstruction
+        procedures. This is particularly important when tilt-series
+        already contain alignment information or transformations
+        generated during previous processing stages.
+
+        In cryo-electron tomography, maintaining correct geometric
+        relationships is essential because even small inconsistencies
+        may propagate into reconstruction artifacts, reduced
+        resolution, or inaccurate subtomogram localization.
+
+        Odd and Even Tilt-Series Processing
+
+        The protocol can also operate on odd and even subsets of the
+        tilt-series when these datasets are available. This feature is
+        especially valuable in workflows involving resolution
+        estimation, denoising validation, or independent half-set
+        processing strategies.
+
+        Processing odd and even datasets consistently ensures that
+        downstream validation procedures remain statistically reliable
+        and biologically meaningful.
+
+        Streaming and High-Throughput Workflows
+
+        The protocol is designed to support streaming execution,
+        allowing preprocessing to begin while data acquisition or
+        upstream processing is still ongoing. This capability is
+        particularly useful in automated cryo-electron tomography
+        facilities where rapid feedback and continuous data handling
+        are essential.
+
+        Streaming workflows enable preprocessing to proceed in
+        parallel with acquisition, thereby reducing idle computation
+        time and accelerating the transition toward reconstruction and
+        interpretation stages.
+
+        Outputs and Their Interpretation
+
+        The protocol produces a new set of processed tilt-series with
+        updated sampling properties, normalized image statistics, and
+        optionally modified storage precision. These outputs preserve
+        the biological content of the original data while adapting the
+        datasets for improved computational handling and downstream
+        analysis.
+
+        Biologically, preprocessing does not create new structural
+        information. Instead, it improves consistency, interpretability,
+        and computational accessibility of the acquired signal.
+
+        Practical Recommendations
+
+        For most routine cryo-electron tomography workflows, moderate
+        binning combined with standard normalization provides a good
+        balance between computational efficiency and preservation of
+        structural detail. Exploratory reconstruction and alignment
+        procedures are often substantially faster on preprocessed
+        datasets.
+
+        Users pursuing high-resolution subtomogram averaging should
+        avoid excessive binning and aggressive precision reduction,
+        particularly during final refinement stages. Conversely,
+        strongly binned datasets are highly useful for rapid visual
+        inspection, segmentation prototyping, and quality control.
+
+        When handling heterogeneous datasets collected under varying
+        imaging conditions, normalization is particularly important
+        for ensuring stable downstream behavior and reducing unwanted
+        variability unrelated to biological structure.
+
+        Final Perspective
+
+        In modern cryo-electron tomography workflows, preprocessing is
+        not simply a technical convenience but an essential stage that
+        strongly influences computational efficiency, reconstruction
+        quality, and interpretability. Appropriate choices for
+        binning, normalization, and storage precision should always
+        reflect the biological question, the expected resolution, and
+        the computational resources available for the project.
     """
 
     _label = 'Tilt-series preprocess'

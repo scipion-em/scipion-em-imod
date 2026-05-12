@@ -44,15 +44,141 @@ logger = logging.getLogger(__name__)
 
 class ProtImodExcludeViews(ProtImodBase):
     """
-    excludeviews - Reversibly remove views from a tilt series stack
-
-    By default, the protocol will remove disabled tilt images from the input TS.
-    Alternatively, you can provide a text file with a list of tilts to exclude.
-
-    If you use this protocol, make sure this output tilt series is use for everything else
-    CTF estimation, per particle per tilt, tomogram reconstruction....
+    Removes selected tilt images from a tilt-series in a reversible and
+    workflow-safe manner using IMOD excludeviews procedures. The protocol
+    is designed to generate cleaned tilt-series datasets that exclude
+    unusable, corrupted, low-quality, or experimentally problematic views
+    before downstream tomographic processing steps such as CTF estimation,
+    particle extraction, subtomogram analysis, or tomogram reconstruction.
     More info:
         https://bio3d.colorado.edu/imod/doc/man/excludeviews.html
+
+    AI Generated:
+
+    Exclude Views (ProtImodExcludeViews) - User Manual
+        Overview
+
+        The Exclude Views protocol removes selected images from a tilt
+        series while preserving the integrity and acquisition metadata of
+        the remaining dataset. In cryo-electron tomography workflows, some
+        tilt images may become unsuitable for reconstruction because of
+        excessive drift, charging, contamination, ice thickness changes,
+        beam-induced damage, failed alignment, missing signal, or detector
+        artifacts. Excluding these problematic views improves the overall
+        quality and stability of downstream processing.
+
+        From a biological perspective, the protocol is particularly useful
+        when individual tilts compromise reconstruction quality or produce
+        artifacts that interfere with interpretation of cellular or
+        macromolecular structures. Removing these images can significantly
+        improve tomogram consistency, especially in high-tilt regions where
+        signal-to-noise ratios are naturally lower.
+
+        Inputs and General Workflow
+
+        The protocol requires an input set of tilt series in which some
+        views may already be marked as disabled. These disabled images are
+        interpreted as candidates for exclusion. The protocol then creates
+        a new tilt-series stack containing only the retained views while
+        preserving the geometric and acquisition consistency of the dataset.
+
+        In many practical cryo-ET workflows, excluded views are identified
+        during earlier preprocessing or quality-control stages. For
+        example, users may manually disable views after visual inspection,
+        remove images with severe motion or charging, or exclude tilts with
+        failed CTF estimation. The protocol consolidates these decisions
+        into a clean and reconstruction-ready dataset.
+
+        The resulting tilt series should normally replace the original one
+        in all subsequent processing stages. Continuing reconstruction or
+        alignment using the original stack after excluding views may lead
+        to inconsistencies in geometry, dose weighting, or metadata
+        interpretation.
+
+        Biological and Experimental Considerations
+
+        Excluding views inevitably reduces angular sampling. While removing
+        poor-quality tilts often improves reconstruction quality overall,
+        excessive exclusion can increase the missing wedge effect and reduce
+        isotropy in the final tomogram. Users should therefore balance data
+        quality against angular completeness.
+
+        In practice, removing a small number of severely corrupted views is
+        usually beneficial. However, excluding many neighboring tilts,
+        particularly around critical angular ranges, may introduce
+        directional artifacts or reduce structural interpretability. This
+        consideration becomes especially important for subtomogram averaging
+        and quantitative structural analysis.
+
+        The protocol automatically updates the effective angular range of
+        the dataset after exclusion. This ensures that downstream software
+        correctly interprets the minimum and maximum tilt angles, total dose
+        accumulation, and related acquisition parameters.
+
+        Odd and Even Tilt-Series Handling
+
+        The protocol can also operate on odd and even tilt-series datasets
+        when these are available. This capability is useful in workflows
+        involving independent half-set processing, denoising validation, or
+        resolution assessment strategies. Maintaining synchronization
+        between the excluded views of the full, odd, and even datasets helps
+        preserve consistency during subsequent reconstruction and analysis.
+
+        Metadata Consistency
+
+        A key objective of the protocol is preserving acquisition coherence
+        after view exclusion. The resulting tilt series maintains updated
+        information about angular coverage, dose accumulation, and image
+        ordering so that downstream algorithms receive physically meaningful
+        acquisition metadata.
+
+        This is particularly important for reconstruction software that
+        relies on accurate tilt geometry and dose information. Incorrect or
+        outdated metadata after removing views may lead to reconstruction
+        artifacts, weighting errors, or inaccurate interpretation of sample
+        geometry.
+
+        Outputs and Their Interpretation
+
+        After execution, the protocol produces a new set of tilt series in
+        which excluded images have been removed from the stacks. The output
+        datasets preserve the acquisition structure of the remaining views
+        while reflecting the updated angular and dose characteristics of
+        the experiment.
+
+        If no views are excluded, the protocol preserves the original tilt
+        series while maintaining compatibility with the rest of the
+        processing workflow. This allows users to integrate the protocol
+        into automated pipelines without introducing unnecessary changes
+        when all views are acceptable.
+
+        Practical Recommendations
+
+        In routine cryo-ET processing, it is advisable to inspect tilt
+        images carefully before reconstruction and disable only those views
+        that clearly compromise data quality. Common indicators include
+        severe drift, extreme defocus instability, contamination, charging,
+        excessive beam damage, or strong alignment residuals.
+
+        Users should avoid excluding views solely because they appear noisy,
+        particularly at high tilts where lower contrast is expected. In many
+        cases, retaining a noisy but geometrically correct tilt contributes
+        more useful information than removing it.
+
+        After exclusion, it is recommended to verify the angular coverage
+        and visually inspect reconstructed tomograms for directional
+        artifacts or missing information. When many views are removed,
+        additional caution is needed during biological interpretation.
+
+        Final Perspective
+
+        Excluding problematic views is often a necessary quality-control
+        step in cryo-electron tomography. Although the process reduces the
+        total amount of data, careful removal of corrupted images can
+        substantially improve tomogram quality, alignment stability, and
+        downstream structural interpretation. The most reliable results are
+        obtained when exclusion decisions are guided by both image quality
+        and biological relevance rather than by automated filtering alone.
     """
 
     _label = 'Exclude views'
