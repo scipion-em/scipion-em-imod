@@ -1,3 +1,4 @@
+3.9.1: Fix odd/even metadata transferring in xcorr and fiducial alignment protocols.
 3.9.0:
   Users: Add new protocol for cropping tomograms.
   Developers: Small fixes and updates.
