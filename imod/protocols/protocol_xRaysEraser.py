@@ -33,6 +33,9 @@ from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, cyanStr, redStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
+from tomo.utils import sleepRandomly
+from pwem import (genExecStatusDir, appendStreamItem, closeStreamJournal,
+                  touchHeartbeat, STREAM_HEARTBEAT_TIMEOUT)
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT, CCDERASER_PROGRAM
 
@@ -108,14 +111,19 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
+        genExecStatusDir(self)
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
         while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
+            # Refresh this protocol's heartbeat so its own consumers can tell it
+            # is alive even during long gaps with no new tilt-series.
+            touchHeartbeat(self)
+            # Discover ready tsIds from the producer's append-only journal
+            # (filesystem), not from its live SQLite set.
+            inTsIds = set(inTsSet.getTSIds())
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
+            if inTsSet.isStreamClosed() and Counter(self.tsIdReadList) == Counter(inTsIds):
                 logger.info(cyanStr('Input set closed.\n'))
                 self._insertFunctionStep(self.closeOutputSetsStep,
                                          OUTPUT_TILTSERIES_NAME,
@@ -123,10 +131,25 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                                          needsGPU=False)
                 break
 
+            # Producer-liveness: if the stream was never closed but the producer's
+            # heartbeat is stale, it likely died. Close gracefully with whatever
+            # was processed instead of looping forever.
+            if not inTsSet.isStreamClosed():
+                hbAge = inTsSet.getProducerHeartbeatAge()
+                if hbAge is not None and hbAge > STREAM_HEARTBEAT_TIMEOUT:
+                    logger.error(redStr(
+                        f'Producer heartbeat stale ({hbAge:.0f}s) and stream not '
+                        f'closed; closing with partial outputs.'))
+                    self._insertFunctionStep(self.closeOutputSetsStep,
+                                             OUTPUT_TILTSERIES_NAME,
+                                             prerequisites=closeSetStepDeps,
+                                             needsGPU=False)
+                    break
+
             nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
+            # Rebuild each new tilt-series in memory from the producer's JSON
+            # sidecar (no producer-DB read).
+            tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
             for tsId, ts in tsToProcessDict.items():
                 cInId = self._insertFunctionStep(self.linkTsStep,
                                                  ts,
@@ -144,7 +167,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                 self.tsIdReadList.append(tsId)
 
-            self.refreshStreaming(inTsSet)
+            sleepRandomly()
 
     # -------------------------- STEPS functions ------------------------------
     def eraseXraysStep(self, ts: TiltSeries):
@@ -188,6 +211,8 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 return
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
             self._registerOutput(ts, outTsFile)
+            # Publish this tsId to our own stream journal for downstream consumers.
+            appendStreamItem(self, tsId)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
@@ -217,6 +242,12 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             self._store(outTsSet)
             # Close explicitly the outputs (for streaming)
             self.closeOutputsForStreaming()
+
+    def closeOutputSetsStep(self, attrib):
+        # Close the output sets via the base behavior, then publish the terminal
+        # record to our own stream journal so downstream consumers detect close.
+        ProtImodBase.closeOutputSetsStep(self, attrib)
+        closeStreamJournal(self)
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,
