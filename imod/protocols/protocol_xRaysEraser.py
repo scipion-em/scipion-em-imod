@@ -34,7 +34,7 @@ from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
-from tomo.utils import sleepRandomly
+from tomo.utils import sleepRandomly, writeTsSidecar
 from pwem import genExecStatusDir, getExecStatusDir, appendStreamItem
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT, CCDERASER_PROGRAM
@@ -216,18 +216,35 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, ts: TiltSeries):
-        tsId = ts.getTsId()
+    def createOutputStep(self, inTs: TiltSeries):
+        tsId = inTs.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(ts)
+            self.addToOutFailedSet(inTs)
             return
         try:
             outTsFile = self.getExtraOutFile(tsId)
             if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
                 return
-            setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-            self._registerOutput(ts, outTsFile)
+            setMRCSamplingRate(outTsFile, inTs.getSamplingRate())  # Update the apix value in file header
+            newTs = TiltSeries()
+            newTs.copyInfo(inTs)
+            inTiltList = inTs.loadTiltImgsInMemory()
+            inTiltList.sort(key=lambda item: item.getIndex())
+            tiltImages = []
+            for inTi in inTs.loadTiltImgsInMemory():
+                newTi = TiltImage()
+                newTi.copyInfo(inTi)
+                newTi.setFileName(outTsFile)
+                self.setTsOddEven(tsId, newTi, binGenerated=True)
+                tiltImages.append(newTi)
+            self._registerOutput(newTs, tiltImages)
+
+            # Publish a metadata sidecar (built from the in-memory ts/tiltImages, no DB
+            # read) so downstream consumers rebuild this tilt-series in memory WITHOUT
+            # opening the producer's live tiltseries.sqlite.
+            writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
+
             # Publish this tsId to our own stream journal for downstream consumers,
             # but ONLY in streaming mode (the status dir is created by
             # stepsGeneratorStep). In batch mode there is no journal, so skip it.
@@ -239,29 +256,22 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
             logger.error(traceback.format_exc())
 
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outTsFile: str):
-        tsId = ts.getTsId()
+    def _registerOutput(self,
+                        newTs: TiltSeries,
+                        tiltImages: List[TiltImage]):
         with self._lock:
             # Set of tilt-series
             outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
             # Tilt-series
-            outTs = TiltSeries()
-            outTs.copyInfo(ts)
-            outTsSet.append(outTs)
+            outTsSet.append(newTs)
             # Tilt-images
-            for ti in ts.iterItems():
-                outTi = TiltImage()
-                outTi.copyInfo(ti)
-                outTi.setFileName(outTsFile)
-                self.setTsOddEven(tsId, outTi, binGenerated=True)
-                outTs.append(outTi)
+            for newTi in tiltImages:
+                newTs.append(newTi)
             # Data persistence
-            outTs.write()
-            outTsSet.update(outTs)
+            newTs.write()
+            outTsSet.update(newTs)
             outTsSet.write()
             self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,
