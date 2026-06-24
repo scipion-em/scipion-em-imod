@@ -240,15 +240,15 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                 tiltImages.append(newTi)
             self._registerOutput(newTs, tiltImages)
 
-            # Publish a metadata sidecar (built from the in-memory ts/tiltImages, no DB
-            # read) so downstream consumers rebuild this tilt-series in memory WITHOUT
-            # opening the producer's live tiltseries.sqlite.
-            writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
-
-            # Publish this tsId to our own stream journal for downstream consumers,
-            # but ONLY in streaming mode (the status dir is created by
-            # stepsGeneratorStep). In batch mode there is no journal, so skip it.
+            # Streaming only: publish the per-TS metadata sidecar (built from the
+            # in-memory ts/tiltImages, no DB read) and the journal id, so a
+            # downstream streaming consumer rebuilds this tilt-series in memory
+            # WITHOUT opening our live tiltseries.sqlite. The status dir is created
+            # by stepsGeneratorStep; in batch mode it does not exist, so neither
+            # sidecar nor journal is produced (the output is consumed via the DB /
+            # STREAM_CLOSED state instead).
             if exists(getExecStatusDir(self)):
+                writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
                 appendStreamItem(self, tsId)
 
         except Exception as e:
