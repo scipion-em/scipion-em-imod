@@ -25,24 +25,24 @@
 # *****************************************************************************
 import logging
 import traceback
-from collections import Counter
 from os.path import exists
+from typing import List
 import pyworkflow.protocol.params as params
 from pwem.convert.headers import setMRCSamplingRate
-from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
 from tomo.utils import sleepRandomly
-from pwem import (genExecStatusDir, appendStreamItem, closeStreamJournal,
-                  touchHeartbeat, STREAM_HEARTBEAT_TIMEOUT)
+from pwem import genExecStatusDir, getExecStatusDir, appendStreamItem
 from imod.protocols import ProtImodBase
 from imod.constants import OUTPUT_TILTSERIES_NAME, ODD, EVEN, MOD_EXT, CCDERASER_PROGRAM
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
+class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
     """
     Erase Xrays from aligned tilt-series based on the IMOD procedure.
     More info:
@@ -107,6 +107,15 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
+    def _insertAllSteps(self) -> None:
+        inTsSet = self.getInputTsSet()
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
+
     def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
@@ -116,58 +125,66 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
         self.readingOutput(outTsSet)
 
         while True:
-            # Refresh this protocol's heartbeat so its own consumers can tell it
-            # is alive even during long gaps with no new tilt-series.
-            touchHeartbeat(self)
-            # Discover ready tsIds from the producer's append-only journal
-            # (filesystem), not from its live SQLite set.
-            inTsIds = set(inTsSet.getTSIds())
-
-            if inTsSet.isStreamClosed() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TILTSERIES_NAME,
-                                         prerequisites=closeSetStepDeps,
-                                         needsGPU=False)
-                break
-
-            # Producer-liveness: if the stream was never closed but the producer's
-            # heartbeat is stale, it likely died. Close gracefully with whatever
-            # was processed instead of looping forever.
-            if not inTsSet.isStreamClosed():
-                hbAge = inTsSet.getProducerHeartbeatAge()
-                if hbAge is not None and hbAge > STREAM_HEARTBEAT_TIMEOUT:
-                    logger.error(redStr(
-                        f'Producer heartbeat stale ({hbAge:.0f}s) and stream not '
-                        f'closed; closing with partial outputs.'))
-                    self._insertFunctionStep(self.closeOutputSetsStep,
-                                             OUTPUT_TILTSERIES_NAME,
-                                             prerequisites=closeSetStepDeps,
-                                             needsGPU=False)
+            try:
+                # Discover ready tsIds from the producer's append-only journal
+                # (filesystem), not from its live SQLite set.
+                inTsIds = set(inTsSet.getTSIds())
+                if self._stopGeneratingSteps(inTsSet,
+                                             inTsIds=inTsIds,
+                                             tsIdReadList=self.tsIdReadList,
+                                             outputNames=OUTPUT_TILTSERIES_NAME,
+                                             closeSetStepDeps=closeSetStepDeps):
                     break
 
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            # Rebuild each new tilt-series in memory from the producer's JSON
-            # sidecar (no producer-DB read).
-            tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
-            for tsId, ts in tsToProcessDict.items():
-                cInId = self._insertFunctionStep(self.linkTsStep,
-                                                 ts,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                compId = self._insertFunctionStep(self.eraseXraysStep,
-                                                  ts,
-                                                  prerequisites=cInId,
-                                                  needsGPU=False)
-                outId = self._insertFunctionStep(self.createOutputStep,
-                                                 ts,
-                                                 prerequisites=compId,
-                                                 needsGPU=False)
-                closeSetStepDeps.append(outId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                if nonProcessedTsIds:
+                    # Rebuild each new tilt-series in memory from the producer's JSON
+                    # sidecar (no producer-DB read).
+                    tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
+                    for tsId, ts in tsToProcessDict.items():
+                        self._insertCommonSteps(ts,closeSetStepDeps)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsIdReadList.append(tsId)
 
-            sleepRandomly()
+                sleepRandomly()
+
+            except Exception as e:
+                logger.warning(yellowStr(f'stepsGeneratorStep failed with exception: {e}.'))
+                logger.error(traceback.format_exc())
+                sleepRandomly()
+                continue
+
+    def _insertNonStreamingSteps(self):
+        # Reached only when the input set is already closed: this is a plain
+        # non-streaming (batch) run. No stream journal is produced -- the journal
+        # is a streaming-coordination artifact, and a downstream consumer of a
+        # closed set runs in its own batch path (reads the DB, not the journal).
+        # _closeOutputSet validates + closes the output set (STREAM_CLOSED), which
+        # is the complete finalizer here.
+        closeSetStepDeps = []
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            self._insertCommonSteps(ts, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
+
+    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+        cInId = self._insertFunctionStep(self.linkTsStep,
+                                         ts,
+                                         prerequisites=[],
+                                         needsGPU=False)
+        compId = self._insertFunctionStep(self.eraseXraysStep,
+                                          ts,
+                                          prerequisites=cInId,
+                                          needsGPU=False)
+        outId = self._insertFunctionStep(self.createOutputStep,
+                                         ts,
+                                         prerequisites=compId,
+                                         needsGPU=False)
+        closeSetStepDeps.append(outId)
 
     # -------------------------- STEPS functions ------------------------------
     def eraseXraysStep(self, ts: TiltSeries):
@@ -211,8 +228,11 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
                 return
             setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
             self._registerOutput(ts, outTsFile)
-            # Publish this tsId to our own stream journal for downstream consumers.
-            appendStreamItem(self, tsId)
+            # Publish this tsId to our own stream journal for downstream consumers,
+            # but ONLY in streaming mode (the status dir is created by
+            # stepsGeneratorStep). In batch mode there is no journal, so skip it.
+            if exists(getExecStatusDir(self)):
+                appendStreamItem(self, tsId)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
@@ -242,12 +262,6 @@ class ProtImodXraysEraser(ProtImodBase, ProtStreamingBase):
             self._store(outTsSet)
             # Close explicitly the outputs (for streaming)
             self.closeOutputsForStreaming()
-
-    def closeOutputSetsStep(self, attrib):
-        # Close the output sets via the base behavior, then publish the terminal
-        # record to our own stream journal so downstream consumers detect close.
-        ProtImodBase.closeOutputSetsStep(self, attrib)
-        closeStreamJournal(self)
 
     # --------------------------- UTILS functions -----------------------------
     def getCcdEraserParamsDict(self,
