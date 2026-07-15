@@ -25,23 +25,27 @@
 # *****************************************************************************
 import logging
 import traceback
-from collections import Counter
 from os.path import exists
+from typing import List
+
 import numpy as np
 import pyworkflow.protocol.params as params
+from pwem import genExecStatusDir
 from pwem.convert.headers import setMRCSamplingRate
-from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
                             OUTPUT_TILTSERIES_NAME, MTTFILTER_PROGRAM)
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import sleepRandomly
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
+class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
     """
     Tilt-series dose filtering based on the IMOD procedure.
     More info:
@@ -104,47 +108,68 @@ class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
+    def _insertAllSteps(self) -> None:
+        inTsSet = self.getInputTsSet()
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
+
     def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
+        genExecStatusDir(self)
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
         while True:
-            with self._lock:
+            try:
+                # Discover ready tsIds from the producer's append-only journal
+                # (filesystem), not from its live SQLite set.
                 inTsIds = set(inTsSet.getTSIds())
+                if self._stopGeneratingSteps(inTsSet,
+                                             inTsIds=inTsIds,
+                                             tsIdReadList=self.tsIdReadList,
+                                             outputNames=OUTPUT_TILTSERIES_NAME,
+                                             closeSetStepDeps=closeSetStepDeps):
+                    break
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TILTSERIES_NAME,
-                                         prerequisites=closeSetStepDeps,
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                if nonProcessedTsIds:
+                    # Rebuild each new tilt-series in memory from the producer's JSON
+                    # sidecar (no producer-DB read).
+                    tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
+                    for tsId, ts in tsToProcessDict.items():
+                        self._insertCommonSteps(ts,closeSetStepDeps)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsIdReadList.append(tsId)
+
+                sleepRandomly()
+
+            except Exception as e:
+                logger.warning(yellowStr(f'stepsGeneratorStep failed with exception: {e}.'))
+                logger.error(traceback.format_exc())
+                sleepRandomly()
+                continue
+
+    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+        cInId = self._insertFunctionStep(self.linkTsStep,
+                                         ts,
+                                         prerequisites=[],
                                          needsGPU=False)
-                break
+        compId = self._insertFunctionStep(self.doseFilterStep,
+                                          ts,
+                                          prerequisites=cInId,
+                                          needsGPU=False)
+        outId = self._insertFunctionStep(self.createOutputStep,
+                                         ts,
+                                         prerequisites=[compId],
+                                         needsGPU=False)
+        closeSetStepDeps.append(outId)
 
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, ts in tsToProcessDict.items():
-                cInId = self._insertFunctionStep(self.linkTsStep,
-                                                 ts,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                compId = self._insertFunctionStep(self.doseFilterStep,
-                                                  ts,
-                                                  prerequisites=cInId,
-                                                  needsGPU=False)
-                outId = self._insertFunctionStep(self.createOutputStep,
-                                                 ts,
-                                                 prerequisites=[compId],
-                                                 needsGPU=False)
-                closeSetStepDeps.append(outId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
 
     # --------------------------- STEPS functions -----------------------------
     def doseFilterStep(self, ts: TiltSeries):
