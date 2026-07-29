@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
 from os.path import exists
 from typing import List
@@ -269,24 +270,36 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
-    @retry_on_sqlite_lock(log=logger)
+    # The producer's write competes with concurrent readers of the same
+    # tiltseries.sqlite (journal_mode=DELETE => one writer vs many readers, e.g.
+    # a chained downstream consumer). Use a more patient retry budget than the
+    # default so a transient burst of consumer reads cannot exhaust it.
+    @retry_on_sqlite_lock(log=logger, max_attempts=30, initial_delay=0.5,
+                          backoff_factor=1.5, max_delay=15)
     def _registerOutput(self,
                         newTs: TiltSeries,
                         tiltImages: List[TiltImage]):
-        tsId = newTs.getTsId()
         with self._lock:
             # Set of tilt-series
             outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-            # Tilt-series
-            outTsSet.append(newTs)
-            # Tilt-images
-            for newTi in tiltImages:
-                newTs.append(newTi)
-            # Data persistence
-            newTs.write()
-            outTsSet.update(newTs)
-            outTsSet.write()
-            self._store(outTsSet)
+            try:
+                # Tilt-series
+                outTsSet.append(newTs)
+                # Tilt-images
+                for newTi in tiltImages:
+                    newTs.append(newTi)
+                # Data persistence
+                newTs.write()
+                outTsSet.update(newTs)
+                outTsSet.write()
+                self._store(outTsSet)
+            except sqlite3.OperationalError as e:
+                # Release the write lock and reset the in-memory append state so
+                # the @retry_on_sqlite_lock retry is a clean, non-hogging redo
+                # (covers the later commits -- newTs.write/outTsSet.write -- not
+                # just the append phase) and never trips the duplicate-tsId guard.
+                outTsSet.rollbackFailedAppend(newTs.getTsId())
+                raise e
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
