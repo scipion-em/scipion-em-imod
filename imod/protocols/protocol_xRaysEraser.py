@@ -142,7 +142,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                     # sidecar (no producer-DB read).
                     tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
                     for tsId, ts in tsToProcessDict.items():
-                        self._insertCommonSteps(ts,closeSetStepDeps)
+                        self._insertCommonSteps(ts, closeSetStepDeps)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsIdReadList.append(tsId)
 
@@ -155,12 +155,6 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                 continue
 
     def _insertNonStreamingSteps(self):
-        # Reached only when the input set is already closed: this is a plain
-        # non-streaming (batch) run. No stream journal is produced -- the journal
-        # is a streaming-coordination artifact, and a downstream consumer of a
-        # closed set runs in its own batch path (reads the DB, not the journal).
-        # _closeOutputSet validates + closes the output set (STREAM_CLOSED), which
-        # is the complete finalizer here.
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
         tsList = [ts.clone() for ts in inTsSet.iterItems()]
@@ -197,6 +191,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                 outputFile = self.getExtraOutFile(tsId)
                 paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                 self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+
                 if self.doOddEven:
                     # Odd
                     logger.info(cyanStr(f'tsId = {tsId} -> Erasing the X-Rays (ODD Tilt-series) ...'))
@@ -210,6 +205,7 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                     outputFile = self.getExtraOutFile(tsId, suffix=EVEN)
                     paramsCcderaser = self.getCcdEraserParamsDict(tsId, inputFile, outputFile)
                     self.runProgram(CCDERASER_PROGRAM, paramsCcderaser)
+
             except Exception as e:
                 self.failedItems.append(tsId)
                 logger.error(redStr(f'tsId = {tsId} -> {CCDERASER_PROGRAM} execution failed '
@@ -221,18 +217,21 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
         if tsId in self.failedItems:
             self.addToOutFailedSet(inTs)
             return
+
         try:
             outTsFile = self.getExtraOutFile(tsId)
             if not exists(outTsFile):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
                 return
+
             setMRCSamplingRate(outTsFile, inTs.getSamplingRate())  # Update the apix value in file header
             newTs = TiltSeries()
             newTs.copyInfo(inTs)
+
             inTiltList = inTs.loadTiltImgsInMemory()
             inTiltList.sort(key=lambda item: item.getIndex())
             tiltImages = []
-            for inTi in inTs.loadTiltImgsInMemory():
+            for inTi in inTiltList:
                 newTi = TiltImage()
                 newTi.copyInfo(inTi)
                 newTi.setFileName(outTsFile)

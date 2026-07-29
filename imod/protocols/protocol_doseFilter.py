@@ -30,7 +30,7 @@ from typing import List
 
 import numpy as np
 import pyworkflow.protocol.params as params
-from pwem import genExecStatusDir
+from pwem import genExecStatusDir, getExecStatusDir, appendStreamItem
 from pwem.convert.headers import setMRCSamplingRate
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
@@ -40,7 +40,7 @@ from imod.protocols import ProtImodBase
 from imod.constants import (ODD, EVEN, SCIPION_IMPORT, FIXED_DOSE,
                             OUTPUT_TILTSERIES_NAME, MTTFILTER_PROGRAM)
 from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
-from tomo.utils import sleepRandomly
+from tomo.utils import sleepRandomly, writeTsSidecar
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                     # sidecar (no producer-DB read).
                     tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
                     for tsId, ts in tsToProcessDict.items():
-                        self._insertCommonSteps(ts,closeSetStepDeps)
+                        self._insertCommonSteps(ts, closeSetStepDeps)
                         logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
                         self.tsIdReadList.append(tsId)
 
@@ -154,6 +154,17 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                 logger.error(traceback.format_exc())
                 sleepRandomly()
                 continue
+
+    def _insertNonStreamingSteps(self):
+        closeSetStepDeps = []
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            self._insertCommonSteps(ts, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
     def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
         cInId = self._insertFunctionStep(self.linkTsStep,
@@ -169,7 +180,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                                          prerequisites=[compId],
                                          needsGPU=False)
         closeSetStepDeps.append(outId)
-
 
     # --------------------------- STEPS functions -----------------------------
     def doseFilterStep(self, ts: TiltSeries):
@@ -219,11 +229,11 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                                     f'with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createOutputStep(self, ts: TiltSeries):
+    def createOutputStep(self, inTs: TiltSeries):
         """Generate output filtered tilt series"""
-        tsId = ts.getTsId()
+        tsId = inTs.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(ts)
+            self.addToOutFailedSet(inTs)
             return
 
         try:
@@ -232,38 +242,51 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
                 return
 
-            setMRCSamplingRate(outTsFile, ts.getSamplingRate())  # Update the apix value in file header
-            self._registerOutput(ts, outTsFile)
+            setMRCSamplingRate(outTsFile, inTs.getSamplingRate())  # Update the apix value in file header
+            newTs = TiltSeries()
+            newTs.copyInfo(inTs)
+            self.updateTsAcquisition(newTs)  # Acquisition dose goes to 0 after having been applied
+
+            inTiltList = inTs.loadTiltImgsInMemory()
+            inTiltList.sort(key=lambda item: item.getIndex())
+            tiltImages = []
+            for inTi in inTiltList:
+                outTi = TiltImage()
+                outTi.copyInfo(inTi)
+                outTi.setFileName(outTsFile)
+                self.updateTiAcquisition(outTi)
+                self.setTsOddEven(tsId, outTi, binGenerated=True)
+                tiltImages.append(outTi)
+            self._registerOutput(newTs, tiltImages)
+
+            # Streaming only: publish the per-TS metadata sidecar (built from the
+            # in-memory ts/tiltImages, no DB read) and the journal id
+            if exists(getExecStatusDir(self)):
+                writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
+                appendStreamItem(self, tsId)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outTsFile: str):
-        tsId = ts.getTsId()
+    def _registerOutput(self,
+                        newTs: TiltSeries,
+                        tiltImages: List[TiltImage]):
+        tsId = newTs.getTsId()
         with self._lock:
             # Set of tilt-series
             outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
-            outTs = TiltSeries()
-            outTs.copyInfo(ts)
-            self.updateTsAcquisition(outTs)  # Acquisition dose goes to 0 after having been applied
-            outTsSet.append(outTs)
+            # Tilt-series
+            outTsSet.append(newTs)
             # Tilt-images
-            for ti in ts.iterItems():
-                outTi = TiltImage()
-                outTi.copyInfo(ti)
-                outTi.setFileName(outTsFile)
-                self.updateTiAcquisition(outTi)
-                self.setTsOddEven(tsId, outTi, binGenerated=True)
-                outTs.append(outTi)
+            for newTi in tiltImages:
+                newTs.append(newTi)
             # Data persistence
-            outTs.write()
-            outTsSet.update(outTs)
+            newTs.write()
+            outTsSet.update(newTs)
             outTsSet.write()
             self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
