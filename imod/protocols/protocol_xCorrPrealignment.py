@@ -24,27 +24,32 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
-from collections import Counter
 from os.path import exists
 import numpy as np
+from typing_extensions import List
 import pyworkflow.protocol.params as params
 from imod.convert.convert import readXfFile
 from imod.protocols.protocol_base import ProtImodBase
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
+from pwem import genExecStatusDir, getExecStatusDir, appendStreamItem
+from pwem.convert.headers import setMRCSamplingRate
 from pwem.objects import Transform
-from pyworkflow.protocol import ProtStreamingBase, STEPS_PARALLEL
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import SetOfTiltSeries, TiltSeries, TiltImage
 from imod.constants import (TLT_EXT, PREXF_EXT, PREXG_EXT,
                             OUTPUT_TILTSERIES_NAME,
                             OUTPUT_TS_INTERPOLATED_NAME, XFTOXG_PROGRM, TILT_XCORR_PROGRAM)
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import sleepRandomly, writeTsSidecar
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStreamingBase):
+class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtocolBaseStreamingTomo):
     """
     Tilt-series cross correlation alignment based on the IMOD procedure.
     More info:
@@ -121,47 +126,78 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
+    def _insertAllSteps(self) -> None:
+        inTsSet = self.getInputTsSet()
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
+
     def stepsGeneratorStep(self) -> None:
         self._initialize()
         closeSetStepDeps = []
         inTsSet = self.getInputTsSet()
+        genExecStatusDir(self)
         outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
         self.readingOutput(outTsSet)
 
         while True:
-            with self._lock:
+            try:
+                # Discover ready tsIds from the producer's append-only journal
+                # (filesystem), not from its live SQLite set.
                 inTsIds = set(inTsSet.getTSIds())
+                if self._stopGeneratingSteps(inTsSet,
+                                             inTsIds=inTsIds,
+                                             tsIdReadList=self.tsIdReadList,
+                                             outputNames=OUTPUT_TILTSERIES_NAME,
+                                             closeSetStepDeps=closeSetStepDeps):
+                    break
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TILTSERIES_NAME,
-                                         prerequisites=closeSetStepDeps,
+                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
+                if nonProcessedTsIds:
+                    # Rebuild each new tilt-series in memory from the producer's JSON
+                    # sidecar (no producer-DB read).
+                    tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
+                    for tsId, ts in tsToProcessDict.items():
+                        self._insertCommonSteps(ts, closeSetStepDeps)
+                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
+                        self.tsIdReadList.append(tsId)
+
+                sleepRandomly()
+
+            except Exception as e:
+                logger.warning(yellowStr(f'stepsGeneratorStep failed with exception: {e}.'))
+                logger.error(traceback.format_exc())
+                sleepRandomly()
+                continue
+
+    def _insertNonStreamingSteps(self):
+        closeSetStepDeps = []
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            self._insertCommonSteps(ts, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
+
+    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+        convId = self._insertFunctionStep(self.convertInStep,
+                                          ts,
+                                          prerequisites=[],
+                                          needsGPU=False)
+        compId = self._insertFunctionStep(self.computeXcorrStep,
+                                          ts,
+                                          prerequisites=[convId],
+                                          needsGPU=False)
+        outId = self._insertFunctionStep(self.createOutputStep,
+                                         ts,
+                                         prerequisites=[compId],
                                          needsGPU=False)
-                break
-
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, ts in tsToProcessDict.items():
-                convId = self._insertFunctionStep(self.convertInStep,
-                                                  ts,
-                                                  prerequisites=[],
-                                                  needsGPU=False)
-                compId = self._insertFunctionStep(self.computeXcorrStep,
-                                                  ts,
-                                                  prerequisites=[convId],
-                                                  needsGPU=False)
-                outId = self._insertFunctionStep(self.createAliTsStep,
-                                                 ts,
-                                                 prerequisites=[compId],
-                                                 needsGPU=False)
-                closeSetStepDeps.append(outId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
+        closeSetStepDeps.append(outId)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, ts: TiltSeries):
@@ -214,58 +250,77 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, ProtStr
                                     f'failed with the exception -> {e}'))
                 logger.error(traceback.format_exc())
 
-    def createAliTsStep(self, ts: TiltSeries):
-        """ Generate tilt-series with the associated transform matrix """
-        tsId = ts.getTsId()
+    def createOutputStep(self, inTs: TiltSeries):
+        tsId = inTs.getTsId()
         if tsId in self.failedItems:
-            self.addToOutFailedSet(ts)
+            self.addToOutFailedSet(inTs)
             return
 
         try:
-            outputFn = self.getExtraOutFile(tsId, ext=PREXG_EXT)
-            if exists(outputFn):
-                self._registerOutput(ts, outputFn)
-            else:
-                logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+            outTsFile = self.getExtraOutFile(tsId, ext=PREXG_EXT)
+            if not exists(outTsFile):
+                logger.error(redStr(f'tsId = {tsId} -> Output file {outTsFile} was not generated. Skipping... '))
+                return
+
+            outTs = TiltSeries()
+            outTs.copyInfo(inTs)
+            tAx = self.getTiltAxisOrientation(inTs)
+            outTs.getAcquisition().setTiltAxisAngle(tAx)
+            outTs.setAlignment2D()
+
+            aliMatrixStack = readXfFile(outTsFile)
+            inTiltList = inTs.loadTiltImgsInMemory()
+            inTiltList.sort(key=lambda item: item.getIndex())
+            tiltImages = []
+            stackIndex = 0
+            for inTi in inTiltList:
+                outTi = TiltImage()
+                outTi.copyInfo(inTi)
+                if inTi.isEnabled():
+                    self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
+                    stackIndex += 1
+                else:
+                    self.updateDisabledTi(outTi)
+                tiltImages.append(outTi)
+
+            self._registerOutput(outTs, tiltImages)
+
+            # Streaming only: publish the per-TS metadata sidecar (built from the
+            # in-memory ts/tiltImages, no DB read) and the journal id
+            execStatusDir = getExecStatusDir(self)
+            if exists(execStatusDir):
+                writeTsSidecar(execStatusDir, outTs, tiltImages)
+                appendStreamItem(self, tsId)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outputFn: str):
-        tsId = ts.getTsId()
+    def _registerOutput(self,
+                        newTs: TiltSeries,
+                        tiltImages: List[TiltImage]):
         with self._lock:
-            tAx = self.getTiltAxisOrientation(ts)
-            aliMatrixStack = readXfFile(outputFn)
-            inTsSetPointer = self.getInputTsSet(pointer=True)
             # Set of tilt-series
-            outTsSet = self.getOutputSetOfTS(inTsSetPointer,
-                                             tiltAxisAngle=tAx)
-            # Tilt-series
-            outTs = TiltSeries()
-            outTs.copyInfo(ts)
-            outTs.getAcquisition().setTiltAxisAngle(self.getTiltAxisOrientation(ts))
-            outTs.setAlignment2D()
-            outTsSet.append(outTs)
-            # Tilt-images
-            stackIndex = 0
-            for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                outTi = TiltImage()
-                outTi.copyInfo(ti)
-                if ti.isEnabled():
-                    self.updateTiltImage(outTi, stackIndex, aliMatrixStack, tAx)
-                    stackIndex += 1
-                else:
-                    self.updateDisabledTi(outTi)
-                outTs.append(outTi)
-            # Data persistence
-            outTs.write()
-            outTsSet.update(outTs)
-            outTsSet.write()
-            self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
+            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
+            try:
+                # Tilt-series
+                outTsSet.append(newTs)
+                # Tilt-images
+                for newTi in tiltImages:
+                    newTs.append(newTi)
+                # Data persistence
+                newTs.write()
+                outTsSet.update(newTs)
+                outTsSet.write()
+                self._store(outTsSet)
+            except sqlite3.OperationalError as e:
+                # Release the write lock and reset the in-memory append state so
+                # the @retry_on_sqlite_lock retry is a clean, non-hogging redo
+                # (covers the later commits -- newTs.write/outTsSet.write -- not
+                # just the append phase) and never trips the duplicate-tsId guard.
+                outTsSet.rollbackFailedAppend(newTs.getTsId())
+                raise e
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

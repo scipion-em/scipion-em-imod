@@ -247,8 +247,9 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
             # by stepsGeneratorStep; in batch mode it does not exist, so neither
             # sidecar nor journal is produced (the output is consumed via the DB /
             # STREAM_CLOSED state instead).
-            if exists(getExecStatusDir(self)):
-                writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
+            execStatusDir = getExecStatusDir(self)
+            if exists(execStatusDir):
+                writeTsSidecar(execStatusDir, newTs, tiltImages)
                 appendStreamItem(self, tsId)
 
         except Exception as e:

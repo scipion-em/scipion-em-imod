@@ -262,8 +262,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
 
             # Streaming only: publish the per-TS metadata sidecar (built from the
             # in-memory ts/tiltImages, no DB read) and the journal id
-            if exists(getExecStatusDir(self)):
-                writeTsSidecar(getExecStatusDir(self), newTs, tiltImages)
+            execStatusDir = getExecStatusDir(self)
+            if exists(execStatusDir):
+                writeTsSidecar(execStatusDir, newTs, tiltImages)
                 appendStreamItem(self, tsId)
 
         except Exception as e:
