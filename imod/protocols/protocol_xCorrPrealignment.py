@@ -34,7 +34,6 @@ from imod.convert.convert import readXfFile
 from imod.protocols.protocol_base import ProtImodBase
 from imod.protocols.protocol_base_xcorr_fidmodel import ProtImodBaseXcorrFidModel
 from pwem import genExecStatusDir, getExecStatusDir, appendStreamItem
-from pwem.convert.headers import setMRCSamplingRate
 from pwem.objects import Transform
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
