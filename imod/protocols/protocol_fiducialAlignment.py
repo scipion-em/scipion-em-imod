@@ -155,7 +155,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
        J. Frank, 2nd edition, pp 163-185. Springer, New York.
     """
 
-    _label = 'Fiducial alignment'
+    _label = 'Fine alignment'
     _possibleOutputs = {
         OUTPUT_TILTSERIES_NAME: SetOfTiltSeries,
         OUTPUT_FIDUCIAL_NO_GAPS_NAME: SetOfLandmarkModels

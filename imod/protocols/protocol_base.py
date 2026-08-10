@@ -496,6 +496,23 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         else:
             self.info(cyanStr('No items have been processed yet'))
 
+    # ----- Hooks for the centralized streaming generator (see
+    # tomo.protocols.protocol_base_streaming_tomo.ProtocolBaseStreamingTomo).
+    # Shared by the IMOD tilt-series streaming protocols (x-ray eraser, dose
+    # filter, coarse prealignment). Only invoked by that generator loop, so they
+    # are dormant for non-streaming IMOD protocols. -----
+    def _getStreamingInputTs(self):
+        return self.getInputTsSet()
+
+    def _getProcessedTsIds(self) -> List[str]:
+        return self.tsIdReadList
+
+    def _getStreamingOutputNames(self) -> str:
+        return OUTPUT_TILTSERIES_NAME
+
+    def _streamingInitialize(self) -> None:
+        self._initialize()
+
     @staticmethod
     def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
         return f'{tsId}_{suffix}.{ext}' if suffix else f'{tsId}.{ext}'

@@ -118,43 +118,9 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
         else:
             self._insertNonStreamingSteps()
 
-    def stepsGeneratorStep(self) -> None:
-        self._initialize()
-        closeSetStepDeps = []
-        inTsSet = self.getInputTsSet()
-        genExecStatusDir(self)
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        self.readingOutput(outTsSet)
-
-        while True:
-            try:
-                # Discover ready tsIds from the producer's append-only journal
-                # (filesystem), not from its live SQLite set.
-                inTsIds = set(inTsSet.getTSIds())
-                if self._stopGeneratingSteps(inTsSet,
-                                             inTsIds=inTsIds,
-                                             tsIdReadList=self.tsIdReadList,
-                                             outputNames=OUTPUT_TILTSERIES_NAME,
-                                             closeSetStepDeps=closeSetStepDeps):
-                    break
-
-                nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-                if nonProcessedTsIds:
-                    # Rebuild each new tilt-series in memory from the producer's JSON
-                    # sidecar (no producer-DB read).
-                    tsToProcessDict = inTsSet.fetchNewTs(nonProcessedTsIds)
-                    for tsId, ts in tsToProcessDict.items():
-                        self._insertCommonSteps(ts, closeSetStepDeps)
-                        logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                        self.tsIdReadList.append(tsId)
-
-                sleepRandomly()
-
-            except Exception as e:
-                logger.warning(yellowStr(f'stepsGeneratorStep failed with exception: {e}.'))
-                logger.error(traceback.format_exc())
-                sleepRandomly()
-                continue
+    # stepsGeneratorStep is centralized in ProtocolBaseStreamingTomo; the
+    # per-protocol hooks it needs (_getStreamingInputTs, _getProcessedTsIds,
+    # _getStreamingOutputNames, _streamingInitialize) are provided by ProtImodBase.
 
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
