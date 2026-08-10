@@ -140,6 +140,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, Protoco
 
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
+        self._initialize()
         inTsSet = self.getInputTsSet()
         tsList = [ts.clone() for ts in inTsSet.iterItems()]
         for ts in tsList:

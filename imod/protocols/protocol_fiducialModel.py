@@ -25,8 +25,9 @@
 # *****************************************************************************
 import logging
 import traceback
-from collections import Counter
 from os.path import exists, abspath
+from typing import List
+
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
@@ -38,15 +39,18 @@ from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, SEED_EXT,
                             BEADTRACK_PROGRAM, IMODCHOPCONTS_PROGRAM, MODEL2POINT_PROGRAM)
 from imod.protocols.protocol_xCorrPrealignment import TILT_XCORR_PROGRAM
 from pyworkflow.object import Set
-from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, SetOfLandmarkModels, LandmarkModel
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import writeLandmarkSidecar
+from pwem import getExecStatusDir, appendStreamItem
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtStreamingBase):
+class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, ProtocolBaseStreamingTomo):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -63,6 +67,7 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.fidDiam = None
 
     @classmethod
     def worksInStreaming(cls):
@@ -192,73 +197,74 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                            'data.')
 
     # -------------------------- INSERT steps functions -----------------------
-    def stepsGeneratorStep(self) -> None:
-        self._initialize()
-        closeSetStepDeps = []
+    def _insertAllSteps(self) -> None:
         inTsSet = self.getInputTsSet()
-        outTsSet = getattr(self, OUTPUT_FIDUCIAL_GAPS_NAME, None)
-        self.readingOutput(outTsSet)
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
 
-        while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
+    # stepsGeneratorStep is centralized in ProtocolBaseStreamingTomo; the
+    # per-protocol hooks it needs (_getStreamingInputTs, _getProcessedTsIds,
+    # _getStreamingOutputNames, _streamingInitialize) are provided by ProtImodBase.
+    def _getStreamingOutputNames(self) -> str:
+        return OUTPUT_FIDUCIAL_GAPS_NAME
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_FIDUCIAL_GAPS_NAME,
-                                         prerequisites=closeSetStepDeps,
-                                         needsGPU=False)
-                break
+    def _insertNonStreamingSteps(self):
+        closeSetStepDeps = []
+        self._initialize()
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            self._insertCommonSteps(ts, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_FIDUCIAL_GAPS_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, ts in tsToProcessDict.items():
-                pId = self._insertFunctionStep(self.convertInStep,
-                                               ts,
-                                               prerequisites=[],
-                                               needsGPU=False)
+    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+        pId = self._insertFunctionStep(self.convertInStep,
+                                       ts,
+                                       prerequisites=[],
+                                       needsGPU=False)
+        tsId = ts.getTsId()
+        if self.typeOfModel.get() == FIDUCIAL_MODEL:
+            pId = self._insertFunctionStep(self.generateFiducialSeedStep,
+                                           ts,
+                                           prerequisites=pId,
+                                           needsGPU=False)
+            pId = self._insertFunctionStep(self.generateFiducialModelStep,
+                                           ts,
+                                           prerequisites=pId,
+                                           needsGPU=False)
+        else:
+            pId = self._insertFunctionStep(self.xcorrStep,
+                                           tsId,
+                                           prerequisites=pId,
+                                           needsGPU=False)
+            pId = self._insertFunctionStep(self.chopcontsStep,
+                                           tsId,
+                                           prerequisites=pId,
+                                           needsGPU=False)
 
-                if self.typeOfModel.get() == FIDUCIAL_MODEL:
-                    pId = self._insertFunctionStep(self.generateFiducialSeedStep,
-                                                   ts,
-                                                   prerequisites=pId,
-                                                   needsGPU=False)
-                    pId = self._insertFunctionStep(self.generateFiducialModelStep,
-                                                   ts,
-                                                   prerequisites=pId,
-                                                   needsGPU=False)
-                else:
-                    pId = self._insertFunctionStep(self.xcorrStep,
-                                                   tsId,
-                                                   prerequisites=pId,
-                                                   needsGPU=False)
-                    pId = self._insertFunctionStep(self.chopcontsStep,
-                                                   tsId,
-                                                   prerequisites=pId,
-                                                   needsGPU=False)
-
-                pId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                               tsId,
-                                               prerequisites=pId,
-                                               needsGPU=False)
-                pId = self._insertFunctionStep(self.computeOutputModelsStep,
-                                               ts,
-                                               prerequisites=pId,
-                                               needsGPU=False)
-                closeSetStepDeps.append(pId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
+        pId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                       tsId,
+                                       prerequisites=pId,
+                                       needsGPU=False)
+        pId = self._insertFunctionStep(self.computeOutputModelsStep,
+                                       ts,
+                                       prerequisites=pId,
+                                       needsGPU=False)
+        closeSetStepDeps.append(pId)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         tsSet = self.getInputTsSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
+        self.fidDiam = self.fiducialDiameter.get() * 10  # From nm to angstroms
 
     def convertInStep(self, ts: TiltSeries):
         self.convertInputStep(ts, ts.getTsPresentAcqOrders())
@@ -401,7 +407,19 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         try:
             outputFn = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
             if exists(outputFn):
-                self._registerOutput(ts, outputFn)
+                landmarkModelGaps = self._registerOutput(ts, outputFn)
+
+                # Streaming only: publish the per-landmark-model metadata sidecar
+                # (built from the in-memory landmark model, no DB read) and the
+                # journal id, so a downstream streaming consumer can rebuild this
+                # landmark model in memory WITHOUT opening our live
+                # landmarks.sqlite. The status dir is created by the (centralized)
+                # stepsGeneratorStep; in batch mode it does not exist, so neither
+                # sidecar nor journal is produced (the output is consumed via the
+                # DB / STREAM_CLOSED state instead).
+                if landmarkModelGaps is not None and exists(getExecStatusDir(self)):
+                    writeLandmarkSidecar(getExecStatusDir(self), landmarkModelGaps)
+                    appendStreamItem(self, tsId)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
 
@@ -410,42 +428,48 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             logger.error(traceback.format_exc())
 
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outputFn: str):
+    def _registerOutput(self, ts: TiltSeries, outputFn: str) -> LandmarkModel:
         tsId = ts.getTsId()
+        landmarkModelGapsFilePath = self.getExtraOutFile(tsId,
+                                                         suffix='gaps',
+                                                         ext=SFID_EXT)
+        fiducialModelGapTxtPath = self.getExtraOutFile(tsId,
+                                                       suffix="gaps_fid",
+                                                       ext=TXT_EXT)
+        fiducialGapList = fiducialModel2List(fiducialModelGapTxtPath)
+
+        # Build the landmark model (and its .sfid landmark file) outside the DB
+        # lock; the .sfid rows are what the sidecar later references. Remove any
+        # pre-existing .sfid first so that a @retry_on_sqlite_lock re-run rebuilds
+        # it cleanly instead of appending duplicate landmark rows (addLandmark
+        # opens the file in append mode when it already exists).
+        path.cleanPath(landmarkModelGapsFilePath)
+        landmarkModelGaps = LandmarkModel(tsId=tsId,
+                                          tiltSeriesPointer=ts,
+                                          fileName=landmarkModelGapsFilePath,
+                                          modelName=outputFn,
+                                          size=self.fidDiam,
+                                          hasResidualInfo=False)
+        landmarkModelGaps.setTiltSeries(ts)
+
+        for index, fiducial in enumerate(fiducialGapList):
+            landmarkModelGaps.addLandmark(xCoor=fiducial[2],
+                                          yCoor=fiducial[3],
+                                          tiltIm=fiducial[4] + 1,
+                                          chainId=fiducial[1],
+                                          xResid=0,
+                                          yResid=0)
+
         with self._lock:
             output = self.getOutputFiducialModel(self.getInputTsSet(pointer=True),
                                                  attrName=OUTPUT_FIDUCIAL_GAPS_NAME,
                                                  suffix="Gaps")
-            landmarkModelGapsFilePath = self.getExtraOutFile(tsId,
-                                                             suffix='gaps',
-                                                             ext=SFID_EXT)
-            fiducialModelGapTxtPath = self.getExtraOutFile(tsId,
-                                                           suffix="gaps_fid",
-                                                           ext=TXT_EXT)
-
-            fiducialGapList = fiducialModel2List(fiducialModelGapTxtPath)
-            fiducialDiameter = self.fiducialDiameter.get() * 10  # From nm to angstroms
-
-            landmarkModelGaps = LandmarkModel(tsId=tsId,
-                                              tiltSeriesPointer=ts,
-                                              fileName=landmarkModelGapsFilePath,
-                                              modelName=outputFn,
-                                              size=fiducialDiameter,
-                                              hasResidualInfo=False)
-            landmarkModelGaps.setTiltSeries(ts)
-
-            for index, fiducial in enumerate(fiducialGapList):
-                landmarkModelGaps.addLandmark(xCoor=fiducial[2],
-                                              yCoor=fiducial[3],
-                                              tiltIm=fiducial[4] + 1,
-                                              chainId=fiducial[1],
-                                              xResid=0,
-                                              yResid=0)
-
             output.append(landmarkModelGaps)
             output.update(landmarkModelGaps)
-            output.write(output)
+            output.write()
             self._store(output)
+
+        return landmarkModelGaps
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
