@@ -125,9 +125,6 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
     def _getStreamingInputSets(self):
         return [self.getInputTsSet()]
 
-    def _getProcessedTsIds(self):
-        return self.tsIdReadList
-
     def _getStreamingOutputNames(self):
         return OUTPUT_TILTSERIES_NAME
 

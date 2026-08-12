@@ -117,21 +117,6 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
         else:
             self._insertNonStreamingSteps()
 
-    # Streaming Hooks ############################
-    def _streamingInitialize(self):
-        self._initialize()
-
-    def _getStreamingInputSets(self):
-        return [self.getInputTsSet()]
-
-    def _getProcessedTsIds(self):
-        return self.tsIdReadList
-
-    def _getStreamingOutputNames(self):
-        return OUTPUT_TILTSERIES_NAME
-
-    # End of streaming hooks #####################
-
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
         self._initialize()

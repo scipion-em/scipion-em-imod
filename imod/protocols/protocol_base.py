@@ -62,9 +62,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         self.failedItems = []
         self.doOddEven = False
 
-        # Streaming
-        self.tsIdReadList = []
-
     # -------------------------- DEFINE param functions -----------------------
     @staticmethod
     def addInTsSetFormParam(form):
@@ -104,6 +101,20 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         self.doOddEven = self.applyToOddEven(self.getInputTsSet())
+
+    # ----- Hooks for the centralized streaming generator (see
+    # tomo.protocols.protocol_base_streaming_tomo.ProtocolBaseStreamingTomo).
+    # Shared by the IMOD tilt-series streaming protocols (x-ray eraser, dose
+    # filter, coarse prealignment). Only invoked by that generator loop, so they
+    # are dormant for non-streaming IMOD protocols. -----
+    def _getStreamingInputSets(self):
+        return self.getInputTsSet()
+
+    def _getStreamingOutputNames(self) -> str:
+        return OUTPUT_TILTSERIES_NAME
+
+    def _streamingInitialize(self) -> None:
+        self._initialize()
 
     def refreshStreaming(self,
                          inSet: Union[SetOfTiltSeries, SetOfLandmarkModels, SetOfCTFTomoSeries]):
@@ -495,23 +506,6 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
             self.info(cyanStr(f'Item processed {tsIdList}'))
         else:
             self.info(cyanStr('No items have been processed yet'))
-
-    # ----- Hooks for the centralized streaming generator (see
-    # tomo.protocols.protocol_base_streaming_tomo.ProtocolBaseStreamingTomo).
-    # Shared by the IMOD tilt-series streaming protocols (x-ray eraser, dose
-    # filter, coarse prealignment). Only invoked by that generator loop, so they
-    # are dormant for non-streaming IMOD protocols. -----
-    def _getStreamingInputTs(self):
-        return self.getInputTsSet()
-
-    def _getProcessedTsIds(self) -> List[str]:
-        return self.tsIdReadList
-
-    def _getStreamingOutputNames(self) -> str:
-        return OUTPUT_TILTSERIES_NAME
-
-    def _streamingInitialize(self) -> None:
-        self._initialize()
 
     @staticmethod
     def getOutTsFileName(tsId, suffix=None, ext=MRCS_EXT):
