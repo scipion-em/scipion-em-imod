@@ -207,12 +207,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             self._insertNonStreamingSteps()
 
     # Streaming Hooks ############################
-    def _streamingInitialize(self):
-        self._initialize()
-
-    def _getStreamingInputSets(self):
-        return [self.getInputTsSet()]
-
     def _getStreamingOutputNames(self):
         return OUTPUT_FIDUCIAL_GAPS_NAME
 

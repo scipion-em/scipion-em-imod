@@ -108,13 +108,15 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     # filter, coarse prealignment). Only invoked by that generator loop, so they
     # are dormant for non-streaming IMOD protocols. -----
     def _getStreamingInputSets(self):
-        return self.getInputTsSet()
+        return [self.getInputTsSet()]
 
     def _getStreamingOutputNames(self) -> str:
         return OUTPUT_TILTSERIES_NAME
 
     def _streamingInitialize(self) -> None:
         self._initialize()
+
+    # ----- END OF Hooks for the centralized streaming generator
 
     def refreshStreaming(self,
                          inSet: Union[SetOfTiltSeries, SetOfLandmarkModels, SetOfCTFTomoSeries]):
