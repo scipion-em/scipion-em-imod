@@ -407,27 +407,27 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
 
         try:
             outputFn = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
-            if exists(outputFn):
-                # Build the landmark model + its .sfid file ONCE, outside the
-                # retried DB critical section, then register it. Keeping the
-                # (lock-free) build out of the @retry_on_sqlite_lock scope avoids
-                # rebuilding the model / rewriting the .sfid on every lock retry.
-                landmarkModelGaps = self._buildLandmarkModel(ts, outputFn)
-                self._registerOutput(landmarkModelGaps)
-
-                # Streaming only: publish the per-landmark-model metadata sidecar
-                # (built from the in-memory landmark model, no DB read) and the
-                # journal id, so a downstream streaming consumer can rebuild this
-                # landmark model in memory WITHOUT opening our live
-                # landmarks.sqlite. The status dir is created by the (centralized)
-                # stepsGeneratorStep; in batch mode it does not exist, so neither
-                # sidecar nor journal is produced (the output is consumed via the
-                # DB / STREAM_CLOSED state instead).
-                if landmarkModelGaps is not None and exists(getExecStatusDir(self)):
-                    writeLandmarkSidecar(getExecStatusDir(self), landmarkModelGaps)
-                    appendStreamItem(self, tsId)
-            else:
+            if not exists(outputFn):
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+
+            # Build the landmark model + its .sfid file ONCE, outside the
+            # retried DB critical section, then register it. Keeping the
+            # (lock-free) build out of the @retry_on_sqlite_lock scope avoids
+            # rebuilding the model / rewriting the .sfid on every lock retry.
+            landmarkModelGaps = self._buildLandmarkModel(ts, outputFn)
+            self._registerOutput(landmarkModelGaps)
+
+            # Streaming only: publish the per-landmark-model metadata sidecar
+            # (built from the in-memory landmark model, no DB read) and the
+            # journal id, so a downstream streaming consumer can rebuild this
+            # landmark model in memory WITHOUT opening our live
+            # landmarks.sqlite. The status dir is created by the (centralized)
+            # stepsGeneratorStep; in batch mode it does not exist, so neither
+            # sidecar nor journal is produced (the output is consumed via the
+            # DB / STREAM_CLOSED state instead).
+            if landmarkModelGaps is not None and exists(getExecStatusDir(self)):
+                writeLandmarkSidecar(getExecStatusDir(self), landmarkModelGaps)
+                appendStreamItem(self, tsId)
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
@@ -483,20 +483,17 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             the uncommitted INSERT and re-syncs the cached counters so the
             retry is a clean redo (no duplicate row, no size over-count).
         """
-        tsId = landmarkModelGaps.getTsId()
         with self._lock:
             output = self.getOutputFiducialModel(self.getInputTsSet(pointer=True),
                                                  attrName=OUTPUT_FIDUCIAL_GAPS_NAME,
                                                  suffix="Gaps")
             try:
-                # Drained (fetchall) lookup -> no lingering SHARED-lock cursor.
-                existingTsIds = set(output.getUniqueValues(LandmarkModel.TS_ID_FIELD))
-                if tsId not in existingTsIds:
-                    output.append(landmarkModelGaps)
-                    output.update(landmarkModelGaps)
-                    output.write()
+                output.append(landmarkModelGaps)
+                output.update(landmarkModelGaps)
+                output.write()
                 self._store(output)
             except sqlite3.OperationalError as e:
+                tsId = landmarkModelGaps.getTsId()
                 # SetOfLandmarkModels is a plain EMSet (no rollbackFailedAppend);
                 # the base helper rolls back the uncommitted INSERT and re-syncs
                 # the cached counters so this retry is a clean redo.
