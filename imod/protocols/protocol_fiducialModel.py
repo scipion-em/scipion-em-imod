@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
 from os.path import exists, abspath
 from typing import List
@@ -407,7 +408,12 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         try:
             outputFn = self.getExtraOutFile(tsId, suffix='gaps', ext=FID_EXT)
             if exists(outputFn):
-                landmarkModelGaps = self._registerOutput(ts, outputFn)
+                # Build the landmark model + its .sfid file ONCE, outside the
+                # retried DB critical section, then register it. Keeping the
+                # (lock-free) build out of the @retry_on_sqlite_lock scope avoids
+                # rebuilding the model / rewriting the .sfid on every lock retry.
+                landmarkModelGaps = self._buildLandmarkModel(ts, outputFn)
+                self._registerOutput(landmarkModelGaps)
 
                 # Streaming only: publish the per-landmark-model metadata sidecar
                 # (built from the in-memory landmark model, no DB read) and the
@@ -427,8 +433,16 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
-    @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outputFn: str) -> LandmarkModel:
+    def _buildLandmarkModel(self, ts: TiltSeries, outputFn: str) -> LandmarkModel:
+        """Build the LandmarkModel and its backing .sfid landmark file.
+
+        This is pure filesystem/CPU work (no DB, no lock, cannot raise a SQLite
+        lock error), so it lives OUTSIDE the @retry_on_sqlite_lock scope of
+        ``_registerOutput`` and runs exactly once. Because it is no longer
+        re-executed on a lock retry, the .sfid file is written a single time and
+        the previous ``cleanPath`` guard (which existed only to keep a retried
+        rebuild from appending duplicate landmark rows) is unnecessary.
+        """
         tsId = ts.getTsId()
         landmarkModelGapsFilePath = self.getExtraOutFile(tsId,
                                                          suffix='gaps',
@@ -438,12 +452,6 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                                        ext=TXT_EXT)
         fiducialGapList = fiducialModel2List(fiducialModelGapTxtPath)
 
-        # Build the landmark model (and its .sfid landmark file) outside the DB
-        # lock; the .sfid rows are what the sidecar later references. Remove any
-        # pre-existing .sfid first so that a @retry_on_sqlite_lock re-run rebuilds
-        # it cleanly instead of appending duplicate landmark rows (addLandmark
-        # opens the file in append mode when it already exists).
-        path.cleanPath(landmarkModelGapsFilePath)
         landmarkModelGaps = LandmarkModel(tsId=tsId,
                                           tiltSeriesPointer=ts,
                                           fileName=landmarkModelGapsFilePath,
@@ -459,17 +467,41 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
                                           chainId=fiducial[1],
                                           xResid=0,
                                           yResid=0)
+        return landmarkModelGaps
 
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, landmarkModelGaps: LandmarkModel) -> None:
+        """Register a pre-built landmark model into the output set.
+
+        Only the DB critical section is under the retry decorator, so a lock
+        retries just this transactional unit. SetOfLandmarkModels is a plain
+        EMSet (unlike SetOfTiltSeriesBase it has no tsId duplicate-guard nor
+        rollbackFailedAppend), so this must be idempotent by hand:
+          - the presence guard skips a re-append if a prior attempt already
+            committed this tsId (e.g. a lock at ``_store`` after ``write``);
+          - on a lock during the write, ``_releaseOutputWriteLock`` rolls back
+            the uncommitted INSERT and re-syncs the cached counters so the
+            retry is a clean redo (no duplicate row, no size over-count).
+        """
+        tsId = landmarkModelGaps.getTsId()
         with self._lock:
             output = self.getOutputFiducialModel(self.getInputTsSet(pointer=True),
                                                  attrName=OUTPUT_FIDUCIAL_GAPS_NAME,
                                                  suffix="Gaps")
-            output.append(landmarkModelGaps)
-            output.update(landmarkModelGaps)
-            output.write()
-            self._store(output)
-
-        return landmarkModelGaps
+            try:
+                # Drained (fetchall) lookup -> no lingering SHARED-lock cursor.
+                existingTsIds = set(output.getUniqueValues(LandmarkModel.TS_ID_FIELD))
+                if tsId not in existingTsIds:
+                    output.append(landmarkModelGaps)
+                    output.update(landmarkModelGaps)
+                    output.write()
+                self._store(output)
+            except sqlite3.OperationalError as e:
+                # SetOfLandmarkModels is a plain EMSet (no rollbackFailedAppend);
+                # the base helper rolls back the uncommitted INSERT and re-syncs
+                # the cached counters so this retry is a clean redo.
+                self._releaseOutputWriteLock(output, tsId)
+                raise e
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

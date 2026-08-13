@@ -281,7 +281,7 @@ class ProtImodXcorrPrealignment(ProtImodBase, ProtImodBaseXcorrFidModel, Protoco
                 # the @retry_on_sqlite_lock retry is a clean, non-hogging redo
                 # (covers the later commits -- newTs.write/outTsSet.write -- not
                 # just the append phase) and never trips the duplicate-tsId guard.
-                outTsSet.rollbackFailedAppend(newTs.getTsId())
+                self._releaseOutputWriteLock(outTsSet, newTs.getTsId())
                 raise e
 
     # --------------------------- INFO functions ------------------------------
