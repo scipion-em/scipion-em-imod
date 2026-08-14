@@ -237,7 +237,7 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         tomoWidth = self.tomoWidth.get()
         inTsSet = self.getInputTsSet()
         outTomoSet = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
-        self.readingOutput(outTomoSet)
+        self.readingOutput(outTomoSet, tsIdListName="tsReadList")
         widthWarnTsIds = []
         closeSetStepDeps = []
 
