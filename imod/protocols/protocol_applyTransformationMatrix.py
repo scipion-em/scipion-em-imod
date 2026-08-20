@@ -44,16 +44,144 @@ logger = logging.getLogger(__name__)
 
 class ProtImodApplyTransformationMatrix(ProtImodBase):
     """
-    Compute the interpolated tilt-series from its transform matrix.
-    The protocol makes use of the IMod command newstack
-    More info:
+    Applies alignment transformations to tilt-series datasets in order to generate fully
+    interpolated and spatially corrected tilt-series suitable for downstream cryo-electron
+    tomography processing. The protocol uses the IMOD newstack program to apply previously
+    estimated alignment parameters while preserving the geometric consistency of the
+    acquisition. Its main objective is to convert alignment metadata into physically
+    transformed image stacks that can be directly used for reconstruction, visualization,
+    or further refinement. More info:
         https://bio3d.colorado.edu/imod/doc/man/newstack.html
 
-    Generally, the tilt series has an associated transformation matrix
-    which contains the alignment information. The transformation matrix
-    is usually associated but not applied to avoid to accumulate interpolation
-    errors during the image processing. This protocol allows to apply
-    the transformation matrix to the tilt series
+    AI Generated:
+
+    Apply Transformation Matrix (ProtImodApplyTransformationMatrix) — User Manual
+        Overview
+
+        The Apply Transformation Matrix protocol generates aligned and interpolated
+        tilt-series from previously aligned datasets in cryo-electron tomography workflows.
+        In tomography processing, alignment parameters are often stored separately from
+        the image data to avoid repeated interpolation during iterative refinement stages.
+        This protocol performs the actual geometric correction only when needed, producing
+        a new tilt-series in which all transformations have been physically applied.
+
+        From a biological and imaging perspective, this step is important because it
+        creates a spatially coherent tilt-series that can be used for tomogram
+        reconstruction, visualization, particle extraction, or archival purposes.
+        Applying the alignment at the correct stage of processing helps preserve image
+        quality while ensuring that all projections share a common coordinate frame.
+
+        Inputs and General Workflow
+
+        The protocol requires a set of tilt-series containing valid alignment
+        information. Each tilt image is transformed according to the associated
+        alignment parameters, producing a corrected and interpolated output tilt-series.
+        The resulting data are geometrically aligned and prepared for downstream
+        tomographic reconstruction procedures.
+
+        In practical cryo-ET workflows, this protocol is commonly executed after
+        fiducial-based alignment, patch tracking alignment, or any alignment refinement
+        strategy that produces transformation matrices. The protocol assumes that the
+        alignment quality has already been validated because interpolation will make the
+        transformations permanent in the generated output.
+
+        Interpolation and Image Quality
+
+        Interpolation is one of the most biologically relevant aspects of this protocol
+        because it directly affects the preservation of structural detail. During
+        geometric correction, pixels are resampled to compensate for shifts, rotations,
+        and other spatial transformations introduced during alignment.
+
+        The protocol supports different interpolation strategies suited to different
+        experimental conditions. Cubic interpolation generally preserves fine structural
+        detail more effectively and is therefore preferred for high-quality datasets
+        where maintaining resolution is important. Linear interpolation may be more
+        appropriate for extremely noisy datasets because it reduces amplification of
+        interpolation artifacts, although at the expense of some fine detail.
+
+        From a biological perspective, interpolation choices can influence the visibility
+        of weak densities, membrane boundaries, and small macromolecular features.
+        Selecting the interpolation mode should therefore consider both signal-to-noise
+        ratio and the intended downstream analysis.
+
+        Binning and Resolution Considerations
+
+        The protocol allows optional binning during the interpolation process. Binning
+        reduces the image size and effectively increases the pixel size by averaging
+        neighboring pixels. This can substantially decrease computational requirements
+        and improve processing speed in large tomographic datasets.
+
+        In exploratory analyses or low-resolution studies, moderate binning is often a
+        practical choice because it accelerates reconstruction and visualization while
+        preserving the main biological features. For high-resolution subtomogram
+        averaging workflows, however, excessive binning may remove fine structural
+        information that becomes important during later refinement stages.
+
+        The decision to bin should therefore reflect the biological objective of the
+        experiment, the expected structural resolution, and the computational resources
+        available.
+
+        Treatment of Excluded Views
+
+        Cryo-electron tomography datasets frequently contain projections that must be
+        excluded because of contamination, excessive motion, charging artifacts, or poor
+        imaging quality. This protocol preserves the consistency of the tilt-series while
+        correctly handling excluded views during interpolation and output generation.
+
+        Maintaining proper acquisition geometry after exclusion is essential for accurate
+        tomogram reconstruction. Incorrect handling of missing projections can introduce
+        reconstruction artifacts or distort the angular sampling of the final tomogram.
+
+        Odd and Even Tilt-Series Processing
+
+        The protocol can optionally process odd and even tilt-series independently in
+        parallel with the full dataset. This functionality is especially valuable in
+        workflows involving resolution estimation, validation procedures, or half-map
+        generation strategies.
+
+        In biological practice, odd/even processing allows independent reconstruction
+        paths that help assess reproducibility and reduce overfitting risks during
+        downstream refinement procedures. Maintaining strict consistency between the full
+        dataset and the odd/even subsets is important for reliable resolution assessment.
+
+        Output Datasets and Biological Interpretation
+
+        The protocol produces interpolated tilt-series in which the alignment
+        transformations have already been applied. The resulting datasets are expressed
+        in a corrected coordinate system and are ready for tomographic reconstruction or
+        visualization.
+
+        The output tilt-series no longer require additional alignment transformations
+        because the geometric corrections are already embedded in the image data itself.
+        This simplifies downstream processing and improves compatibility with software
+        tools that expect physically aligned image stacks.
+
+        Practical Recommendations
+
+        In routine cryo-ET workflows, it is generally advisable to apply transformations
+        only after alignment quality has been carefully inspected. Repeated interpolation
+        can progressively degrade high-frequency information, so minimizing unnecessary
+        resampling steps is important for preserving structural quality.
+
+        Moderate binning is often useful during exploratory processing or when handling
+        very large datasets, whereas unbinned interpolation is preferable for
+        high-resolution structural studies. Cubic interpolation is usually the preferred
+        option when preserving fine structural detail is important, while linear
+        interpolation may provide more stable behavior for extremely noisy acquisitions.
+
+        When excluded projections are present, users should verify that the angular
+        coverage remains biologically meaningful and sufficient for reliable tomographic
+        reconstruction.
+
+        Final Perspective
+
+        Applying alignment transformations is a critical transition point between
+        alignment metadata and physically corrected image data in cryo-electron
+        tomography workflows. Although geometrically straightforward, this step strongly
+        influences the interpretability and quality of downstream reconstructions.
+        Careful selection of interpolation settings, binning strategy, and validation of
+        alignment quality are essential for producing biologically reliable tomographic
+        datasets.
     """
     _label = 'Apply transformation'
     _possibleOutputs = {OUTPUT_TS_INTERPOLATED_NAME: SetOfTiltSeries}

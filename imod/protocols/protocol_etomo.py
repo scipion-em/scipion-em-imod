@@ -46,21 +46,175 @@ logger = logging.getLogger(__name__)
 
 class ProtImodEtomo(ProtImodBase):
     """
-    Simple wrapper around etomo to manually reconstruct a Tomogram.
+    Provides an interactive environment for manual tomographic reconstruction
+    workflows using the IMOD eTomo package. The protocol is designed to guide
+    users through the complete reconstruction process for single-axis tilt
+    series, allowing manual supervision and refinement of alignment,
+    fiducial-based tracking, preprocessing, and tomogram generation. More info:
+    https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
 
-    More info:
-        https://bio3d.colorado.edu/imod/doc/etomoTutorial.html
+    AI Generated:
 
-    Etomo is software tool for assisting users in the tomographic reconstruction
-    process of both single and dual axis tilt series. Throughout this procedure,
-    eTomo executes numerous program commands and frequently initiates 3dmod
-    and Midas to enable users to make precise adjustments. Some of the main features
-    are:\n
-    - Xray eraser\n
-    - dose filtering\n
-    - Tilt series alignment\n
-    - Gold beads detection and eraser\n
-    - Tomogram reconstruction\n
+    Etomo Interactive Reconstruction (ProtImodEtomo) - User Manual
+        Overview
+
+        The Etomo Interactive protocol provides a bridge between Scipion and the
+        IMOD eTomo environment for users who require detailed manual control over
+        tomographic reconstruction workflows. Unlike fully automated pipelines,
+        this protocol is intended for situations where visual inspection,
+        iterative adjustment, and expert supervision are essential for obtaining
+        optimal reconstructions.
+
+        In cryo-electron tomography, reconstruction quality depends strongly on
+        accurate tilt-series alignment, reliable fiducial tracking, proper
+        handling of excluded views, and appropriate reconstruction parameters.
+        Biological samples often contain uneven contrast, contamination,
+        radiation damage, or structural flexibility that may limit the
+        performance of fully automated methods. This protocol allows users to
+        interact directly with the reconstruction process and refine each stage
+        according to the characteristics of the specimen.
+
+        The protocol is particularly valuable for difficult datasets, including
+        thick cellular tomograms, low signal-to-noise acquisitions, samples with
+        sparse fiducials, or tilt series affected by beam-induced motion and
+        imaging artifacts. In these scenarios, manual intervention frequently
+        improves alignment stability and final tomogram quality.
+
+        Inputs and Reconstruction Workflow
+
+        The protocol requires a set of tilt series as input. Each tilt series is
+        prepared for processing within the eTomo environment, where users can
+        interactively execute alignment, tracking, reconstruction, and
+        postprocessing tasks.
+
+        Fiducial marker information plays a central role in the workflow. Users
+        typically define the approximate diameter of gold beads present in the
+        sample so that eTomo can identify and track fiducial markers throughout
+        the tilt range. Accurate fiducial detection is critical because the
+        final alignment quality directly influences tomogram resolution and
+        interpretability.
+
+        The protocol also supports workflows in which previous alignment
+        transformations already exist. In these cases, users may choose whether
+        the reconstruction process should preserve and refine the incoming
+        geometric alignment information or start from the original unaligned
+        tilt series.
+
+        Biological Importance of Manual Alignment
+
+        Tomographic reconstruction is highly sensitive to alignment accuracy.
+        Small errors in tilt geometry or fiducial positioning can propagate into
+        severe reconstruction artifacts, including elongation effects, blurred
+        densities, or loss of structural detail.
+
+        Manual alignment inspection becomes especially important for biological
+        specimens with heterogeneous thickness, uneven fiducial distribution, or
+        local deformations. Users can visually evaluate tracking quality,
+        correct problematic fiducials, remove unreliable tilt images, and adjust
+        alignment parameters iteratively until the reconstructed volume becomes
+        biologically meaningful.
+
+        This flexibility is one of the primary advantages of the eTomo workflow.
+        Instead of relying exclusively on automated optimization, researchers
+        can apply domain knowledge about specimen geometry, expected structural
+        features, and experimental artifacts.
+
+        Excluded Views and Dataset Quality
+
+        During tomography acquisition, some tilt images may become unusable due
+        to contamination, charging, severe drift, ice thickness variation, or
+        beam damage. Retaining these problematic views may significantly degrade
+        alignment accuracy and reconstruction quality.
+
+        The protocol supports workflows in which selected views are excluded
+        during reconstruction while preserving the integrity of the remaining
+        tilt series. From a biological perspective, removing a limited number of
+        low-quality images often improves the final tomogram more than retaining
+        all acquired data.
+
+        However, excessive exclusion may reduce angular coverage and worsen the
+        missing wedge problem. Users should therefore balance data quality
+        against angular completeness when deciding which views to discard.
+
+        Fiducial Models and Landmark Coordinates
+
+        The protocol can generate fiducial landmark models and three-dimensional
+        coordinate information associated with aligned tilt series. These outputs
+        are biologically useful for evaluating alignment precision and for
+        downstream analyses involving particle localization or spatial
+        interpretation of intracellular structures.
+
+        Landmark residuals provide an indirect estimate of alignment quality.
+        Large residual errors may indicate unstable fiducial tracking, specimen
+        deformation, or insufficient marker coverage. In practical workflows,
+        users often inspect these residuals before accepting a reconstruction as
+        suitable for interpretation or subtomogram analysis.
+
+        Reconstruction Outputs
+
+        Multiple reconstruction products may be generated depending on the
+        stages completed within eTomo. These outputs can include prealigned tilt
+        series, fully aligned tilt series, original tilt series carrying updated
+        alignment information, raw reconstructed tomograms, and postprocessed
+        tomograms.
+
+        Prealigned stacks are typically useful for evaluating coarse alignment
+        quality and fiducial tracking consistency. Fully aligned tilt series are
+        usually employed for reconstruction and downstream subtomogram
+        processing. Tomograms generated after postprocessing may contain
+        filtering or refinement steps intended to improve visualization and
+        interpretability.
+
+        Biological users should remember that postprocessing can alter apparent
+        contrast and density continuity. Quantitative interpretation should
+        therefore consider the reconstruction history and any applied filtering
+        operations.
+
+        Interactive Workflow Philosophy
+
+        This protocol is intentionally designed around interactive execution.
+        Rather than enforcing a rigid automated pipeline, it provides an
+        environment in which reconstruction decisions remain under user control.
+        This philosophy reflects the reality that many tomographic datasets
+        require case-by-case optimization.
+
+        Experienced users often iterate several times through alignment,
+        fiducial refinement, exclusion of problematic views, and reconstruction
+        parameter tuning before obtaining satisfactory results. The protocol
+        supports this exploratory workflow while preserving integration with the
+        broader Scipion ecosystem.
+
+        Practical Recommendations
+
+        For most biological applications, users should begin by carefully
+        inspecting fiducial visibility and tilt-series quality before launching
+        reconstruction. Ensuring a consistent fiducial distribution across the
+        field of view significantly improves alignment robustness.
+
+        When reconstruction artifacts appear, common corrective actions include
+        excluding damaged tilt images, refining fiducial tracking, adjusting
+        alignment parameters, or reviewing the tilt-axis orientation. Thick or
+        crowded cellular samples may require additional manual supervision due
+        to overlapping densities and reduced fiducial contrast.
+
+        It is also advisable to compare reconstructed tomograms before and after
+        postprocessing. Although filtering often improves visual appearance,
+        excessive processing can obscure subtle biological features or introduce
+        misleading interpretations.
+
+        Final Perspective
+
+        Interactive tomographic reconstruction remains one of the most important
+        stages in cryo-electron tomography because reconstruction quality
+        directly determines the interpretability of biological structures.
+        Careful supervision of alignment, fiducial tracking, and reconstruction
+        parameters can substantially improve the quality of final tomograms,
+        especially for challenging experimental datasets.
+
+        The Etomo Interactive protocol provides users with the flexibility and
+        control necessary to adapt reconstruction strategies to the biological
+        complexity of real specimens while maintaining compatibility with
+        integrated Scipion tomography workflows.
     """
 
     _label = 'Etomo interactive'

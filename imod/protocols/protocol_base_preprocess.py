@@ -43,6 +43,140 @@ SHIFTED_TO_MINMAX = 4
 
 
 class ProtImodBasePreprocess(ProtImodBase):
+    """
+    Preprocesses tilt-series images or tomograms before downstream
+    reconstruction, alignment, or analysis workflows. The protocol
+    provides a standardized framework for reducing dataset size,
+    normalizing image intensities, adjusting storage precision, and
+    improving visual consistency across datasets.
+
+    AI Generated:
+
+    IMOD Preprocessing Base (ProtImodBasePreprocess) - User Manual
+        Overview
+
+        The preprocessing protocol prepares tilt-series data or tomograms
+        for subsequent cryo-electron tomography operations by applying
+        controlled image normalization and resampling procedures. Its
+        objective is to improve data consistency, reduce computational
+        demands, and ensure compatibility with later alignment or
+        reconstruction stages within tomography workflows.
+
+        In practical cryo-ET processing, preprocessing is often one of
+        the first biologically important stages because it influences
+        how effectively fiducials, structural features, and membrane
+        boundaries can be identified in later analyses. Appropriate
+        preprocessing can substantially improve reconstruction quality,
+        whereas unsuitable normalization or excessive reduction in image
+        detail may compromise downstream interpretation.
+
+        Binning and Dataset Reduction
+
+        One of the main functions of the protocol is image binning.
+        Binning reduces the dimensions of the input images or tomograms
+        by averaging neighboring pixels together. This operation lowers
+        memory usage and accelerates computational processing, making
+        large tomography datasets easier to handle.
+
+        From a biological perspective, binning is commonly used during
+        exploratory stages, coarse alignment, or rapid screening of
+        datasets. Lower-resolution data can often provide sufficient
+        information for identifying large-scale structures, fiducial
+        trajectories, or general sample organization. However, excessive
+        binning removes high-resolution detail and may obscure small
+        macromolecular complexes, thin membranes, or subtle conformational
+        features.
+
+        In many workflows, users initially process heavily binned data
+        to optimize alignment parameters and later repeat critical steps
+        using minimally binned or unbinned datasets for final analysis.
+
+        Density Normalization Strategies
+
+        The protocol supports several approaches for adjusting image
+        densities and intensity distributions. These normalization
+        procedures help produce more homogeneous datasets and improve
+        stability in later correlation-based processing steps.
+
+        A commonly recommended strategy is normalization to a shared
+        mean and standard deviation across all sections. This approach
+        creates consistent intensity statistics throughout the tilt
+        series and is particularly useful when acquisition conditions
+        vary between projections or when illumination changes across
+        the dataset.
+
+        Other normalization approaches focus on shifting mean intensity
+        values or remapping density ranges. These methods may be useful
+        for visualization or compatibility with external software tools,
+        but they should be selected carefully because excessive intensity
+        manipulation can distort biologically meaningful contrast.
+
+        For cryo-ET applications involving quantitative interpretation,
+        users should generally prefer conservative normalization methods
+        that preserve relative signal variations while reducing strong
+        acquisition artifacts.
+
+        Storage Precision and Output Modes
+
+        The protocol allows the selection of different output storage
+        formats and numerical precision levels. This flexibility is
+        important because tomography datasets are often extremely large,
+        and storage optimization can significantly reduce disk usage and
+        transfer times.
+
+        Lower precision formats may be sufficient for rapid visualization
+        or intermediate alignment procedures, whereas floating-point
+        representations are generally preferable for quantitative image
+        processing and high-quality reconstruction workflows.
+
+        Biological users should recognize that aggressive reduction of
+        precision can introduce rounding artifacts or reduce weak density
+        information, particularly in low-contrast cryo-ET datasets.
+
+        Antialias Filtering and Image Quality
+
+        During image reduction, antialias filtering helps preserve image
+        quality by minimizing artifacts introduced by resampling. The
+        protocol provides several filtering strategies with different
+        balances between smoothing, sharpness preservation, and artifact
+        suppression.
+
+        In biological tomography, preserving structural continuity is
+        particularly important for membranes, filament systems, and
+        macromolecular assemblies with fine edges. Strong smoothing may
+        reduce noise but can also blur biologically meaningful features.
+        Conversely, sharper filters preserve detail but may introduce
+        ringing artifacts near high-contrast boundaries.
+
+        The optimal antialiasing strategy depends on specimen type,
+        imaging conditions, and the intended downstream application.
+        Exploratory workflows often tolerate stronger smoothing, whereas
+        subtomogram averaging or segmentation pipelines may benefit from
+        more detail-preserving filters.
+
+        Validation and Recommended Usage
+
+        The protocol includes validation safeguards to discourage the use
+        of outdated or biologically suboptimal normalization approaches.
+        This helps maintain compatibility with modern cryo-ET processing
+        standards and encourages more stable preprocessing practices.
+
+        For most routine workflows, moderate binning combined with
+        normalization to a common mean and standard deviation provides
+        a robust starting point. Users should visually inspect processed
+        datasets to confirm that membrane continuity, fiducial contrast,
+        and structural integrity remain biologically meaningful after
+        preprocessing.
+
+        Final Perspective
+
+        Preprocessing is not merely a technical preparation stage but an
+        important determinant of downstream tomographic quality. Careful
+        control of binning, normalization, filtering, and storage
+        precision can substantially improve the reliability of alignment,
+        reconstruction, segmentation, and interpretation in cryo-electron
+        tomography workflows.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

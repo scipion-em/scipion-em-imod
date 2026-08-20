@@ -53,7 +53,181 @@ BINNING_FACTOR = 'binning'
 
 
 class ProtImodBase(EMProtocol, ProtTomoBase):
-    """ Base class with methods used in the rest of the imod protocols. """
+    """
+    Base protocol for IMOD tomography workflows. It provides the common
+    infrastructure required to prepare, organize, process, and export
+    tilt-series and tomographic datasets within Scipion environments.
+
+    AI Generated:
+
+    IMOD Base Protocol (ProtImodBase) - User Manual
+        Overview
+
+        The IMOD Base protocol serves as the foundational framework for
+        tomography-oriented processing workflows based on IMOD utilities.
+        Its purpose is to standardize how tilt-series, tomograms,
+        fiducial models, and CTF information are prepared and managed
+        throughout cryo-electron tomography pipelines. Rather than
+        representing a standalone biological analysis procedure, this
+        protocol establishes the operational environment that allows
+        higher-level tomography methods to function consistently and
+        reliably.
+
+        In practical cryo-ET workflows, preprocessing and data handling
+        are often as important as the reconstruction or alignment stages
+        themselves. Datasets may contain excluded views, prior alignment
+        information, varying acquisition orders, or associated odd/even
+        datasets used for resolution estimation and validation. This
+        protocol provides a unified strategy for handling all of these
+        situations while maintaining compatibility with IMOD processing
+        conventions.
+
+        General Role in Tomography Pipelines
+
+        The protocol is designed to support workflows involving tilt-series
+        alignment, tomogram reconstruction, fiducial tracking, and CTF
+        estimation. It manages the preparation of input data before
+        execution of downstream IMOD programs and ensures that outputs are
+        consistently registered into Scipion project structures.
+
+        From a biological perspective, this organizational layer is
+        essential because tomography datasets are rarely uniform. Different
+        acquisition sessions may include missing tilts, interrupted angular
+        coverage, partially aligned data, or heterogeneous preprocessing
+        histories. Proper management of these conditions is necessary to
+        avoid reconstruction artifacts, geometric inconsistencies, or loss
+        of biologically meaningful structural information.
+
+        Tilt-Series Preparation and Alignment Handling
+
+        One of the central responsibilities of the protocol is the
+        preparation of tilt-series for downstream IMOD operations.
+        Depending on the characteristics of the dataset, the protocol can
+        work with already aligned tilt-series, unaligned data, or datasets
+        containing excluded projections.
+
+        In workflows where alignment information already exists, the
+        protocol preserves and propagates the geometric transformations so
+        that downstream reconstruction or refinement steps operate in a
+        consistent spatial framework. This is particularly important when
+        combining processing stages originating from different software
+        environments or previous Scipion executions.
+
+        When excluded views are present, the protocol ensures that the
+        angular metadata and associated image transformations remain
+        synchronized. Biologically, maintaining correct angular ordering is
+        critical because tomographic reconstruction accuracy strongly
+        depends on the consistency between projection geometry and image
+        content. Mishandling excluded projections can introduce distortions
+        that compromise downstream interpretation of cellular structures or
+        macromolecular assemblies.
+
+        Support for Odd and Even Data
+
+        The protocol also supports workflows involving odd and even
+        datasets. These half datasets are commonly used in cryo-ET to
+        estimate resolution, validate reconstructions, and assess
+        overfitting. When enabled, the same processing operations applied
+        to the full dataset are propagated consistently to the odd and even
+        subsets.
+
+        From a biological interpretation standpoint, preserving identical
+        geometric treatment between half datasets is essential for reliable
+        Fourier shell correlation measurements and for obtaining meaningful
+        quality estimates in subtomogram averaging or tomographic
+        reconstruction workflows.
+
+        Streaming and Incremental Processing
+
+        The protocol includes infrastructure for streaming-oriented
+        processing. In high-throughput cryo-ET facilities, tilt-series may
+        arrive progressively during data acquisition rather than being
+        available as a complete dataset from the start. The protocol
+        supports incremental handling of these datasets while maintaining
+        stable bookkeeping of processed and pending items.
+
+        This capability becomes especially valuable during automated
+        acquisition campaigns or facility-scale processing pipelines where
+        rapid feedback is needed to evaluate sample quality, alignment
+        stability, or acquisition performance before the microscopy session
+        has finished.
+
+        Management of Multiple Output Types
+
+        The protocol standardizes the generation of several important
+        tomography outputs, including processed tilt-series, reconstructed
+        tomograms, fiducial models, failed datasets, and CTF estimation
+        series. Each output type is organized into dedicated collections so
+        that downstream protocols can consume them transparently.
+
+        Failed datasets are also tracked explicitly. In large cryo-ET
+        experiments, some tilt-series may fail due to acquisition issues,
+        excessive drift, poor contrast, or inconsistent metadata. Keeping
+        these datasets separated from successful outputs allows users to
+        continue processing valid data while preserving traceability and
+        reproducibility.
+
+        Integration with IMOD Programs
+
+        The protocol provides a unified interface for executing IMOD
+        utilities, particularly workflows based on newstack and related
+        geometric operations. These operations include interpolation,
+        restacking, binning, tapering, normalization, and handling of
+        excluded projections.
+
+        Binning support is especially relevant in tomography because large
+        datasets can become computationally demanding. Reduced-resolution
+        datasets are often used during exploratory alignment stages or
+        rapid quality-control analyses before final high-resolution
+        reconstruction. Care must be taken, however, because aggressive
+        binning may remove biologically important fine structural details.
+
+        Spatial Consistency and Coordinate Preservation
+
+        Throughout all processing stages, the protocol emphasizes
+        preservation of geometric consistency between projections,
+        transformations, angular metadata, and reconstructed outputs. This
+        is biologically important because cryo-ET interpretation depends
+        directly on accurate spatial relationships between projections and
+        reconstructed density.
+
+        Errors in coordinate propagation can lead to blurred tomograms,
+        distorted fiducial trajectories, inaccurate particle localization,
+        or unreliable averaging results. By maintaining coherent metadata
+        management across processing stages, the protocol reduces the risk
+        of introducing subtle geometric inconsistencies.
+
+        Practical Recommendations
+
+        In routine cryo-ET workflows, users should ensure that input
+        tilt-series contain consistent metadata before processing. Angular
+        ordering, excluded view annotations, and alignment information
+        should be verified carefully, particularly when importing data from
+        external software packages.
+
+        Odd/even processing should generally be enabled when downstream
+        resolution validation or subtomogram averaging is anticipated.
+        Similarly, binning should initially be kept moderate in order to
+        preserve structural interpretability during exploratory analyses.
+
+        For datasets containing excluded projections or incomplete tilt
+        ranges, users should inspect reconstruction quality carefully
+        because missing angular information may introduce anisotropic
+        resolution or elongation artifacts.
+
+        Final Perspective
+
+        The IMOD Base protocol provides the structural backbone required
+        for reliable tomography processing within Scipion. Although much of
+        its functionality is organizational and infrastructural, these
+        operations directly influence the biological quality and
+        reproducibility of downstream cryo-ET analyses.
+
+        Proper management of tilt geometry, alignment consistency,
+        odd/even datasets, and reconstruction metadata is essential for
+        generating tomograms that can support trustworthy structural and
+        cellular interpretation.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

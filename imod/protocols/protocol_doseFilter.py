@@ -43,19 +43,171 @@ logger = logging.getLogger(__name__)
 
 class ProtImodDoseFilter(ProtImodBase, ProtStreamingBase):
     """
-    Tilt-series dose filtering based on the IMOD procedure.
+    Applies dose-dependent filtering to cryo-electron tomography tilt-series
+    using the IMOD dose-weighting strategy. The protocol compensates for
+    radiation damage accumulated during acquisition in order to preserve
+    high-resolution information and improve the interpretability of tomographic
+    reconstructions.
     More info:
-        https://bio3d.colorado.edu/imod/doc/man/mtffilter.html
+        https: // bio3d.colorado.edu / imod / doc / man / mtffilter.html
 
-    A specialized filter can be applied to perform dose weight-filtering of
-    cryoEM images, particularly ones from tilt series.  The filter is as
-    described in Grant and Grigorieff, 2015 (DOI: 10.7554/eLife.06980) and
-    the implementation follows that in their "unblur" program.  At any
-    frequency, the filter follows an exponential decay with dose, where the
-    exponential is of the dose divided by 2 times a "critical dose" for
-    that frequency.  This critical dose was empirically found to be
-    approximated by a * k^b + c, where k is frequency; the values of a, b, c in
-    that paper are used by default.
+    AI Generated:
+
+    Dose Filter (ProtImodDoseFilter) — User Manual
+        Overview
+
+        The Dose Filter protocol performs radiation damage compensation on
+        cryo-electron tomography tilt-series using the IMOD implementation of
+        dose weighting. In cryo-EM experiments, biological samples are
+        progressively damaged as electrons accumulate during imaging. High
+        spatial frequencies are particularly sensitive to this effect, meaning
+        that later images in a tilt-series often contain less reliable
+        structural information than earlier ones.
+
+        The purpose of this protocol is to reduce the negative impact of
+        accumulated dose by attenuating damaged frequency components according
+        to experimentally validated dose-response models. The resulting
+        tilt-series are therefore more suitable for downstream tomographic
+        reconstruction, subtomogram averaging, particle detection, and
+        structural interpretation.
+
+        In practical biological workflows, dose filtering is considered a
+        standard preprocessing step for modern cryo-electron tomography data,
+        especially when working with high-resolution subtomogram averaging or
+        structurally heterogeneous samples. Proper dose compensation improves
+        contrast preservation and helps maintain meaningful high-frequency
+        signal throughout the reconstruction pipeline.
+
+        Biological Context and Importance
+
+        Radiation damage is one of the central limitations in cryo-electron
+        microscopy. As the specimen receives increasing electron exposure,
+        delicate structural details become progressively degraded. This effect
+        is cumulative across a tilt-series because each projection contributes
+        additional dose to the same biological specimen.
+
+        Dose filtering addresses this problem by weighting the contribution of
+        each image according to the amount of damage already accumulated at the
+        time of acquisition. Earlier tilts generally preserve more structural
+        detail, while later tilts contribute proportionally less at high
+        resolution.
+
+        For biological users, this correction is especially important when
+        analyzing macromolecular complexes, membrane proteins, viral particles,
+        or cellular environments where subtle structural features are required
+        for interpretation. Without dose weighting, reconstructions may appear
+        blurred, noisy, or depleted in high-resolution detail.
+
+        Inputs and Dose Information
+
+        The protocol requires an input set of tilt-series together with their
+        acquisition metadata. The most important information is the electron
+        dose associated with each tilt image. Accurate dose information allows
+        the protocol to estimate the extent of radiation damage accumulated
+        throughout the acquisition process.
+
+        Two main workflows are supported. In the first, dose values are
+        imported directly from acquisition metadata already stored in the
+        project. This is the preferred approach because it reflects the real
+        experimental conditions used during data collection. In the second,
+        users may provide a fixed dose value that is assumed to be identical
+        for all tilt images. This option is useful when metadata are incomplete
+        or unavailable.
+
+        An optional initial dose parameter can also be included to account for
+        exposure received before the recorded tilt-series began. This becomes
+        relevant in workflows where preview exposures, focusing procedures, or
+        other acquisition steps contributed additional irradiation to the
+        specimen.
+
+        Dose Weighting Strategy
+
+        The protocol follows a biologically motivated filtering model in which
+        the contribution of high-frequency information decreases progressively
+        with accumulated exposure. Frequencies that are more sensitive to
+        radiation damage are attenuated more strongly as dose increases.
+
+        From a practical perspective, this means that later projections still
+        contribute useful low-frequency structural information, while their
+        less reliable high-frequency signal is suppressed. The resulting
+        balance improves reconstruction quality without discarding valuable
+        low-resolution information.
+
+        This strategy is particularly important in tomography because large
+        tilt-series may involve substantial cumulative exposure. Biological
+        samples with flexible domains, membrane regions, or weakly scattering
+        densities often benefit significantly from proper dose compensation.
+
+        Streaming and High-Throughput Processing
+
+        The protocol supports streaming operation, making it suitable for
+        facility-scale cryo-ET pipelines and automated acquisition workflows.
+        Newly imported tilt-series can be processed continuously as they become
+        available, allowing rapid integration into preprocessing pipelines.
+
+        This capability is particularly valuable in modern high-throughput
+        cryo-electron tomography facilities, where large numbers of tilt-series
+        are collected during extended microscope sessions. Streaming operation
+        enables dose correction to occur in parallel with ongoing acquisition,
+        reducing turnaround time for reconstruction and analysis.
+
+        Odd and Even Tilt-Series Processing
+
+        The protocol can also process odd and even image subsets separately
+        when these data are available. This functionality is especially useful
+        for workflows involving resolution estimation, independent half-set
+        validation, or subtomogram averaging strategies that rely on split-data
+        processing.
+
+        Maintaining separate odd and even dose-weighted outputs allows users to
+        preserve statistical independence during downstream refinement and
+        validation procedures. This is important for preventing overfitting and
+        ensuring reliable structural interpretation.
+
+        Outputs and Their Interpretation
+
+        The protocol produces dose-weighted tilt-series that retain the
+        original acquisition geometry while incorporating radiation damage
+        compensation. These filtered tilt-series are intended to replace the
+        original unfiltered data in subsequent reconstruction workflows.
+
+        The resulting datasets generally exhibit improved preservation of
+        biologically meaningful signal, especially at intermediate and high
+        spatial frequencies. Reconstructions derived from dose-weighted data
+        often display clearer macromolecular boundaries, improved contrast, and
+        more reliable structural features.
+
+        Because the dose compensation has already been applied, the output
+        metadata are updated accordingly so downstream processing stages treat
+        the data as fully corrected inputs.
+
+        Practical Recommendations
+
+        In most biological workflows, using experimentally imported dose
+        metadata is strongly recommended because it provides the most accurate
+        representation of the acquisition conditions. Fixed-dose approaches are
+        acceptable when metadata are unavailable, but they may not capture
+        variations introduced during acquisition.
+
+        Users should ensure that microscope voltage and pixel size metadata are
+        correct before processing, since these parameters influence the
+        filtering behavior and the interpretation of radiation damage.
+
+        Dose filtering is typically performed early in the preprocessing
+        workflow, before tomographic reconstruction. Applying it consistently
+        across all datasets helps improve comparability between reconstructions
+        and enhances the robustness of downstream subtomogram analysis.
+
+        Final Perspective
+
+        For cryo-electron tomography users, dose weighting is more than a
+        technical preprocessing correction. It directly influences the quality
+        and interpretability of reconstructed biological structures by
+        compensating for one of the most fundamental limitations of electron
+        microscopy: radiation damage. Accurate dose modeling, reliable
+        acquisition metadata, and consistent preprocessing practices are key
+        factors for obtaining high-quality tomographic reconstructions suitable
+        for meaningful biological interpretation.
     """
 
     _label = 'Dose filter'
