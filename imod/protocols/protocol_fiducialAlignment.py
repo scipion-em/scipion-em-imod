@@ -24,17 +24,16 @@
 # *
 # *****************************************************************************
 import logging
-import os
 import sqlite3
 import traceback
-from collections import Counter
 from os.path import exists
-from typing import Union
+from typing import Union, List, Dict, Any
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
+from pwem import getExecStatusDir, appendStreamItem
 from pyworkflow.object import Pointer
-from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
@@ -42,9 +41,9 @@ from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                            OUTPUT_TS_INTERPOLATED_NAME,
                             OUTPUT_TS_COORDINATES_NAME, ALIGNLOG_PROGRAM, TILT_ALIGN_PROGRAM, MODEL2POINT_PROGRAM,
                             POINT2MODEL_PROGRAM)
+from tomo.utils import getTsIdsIntersection, getTsIdsDicts, writeLandmarkSidecar
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ DISTORTION_SOLUTION_CHOICES = ['Disabled',
                                'Skew only']
 
 
-class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
     """
     Construction of a fiducial model and alignment of tilt-series based
     on the IMOD procedure.
@@ -164,6 +163,8 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.lMkDict = None
+        self.tsDict = None
 
     @classmethod
     def worksInStreaming(cls):
@@ -281,63 +282,86 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def stepsGeneratorStep(self) -> None:
-        closeSetStepDeps = []
+    def _insertAllSteps(self) -> None:
         inSetOfLandmarks = self.getInputSetOfLandmarks()
-        inTsSet = self._getInTsSet()
-        outTsSet = getattr(self, OUTPUT_TILTSERIES_NAME, None)
-        self.readingOutput(outTsSet)
+        if inSetOfLandmarks.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
 
-        while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
+    def _insertNonStreamingSteps(self):
+        closeSetStepDeps = []
+        self._initialize()
+        for tsId in self.tsDict.keys():
+            ts = self.tsDict[tsId]
+            lMk = self.lMkDict[tsId]
+            self._insertCommonSteps(ts, lMk, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
-            if not inSetOfLandmarks.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME],
-                                         prerequisites=closeSetStepDeps,
+    def _insertCommonSteps(self, ts, lMk, closeSetStepDeps: List[int]) -> None:
+        tsId = ts.getTsId()
+        cInId = self._insertFunctionStep(self.convertInStep,
+                                         lMk,
+                                         ts,
+                                         prerequisites=[],
                                          needsGPU=False)
-                break
+        fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
+                                            lMk,
+                                            ts,
+                                            prerequisites=cInId,
+                                            needsGPU=False)
+        p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
+                                         tsId,
+                                         prerequisites=fidAliId,
+                                         needsGPU=False)
+        cOutId = self._insertFunctionStep(self.createOutputStep,
+                                          lMk,
+                                          ts,
+                                          prerequisites=p2mId,
+                                          needsGPU=False)
+        closeSetStepDeps.append(cOutId)
 
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            landmarkModelToProcessDict = {tsId: lMk.clone() for lMk in inSetOfLandmarks.iterItems()
-                                          if (tsId := lMk.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                                          and lMk.getSize() > 0}  # Avoid processing empty landmark models
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, lMk in landmarkModelToProcessDict.items():
-                ts = tsToProcessDict.get(tsId, None)
-                if not ts:
-                    logger.info(yellowStr(f'tsId = {tsId} - no corresponding TS to the landmark model was found...'))
-                    continue
-                cInId = self._insertFunctionStep(self.convertInStep,
-                                                 lMk,
-                                                 ts,
-                                                 prerequisites=[],
-                                                 needsGPU=False)
-                fidAliId = self._insertFunctionStep(self.computeFiducialAlignmentStep,
-                                                    lMk,
-                                                    ts,
-                                                    prerequisites=cInId,
-                                                    needsGPU=False)
-                p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                                 tsId,
-                                                 prerequisites=fidAliId,
-                                                 needsGPU=False)
-                cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                  lMk,
-                                                  ts,
-                                                  prerequisites=p2mId,
-                                                  needsGPU=False)
-                closeSetStepDeps.append(cOutId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
+    # ----- Hooks for the centralized streaming generator
+    # This is a MULTI-INPUT protocol (tilt-series + landmark models): the base
+    # processes the tsIds present in BOTH producers' journals (their intersection);
+    # the hooks below supply the two input sets, the sidecar-based join, and the
+    # two output names to close.
+    def _streamingInitialize(self) -> None:
+        pass
 
-            self.refreshStreaming(inSetOfLandmarks)
+    def _getStreamingInputSets(self):
+        return [self.getInputSetOfLandmarks()]
+
+    def _getStreamingOutputNames(self):
+        return [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME]
+
+    def _discoverReadyWork(self, tsIds, inputSets):
+        # Rebuild the ready TS and landmark models from their OWN producers'
+        # sidecars (no live-DB read) and join by tsId. A tsId whose landmark model
+        # is not materialisable yet is skipped and retried next cycle.
+        tsDict = self._getInTsSet().fetchNewItems(tsIds)
+        lmkDict = self.getInputSetOfLandmarks().fetchNewItems(tsIds)
+        work = {}
+        for tsId, ts in tsDict.items():
+            lMk = lmkDict.get(tsId)
+            if lMk is None:
+                logger.info(yellowStr(f'tsId = {tsId} - no corresponding landmark model found yet, retrying...'))
+                continue
+            work[tsId] = (ts, lMk)
+        return work
 
     # --------------------------- STEPS functions -----------------------------
+    def _initialize(self):
+        inSetOfLandmarks = self.getInputSetOfLandmarks()
+        inTsSet = self._getInTsSet()
+        commonTsIds = getTsIdsIntersection(inSetOfLandmarks, inTsSet)
+        self.lMkDict, self.tsDict = getTsIdsDicts(inSetOfLandmarks, inTsSet, present_ts_ids=commonTsIds)
+
     def convertInStep(self, lMk: LandmarkModel, ts: TiltSeries):
         tsId = lMk.getTsId()
         self.convertInputStep(ts, ts.getTsPresentAcqOrders())
@@ -371,39 +395,9 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
             return
         try:
             logger.info(cyanStr(f'tsId = {tsId}: aligning...'))
-            currentModelFn = lMk.getModelName()
-            tsFn = self.getTmpOutFile(tsId)
-            paramsTiltAlign = {"-ModelFile": currentModelFn, "-ImageFile": tsFn, "-ImagesAreBinned": 1,
-                               "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
-                               "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
-                               "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
-                               "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
-                               "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
-                               "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
-                               "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
-                               "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
-                               "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
-                               "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT), "-AngleOffset": 0.0,
-                               "-RotOption": self.getRotationType(),
-                               "-RotDefaultGrouping": self.groupRotationSize.get(),
-                               "-TiltOption": self.getTiltAngleType(),
-                               "-TiltDefaultGrouping": self.groupTiltAngleSize.get(), "-MagReferenceView": 1,
-                               "-MagOption": self.getMagnificationType(),
-                               "-MagDefaultGrouping": self.groupMagnificationSize.get(),
-                               "-XStretchOption": self.getStretchType(), "-SkewOption": self.getSkewType(),
-                               "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
-                               "-SkewDefaultGrouping": self.skewGroupSize.get(), "-BeamTiltOption": 0,
-                               "-XTiltOption": 0, "-XTiltDefaultGrouping": 2000, "-ResidualReportCriterion": 3.0,
-                               "-SurfacesToAnalyze": self.getSurfaceToAnalyze(), "-MetroFactor": 0.25,
-                               "-MaximumCycles": 1000, "-KFactorScaling": 1.0, "-NoSeparateTiltGroups": 1,
-                               "-AxisZShift": 0.0, "-ShiftZFromOriginal": 1, "-TargetPatchSizeXandY": '700,700',
-                               "-MinSizeOrOverlapXandY": '0.5,0.5', "-MinFidsTotalAndEachSurface": '8,3',
-                               "-FixXYZCoordinates": 0, "-RobustFitting": "",
-                               "2>&1 | tee ": self._getExtraPath(tsId, "align.log")}
-
+            paramsTiltAlign = self._getParamsTiltAlign(lMk, ts)
             self.runProgram(TILT_ALIGN_PROGRAM, paramsTiltAlign)
-            self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"},
-                            cwd=self._getExtraPath(tsId))
+            self.runProgram(ALIGNLOG_PROGRAM, {'-s': "> taSolution.log"}, cwd=self._getExtraPath(tsId))
 
         except Exception as e:
             self.failedItems.append(tsId)
@@ -433,16 +427,12 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
         tsId = lMk.getTsId()
         if tsId in self.failedItems:
             return
-        try:
-            with self._lock:
-                # Fiducial model
-                self.createOutModel(lMk)
-                # Tilt-series
-                self.createOutTs(ts, self._getInTsSet(pointer=True))
 
-        except sqlite3.OperationalError:
-            # Let the decorator retry
-            raise
+        try:
+            # Fiducial models
+            self.createOutModel(lMk)
+            # Tilt-series
+            self.createOutTs(ts, self._getInTsSet(pointer=True))
 
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
@@ -542,70 +532,77 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
     def getTltFilePath(self, tsId) -> str:
         return self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT)
 
-    @retry_on_sqlite_lock(log=logger)
-    def createOutModel(self, lMk: LandmarkModel) -> None:
+    def createOutModel(self, lMk: LandmarkModel):
         tsId = lMk.getTsId()
         outputFn = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
         fiducialNoGapFilePath = self.getExtraOutFile(tsId, suffix="noGaps_fid", ext=TXT_EXT)
-        if exists(outputFn) and exists(fiducialNoGapFilePath):
-            with self._lock:
-                output = self.getOutputFiducialModel(self._getInTsSet(pointer=True),
-                                                     attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
-                                                     suffix="NoGaps")
-                fiducialModelNoGapPath = self.getExtraOutFile(tsId,
-                                                              suffix="noGaps",
-                                                              ext=FID_EXT)
-                landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId,
-                                                                   suffix="noGaps",
-                                                                   ext=SFID_EXT)
-                landmarkModelNoGapsResidPath = self.getExtraOutFile(tsId,
-                                                                    suffix="resid",
-                                                                    ext=TXT_EXT)
+        if not (exists(outputFn) and exists(fiducialNoGapFilePath)):
+            logger.error(redStr(f'tsId = {tsId} -> Output files {outputFn} and '
+                                f'{fiducialNoGapFilePath} were not generated. Skipping... '))
+            return
 
-                landmarkModelNoGaps = LandmarkModel(tsId=tsId,
-                                                    fileName=landmarkModelNoGapsFilePath,
-                                                    modelName=fiducialModelNoGapPath,
-                                                    size=lMk.getSize(),
-                                                    hasResidualInfo=True)
+        fiducialModelNoGapPath = self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT)
+        landmarkModelNoGapsFilePath = self.getExtraOutFile(tsId, suffix="noGaps", ext=SFID_EXT)
+        landmarkModelNoGapsResidPath = self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT)
+        fiducialNoGapList = fiducialModel2List(fiducialNoGapFilePath)
+        fiducialNoGapsResidList = fidResidualModel2List(landmarkModelNoGapsResidPath)
+        landmarkModelNoGaps = LandmarkModel(tsId=tsId,
+                                            fileName=landmarkModelNoGapsFilePath,
+                                            modelName=fiducialModelNoGapPath,
+                                            size=lMk.getSize(),
+                                            hasResidualInfo=True)
 
-                fiducialNoGapList = fiducialModel2List(fiducialNoGapFilePath)
-                fiducialNoGapsResidList = fidResidualModel2List(landmarkModelNoGapsResidPath)
-                prevTiltIm = 0
-                chainId = 0
-                indexFake = 0
-                firstExec = True
+        prevTiltIm = 0
+        chainId = 0
+        indexFake = 0
+        firstExec = True
 
-                for fiducial in fiducialNoGapList:
-                    if (int(float(fiducial[2])) <= prevTiltIm) or firstExec:
-                        chainId += 1
-                        firstExec = False
-                    prevTiltIm = int(float(fiducial[2]))
+        for fiducial in fiducialNoGapList:
+            if (int(float(fiducial[2])) <= prevTiltIm) or firstExec:
+                chainId += 1
+                firstExec = False
+            prevTiltIm = int(float(fiducial[2]))
 
-                    if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == \
-                            fiducialNoGapsResidList[indexFake][2]:
-                        landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-                                                        yCoor=fiducial[1],
-                                                        tiltIm=fiducial[2] + 1,
-                                                        chainId=chainId,
-                                                        xResid=fiducialNoGapsResidList[indexFake][3],
-                                                        yResid=fiducialNoGapsResidList[indexFake][4])
-                        indexFake += 1
+            if indexFake < len(fiducialNoGapsResidList) and fiducial[2] == \
+                    fiducialNoGapsResidList[indexFake][2]:
+                landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+                                                yCoor=fiducial[1],
+                                                tiltIm=fiducial[2] + 1,
+                                                chainId=chainId,
+                                                xResid=fiducialNoGapsResidList[indexFake][3],
+                                                yResid=fiducialNoGapsResidList[indexFake][4])
+                indexFake += 1
 
-                    else:
-                        landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
-                                                        yCoor=fiducial[1],
-                                                        tiltIm=fiducial[2] + 1,
-                                                        chainId=chainId,
-                                                        xResid=float('nan'),
-                                                        yResid=float('nan'))
+            else:
+                landmarkModelNoGaps.addLandmark(xCoor=fiducial[0],
+                                                yCoor=fiducial[1],
+                                                tiltIm=fiducial[2] + 1,
+                                                chainId=chainId,
+                                                xResid=float('nan'),
+                                                yResid=float('nan'))
 
-                output.append(landmarkModelNoGaps)
-                output.update(landmarkModelNoGaps)
+        self._registerOutput(landmarkModelNoGaps)
+
+        # Streaming only: publish the per-landmark-model metadata sidecar
+        if landmarkModelNoGaps is not None and exists(getExecStatusDir(self)):
+            writeLandmarkSidecar(getExecStatusDir(self), landmarkModelNoGaps)
+            appendStreamItem(self, tsId)
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutput(self, landmarkModelGaps: LandmarkModel) -> None:
+        with self._lock:
+            output = self.getOutputFiducialModel(self._getInTsSet(pointer=True),
+                                                 attrName=OUTPUT_FIDUCIAL_NO_GAPS_NAME,
+                                                 suffix="NoGaps")
+            try:
+                output.append(landmarkModelGaps)
+                output.update(landmarkModelGaps)
                 output.write(output)
                 self._store(output)
-                self.closeOutputsForStreaming()
-        else:
-            logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
+            except sqlite3.OperationalError as e:
+                tsId = landmarkModelGaps.getTsId()
+                self._releaseOutputWriteLock(output, tsId)
+                raise e
 
     @staticmethod
     def _convertTxt2Fid(input_txt_file, output_fid_file):
@@ -639,3 +636,50 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign, ProtStreamingBase):
                     # IMOD coordinates ar integers * 100
                     # and the views are  0-indexed.
                     f_out.write(f"{1}\t{chain_id}\t{x}\t{y}\t{float(view - 1)}\n")
+
+    def _getParamsTiltAlign(self, lMk: LandmarkModel, ts: TiltSeries) -> Dict[str, Any]:
+        currentModelFn = lMk.getModelName()
+        tsId = ts.getTsId()
+        tsFn = self.getTmpOutFile(tsId)
+        return {"-ModelFile": currentModelFn,
+                "-ImageFile": tsFn,
+                "-ImagesAreBinned": 1,
+                "-UnbinnedPixelSize": ts.getSamplingRate() / 10,
+                "-OutputModelFile": self.getExtraOutFile(tsId, suffix="fidxyz", ext=MOD_EXT),
+                "-OutputResidualFile": self.getExtraOutFile(tsId, suffix="resid", ext=TXT_EXT),
+                "-OutputFidXYZFile": self.getExtraOutFile(tsId, suffix="fid", ext=XYZ_EXT),
+                "-OutputTiltFile": self.getExtraOutFile(tsId, suffix="interpolated", ext=TLT_EXT),
+                "-OutputXAxisTiltFile": self.getExtraOutFile(tsId, ext="xtilt"),
+                "-OutputTransformFile": self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT),
+                "-OutputFilledInModel": self.getExtraOutFile(tsId, suffix="noGaps", ext=FID_EXT),
+                "-RotationAngle": ts.getAcquisition().getTiltAxisAngle(),
+                "-TiltFile": self.getExtraOutFile(tsId, ext=TLT_EXT),
+                "-AngleOffset": 0.0,
+                "-RotOption": self.getRotationType(),
+                "-RotDefaultGrouping": self.groupRotationSize.get(),
+                "-TiltOption": self.getTiltAngleType(),
+                "-TiltDefaultGrouping": self.groupTiltAngleSize.get(),
+                "-MagReferenceView": 1,
+                "-MagOption": self.getMagnificationType(),
+                "-MagDefaultGrouping": self.groupMagnificationSize.get(),
+                "-XStretchOption": self.getStretchType(),
+                "-SkewOption": self.getSkewType(),
+                "-XStretchDefaultGrouping": self.xStretchGroupSize.get(),
+                "-SkewDefaultGrouping": self.skewGroupSize.get(),
+                "-BeamTiltOption": 0,
+                "-XTiltOption": 0,
+                "-XTiltDefaultGrouping": 2000,
+                "-ResidualReportCriterion": 3.0,
+                "-SurfacesToAnalyze": self.getSurfaceToAnalyze(),
+                "-MetroFactor": 0.25,
+                "-MaximumCycles": 1000,
+                "-KFactorScaling": 1.0,
+                "-NoSeparateTiltGroups": 1,
+                "-AxisZShift": 0.0,
+                "-ShiftZFromOriginal": 1,
+                "-TargetPatchSizeXandY": '700,700',
+                "-MinSizeOrOverlapXandY": '0.5,0.5',
+                "-MinFidsTotalAndEachSurface": '8,3',
+                "-FixXYZCoordinates": 0,
+                "-RobustFitting": "",
+                "2>&1 | tee ": self._getExtraPath(tsId, "align.log")}

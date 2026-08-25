@@ -25,6 +25,7 @@
 # *
 # **************************************************************************
 import logging
+import sqlite3
 from os import stat
 from os.path import exists
 from typing import Tuple, List
@@ -33,18 +34,20 @@ from imod.constants import XF_EXT
 from imod.convert.convert import readXfFile
 from imod.protocols import ProtImodBase
 from imod.utils import formatAngleList
+from pwem import getExecStatusDir, appendStreamItem
 from pwem.objects import Transform
 from pyworkflow.object import Pointer
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, TiltImage
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import writeTsSidecar
 
 logger = logging.getLogger(__name__)
-
 
 IDENTITY_MATRIX = np.eye(3)  # Store in memory instead of multiple creation
 
 
-class ProtImodBaseTsAlign(ProtImodBase):
+class ProtImodBaseTsAlign(ProtImodBase, ProtocolBaseStreamingTomo):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -56,47 +59,76 @@ class ProtImodBaseTsAlign(ProtImodBase):
         # To be defined by the child classes
         pass
 
-    @retry_on_sqlite_lock(log=logger)
     def createOutTs(self,
-                    ts: TiltSeries,
+                    inTs: TiltSeries,
                     inTsSetPointer: Pointer) -> None:
-        tsId = ts.getTsId()
+        tsId = inTs.getTsId()
         xfFile = self.getExtraOutFile(tsId, suffix="fid", ext=XF_EXT)
-        if exists(xfFile) and stat(xfFile).st_size != 0:
-            tltFile = self.getTltFilePath(tsId)
-            aliMatrix = readXfFile(xfFile)
-            tiltAngles = formatAngleList(tltFile)
+        if not exists(xfFile) and stat(xfFile).st_size != 0:
+            logger.error(f'tsId = {tsId} -> Output file {xfFile} was not generated or is empty. Skipping... ')
+            return
+
+        outTs = TiltSeries()
+        outTs.copyInfo(inTs)
+        outTs.setAlignment2D()
+
+        tltFile = self.getTltFilePath(tsId)
+        aliMatrix = readXfFile(xfFile)
+        tiltAngles = formatAngleList(tltFile)
+        inTiltList = inTs.loadTiltImgsInMemory()
+        inTiltList.sort(key=lambda item: item.getIndex())
+        stackIndex = 0
+        tiltImages = []
+        for inTi in inTiltList:
+            outTi = TiltImage()
+            outTi.copyInfo(inTi)
+            if inTi.isEnabled():
+                tiltAngle, newTransformArray = self._getTrDataEnabled(stackIndex,
+                                                                      aliMatrix,
+                                                                      tiltAngles)
+                stackIndex += 1
+            else:
+                tiltAngle, newTransformArray = self._getTrDataDisabled(inTi)
+
+            self._updateTiltImage(inTi, outTi, newTransformArray, tiltAngle)
+            tiltImages.append(outTi)
+
+        self._registerOutputTs(outTs, inTsSetPointer, tiltImages)
+
+        # Streaming only: publish the per-TS metadata sidecar (built from the
+        # in-memory ts/tiltImages, no DB read) and the journal id
+        execStatusDir = getExecStatusDir(self)
+        if exists(execStatusDir):
+            writeTsSidecar(execStatusDir, outTs, tiltImages)
+            appendStreamItem(self, tsId)
+
+    @retry_on_sqlite_lock(log=logger)
+    def _registerOutputTs(self,
+                          newTs: TiltSeries,
+                          inTsSetPointer: Pointer,
+                          tiltImages: List[TiltImage]):
+        with self._lock:
             # Set of tilt-series
-            with self._lock:
-                outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+            outTsSet = self.getOutputSetOfTS(inTsSetPointer)
+            try:
                 # Tilt-series
-                outTs = TiltSeries()
-                outTs.copyInfo(ts)
-                outTs.setAlignment2D()
-                outTsSet.append(outTs)
+                outTsSet.append(newTs)
                 # Tilt-images
-                stackIndex = 0
-                for ti in ts.iterItems(orderBy=TiltImage.INDEX_FIELD):
-                    outTi = TiltImage()
-                    outTi.copyInfo(ti)
-                    if ti.isEnabled():
-                        tiltAngle, newTransformArray = self._getTrDataEnabled(stackIndex,
-                                                                              aliMatrix,
-                                                                              tiltAngles)
-                        stackIndex += 1
-                    else:
-                        tiltAngle, newTransformArray = self._getTrDataDisabled(ti)
-                    self._updateTiltImage(ti, outTi, newTransformArray, tiltAngle)
-                    outTs.append(outTi)
+                for newTi in tiltImages:
+                    newTs.append(newTi)
                 # Data persistence
-                outTs.write()
-                outTsSet.update(outTs)
+                newTs.write()
+                outTsSet.update(newTs)
                 outTsSet.write()
                 self._store(outTsSet)
-                # Close explicitly the outputs (for streaming)
-                self.closeOutputsForStreaming()
-        else:
-            logger.error(f'tsId = {tsId} -> Output file {xfFile} was not generated or is empty. Skipping... ')
+            except sqlite3.OperationalError as e:
+                # Release the write lock and reset the in-memory append state so
+                # the @retry_on_sqlite_lock retry is a clean, non-hogging redo
+                # (covers the later commits -- newTs.write/outTsSet.write -- not
+                # just the append phase) and never trips the duplicate-tsId guard.
+                self._releaseOutputWriteLock(outTsSet, newTs.getTsId())
+                raise e
+
 
     @staticmethod
     def _getTrDataEnabled(stackIndex: int,
