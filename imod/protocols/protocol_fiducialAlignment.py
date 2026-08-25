@@ -27,7 +27,7 @@ import logging
 import sqlite3
 import traceback
 from os.path import exists
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Tuple
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
@@ -37,7 +37,7 @@ from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
-                          TiltSeries)
+                          TiltSeries, CTFTomoSeries)
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
@@ -297,14 +297,14 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         for tsId in self.tsDict.keys():
             ts = self.tsDict[tsId]
             lMk = self.lMkDict[tsId]
-            self._insertCommonSteps(ts, lMk, closeSetStepDeps)
+            self._insertCommonSteps(ts, lMk, closeSetStepDeps=closeSetStepDeps)
         self._insertFunctionStep(self._closeOutputSet,
                                  OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def _insertCommonSteps(self, ts, lMk, closeSetStepDeps: List[int]) -> None:
-        tsId = ts.getTsId()
+    def _insertCommonSteps(self, *payload, closeSetStepDeps: List[int]) -> None:
+        ts, lMk = payload
         cInId = self._insertFunctionStep(self.convertInStep,
                                          lMk,
                                          ts,
@@ -316,7 +316,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
                                             prerequisites=cInId,
                                             needsGPU=False)
         p2mId = self._insertFunctionStep(self.translateFiducialPointModelStep,
-                                         tsId,
+                                         ts.getTsId(),
                                          prerequisites=fidAliId,
                                          needsGPU=False)
         cOutId = self._insertFunctionStep(self.createOutputStep,
