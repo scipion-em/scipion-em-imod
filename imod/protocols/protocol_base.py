@@ -295,7 +295,14 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if outputSet:
             outputSet.enableAppend()
         else:
-            outputSet = self._createSetOfTiltSeries(suffix=suffix)
+            # Use the plain Set.create factory instead of ProtTomoBase._createSet:
+            # _createSet additionally calls SqliteDb.closeConnection(setFn) against
+            # the PROCESS-GLOBAL, path-keyed OPEN_CONNECTIONS cache (and sets a dead
+            # _ouputSuffix). Set.create is a side-effect-free factory (cleanPath +
+            # construct only), which is the pattern already used for the streamified
+            # CTF output (getOutputSetOfCTFTomoSeries). The resulting filename is the
+            # same (tiltseries.sqlite), so this is a safe refactor for TS producers.
+            outputSet = SetOfTiltSeries.create(self._getPath(), template='tiltseries')
 
             if isinstance(inputSet, SetOfTiltSeries):
                 outputSet.copyInfo(inputSet)
@@ -362,7 +369,13 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
         if fidModel is not None and not forceNew:
             fidModel.enableAppend()
         else:
-            fidModel = self._createSetOfLandmarkModels(suffix=suffix)
+            # Side-effect-free factory instead of ProtTomoBase._createSet (see the
+            # note in getOutputSetOfTS): avoids the process-global
+            # SqliteDb.closeConnection cache eviction during set creation, matching
+            # the streamified CTF output pattern. Each protocol builds a single
+            # landmark set through this helper, so the class-derived filename
+            # (landmarkmodels.sqlite) is collision-free per run.
+            fidModel = SetOfLandmarkModels.create(self._getPath(), template='landmarkmodels')
             fidModel.copyInfo(inputSet)
             fidModel.setSetOfTiltSeries(inputPtr)
             fidModel.setHasResidualInfo(True)
