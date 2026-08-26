@@ -294,17 +294,16 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
         self._initialize()
-        for tsId in self.tsDict.keys():
+        for tsId, lMk in self.lMkDict.items():
             ts = self.tsDict[tsId]
-            lMk = self.lMkDict[tsId]
-            self._insertCommonSteps(ts, lMk, closeSetStepDeps=closeSetStepDeps)
+            self._insertCommonSteps(lMk, ts, closeSetStepDeps=closeSetStepDeps)
         self._insertFunctionStep(self._closeOutputSet,
                                  OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
     def _insertCommonSteps(self, *payload, closeSetStepDeps: List[int]) -> None:
-        ts, lMk = payload
+        lMk, ts = payload
         cInId = self._insertFunctionStep(self.convertInStep,
                                          lMk,
                                          ts,
@@ -340,20 +339,20 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
     def _getStreamingOutputNames(self):
         return [OUTPUT_TILTSERIES_NAME, OUTPUT_FIDUCIAL_NO_GAPS_NAME]
 
-    def _discoverReadyWork(self, tsIds, inputSets):
-        # Rebuild the ready TS and landmark models from their OWN producers'
-        # sidecars (no live-DB read) and join by tsId. A tsId whose landmark model
-        # is not materialisable yet is skipped and retried next cycle.
-        tsDict = self._getInTsSet().fetchNewItems(tsIds)
-        lmkDict = self.getInputSetOfLandmarks().fetchNewItems(tsIds)
-        work = {}
-        for tsId, ts in tsDict.items():
-            lMk = lmkDict.get(tsId)
-            if lMk is None:
-                logger.info(yellowStr(f'tsId = {tsId} - no corresponding landmark model found yet, retrying...'))
-                continue
-            work[tsId] = (ts, lMk)
-        return work
+    # def _discoverReadyWork(self, tsIds, inputSets):
+    #     # Rebuild the ready TS and landmark models from their OWN producers'
+    #     # sidecars (no live-DB read) and join by tsId. A tsId whose landmark model
+    #     # is not materialisable yet is skipped and retried next cycle.
+    #     tsDict = self._getInTsSet().fetchNewItems(tsIds)
+    #     lmkDict = self.getInputSetOfLandmarks().fetchNewItems(tsIds)
+    #     work = {}
+    #     for tsId, lMk in lmkDict.items():
+    #         ts = tsDict.get(tsId)
+    #         if ts is None:
+    #             logger.info(yellowStr(f'tsId = {tsId} - no corresponding tilt-series found yet, retrying...'))
+    #             continue
+    #         work[tsId] = (lMk, ts)
+    #     return work
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):

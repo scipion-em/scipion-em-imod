@@ -219,18 +219,21 @@ class ProtImodFiducialModel(ProtImodBaseTsAlign, ProtImodBaseXcorrFidModel, Prot
         inTsSet = self.getInputTsSet()
         tsList = [ts.clone() for ts in inTsSet.iterItems()]
         for ts in tsList:
-            self._insertCommonSteps(ts, closeSetStepDeps)
+            # closeSetStepDeps is keyword-only in _insertCommonSteps (its signature
+            # uses *stepsInputs), so it MUST be passed by keyword here too.
+            self._insertCommonSteps(ts, closeSetStepDeps=closeSetStepDeps)
         self._insertFunctionStep(self._closeOutputSet,
                                  OUTPUT_FIDUCIAL_GAPS_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+    def _insertCommonSteps(self, *stepsInputs, closeSetStepDeps: List[int]) -> None:
+        ts = stepsInputs[0]
+        tsId = ts.getTsId()
         pId = self._insertFunctionStep(self.convertInStep,
                                        ts,
                                        prerequisites=[],
                                        needsGPU=False)
-        tsId = ts.getTsId()
         if self.typeOfModel.get() == FIDUCIAL_MODEL:
             pId = self._insertFunctionStep(self.generateFiducialSeedStep,
                                            ts,
