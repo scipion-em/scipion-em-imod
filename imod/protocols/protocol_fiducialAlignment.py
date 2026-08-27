@@ -27,17 +27,16 @@ import logging
 import sqlite3
 import traceback
 from os.path import exists
-from typing import Union, List, Dict, Any, Tuple
+from typing import Union, List, Dict, Any
 import pyworkflow.protocol.params as params
 from imod.convert.convert import fiducialModel2List, fidResidualModel2List
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
-from pwem import getExecStatusDir, appendStreamItem
+from pwem import getExecStatusDir
 from pyworkflow.object import Pointer
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
-from tomo.objects import (LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries,
-                          TiltSeries, CTFTomoSeries)
+from tomo.objects import LandmarkModel, SetOfLandmarkModels, SetOfTiltSeries, TiltSeries
 from imod.constants import (TLT_EXT, XF_EXT, FID_EXT, TXT_EXT, XYZ_EXT,
                             MOD_EXT, SFID_EXT, OUTPUT_TILTSERIES_NAME,
                             OUTPUT_FIDUCIAL_NO_GAPS_NAME,
@@ -585,7 +584,6 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         # Streaming only: publish the per-landmark-model metadata sidecar
         if landmarkModelNoGaps is not None and exists(getExecStatusDir(self)):
             writeLandmarkSidecar(getExecStatusDir(self), landmarkModelNoGaps)
-            appendStreamItem(self, tsId)
 
     @retry_on_sqlite_lock(log=logger)
     def _registerOutput(self, landmarkModelGaps: LandmarkModel) -> None:
