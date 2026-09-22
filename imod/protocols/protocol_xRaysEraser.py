@@ -229,9 +229,9 @@ class ProtImodXraysEraser(ProtImodBase, ProtocolBaseStreamingTomo):
                         newTs: TiltSeries,
                         tiltImages: List[TiltImage]):
         with self._lock:
-            # Set of tilt-series
-            outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
             try:
+                # Set of tilt-series
+                outTsSet = self.getOutputSetOfTS(self.getInputTsSet(pointer=True))
                 # Tilt-series
                 outTsSet.append(newTs)
                 # Tilt-images
