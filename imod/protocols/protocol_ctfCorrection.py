@@ -25,28 +25,28 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
-from collections import Counter
 from os.path import exists
-from typing import Set, Tuple
-from imod.protocols.protocol_base import IN_CTF_TOMO_SET
-from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
-from pwem import ALIGN_NONE
+from typing import Set, Tuple, List
+from imod.protocols.protocol_base import IN_CTF_TOMO_SET, ProtImodBase
+from pwem import ALIGN_NONE, getExecStatusDir, appendStreamItem
 import pyworkflow.protocol.params as params
 from pwem.convert.headers import setMRCSamplingRate
-from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
-from tomo.utils import getCommonTsAndCtfElements
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import getCommonTsAndCtfElements, writeTsSidecar, getTsIdsIntersection, getTsIdsDicts
 from imod import utils
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
-                            EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM, OUTPUT_CTF_SERIE)
+                            EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM)
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodCtfCorrection(ProtImodBase, ProtocolBaseStreamingTomo):
     """
     CTF correction of a set of input tilt-series using the IMOD procedure.
     More info:
@@ -86,11 +86,13 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ctfTsIdReadList = []
+        self.sRate = None
+        self.acq = None
+        self.tsDict = None
+        self.ctfDict = None
 
     @classmethod
     def worksInStreaming(cls):
-        """ So far none of them work in streaming. """
         return True
 
     # -------------------------- DEFINE param functions -----------------------
@@ -162,73 +164,84 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def stepsGeneratorStep(self) -> None:
+    def _insertAllSteps(self) -> None:
+        tsSet = self.getInputTsSet()
+        ctfSet = self.getInputCtfSet()
+        if tsSet.isStreamOpen() or ctfSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
+
+    # Streaming Hooks ############################
+    def _streamingInitialize(self) -> None:
+        super()._initialize()
+        tsSet = self.getInputTsSet()
+        self.sRate = tsSet.getSamplingRate()
+        self.acq = tsSet.getAcquisition()
+
+    def _getStreamingInputSets(self):
+        return [self.getInputTsSet(), self.getInputCtfSet()]
+
+    def _discoverReadyWork(self, tsIds, inputSets):
+        # Rebuild the ready TS and CTF series from their OWN producers' sidecars
+        # (no live-DB read) and join by tsId. A tsId whose CTF is not yet
+        # materialisable is skipped and retried next cycle.
+        tsDict = self.getInputTsSet().fetchNewItems(tsIds)
+        ctfDict = self.getInputCtfSet().fetchNewItems(tsIds)
+        work = {}
+        for tsId, ts in tsDict.items():
+            ctf = ctfDict.get(tsId)
+            if ctf is None:
+                logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF found yet, retrying...'))
+                continue
+            # Payload is (ts, ctf) to match _insertCommonSteps(self, ts, ctf,
+            # closeSetStepDeps); the common acq. orders are (re)computed there, so
+            # they are NOT part of the payload (a 3rd element would be unpacked onto
+            # the keyword-only closeSetStepDeps by the base loop).
+            work[tsId] = (ts, ctf)
+        return work
+
+    # End of streaming hooks #####################
+
+    def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
         self._initialize()
-        inTsSet = self.getInputTsSet()
-        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
-        inCtfSet = self.getInputCtfSet()
-        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None), tsIdListName='ctfTsIdList')
+        for tsId in self.tsDict.keys():
+            ts = self.tsDict[tsId]
+            ctf = self.ctfDict[tsId]
+            self._insertCommonSteps(ts, ctf, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
-        while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
-                inCtfTsIds = set(inCtfSet.getTSIds())
-                presentTsIds = inTsIds & inCtfTsIds
-
-            if ((not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(presentTsIds)) and
-                    (not inCtfSet.isStreamOpen() and Counter(self.ctfTsIdReadList) == Counter(presentTsIds))):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TILTSERIES_NAME,
-                                         prerequisites=closeSetStepDeps,
-                                         needsGPU=False)
-                break
-
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            nonProcessedCtfTsIds = inCtfTsIds - set(self.ctfTsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            ctfToProcessDict = {tsId: ctf.clone(ignoreAttrs=[]) for ctf in inCtfSet.iterItems()
-                                if (tsId := ctf.getTsId()) in nonProcessedCtfTsIds  # Only not processed tsIds
-                                and ctf.getSize() > 0}  # Avoid processing empty CTFs
-            for tsId, ts in tsToProcessDict.items():
-                ctf = ctfToProcessDict.get(tsId, None)
-                if not ctf:
-                    logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
-                    continue
-                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
-                pidConvert = self._insertFunctionStep(self.convertInStep,
-                                                      ts,
-                                                      ctf,
-                                                      presentAcqOrders,
-                                                      prerequisites=[],
-                                                      needsGPU=False)
-                pidProcess = self._insertFunctionStep(self.ctfCorrection,
-                                                      ts,
-                                                      prerequisites=pidConvert,
-                                                      needsGPU=True)
-                pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                           ts,
-                                                           ctf,
-                                                           presentAcqOrders,
-                                                           prerequisites=pidProcess,
-                                                           needsGPU=False)
-                closeSetStepDeps.append(pidCreateOutput)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
-                self.ctfTsIdReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
-            self.refreshStreaming(inCtfSet)
+    def _insertCommonSteps(self, ts: TiltSeries, ctf: CTFTomoSeries, closeSetStepDeps: List[int]) -> None:
+        presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+        pidConvert = self._insertFunctionStep(self.convertInStep,
+                                              ts, ctf, presentAcqOrders,
+                                              prerequisites=[],
+                                              needsGPU=False)
+        pidProcess = self._insertFunctionStep(self.ctfCorrection,
+                                              ts,
+                                              prerequisites=pidConvert,
+                                              needsGPU=True)
+        pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                   ts, ctf, presentAcqOrders,
+                                                   prerequisites=pidProcess,
+                                                   needsGPU=False)
+        closeSetStepDeps.append(pidCreateOutput)
 
     # --------------------------- STEPS functions -----------------------------
     def _initialize(self):
         super()._initialize()
         tsSet = self.getInputTsSet()
+        ctfSet = self.getInputCtfSet()
         self.sRate = tsSet.getSamplingRate()
         self.acq = tsSet.getAcquisition()
+        commonTsIds = getTsIdsIntersection(tsSet, ctfSet)
+        self.tsDict, self.ctfDict = getTsIdsDicts(tsSet, ctfSet, present_ts_ids=commonTsIds)
 
     def convertInStep(self,
                       ts: TiltSeries,
@@ -302,42 +315,72 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
             return
 
         try:
-            outputFn = self.getExtraOutFile(tsId)
-            if exists(outputFn):
-                setMRCSamplingRate(outputFn, ts.getSamplingRate())  # Update the apix value in file header
-                self._registerOutput(ts, ctf, presentAcqOrders, outputFn)
-
-            else:
-                logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            self.createOutTs(ts, ctf, presentAcqOrders)
 
         except Exception as e:
-            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
+            logger.error(redStr(f'tsId = {tsId} -> Unable to register the output '
+                                f'with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
+
+    # --------------------------- UTILS functions -----------------------------
+    def createOutTs(self,
+                    inTs: TiltSeries,
+                    ctf: CTFTomoSeries,
+                    presentAcqOrders: Set[int]):
+        tsId = inTs.getTsId()
+        outputFn = self.getExtraOutFile(tsId)
+        if not exists(outputFn):
+            logger.error(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... ')
+            return
+        setMRCSamplingRate(outputFn, self.sRate)  # Update the apix value in file header
+        # Tilt-series
+        outTs = self._createOutputTiltSeries(inTs, presentAcqOrders)
+        # Tilt-images
+        tiList, angleMin, angleMax = self._processTiltImages(inTs, presentAcqOrders, outputFn)
+
+        self._registerOutput(inTs, outTs, ctf, tiList, presentAcqOrders, angleMin, angleMax)
+
+        # Streaming only: publish the per-TS metadata sidecar (built from the
+        # in-memory ts/tiltImages, no DB read) and the journal id
+        execStatusDir = getExecStatusDir(self)
+        if exists(execStatusDir):
+            writeTsSidecar(execStatusDir, outTs, tiList)
+            appendStreamItem(self, tsId)
 
     @retry_on_sqlite_lock(log=logger)
     def _registerOutput(self,
-                        ts: TiltSeries,
+                        inTs: TiltSeries,
+                        newTs: TiltSeries,
                         ctf: CTFTomoSeries,
+                        tiltImages: List[TiltImage],
                         presentAcqOrders: Set[int],
-                        outputFn: str):
+                        angleMin: float,
+                        angleMax: float) -> None:
         with self._lock:
             # Set of tilt-series
             inTsSetPointer = self.getInputTsSet(pointer=True)
             outTsSet = self.getOutputSetOfTS(inTsSetPointer)
-            # Tilt-series
-            outTs = self._createOutputTiltSeries(ts, presentAcqOrders)
-            outTsSet.append(outTs)
-            # Tilt-images
-            tiList, angleMin, angleMax = self._processTiltImages(ts, presentAcqOrders, outputFn)
-            self._updateAcquisition(ts, ctf, presentAcqOrders, outTs, tiList, angleMin, angleMax)  # Data persistence
-            outTs.write()
-            outTsSet.update(outTs)
-            outTsSet.write()
-            self._store(outTsSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
+            try:
+                # Tilt-series
+                outTsSet.append(newTs)
+                # Tilt-images
+                for newTi in tiltImages:
+                    newTs.append(newTi)
+                # Data persistence
+                self._updateAcquisition(inTs, ctf, presentAcqOrders, newTs, tiltImages, angleMin, angleMax)
+                newTs.write()
+                outTsSet.update(newTs)
+                outTsSet.write()
+                self._store(outTsSet)
 
-    # --------------------------- UTILS functions -----------------------------
+            except sqlite3.OperationalError as e:
+                # Release the write lock and reset the in-memory append state so
+                # the @retry_on_sqlite_lock retry is a clean, non-hogging redo
+                # (covers the later commits -- newTs.write/outTsSet.write -- not
+                # just the append phase) and never trips the duplicate-tsId guard.
+                self._releaseOutputWriteLock(outTsSet, newTs.getTsId())
+                raise e
+
     def _generateDefocusFile(self,
                              ts: TiltSeries,
                              ctf: CTFTomoSeries,
