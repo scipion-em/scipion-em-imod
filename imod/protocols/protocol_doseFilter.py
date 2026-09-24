@@ -130,7 +130,8 @@ class ProtImodDoseFilter(ProtImodBase, ProtocolBaseStreamingTomo):
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+    def _insertCommonSteps(self, *stepsInputs, closeSetStepDeps: List[int]) -> None:
+        ts = stepsInputs[0]
         cInId = self._insertFunctionStep(self.linkTsStep,
                                          ts,
                                          prerequisites=[],

@@ -25,24 +25,23 @@
 # *
 # **************************************************************************
 import logging
-import subprocess
 import traceback
-import typing
 from collections import Counter
+from typing import List
+
 from imod import Plugin
-from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    BRT_ENV_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
-from pyworkflow.protocol import EnumParam, IntParam, GT, STEPS_PARALLEL, ProtStreamingBase
+from pyworkflow.protocol import EnumParam, IntParam, GT, STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr
 from tomo.objects import SetOfTiltSeries, TiltSeries
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
+class ProtImodBRT(ProtImodBaseTsAlign):
     """Automatic tilt-series alignment using IMOD's batchruntomo
     (https://bio3d.colorado.edu/imod/doc/man/batchruntomo.html) wrapper made by Team Tomo
     (yet-another-imod-wrapper https://teamtomo.org/teamtomo-site-archive/).
@@ -89,47 +88,41 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
-    def stepsGeneratorStep(self) -> None:
-        """
-        This step should be implemented by any streaming protocol.
-        It should check its input and when ready conditions are met
-        call the self._insertFunctionStep method.
-        """
-        closeSetStepDeps = []
+    def _insertAllSteps(self) -> None:
         inTsSet = self.getInputTsSet()
-        self.readingOutput(getattr(self, OUTPUT_TILTSERIES_NAME, None))
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
 
-        while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
+    def _insertNonStreamingSteps(self):
+        closeSetStepDeps = []
+        self._initialize()
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            # closeSetStepDeps is keyword-only in _insertCommonSteps (its signature
+            # uses *stepsInputs), so it MUST be passed by keyword here too.
+            self._insertCommonSteps(ts, closeSetStepDeps=closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TILTSERIES_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
-            if not inTsSet.isStreamOpen() and Counter(self.tsIdReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TILTSERIES_NAME,
-                                         prerequisites=closeSetStepDeps,
-                                         needsGPU=False)
-                break
-
-            nonProcessedTsIds = inTsIds - set(self.tsIdReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, ts in tsToProcessDict.items():
-                cInputId = self._insertFunctionStep(self.convertInStep, ts,
-                                                    prerequisites=[],
-                                                    needsGPU=False)
-                predFidId = self._insertFunctionStep(self.runBRT, ts,
-                                                     prerequisites=cInputId,
-                                                     needsGPU=False)
-                cOutId = self._insertFunctionStep(self.createOutputStep, ts,
-                                                  prerequisites=predFidId,
-                                                  needsGPU=False)
-                closeSetStepDeps.append(cOutId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsIdReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
+    def _insertCommonSteps(self, *stepsInputs, closeSetStepDeps: List[int]) -> None:
+        ts = stepsInputs[0]
+        cInputId = self._insertFunctionStep(self.convertInStep, ts,
+                                            prerequisites=[],
+                                            needsGPU=False)
+        predFidId = self._insertFunctionStep(self.runBRT, ts,
+                                             prerequisites=cInputId,
+                                             needsGPU=False)
+        cOutId = self._insertFunctionStep(self.createOutputStep, ts,
+                                          prerequisites=predFidId,
+                                          needsGPU=False)
+        closeSetStepDeps.append(cOutId)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, ts: TiltSeries):

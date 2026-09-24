@@ -249,7 +249,8 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtocolBaseStreamingTomo):
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+    def _insertCommonSteps(self, *stepsInputs, closeSetStepDeps: List[int]) -> None:
+        ts = stepsInputs[0]
         tsId = ts.getTsId()
         xDim = ts.getXDim()
         tomoWidth = self.tomoWidth.get()
