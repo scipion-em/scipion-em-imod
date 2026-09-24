@@ -24,24 +24,25 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import traceback
-from collections import Counter
 from os.path import exists
+from typing import List
 import pyworkflow.protocol.params as params
-from pyworkflow.protocol import ProtStreamingBase
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow.utils import Message, cyanStr, redStr
+from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import Tomogram, SetOfTomograms, TiltSeries
 from imod import Plugin
 from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
                             OUTPUT_TOMOGRAMS_NAME, TRIMVOL_PROGRAM, TILT_PROGRAM)
+from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
 
 logger = logging.getLogger(__name__)
 
 
-class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
+class ProtImodTomoReconstruction(ProtImodBase, ProtocolBaseStreamingTomo):
     """
     Tomogram reconstruction procedure based on the IMOD procedure.
 
@@ -227,59 +228,50 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         form.addParallelSection(threads=3, mpi=0)
 
     # -------------------------- INSERT steps functions -----------------------
-    def stepsGeneratorStep(self) -> None:
-        """
-        This step should be implemented by any streaming protocol.
-        It should check its input and when ready conditions are met
-        call the self._insertFunctionStep method.
-        """
-        self._initialize()
-        tomoWidth = self.tomoWidth.get()
+    def _insertAllSteps(self) -> None:
         inTsSet = self.getInputTsSet()
-        outTomoSet = getattr(self, OUTPUT_TOMOGRAMS_NAME, None)
-        self.readingOutput(outTomoSet)
-        widthWarnTsIds = []
+        if inTsSet.isStreamOpen():
+            self._insertFunctionStep(self.stepsGeneratorStep,
+                                     prerequisites=[],
+                                     needsGPU=False)
+        else:
+            self._insertNonStreamingSteps()
+
+    def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
+        self._initialize()
+        inTsSet = self.getInputTsSet()
+        tsList = [ts.clone() for ts in inTsSet.iterItems()]
+        for ts in tsList:
+            self._insertCommonSteps(ts, closeSetStepDeps)
+        self._insertFunctionStep(self._closeOutputSet,
+                                 OUTPUT_TOMOGRAMS_NAME,
+                                 prerequisites=closeSetStepDeps,
+                                 needsGPU=False)
 
-        while True:
-            with self._lock:
-                inTsIds = set(inTsSet.getTSIds())
-
-            if not inTsSet.isStreamOpen() and Counter(self.tsReadList) == Counter(inTsIds):
-                logger.info(cyanStr('Input set closed.\n'))
-                self._insertFunctionStep(self.closeOutputSetsStep,
-                                         OUTPUT_TOMOGRAMS_NAME,
-                                         prerequisites=closeSetStepDeps,
-                                         needsGPU=False)
-                break
-
-            nonProcessedTsIds = inTsIds - set(self.tsReadList)
-            tsToProcessDict = {tsId: ts.clone() for ts in inTsSet.iterItems()
-                               if (tsId := ts.getTsId()) in nonProcessedTsIds  # Only not processed tsIds
-                               and ts.getSize() > 0}  # Avoid processing empty TS
-            for tsId, ts in tsToProcessDict.items():
-                xDim = ts.getXDim()
-                if tomoWidth > xDim:
-                    tomoWidth = 0
-                    widthWarnTsIds.append(tsId)
-                cId = self._insertFunctionStep(self.convertInStep,
-                                               ts,
-                                               prerequisites=[],
-                                               needsGPU=False)
-                recId = self._insertFunctionStep(self.computeReconstructionStep,
-                                                 tsId,
-                                                 tomoWidth,
-                                                 prerequisites=cId,
-                                                 needsGPU=True)
-                cOutId = self._insertFunctionStep(self.createOutputStep,
-                                                  ts,
-                                                  prerequisites=recId,
-                                                  needsGPU=False)
-                closeSetStepDeps.append(cOutId)
-                logger.info(cyanStr(f"Steps created for tsId = {tsId}"))
-                self.tsReadList.append(tsId)
-
-            self.refreshStreaming(inTsSet)
+    def _insertCommonSteps(self, ts: TiltSeries, closeSetStepDeps: List[int]) -> None:
+        tsId = ts.getTsId()
+        xDim = ts.getXDim()
+        tomoWidth = self.tomoWidth.get()
+        if tomoWidth > xDim:
+            tomoWidth = 0
+            logger.warning(yellowStr(f'{tsId}: the requested tomogram width [{tomoWidth}] '
+                                     f'is greater than the tilt-series x-dim [{xDim}].'
+                                     f'Assuming width as zero for default IMOD behavior.'))
+        cId = self._insertFunctionStep(self.convertInStep,
+                                       ts,
+                                       prerequisites=[],
+                                       needsGPU=False)
+        recId = self._insertFunctionStep(self.computeReconstructionStep,
+                                         tsId,
+                                         tomoWidth,
+                                         prerequisites=cId,
+                                         needsGPU=True)
+        cOutId = self._insertFunctionStep(self.createOutputStep,
+                                          ts,
+                                          prerequisites=recId,
+                                          needsGPU=False)
+        closeSetStepDeps.append(cOutId)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInStep(self, ts: TiltSeries):
@@ -366,7 +358,22 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
         try:
             outputFn = self.getExtraOutFile(tsId, ext=MRC_EXT)
             if exists(outputFn):
-                self._registerOutput(ts, outputFn)
+                outTomo = Tomogram(tsId=tsId)
+                outTomo.copyInfo(ts)
+                outTomo.setFileName(outputFn)
+                self.setTomoOddEven(tsId, outTomo)
+                # Set default tomogram origin
+                outTomo.setOrigin(newOrigin=None)
+                shiftX = self.tomoShiftX.get()
+                shiftZ = self.tomoShiftZ.get()
+                if shiftX or shiftZ:
+                    sRate = outTomo.getSamplingRate()
+                    x, y, z = outTomo.getShiftsFromOrigin()
+                    shiftXang = shiftX * sRate
+                    shiftZang = shiftZ * sRate
+                    outTomo.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
+
+                self._registerOutput(outTomo)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
 
@@ -374,36 +381,21 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the output with exception {e}. Skipping... '))
             logger.error(traceback.format_exc())
 
+    # --------------------------- UTILS functions ---------------------------
     @retry_on_sqlite_lock(log=logger)
-    def _registerOutput(self, ts: TiltSeries, outputFn: str):
-        tsId = ts.getTsId()
+    def _registerOutput(self, outTomo: Tomogram) -> None:
         with self._lock:
             # Set of tomograms
             outTomoSet = self.getOutputSetOfTomograms(self.getInputTsSet(pointer=True))
-            # Tomogram
-            outTomo = Tomogram(tsId=tsId)
-            outTomo.copyInfo(ts)
-            outTomo.setFileName(outputFn)
-            self.setTomoOddEven(tsId, outTomo)
-            # Set default tomogram origin
-            outTomo.setOrigin(newOrigin=None)
-            shiftX = self.tomoShiftX.get()
-            shiftZ = self.tomoShiftZ.get()
-            if shiftX or shiftZ:
-                sRate = outTomo.getSamplingRate()
-                x, y, z = outTomo.getShiftsFromOrigin()
-                shiftXang = shiftX * sRate
-                shiftZang = shiftZ * sRate
-                outTomo.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
-            # Data persistence
-            outTomoSet.append(outTomo)
-            outTomoSet.update(outTomo)
-            outTomoSet.write()
-            self._store(outTomoSet)
-            # Close explicitly the outputs (for streaming)
-            self.closeOutputsForStreaming()
-
-    # --------------------------- UTILS functions ---------------------------
+            try:
+                # Data persistence
+                outTomoSet.append(outTomo)
+                outTomoSet.update(outTomo)
+                outTomoSet.write()
+                self._store(outTomoSet)
+            except sqlite3.OperationalError as e:
+                self._releaseOutputWriteLock(outTomoSet, outTomo.getTsId())
+                raise e
 
     # --------------------------- INFO functions ----------------------------
     def _summary(self):
