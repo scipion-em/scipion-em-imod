@@ -204,20 +204,20 @@ class ProtImodCtfCorrection(ProtImodBase, ProtocolBaseStreamingTomo):
         return work
 
     # End of streaming hooks #####################
-
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
         self._initialize()
         for tsId in self.tsDict.keys():
             ts = self.tsDict[tsId]
             ctf = self.ctfDict[tsId]
-            self._insertCommonSteps(ts, ctf, closeSetStepDeps)
-        self._insertFunctionStep(self._closeOutputSet,
+            self._insertCommonSteps(ts, ctf, closeSetStepDeps=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
                                  OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
 
-    def _insertCommonSteps(self, ts: TiltSeries, ctf: CTFTomoSeries, closeSetStepDeps: List[int]) -> None:
+    def _insertCommonSteps(self, *stepsInputs, closeSetStepDeps: List[int]) -> None:
+        ts, ctf = stepsInputs
         presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
         pidConvert = self._insertFunctionStep(self.convertInStep,
                                               ts, ctf, presentAcqOrders,
@@ -357,10 +357,10 @@ class ProtImodCtfCorrection(ProtImodBase, ProtocolBaseStreamingTomo):
                         angleMin: float,
                         angleMax: float) -> None:
         with self._lock:
-            # Set of tilt-series
-            inTsSetPointer = self.getInputTsSet(pointer=True)
-            outTsSet = self.getOutputSetOfTS(inTsSetPointer)
             try:
+                # Set of tilt-series
+                inTsSetPointer = self.getInputTsSet(pointer=True)
+                outTsSet = self.getOutputSetOfTS(inTsSetPointer)
                 # Tilt-series
                 outTsSet.append(newTs)
                 # Tilt-images

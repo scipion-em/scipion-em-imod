@@ -243,8 +243,8 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtocolBaseStreamingTomo):
         inTsSet = self.getInputTsSet()
         tsList = [ts.clone() for ts in inTsSet.iterItems()]
         for ts in tsList:
-            self._insertCommonSteps(ts, closeSetStepDeps)
-        self._insertFunctionStep(self._closeOutputSet,
+            self._insertCommonSteps(ts, closeSetStepDeps=closeSetStepDeps)
+        self._insertFunctionStep(self.closeOutputSetsStep,
                                  OUTPUT_TOMOGRAMS_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)

@@ -296,7 +296,7 @@ class ProtImodFiducialAlignment(ProtImodBaseTsAlign):
         for tsId, lMk in self.lMkDict.items():
             ts = self.tsDict[tsId]
             self._insertCommonSteps(lMk, ts, closeSetStepDeps=closeSetStepDeps)
-        self._insertFunctionStep(self._closeOutputSet,
+        self._insertFunctionStep(self.closeOutputSetsStep,
                                  OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)

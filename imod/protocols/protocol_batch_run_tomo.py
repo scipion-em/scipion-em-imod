@@ -106,7 +106,7 @@ class ProtImodBRT(ProtImodBaseTsAlign):
             # closeSetStepDeps is keyword-only in _insertCommonSteps (its signature
             # uses *stepsInputs), so it MUST be passed by keyword here too.
             self._insertCommonSteps(ts, closeSetStepDeps=closeSetStepDeps)
-        self._insertFunctionStep(self._closeOutputSet,
+        self._insertFunctionStep(self.closeOutputSetsStep,
                                  OUTPUT_TILTSERIES_NAME,
                                  prerequisites=closeSetStepDeps,
                                  needsGPU=False)
