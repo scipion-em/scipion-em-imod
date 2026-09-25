@@ -237,6 +237,14 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtocolBaseStreamingTomo):
         else:
             self._insertNonStreamingSteps()
 
+    # ----- Hooks for the centralized streaming generator
+
+    def _getStreamingOutputNames(self) -> str:
+        return OUTPUT_TOMOGRAMS_NAME
+
+    # ----- END OF Hooks for the centralized streaming generator
+
+
     def _insertNonStreamingSteps(self):
         closeSetStepDeps = []
         self._initialize()

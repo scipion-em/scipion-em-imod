@@ -24,6 +24,7 @@
 # *
 # *****************************************************************************
 import logging
+import sqlite3
 import time
 import traceback
 import typing
@@ -446,27 +447,54 @@ class ProtImodBase(EMProtocol, ProtTomoBase):
     @retry_on_sqlite_lock(log=logger)
     def addToOutFailedSet(self,
                           item: Union[TiltSeries, Tomogram]) -> None:
-        """ Just copy input item to the failed output set. """
+        """ Copy a failed input item into the failed output set.
+
+        Idempotent and lock-safe for the streaming paradigm:
+          - A SQLite ``database is locked`` error is re-raised (not swallowed) so the
+            ``@retry_on_sqlite_lock`` decorator actually retries; before re-raising,
+            ``rollbackFailedAppend`` releases the write lock and drops the tsId from the
+            duplicate-guard cache so the retry is a clean, non-lock-hogging redo.
+          - Any OTHER exception is logged and swallowed (best-effort: the item already
+            failed, so failing to record it must not abort the protocol).
+          - The append is skipped if this item is already a row in the failed set,
+            checked against the set's OWN DB rows (``getUniqueValues`` on the tsId
+            column) -- never the shared stream journal -- so a re-scheduled/resumed
+            failed item is not appended twice. This matters especially for
+            ``SetOfTomograms``, which has no ``_insertItem`` duplicate guard at all.
+        """
         tsId = item.getTsId()
-        logger.info(cyanStr(f'Failed TS ---> {tsId}'))
+        inputsAreTs = isinstance(item, TiltSeries)
+        logger.info(cyanStr(f'Failed item ---> {tsId}'))
         try:
-            inputsAreTs = True if isinstance(item, TiltSeries) else False
             with self._lock:
                 inputSet = self.getInputTsSet(pointer=True) if inputsAreTs else self.getInputTomoSet(pointer=True)
                 output = self.getOutputFailedSet(inputSet, inputsAreTs=inputsAreTs)
-                newItem = item.clone()
-                newItem.copyInfo(item)
-                output.append(newItem)
-
-                if inputsAreTs:
-                    newItem.copyItems(item)
-                    newItem.write()
-
-                output.update(newItem)
-                output.write()
-                self._store(output)
-                # Close explicitly the outputs (for streaming)
-                output.close()
+                # Idempotency guard against the set's own committed rows.
+                if tsId in set(output.getUniqueValues(item.TS_ID_FIELD)):
+                    logger.info(cyanStr(f'tsId = {tsId} -> already in the failed set; skipping.'))
+                    return
+                try:
+                    newItem = item.clone()
+                    output.append(newItem)
+                    if inputsAreTs:
+                        newItem.copyItems(item)
+                        newItem.write()
+                    output.update(newItem)
+                    output.write()
+                    self._store(output)
+                except sqlite3.OperationalError as e:
+                    # Roll back the partial append so the retry is a clean redo.
+                    # rollbackFailedAppend lives on the set (_AppendRollbackMixin), so
+                    # it works whether or not this protocol also inherits
+                    # ProtocolBaseStreamingTomo.
+                    try:
+                        output.rollbackFailedAppend(tsId)
+                    except Exception as rbErr:
+                        logger.error(yellowStr(f'tsId = {tsId} -> rollback of failed append failed: {rbErr}'))
+                    raise e
+        except sqlite3.OperationalError:
+            # Lock/busy: let the @retry_on_sqlite_lock decorator retry the whole op.
+            raise
         except Exception as e:
             logger.error(redStr(f'tsId = {tsId} -> Unable to register the failed output with '
                                 f'exception {e}. Skipping... '))
