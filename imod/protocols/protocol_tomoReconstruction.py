@@ -29,6 +29,7 @@ import traceback
 from os.path import exists
 from typing import List
 import pyworkflow.protocol.params as params
+from pwem import getExecStatusDir, appendStreamItem
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.utils import Message, cyanStr, redStr, yellowStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
@@ -38,6 +39,7 @@ from imod.protocols import ProtImodBase
 from imod.constants import (TLT_EXT, ODD, EVEN, MRC_EXT,
                             OUTPUT_TOMOGRAMS_NAME, TRIMVOL_PROGRAM, TILT_PROGRAM)
 from tomo.protocols.protocol_base_streaming_tomo import ProtocolBaseStreamingTomo
+from tomo.utils import writeTomoSidecar
 
 logger = logging.getLogger(__name__)
 
@@ -383,6 +385,12 @@ class ProtImodTomoReconstruction(ProtImodBase, ProtocolBaseStreamingTomo):
                     outTomo.setShiftsInOrigin(x=x - shiftXang, y=y, z=z - shiftZang)
 
                 self._registerOutput(outTomo)
+
+                # Streaming sidecar files
+                execStatusDir = getExecStatusDir(self)
+                if exists(execStatusDir):
+                    writeTomoSidecar(execStatusDir, outTomo)
+                    appendStreamItem(self, tsId)
             else:
                 logger.error(redStr(f'tsId = {tsId} -> Output file {outputFn} was not generated. Skipping... '))
 
