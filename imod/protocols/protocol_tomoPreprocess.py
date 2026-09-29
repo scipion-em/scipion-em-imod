@@ -268,8 +268,7 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
                    runNewstack: bool) -> None:
         tsId = tomo.getTsId()
         logger.info(cyanStr(f'tsId = {tsId}: Executing {BINVOL_PROGRAM}:.'))
-        oddEvenOutput = [[], []]
-        inputEven, inputOdd = sorted(tomo.getHalfMaps(asList=True)) if self.doOddEven else None, None
+        destOdd, destEven = None, None
         inputTomoPath = tomo.getFileName()
 
         if runNewstack:
@@ -278,10 +277,12 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
             moveFile(outputFile, tmpPath)
             inputTomoPath = tmpPath
             if self.doOddEven:
-                inputOdd, inputEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
+                sourceOdd = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
+                sourceEven = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
+                destOdd, destEven = (self.getTmpOutFile(tsId, suffix=ODD, ext=MRC_EXT),
                                        self.getTmpOutFile(tsId, suffix=EVEN, ext=MRC_EXT))
-                moveFile(oddEvenOutput[0], inputOdd)
-                moveFile(oddEvenOutput[1], inputEven)
+                moveFile(sourceOdd, destOdd)
+                moveFile(sourceEven, destEven)
 
         paramsBinvol = {
             '-input': inputTomoPath,
@@ -295,11 +296,11 @@ class ProtImodTomoNormalization(ProtImodBasePreprocess):
         if self.doOddEven:
             # Odd
             logger.info(cyanStr(f'tsId = {tsId} ODD: Executing {BINVOL_PROGRAM}:.'))
-            paramsBinvol['-input'] = inputOdd
+            paramsBinvol['-input'] = destOdd
             paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=ODD, ext=MRC_EXT)
             self.runProgram(BINVOL_PROGRAM, paramsBinvol)
             # Even
             logger.info(cyanStr(f'tsId = {tsId} EVEN: Executing {BINVOL_PROGRAM}:.'))
-            paramsBinvol['-input'] = inputEven
+            paramsBinvol['-input'] = destEven
             paramsBinvol['-output'] = self.getExtraOutFile(tsId, suffix=EVEN, ext=MRC_EXT)
             self.runProgram(BINVOL_PROGRAM, paramsBinvol)
