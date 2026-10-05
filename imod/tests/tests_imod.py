@@ -27,7 +27,6 @@ import math
 from os.path import exists
 from typing import Union, Tuple, Optional, List, Set
 import numpy as np
-from numpy.ma.bench import ys
 
 from pwem import ALIGN_NONE, ALIGN_2D
 from pyworkflow.tests import setupTestProject, DataSet
