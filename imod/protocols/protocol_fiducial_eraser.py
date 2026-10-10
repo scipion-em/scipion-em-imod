@@ -41,11 +41,145 @@ logger = logging.getLogger(__name__)
 
 class ProtImodFiducialEraser(ProtImodBase, ProtStreamingBase):
     """
-    This protocol will erase the fiducial gold beads present in the tilt
-     series images using IMOD procedures.
-    More info:
-        https://bio3d.colorado.edu/imod/doc/man/imodfindbeads.html
-        https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
+    Removes fiducial gold beads from tilt-series images using IMOD-based
+    image restoration procedures. The protocol generates corrected tilt
+    images in which fiducial markers are erased to reduce reconstruction
+    artifacts and improve downstream tomographic analysis. More info:
+    https://bio3d.colorado.edu/imod/doc/man/imodfindbeads.html
+    https://bio3d.colorado.edu/imod/doc/man/ccderaser.html
+
+    AI Generated:
+
+    Fiducial Eraser (ProtImodFiducialEraser) - User Manual
+        Overview
+
+        The Fiducial Eraser protocol removes fiducial gold beads from
+        electron tomography tilt-series after alignment procedures have
+        been completed. In cryo-electron tomography workflows, fiducial
+        markers are essential for accurate alignment because they provide
+        stable reference points across tilted views. However, once the
+        alignment stage is finished, these beads may become undesirable
+        because they introduce strong artificial densities into the final
+        reconstruction.
+
+        This protocol is particularly useful when preparing datasets for
+        segmentation, visualization, subtomogram analysis, or publication
+        figures where fiducial markers could obscure biologically relevant
+        structures. By replacing the fiducial regions with locally modeled
+        image information, the protocol produces cleaner tilt-series that
+        preserve the biological specimen while minimizing contamination
+        from gold particles.
+
+        Biological Context and Motivation
+
+        Fiducial gold beads are commonly deposited onto cryo-EM grids to
+        facilitate tilt-series alignment. Although extremely valuable during
+        motion correction and geometric alignment, they often become a source
+        of reconstruction artifacts due to their high contrast and strong
+        scattering signal. These artifacts may propagate into tomograms as
+        streaks or bright densities that interfere with interpretation.
+
+        For biological studies involving membranes, cytoskeletal assemblies,
+        ribosomes, or crowded intracellular environments, the presence of
+        fiducials can complicate visualization and automated analysis. Their
+        removal is therefore recommended before performing segmentation,
+        particle picking, denoising, or machine-learning-based analyses.
+
+        Inputs and General Workflow
+
+        The protocol requires an aligned tilt-series as input. It first
+        identifies fiducial gold beads and then removes them from the
+        images using interpolation and local image reconstruction methods.
+        The corrected tilt-series preserves the original acquisition geometry
+        while replacing bead-containing regions with smoothly reconstructed
+        surrounding signal.
+
+        The workflow is designed to operate automatically and can process
+        multiple tilt-series in streaming environments. This makes the
+        protocol particularly useful in facility-scale cryo-ET pipelines
+        where data are continuously acquired and processed.
+
+        Fiducial Detection
+
+        The first stage identifies fiducial markers based on their expected
+        diameter. Accurate specification of fiducial size is biologically
+        important because it determines which image features are interpreted
+        as gold beads. If the diameter is underestimated, portions of the
+        fiducials may remain visible after correction. If it is overestimated,
+        surrounding biological signal may be unnecessarily modified.
+
+        In most practical situations, the fiducial diameter should correspond
+        to the nominal bead size used during sample preparation. Typical
+        cryo-ET experiments employ fiducials ranging from approximately
+        5 to 20 nanometers depending on the specimen and microscope settings.
+
+        Erasing the Fiducials
+
+        After fiducials are identified, the protocol removes them from the
+        images using interpolation procedures designed to preserve local
+        image continuity. The erased region is generally chosen to be slightly
+        larger than the bead itself to ensure that residual high-density
+        signal is fully eliminated.
+
+        From a biological perspective, careful selection of the erasing
+        diameter is important. Excessively small values may leave visible
+        fiducial remnants, while excessively large values may remove nearby
+        structural information from the specimen. In crowded cellular
+        environments, conservative values are often preferable to minimize
+        alteration of neighboring densities.
+
+        Odd and Even Tilt-Series Processing
+
+        In workflows involving odd-even tilt-series separation, the protocol
+        can process both subsets independently. This is particularly relevant
+        for advanced tomographic reconstruction strategies that estimate
+        reproducibility, resolution, or noise properties by comparing
+        independently processed halves of the dataset.
+
+        Maintaining consistent fiducial removal across odd and even datasets
+        helps preserve compatibility with downstream validation procedures
+        and subtomogram refinement workflows.
+
+        Outputs and Their Interpretation
+
+        The protocol produces corrected tilt-series in which fiducial markers
+        have been removed while preserving the acquisition geometry and image
+        organization of the original data. The resulting datasets can be used
+        directly for tomographic reconstruction and downstream biological
+        interpretation.
+
+        The corrected images should be visually inspected to ensure that
+        fiducials have been adequately removed without introducing obvious
+        interpolation artifacts. Small residual traces may remain in difficult
+        regions, particularly when fiducials overlap dense biological
+        structures or lie near image boundaries.
+
+        Practical Recommendations
+
+        In routine cryo-ET practice, it is generally advisable to remove
+        fiducials only after alignment quality has been verified. Fiducials
+        should remain available during troubleshooting and alignment
+        optimization because they provide essential geometric references.
+
+        When selecting the erasing diameter, users should begin with values
+        slightly larger than the fiducial diameter and inspect the results
+        visually. Dense cellular samples may require more conservative
+        settings to avoid altering nearby biological signal.
+
+        For datasets intended for segmentation, visualization, or machine
+        learning applications, fiducial erasure often provides a substantial
+        improvement in image interpretability and reduces the risk of
+        artificial feature detection.
+
+        Final Perspective
+
+        Fiducial removal is an important finishing step in many electron
+        tomography workflows. Although fiducials are indispensable during
+        alignment, their persistence in reconstructed tomograms may interfere
+        with biological interpretation and computational analysis. Careful
+        removal of these markers helps produce cleaner and more biologically
+        meaningful datasets suitable for visualization, reconstruction, and
+        quantitative structural analysis.
     """
 
     _label = 'fiducial eraser'

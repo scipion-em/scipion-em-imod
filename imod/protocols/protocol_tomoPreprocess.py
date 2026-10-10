@@ -40,28 +40,153 @@ logger = logging.getLogger(__name__)
 
 class ProtImodTomoNormalization(ProtImodBasePreprocess):
     """
-    Normalize input tomogram and change its storing formatting.
+    Preprocesses tomograms by applying normalization, isotropic binning,
+    and storage format conversion in order to optimize tomographic datasets
+    for visualization, analysis, reconstruction refinement, and downstream
+    cryo-electron tomography workflows. The protocol is designed to improve
+    data consistency, reduce storage requirements, and adapt tomograms to
+    computational or biological requirements while preserving the essential
+    structural information contained in the original reconstructions. More info:
+    https://bio3D.colorado.edu/imod/doc/newstack.html
+    https://bio3d.colorado.edu/imod/doc/man/binvol.html
 
-    More info:
-        https://bio3D.colorado.edu/imod/doc/newstack.html
-        https://bio3d.colorado.edu/imod/doc/man/binvol.html
+    AI Generated:
 
-    IMOD tilt series preprocess makes use of the Newstack and
-    binvol commands. In particular, three functionalities are possible:\n
+    Tomogram Normalization and Preprocessing (ProtImodTomoNormalization) —
+    User Manual
 
-    _1 Binning_: Binvol will bin down a volume in all three dimensions,
-    with the binning done isotropically. Binning means summing (actually
-    averaging) all the values in a block of voxels (e.g., 2x2x2
-    or 1x1x3) in the input volume to create one voxel in the output volume.
-    The output file will have appropriately larger pixel spacings
-    in its header.\n
-    _2 Normalization_: This protocol allows to scale the gray values
-    of the tomograms, also called normalization, to a common range or
-    mean of density. The most used normalization consists in zero
-    mean and standard deviation one.\n
+        Overview
 
-    _3 storage format_: IMOD is able to modify the number of bit of
-    the stored data in order to reduce the disc occupancy.
+        The Tomogram Normalization and Preprocessing protocol prepares one or
+        more tomograms for subsequent cryo-electron tomography analysis by
+        applying common preprocessing operations such as intensity
+        normalization, isotropic binning, and output format conversion. These
+        operations are essential in many biological workflows because raw or
+        reconstructed tomograms often differ in voxel size, density scale,
+        storage precision, or computational requirements.
+
+        In practical cryo-ET projects, preprocessing is commonly performed
+        before segmentation, subtomogram averaging, visualization, denoising,
+        machine learning analysis, or quantitative comparison between datasets.
+        Proper preprocessing improves consistency across experiments and helps
+        ensure that downstream procedures operate under stable and biologically
+        meaningful conditions.
+
+        Inputs and General Workflow
+
+        The protocol requires one or more tomograms as input. Each tomogram is
+        processed independently, allowing large collections of reconstructed
+        volumes to be standardized in a reproducible manner. Depending on the
+        selected configuration, the protocol can normalize voxel intensities,
+        reduce tomogram size through isotropic binning, and modify the storage
+        precision of the output files.
+
+        These preprocessing operations can be combined in a single workflow,
+        making the protocol suitable both for rapid exploratory processing and
+        for more demanding production-level cryo-electron tomography pipelines.
+
+        Binning and Resolution Considerations
+
+        One of the central preprocessing operations is isotropic binning.
+        Binning reduces the dimensions of the tomogram by averaging neighboring
+        voxels into larger sampling units. This operation decreases file size,
+        reduces memory consumption, and accelerates downstream computations.
+
+        From a biological perspective, binning is often useful during early
+        exploratory analysis, template matching, manual inspection, or
+        segmentation of large cellular tomograms. Moderate binning can improve
+        signal-to-noise characteristics and facilitate interpretation of broad
+        structural features. However, aggressive binning inevitably reduces
+        high-resolution information and may obscure fine molecular details.
+
+        A common practical strategy is to begin processing with moderately
+        binned tomograms for rapid analysis and later return to higher
+        resolution datasets for detailed structural interpretation or
+        publication-quality processing.
+
+        Density Normalization
+
+        Density normalization adjusts voxel intensity distributions so that
+        tomograms share a more consistent statistical scale. This is
+        particularly important when combining datasets originating from
+        different microscopes, acquisition conditions, reconstruction
+        procedures, or preprocessing pipelines.
+
+        The most common normalization strategy in cryo-electron tomography is
+        scaling the data toward zero mean and unit variance. This standard
+        normalization improves compatibility with many downstream computational
+        procedures, including machine learning approaches, template matching,
+        subtomogram classification, and denoising algorithms.
+
+        Alternative scaling approaches may also be useful when preparing data
+        for visualization or for software environments expecting specific
+        intensity ranges. Biological users should nevertheless remain aware
+        that normalization changes the numerical interpretation of voxel values,
+        even though it does not alter the underlying structural content.
+
+        Storage Format Optimization
+
+        Tomographic datasets can occupy very large amounts of disk space,
+        particularly in large-scale cellular tomography studies. The protocol
+        therefore allows modification of the storage precision used to encode
+        voxel densities. Reducing the storage precision can substantially lower
+        storage and transfer requirements, especially when handling large
+        collections of tomograms.
+
+        In many biological workflows, reduced precision formats are adequate
+        for visualization, exploratory analysis, or intermediate processing.
+        However, when quantitative analysis or high-resolution interpretation
+        is required, users should carefully evaluate whether reduced precision
+        could affect subtle density variations.
+
+        Odd and Even Dataset Handling
+
+        The preprocessing workflow can preserve independent odd and even
+        tomographic datasets when such information is available. Maintaining
+        these separated datasets is important in workflows involving resolution
+        validation, noise estimation, subtomogram averaging, or independent
+        refinement procedures.
+
+        Preserving odd and even volumes throughout preprocessing helps ensure
+        that downstream validation strategies remain statistically meaningful.
+
+        Outputs and Their Interpretation
+
+        The protocol produces a new set of tomograms containing the selected
+        preprocessing modifications. Depending on the configuration, the
+        outputs may differ from the original datasets in voxel size, intensity
+        scale, storage precision, or overall dimensions.
+
+        Despite these transformations, the biological identity and acquisition
+        metadata of each tomogram are preserved, allowing the outputs to remain
+        fully compatible with downstream cryo-electron tomography procedures.
+
+        Practical Recommendations
+
+        For large tomograms or cellular datasets, moderate isotropic binning is
+        often an effective first step because it substantially reduces
+        computational cost while preserving overall structural organization.
+        Users performing exploratory analysis or segmentation commonly benefit
+        from working initially with binned datasets.
+
+        Standardized normalization is generally recommended when combining
+        tomograms from multiple experiments or when using machine learning and
+        quantitative analysis methods. Consistent intensity scaling improves
+        comparability and algorithmic stability.
+
+        Storage precision reduction should be applied carefully. While it may
+        dramatically reduce disk usage, excessive reduction in precision can
+        potentially limit downstream quantitative interpretation.
+
+        Final Perspective
+
+        Tomogram preprocessing is not merely a technical preparation stage but
+        an important component of reliable cryo-electron tomography analysis.
+        Appropriate normalization, binning, and storage optimization can
+        greatly improve computational efficiency and workflow consistency while
+        preserving the biological interpretability of the reconstructed
+        structures. Thoughtful preprocessing choices help balance data quality,
+        computational cost, and downstream analytical goals.
     """
 
     _label = 'tomo preprocess'

@@ -43,27 +43,255 @@ logger = logging.getLogger(__name__)
 
 class ProtImodTomoReconstruction(ProtImodBase, ProtStreamingBase):
     """
-    Tomogram reconstruction procedure based on the IMOD procedure.
-
-    More info:
+    Reconstructs three-dimensional tomograms from aligned tilt-series
+    using the IMOD tomography workflow. The protocol transforms a set
+    of two-dimensional projection images acquired at multiple tilt
+    angles into volumetric reconstructions suitable for structural
+    interpretation, segmentation, visualization, and subtomogram
+    analysis in cryo-electron tomography experiments. More info:
         https://bio3d.colorado.edu/imod/doc/man/tilt.html
 
-    It makes use of the IMOD tilt program. Tilt is a program for reconstructing
-    a three-dimensional object (tomogram) from a series of 2D projections.
-    The projections are assumed to arise from rotation about a fixed tilt axis,
-    subject to minor variations from this scheme.\n
+    AI Generated:
 
-    The program uses a number of different numerical strategies depending on
-    the complexity of the alignments needed to reconstruct the tomogram
-    and on whether the computation is being done by the central processing
-    unit (CPU) or the graphical processing unit (GPU).  If there are no
-    local alignments being applied, then for processing on the CPU, the
-    program will do a preliminary stretching of each input line by the
-    cosine of the tilt angle.  This stretching speeds up the direct back-
-    projection because each stretched input line is in register with the
-    lines of the output planes. When computing on the GPU, the program
-    does not use cosine stretching, thus avoiding the consequences of
-    interpolating the data twice.\n
+    Tomogram Reconstruction (ProtImodTomoReconstruction) - User Manual
+        Overview
+
+        The Tomogram Reconstruction protocol generates three-dimensional
+        tomograms from aligned tilt-series using the IMOD reconstruction
+        framework. Its primary objective is to recover the volumetric
+        organization of biological specimens from a collection of
+        two-dimensional projections acquired across a range of tilt
+        angles. This process is one of the central stages in cryo-electron
+        tomography because it transforms aligned experimental images into
+        interpretable three-dimensional cellular or macromolecular volumes.
+
+        In practical biological workflows, tomographic reconstruction is
+        typically performed after motion correction, preprocessing,
+        alignment, and tilt-series refinement. The resulting tomograms
+        provide the structural context needed for visualization of organelles,
+        membranes, viral particles, protein complexes, and cellular
+        architecture in situ. The protocol is designed for both routine
+        reconstructions and more advanced tomography pipelines where
+        reconstruction quality strongly affects downstream interpretation.
+
+        More information:
+        https://bio3d.colorado.edu/imod/doc/man/tilt.html
+
+        Inputs and Reconstruction Strategy
+
+        The protocol requires aligned tilt-series as input. These tilt-series
+        should already contain reliable geometric alignment information,
+        including tilt angles and image transformations. Accurate alignment
+        is essential because reconstruction quality directly depends on the
+        consistency of the projection geometry across the complete angular
+        range.
+
+        The reconstruction process assumes that the specimen was imaged by
+        rotation around a tilt axis with limited deviations from an ideal
+        acquisition geometry. Under these conditions, the protocol combines
+        the information from all projections into a volumetric representation
+        of the specimen. Proper preprocessing and alignment before this stage
+        are particularly important because reconstruction artifacts are often
+        amplified when inconsistencies remain unresolved.
+
+        Biological users commonly reconstruct tomograms for visualization of
+        intracellular organization, extraction of subtomograms, membrane
+        tracing, particle picking, or quantitative spatial analysis. The
+        protocol therefore acts as the bridge between image alignment and
+        structural interpretation.
+
+        Tomogram Dimensions and Volume Geometry
+
+        One of the most important parameters is the tomogram thickness,
+        which defines the reconstructed size along the beam direction.
+        Choosing an appropriate thickness is biologically important because
+        values that are too small may truncate relevant structures, whereas
+        unnecessarily large volumes increase computation time and storage
+        requirements while adding mostly empty regions.
+
+        The protocol also allows reconstruction of a reduced tomogram width.
+        This option is especially useful when the biological region of
+        interest occupies only a central portion of the field of view.
+        Cropping the reconstructed width can substantially reduce storage
+        needs and accelerate downstream analysis while preserving the most
+        relevant structural information.
+
+        In practice, users should ensure that the selected dimensions fully
+        encompass the specimen across all tilt angles. Failure to do so may
+        result in incomplete reconstructions or clipping of biologically
+        meaningful regions.
+
+        Reconstruction Offsets and Spatial Adjustments
+
+        Advanced users may apply shifts or offsets during reconstruction.
+        These adjustments modify the spatial positioning of reconstructed
+        slices and can help optimize the placement of the specimen inside
+        the final tomogram volume.
+
+        Shifts along the reconstruction axes are particularly useful when
+        the region of interest is not centered in the acquisition images.
+        Correcting these offsets during reconstruction can improve the
+        usability of the final volume and simplify downstream subtomogram
+        extraction or segmentation workflows.
+
+        The protocol also supports tilt angle and tilt axis offsets. These
+        parameters provide additional flexibility when acquisition geometry
+        requires refinement. Small corrections may improve reconstruction
+        quality when the imported acquisition metadata does not perfectly
+        represent the experimental setup.
+
+        From a biological perspective, careful adjustment of these values
+        becomes especially important for high-resolution tomography studies
+        or for datasets containing elongated or asymmetric structures.
+
+        Radial Filtering and Noise Control
+
+        Tomographic reconstruction inevitably amplifies noise because the
+        available angular information is incomplete. To mitigate this issue,
+        the protocol provides radial filtering controls that regulate the
+        balance between signal preservation and noise suppression.
+
+        The radial filtering parameters define how high-frequency information
+        is attenuated during reconstruction. Conservative filtering generally
+        produces smoother tomograms with reduced noise, whereas weaker
+        filtering preserves finer structural details but may increase grainy
+        artifacts and reconstruction streaks.
+
+        For many biological applications, moderate filtering provides the
+        best compromise between interpretability and structural preservation.
+        However, datasets intended for subtomogram averaging or quantitative
+        analysis may benefit from more careful optimization of the filtering
+        behavior.
+
+        Users should remember that excessive filtering may erase biologically
+        meaningful high-resolution information, while insufficient filtering
+        may complicate segmentation or interpretation because of elevated
+        noise levels.
+
+        Super-Sampling and Artifact Reduction
+
+        The protocol supports super-sampling strategies to reduce
+        reconstruction artifacts generated by discrete backprojection.
+        These artifacts often appear as directional rays or streaks that
+        follow the acquisition geometry.
+
+        Super-sampling improves reconstruction smoothness by performing the
+        reconstruction at a finer intermediate sampling before reducing the
+        data back to the desired resolution. In practice, this option can
+        produce cleaner tomograms with improved visual continuity and reduced
+        directional artifacts.
+
+        The improvement is especially relevant in datasets intended for
+        subtomogram averaging or detailed structural interpretation. Although
+        higher super-sampling values increase computational cost, they may
+        enhance the visual quality of the reconstructed volume and reduce
+        reconstruction-induced artifacts.
+
+        SIRT-Like Filtering
+
+        The protocol also provides an option that approximates the visual
+        characteristics of iterative SIRT reconstructions through filtering
+        approaches. This strategy can produce tomograms with smoother density
+        transitions and reduced high-frequency noise compared to conventional
+        weighted backprojection.
+
+        Biologically, SIRT-like reconstructions are often preferred for
+        visualization, segmentation, and manual annotation because cellular
+        structures can appear more continuous and easier to interpret.
+        However, smoother reconstructions may also reduce apparent sharpness,
+        so users should evaluate the balance between interpretability and
+        preservation of fine structural details.
+
+        GPU and Computational Considerations
+
+        The reconstruction workflow supports both CPU and GPU execution.
+        GPU acceleration is particularly valuable for large tomographic
+        datasets because reconstruction is computationally intensive and
+        often represents one of the slowest stages in cryo-electron
+        tomography processing pipelines.
+
+        Depending on the reconstruction strategy and hardware availability,
+        GPU execution can dramatically reduce processing time while preserving
+        reconstruction quality. This capability is especially important in
+        facility-scale workflows or streaming environments where many
+        tilt-series must be processed continuously.
+
+        Streaming Reconstruction Workflows
+
+        The protocol is compatible with streaming operation, allowing
+        tomograms to be reconstructed progressively as tilt-series become
+        available. This capability is highly useful during automated data
+        acquisition sessions because users can evaluate reconstruction
+        quality in near real time.
+
+        Streaming workflows provide early feedback regarding alignment
+        quality, specimen thickness, contamination, and acquisition
+        performance. This enables rapid troubleshooting during microscope
+        sessions and improves the efficiency of large-scale tomography
+        projects.
+
+        Odd-Even Reconstructions
+
+        The protocol can optionally reconstruct odd and even subsets of
+        projections independently. These paired reconstructions are useful
+        for quality assessment, validation strategies, and downstream
+        resolution estimation approaches commonly employed in tomography
+        workflows.
+
+        Separating odd and even projections may also support advanced
+        denoising or validation procedures where independent reconstructions
+        are required to estimate reproducibility or structural consistency.
+
+        Outputs and Biological Interpretation
+
+        After execution, the protocol produces reconstructed tomograms
+        associated with the input tilt-series. These tomograms preserve
+        the acquisition metadata and spatial information necessary for
+        downstream analysis and visualization.
+
+        The reconstructed volumes can subsequently be used for subtomogram
+        averaging, segmentation, membrane tracing, particle picking,
+        structural annotation, or correlation with fluorescence microscopy
+        data. Their interpretability depends strongly on alignment quality,
+        reconstruction parameters, angular coverage, and specimen thickness.
+
+        Biological users should interpret reconstructed densities carefully,
+        particularly in regions affected by the missing wedge, low contrast,
+        or strong noise amplification. Structural continuity and apparent
+        resolution may vary substantially across different regions of the
+        tomogram.
+
+        Practical Recommendations
+
+        In routine biological practice, it is generally advisable to begin
+        with moderate reconstruction thickness and default filtering values,
+        then evaluate the resulting tomograms visually before performing
+        aggressive optimization. Overly sharp filtering parameters may
+        emphasize noise, whereas excessive smoothing may obscure relevant
+        structural details.
+
+        Super-sampling by a factor of two is often a reasonable compromise
+        between artifact reduction and computational efficiency. Larger
+        values are typically reserved for demanding applications involving
+        subtomogram averaging or detailed structural interpretation.
+
+        When acquisition metadata are uncertain, users should carefully
+        inspect reconstructed tomograms for signs of tilt-axis errors,
+        elongation artifacts, or geometric distortions. Small corrections
+        to offsets or reconstruction geometry can significantly improve
+        the biological quality of the final volume.
+
+        Final Perspective
+
+        Tomographic reconstruction is one of the defining steps in
+        cryo-electron tomography because it transforms aligned projection
+        images into interpretable three-dimensional biological volumes.
+        The quality of the final tomogram depends not only on reconstruction
+        settings but also on the accuracy of the preceding alignment and
+        preprocessing stages. Careful optimization of reconstruction
+        geometry, filtering behavior, and artifact reduction strategies is
+        therefore essential for obtaining biologically meaningful tomograms
+        suitable for structural and cellular interpretation.
     """
 
     _label = 'Tomo reconstruction'

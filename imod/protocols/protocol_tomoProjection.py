@@ -44,17 +44,128 @@ logger = logging.getLogger(__name__)
 
 class ProtImodTomoProjection(ProtImodBase):
     """
-    Re-project a tomogram given a geometric description (axis and angles).
-    More info:
-        https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
+    Generates synthetic tilt-series projections from reconstructed tomograms
+    using the IMOD projection framework. The protocol creates a new series of
+    two-dimensional projection images by virtually rotating a tomogram around
+    a selected axis and sampling the volume at defined angular intervals. This
+    procedure is commonly used in electron tomography workflows to simulate
+    projection data, validate reconstruction strategies, benchmark alignment
+    procedures, generate synthetic datasets for method development, or study
+    the geometric behavior of tomographic reconstructions under controlled
+    acquisition conditions. More info:
+    https://bio3d.colorado.edu/imod/doc/man/xyzproj.html
 
-    This program will compute projections of a tomogram at a series of
-    tilts around either the X, the Y or the Z axis.\n
+    AI Generated:
 
-    A projection along a ray line is simply the average of the pixels in
-    the block along that line.  However, rather than taking the values of
-    the pixels that lie near the ray, interpolation is used to sample den-
-    sity at points evenly spaced at one pixel intervals along the ray.
+    Tomogram Projection (ProtImodTomoProjection) — User Manual
+        Overview
+
+        The Tomogram Projection protocol generates artificial tilt-series data
+        from one or more tomograms by computing projections at user-defined
+        rotation angles. In cryo-electron tomography, this type of operation is
+        particularly useful when evaluating reconstruction quality, simulating
+        acquisition geometries, testing processing pipelines, or preparing
+        benchmark datasets for algorithm development.
+
+        Rather than reconstructing a tomogram from projections, this protocol
+        performs the inverse conceptual operation: it starts from a 3D volume
+        and produces a set of 2D projections corresponding to different tilt
+        orientations. The resulting synthetic tilt-series can then be processed
+        as if they were experimentally acquired data.
+
+        Inputs and General Workflow
+
+        The protocol requires one or more tomograms as input. These tomograms
+        define the three-dimensional density maps that will be projected into
+        two-dimensional images. Each input tomogram is processed independently,
+        producing a corresponding tilt-series with a defined angular geometry.
+
+        During projection, the user specifies the minimum angle, maximum angle,
+        and angular increment. Together, these parameters determine the angular
+        coverage and the total number of generated projections. Wide angular
+        ranges provide more complete tomographic sampling, while narrower ranges
+        may better reproduce realistic experimental limitations.
+
+        The generated projections preserve the sampling characteristics of the
+        original tomogram, allowing downstream procedures to operate under
+        physically meaningful geometric conditions.
+
+        Choice of Rotation Axis
+
+        One of the most important biological and geometric parameters is the
+        selection of the rotation axis. The protocol allows projection around
+        the X, Y, or Z axis of the tomogram. In most electron tomography
+        experiments, the Y axis typically corresponds to the conventional tilt
+        axis used during acquisition, making it the most common choice for
+        realistic simulation workflows.
+
+        Rotating around alternative axes can nevertheless be useful for
+        visualization studies, geometric validation, educational purposes, or
+        algorithm testing under non-standard acquisition geometries. The choice
+        of axis directly influences how structural features appear across the
+        generated tilt-series.
+
+        Angular Sampling Considerations
+
+        The angular range and angular increment strongly affect the realism and
+        interpretability of the generated projections. Small angular increments
+        produce denser sampling and smoother reconstruction conditions but also
+        increase computational cost and storage requirements. Larger increments
+        reduce the number of generated images and may simulate sparse acquisition
+        conditions commonly encountered in dose-limited experiments.
+
+        Similarly, the total angular coverage determines the extent of missing
+        information in reciprocal space. Limited tilt ranges reproduce the
+        missing wedge effect characteristic of experimental tomography, while
+        broader ranges provide more isotropic sampling.
+
+        From a biological perspective, realistic angular sampling is important
+        when synthetic datasets are intended to mimic actual cryo-electron
+        tomography experiments.
+
+        Outputs and Their Interpretation
+
+        The protocol produces one tilt-series for each input tomogram. Each
+        generated tilt-series contains projection images associated with their
+        corresponding tilt angles and acquisition geometry. The outputs are
+        suitable for subsequent alignment, reconstruction, denoising, or
+        algorithm benchmarking workflows.
+
+        In addition to the projection images themselves, the protocol also
+        generates associated acquisition metadata so that downstream tomography
+        procedures can interpret the synthetic datasets consistently. This makes
+        the outputs especially useful for validating complete cryo-ET pipelines
+        under controlled conditions.
+
+        Practical Recommendations
+
+        For realistic simulation studies, it is generally advisable to select
+        angular ranges and increments similar to those used during experimental
+        acquisition. Typical cryo-electron tomography datasets often span
+        approximately -60 to +60 degrees with increments between 1 and 3
+        degrees, although the optimal choice depends on the biological sample
+        and imaging strategy.
+
+        When testing reconstruction robustness or alignment algorithms, users
+        may intentionally reduce angular coverage or increase angular spacing in
+        order to reproduce challenging experimental conditions. Conversely,
+        dense angular sampling may be useful for methodological benchmarking or
+        visualization purposes.
+
+        The Y-axis rotation mode is usually the preferred configuration for
+        generating datasets that resemble standard tomography experiments.
+        Alternative axes are more appropriate for specialized geometric studies
+        or software validation tasks.
+
+        Final Perspective
+
+        Synthetic projection generation is an important methodological tool in
+        cryo-electron tomography because it enables controlled experimentation
+        without the variability of experimental acquisition. By generating
+        tilt-series directly from reconstructed tomograms, this protocol allows
+        researchers to evaluate algorithms, reproduce acquisition geometries,
+        and better understand the relationship between three-dimensional
+        biological structures and their two-dimensional projections.
     """
 
     _label = 'Tomo projection'
