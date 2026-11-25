@@ -38,7 +38,7 @@ from pyworkflow.protocol import STEPS_PARALLEL, ProtStreamingBase
 from pyworkflow.utils import Message, yellowStr, redStr, cyanStr
 from pyworkflow.utils.retry_streaming import retry_on_sqlite_lock
 from tomo.objects import TiltSeries, TiltImage, SetOfTiltSeries, CTFTomoSeries
-from tomo.utils import getCommonTsAndCtfElements
+from tomo.utils import getPresentAcqOrdersTsAndCtf
 from imod import utils
 from imod.constants import (DEFOCUS_EXT, TLT_EXT, XF_EXT, ODD,
                             EVEN, OUTPUT_TILTSERIES_NAME, CTF_PHASE_FLIP_PROGRAM, OUTPUT_CTF_SERIE)
@@ -198,7 +198,7 @@ class ProtImodCtfCorrection(ProtImodBaseTsAlign, ProtStreamingBase):
                 if not ctf:
                     logger.info(yellowStr(f'tsId = {tsId} - no corresponding CTF was found...'))
                     continue
-                presentAcqOrders = getCommonTsAndCtfElements(ts, ctf)
+                presentAcqOrders = getPresentAcqOrdersTsAndCtf(ts, ctf)
                 pidConvert = self._insertFunctionStep(self.convertInStep,
                                                       ts,
                                                       ctf,

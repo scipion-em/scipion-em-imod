@@ -30,8 +30,7 @@ import traceback
 import typing
 from collections import Counter
 from imod import Plugin
-from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL, \
-    BRT_ENV_NAME
+from imod.constants import OUTPUT_TILTSERIES_NAME, TLT_EXT, PATCH_TRACKING, FIDUCIAL_MODEL
 from imod.protocols.protocol_base_ts_align import ProtImodBaseTsAlign
 from imod.protocols.protocol_fiducialAlignment import TILT_ALIGN_PROGRAM
 from pyworkflow.constants import BETA
@@ -172,10 +171,24 @@ class ProtImodBRT(ProtImodBaseTsAlign, ProtStreamingBase):
             f'--tilt-angles {self.getExtraOutFile(tsId, ext=TLT_EXT)}',
             f'--output-directory {self._getExtraPath(tsId)}',
             f'--pixel-size {ts.getSamplingRate():.3f}',
-            f'--nominal-rotation-angle {ts.getAcquisition().getTiltAxisAngle():.2f}',
+            f'--nominal-rotation-angle {self._getNominalRotationAngle(ts):.2f}',
             f'--basename {tsId}'
         ]
         return ' '.join(cmd)
+
+    @staticmethod
+    def _getNominalRotationAngle(ts: TiltSeries) -> float:
+        """Tilt-axis angle of the stack that batchruntomo receives. If the input tilt-series
+        has an alignment, convertInputStep interpolates the stack with it, and the transforms
+        of an alignment bring the tilt axis to the Y axis, so the angle is 0. The acquisition
+        angle is only valid for a non-aligned stack: with an aligned one it would start
+        batchruntomo with the axis rotated by the whole previous correction (e.g. -93.5 deg)."""
+        if ts.hasAlignment():
+            logger.info(cyanStr(f'tsId = {ts.getTsId()}: the input will be interpolated with its '
+                                f'alignment, so its tilt axis is vertical. Nominal rotation angle '
+                                f'= 0 (acquisition: {ts.getAcquisition().getTiltAxisAngle():.2f})'))
+            return 0.
+        return ts.getAcquisition().getTiltAxisAngle()
 
     def _getFiducialAliCmd(self, ts: TiltSeries):
         cmd = [
